@@ -1,0 +1,73 @@
+from pathlib import Path
+import sys
+import types
+
+import pytest
+from flask import Blueprint
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+
+class TestConfig:
+    APP_ENV = "testing"
+    DEBUG = False
+    TESTING = True
+    SECRET_KEY = "a" * 32
+    JWT_SECRET_KEY = "b" * 32
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    CORS_ALLOWED_ORIGINS = ["https://security.example.test"]
+    SECURITY_WORKSPACE_ROOT = "security-workspaces"
+    REDIS_URL = "redis://localhost:6379/0"
+    RQ_QUEUE_NAME = "cyberguard-security-test"
+    RQ_ASYNC = False
+    ARCHIVE_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+    ARCHIVE_MAX_EXTRACT_BYTES = 500 * 1024 * 1024
+    ARCHIVE_MAX_FILES = 20_000
+    ARCHIVE_MAX_DEPTH = 10
+    UPLOAD_FOLDER = "uploads"
+    LOG_FILE = "logs/test.log"
+
+
+def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
+    routes_package = types.ModuleType("app.routes")
+    routes_package.__path__ = []
+    monkeypatch.setitem(sys.modules, "app.routes", routes_package)
+
+    for module_name, blueprint_name in {
+        "app.routes.auth": "auth_bp",
+        "app.routes.knowledge": "knowledge_bp",
+        "app.routes.qa": "qa_bp",
+        "app.routes.admin": "admin_bp",
+    }.items():
+        module = types.ModuleType(module_name)
+        blueprint = Blueprint(blueprint_name, module_name)
+        setattr(module, blueprint_name, blueprint)
+        monkeypatch.setitem(sys.modules, module_name, module)
+
+
+@pytest.fixture
+def app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from app import create_app, db
+    import app.models  # Ensure db.create_all() sees all registered application models.
+
+    _install_route_stubs(monkeypatch)
+    config = type(
+        "TestConfig",
+        (TestConfig,),
+        {
+            "SECURITY_WORKSPACE_ROOT": str(tmp_path / "security-workspaces"),
+            "UPLOAD_FOLDER": str(tmp_path / "uploads"),
+            "LOG_FILE": str(tmp_path / "logs" / "test.log"),
+        },
+    )
+    application = create_app(config)
+
+    with application.app_context():
+        db.create_all()
+        yield application
+        db.session.remove()
+        db.drop_all()
+

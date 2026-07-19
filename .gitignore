@@ -1,0 +1,23 @@
+﻿# Environment and local runtime
+backend/.env
+backend/venv/
+backend/data/
+backend/logs/
+backend/security-workspaces/
+backend/uploads/
+
+# Python tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+
+# IDE and local brainstorming artifacts
+.vscode/
+.idea/
+.superpowers/

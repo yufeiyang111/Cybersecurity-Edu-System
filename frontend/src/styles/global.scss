@@ -1,0 +1,795 @@
+// ==================== GitHub 风格浅绿茶色主题 ====================
+
+// 主色调 - 柔和绿色系
+$primary-color: #2ea44f;        // GitHub 绿色
+$primary-hover: #2c974b;
+$primary-light: rgba(46, 164, 79, 0.1);
+$primary-border: #d8dee4;
+
+// 成功/警告/危险色
+$success-color: #2ea44f;
+$warning-color: #d29922;
+$danger-color: #cf222e;
+$info-color: #6e7781;
+
+// 文字色 - GitHub 风格深灰
+$text-primary: #24292f;         // 主文字
+$text-regular: #57606a;         // 常规文字
+$text-secondary: #6e7781;       // 次要文字
+$text-placeholder: #8c959f;     // 占位符
+
+// 边框色
+$border-color: #d0d7de;
+$border-light: #e6e8eb;
+$border-lighter: #f3f4f6;
+$border-extra-light: #f6f8fa;
+
+// 背景色 - 浅灰绿
+$bg-color: #f6f8fa;            // GitHub 页面背景
+$bg-white: #ffffff;
+$bg-dark: #24292f;
+$bg-canvas: #ffffff;            // 主内容区
+$bg-inset: #f6f8fa;            // 内嵌区域
+$bg-overlay: rgba(27, 31, 36, 0.5);
+
+// ==================== Element Plus 主题覆盖 ====================
+$--colors: (
+  "primary": (
+    "base": #2ea44f
+  ),
+  "success": (
+    "base": #2ea44f
+  ),
+  "warning": (
+    "base": #d29922
+  ),
+  "danger": (
+    "base": #cf222e
+  ),
+  "info": (
+    "base": #6e7781
+  )
+);
+
+// ==================== 基础样式 ====================
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  font-size: 14px;
+  line-height: 1.6;
+  color: $text-primary;
+  background-color: $bg-color;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+// ==================== 链接样式 ====================
+a {
+  color: $primary-color;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// ==================== 常用工具类 ====================
+.page-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid $border-light;
+
+  .title {
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
+
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-ellipsis-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.text-ellipsis-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex-gap {
+  display: flex;
+  gap: 16px;
+}
+
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+
+// ==================== 页面过渡动画 ====================
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-fade-enter-active {
+  transition: all 0.2s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.15s cubic-bezier(1, 0.5, 0.8, 1);
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateY(-10px);
+  opacity: 0;
+}
+
+// ==================== 滚动条美化 ====================
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(27, 31, 36, 0.2);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+
+  &:hover {
+    background: rgba(27, 31, 36, 0.35);
+    background-clip: content-box;
+  }
+}
+
+// Firefox滚动条
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(27, 31, 36, 0.2) transparent;
+}
+
+// ==================== Markdown 内容样式 ====================
+.markdown-content {
+  line-height: 1.7;
+  color: $text-regular;
+  font-size: 15px;
+
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: $text-primary;
+  }
+
+  h1 {
+    font-size: 1.8em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid $border-color;
+  }
+
+  h2 {
+    font-size: 1.5em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid $border-color;
+  }
+
+  h3 { font-size: 1.25em; }
+  h4 { font-size: 1em; }
+  h5 { font-size: 0.875em; }
+  h6 { font-size: 0.85em; color: $text-secondary; }
+
+  p {
+    margin: 0 0 16px 0;
+  }
+
+  code {
+    background: $bg-inset;
+    padding: 0.2em 0.4em;
+    border-radius: 6px;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 85%;
+    color: #cf222e;
+  }
+
+  pre {
+    background: #24292f;
+    color: #e6edf3;
+    padding: 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 16px 0;
+    font-size: 85%;
+    line-height: 1.45;
+
+    code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+      font-size: 100%;
+      border-radius: 0;
+    }
+  }
+
+  blockquote {
+    margin: 0 0 16px 0;
+    padding: 0 16px;
+    border-left: 4px solid $border-color;
+    color: $text-secondary;
+
+    p {
+      margin: 0 0 16px 0;
+    }
+  }
+
+  ul, ol {
+    padding-left: 2em;
+    margin: 0 0 16px 0;
+
+    li {
+      margin: 4px 0;
+    }
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    border: 1px solid $border-color;
+    border-radius: 6px;
+    overflow: hidden;
+
+    th, td {
+      border: none;
+      border-bottom: 1px solid $border-color;
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    th {
+      background: $bg-inset;
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:nth-child(even) {
+      background: rgba(0, 0, 0, 0.02);
+    }
+  }
+
+  img {
+    max-width: 100%;
+    border-radius: 6px;
+    border: 1px solid $border-color;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid $border-color;
+    margin: 24px 0;
+  }
+
+  // 代码高亮 - GitHub 暗色主题风格
+  .hljs-keyword { color: #ff7b72; }
+  .hljs-string { color: #a5d6ff; }
+  .hljs-number { color: #79c0ff; }
+  .hljs-comment { color: #8b949e; }
+  .hljs-function { color: #d2a8ff; }
+  .hljs-class { color: #ffa657; }
+  .hljs-variable { color: #ffa657; }
+  .hljs-attr { color: #79c0ff; }
+  .hljs-built_in { color: #ffa657; }
+  .hljs-title { color: #d2a8ff; }
+  .hljs-params { color: #e6edf3; }
+  .hljs-literal { color: #79c0ff; }
+  .hljs-type { color: #ffa657; }
+  .hljs-meta { color: #8b949e; }
+}
+
+// ==================== Element Plus 组件覆盖 ====================
+
+// 卡片
+.el-card {
+  border: 1px solid $border-color;
+  border-radius: 6px;
+  box-shadow: none;
+  background: $bg-white;
+
+  &.is-hover-shadow:hover {
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .el-card__header {
+    padding: 16px 20px;
+    border-bottom: 1px solid $border-color;
+    background: $bg-inset;
+  }
+
+  .el-card__body {
+    padding: 20px;
+  }
+}
+
+// 按钮
+.el-button {
+  border-radius: 6px;
+  font-weight: 500;
+  border: 1px solid $border-color;
+
+  &--primary {
+    background: $primary-color;
+    border-color: $primary-color;
+    color: #fff;
+
+    &:hover, &:focus {
+      background: $primary-hover;
+      border-color: $primary-hover;
+    }
+
+    &.is-plain {
+      background: $bg-white;
+      border-color: $primary-color;
+      color: $primary-color;
+
+      &:hover, &:focus {
+        background: $primary-light;
+        border-color: $primary-color;
+      }
+    }
+  }
+
+  &--success {
+    &.is-plain {
+      background: $bg-white;
+      border-color: $success-color;
+      color: $success-color;
+
+      &:hover {
+        background: $primary-light;
+      }
+    }
+  }
+
+  &--warning {
+    &.is-plain {
+      background: $bg-white;
+      border-color: $warning-color;
+      color: $warning-color;
+
+      &:hover {
+        background: rgba(210, 153, 34, 0.1);
+      }
+    }
+  }
+
+  &--danger {
+    &.is-plain {
+      background: $bg-white;
+      border-color: $danger-color;
+      color: $danger-color;
+
+      &:hover {
+        background: rgba(207, 34, 46, 0.1);
+      }
+    }
+  }
+}
+
+// 输入框
+.el-input__wrapper {
+  border-radius: 6px;
+  border: 1px solid $border-color;
+  box-shadow: none;
+  background: $bg-white;
+
+  &:hover {
+    border-color: $primary-border;
+  }
+
+  &.is-focus {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba(46, 164, 79, 0.15);
+  }
+}
+
+.el-textarea__inner {
+  border-radius: 6px;
+  border: 1px solid $border-color;
+  box-shadow: none;
+  background: $bg-white;
+
+  &:hover {
+    border-color: $primary-border;
+  }
+
+  &:focus {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba(46, 164, 79, 0.15);
+  }
+}
+
+// 选择器
+.el-select__wrapper {
+  border-radius: 6px;
+  border: 1px solid $border-color;
+  box-shadow: none;
+
+  &:hover {
+    border-color: $primary-border;
+  }
+
+  &.is-focused {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba(46, 164, 79, 0.15);
+  }
+}
+
+// 标签
+.el-tag {
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-weight: 500;
+  font-size: 12px;
+
+  &--success {
+    background: $primary-light;
+    border-color: rgba(46, 164, 79, 0.2);
+    color: $success-color;
+  }
+
+  &--warning {
+    background: rgba(210, 153, 34, 0.1);
+    border-color: rgba(210, 153, 34, 0.2);
+    color: $warning-color;
+  }
+
+  &--danger {
+    background: rgba(207, 34, 46, 0.1);
+    border-color: rgba(207, 34, 46, 0.2);
+    color: $danger-color;
+  }
+
+  &--info {
+    background: $bg-inset;
+    border-color: $border-color;
+    color: $text-secondary;
+  }
+}
+
+// 菜单
+.el-menu {
+  border: none;
+
+  &-item {
+    border-radius: 6px;
+    margin: 2px 8px;
+
+    &:hover {
+      background: $bg-inset;
+    }
+
+    &.is-active {
+      background: $primary-light;
+      color: $primary-color;
+    }
+  }
+}
+
+// 表格
+.el-table {
+  --el-table-border-color: #{$border-color};
+  --el-table-header-bg-color: #{$bg-inset};
+  border-radius: 6px;
+  border: 1px solid $border-color;
+
+  th.el-table__cell {
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  tr:hover > td.el-table__cell {
+    background: $bg-inset;
+  }
+}
+
+// 对话框
+.el-dialog {
+  border-radius: 8px;
+  border: 1px solid $border-color;
+
+  .el-dialog__header {
+    padding: 16px 20px;
+    border-bottom: 1px solid $border-color;
+    margin-right: 0;
+
+    .el-dialog__title {
+      font-weight: 600;
+      font-size: 16px;
+    }
+  }
+
+  .el-dialog__body {
+    padding: 20px;
+  }
+
+  .el-dialog__footer {
+    padding: 16px 20px;
+    border-top: 1px solid $border-color;
+  }
+}
+
+// 分页
+.el-pagination {
+  --el-pagination-hover-color: #{$primary-color};
+
+  .el-pager li {
+    border-radius: 6px;
+    border: 1px solid transparent;
+
+    &:hover {
+      background: $bg-inset;
+    }
+
+    &.is-active {
+      background: $primary-color;
+      border-color: $primary-color;
+    }
+  }
+}
+
+// 消息提示
+.el-message {
+  border-radius: 6px;
+  border: 1px solid $border-color;
+}
+
+// 通知
+.el-notification {
+  border-radius: 8px;
+  border: 1px solid $border-color;
+}
+
+// ==================== 响应式断点 ====================
+$breakpoints: (
+  'xs': 480px,
+  'sm': 640px,
+  'md': 768px,
+  'lg': 1024px,
+  'xl': 1280px,
+  'xxl': 1536px
+);
+
+@mixin respond-to($breakpoint) {
+  @if map-has-key($breakpoints, $breakpoint) {
+    @media (max-width: map-get($breakpoints, $breakpoint)) {
+      @content;
+    }
+  }
+}
+
+@mixin respond-min-to($breakpoint) {
+  @if map-has-key($breakpoints, $breakpoint) {
+    @media (min-width: map-get($breakpoints, $breakpoint)) {
+      @content;
+    }
+  }
+}
+
+// ==================== 动画效果 ====================
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+// ==================== GitHub 风格组件 ====================
+
+// 头像
+.avatar {
+  border-radius: 50%;
+  border: 1px solid $border-color;
+}
+
+// 徽章
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  border-radius: 2em;
+  border: 1px solid transparent;
+
+  &--primary {
+    background: $primary-light;
+    color: $primary-color;
+    border-color: rgba(46, 164, 79, 0.2);
+  }
+
+  &--success {
+    background: $primary-light;
+    color: $success-color;
+  }
+
+  &--warning {
+    background: rgba(210, 153, 34, 0.15);
+    color: #9a6700;
+  }
+
+  &--danger {
+    background: rgba(207, 34, 46, 0.1);
+    color: #cf222e;
+  }
+}
+
+// 状态指示器
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+
+  &--success {
+    background: $success-color;
+  }
+
+  &--warning {
+    background: $warning-color;
+  }
+
+  &--danger {
+    background: $danger-color;
+  }
+
+  &--neutral {
+    background: $text-secondary;
+  }
+}
+
+// 分割线
+.divider {
+  height: 1px;
+  background: $border-color;
+  margin: 16px 0;
+}
+
+// 空状态
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: $text-secondary;
+
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+
+  .empty-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: $text-primary;
+  }
+
+  .empty-description {
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+}
+
+// 加载状态
+.loading-skeleton {
+  background: linear-gradient(90deg, $bg-inset 25%, $bg-white 50%, $bg-inset 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
