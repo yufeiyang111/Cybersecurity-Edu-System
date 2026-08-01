@@ -39,6 +39,7 @@ CyberGuard 用于导入 ZIP 或公共 GitHub 项目，建立不可变项目快�
 backend/app/
 ├── routes/
 │   ├── auth.py                    # 认证
+│   ├── oauth.py                   # OAuth 第三方登录（Google / GitHub）
 │   ├── projects.py                # 项目导入
 │   ├── llm_health.py              # LLM Provider 健康检查
 │   └── security/                  # 安全运营路由（薄层）
@@ -73,7 +74,7 @@ frontend/src/
 
 database/
 ├── init.sql
-└── migrations/                    # 001~004 加性迁移
+└── migrations/                    # 001~006 加性迁移
 ```
 
 ## 快速开始
@@ -91,6 +92,14 @@ Get-Service MySQL80
 ```
 
 按顺序执行加性迁移（迁移 runner 见 `backend/app/scripts/apply_sql_migration.py`），或使用 `database/init.sql` 初始化开发库。**只使用加性迁移，不要在生产库执行 reset / drop / truncate。**
+
+```powershell
+cd backend
+$env:FLASK_APP = "run.py"
+.\venv\Scripts\flask.exe apply-security-migrations
+```
+
+命令会幂等补齐 001~006 所有未应用的表与列（含 `policy_documents` 表与 `users` 表的 OAuth 字段），重复执行无副作用。
 
 ### 3. 后端
 
@@ -116,11 +125,63 @@ npm run dev
 
 前端地址：`http://127.0.0.1:5173`（Vite 将 `/api` 代理到 `http://localhost:5001`）。
 
+## 第三方登录（Google / GitHub）
+
+登录/注册页支持 Google 与 GitHub OAuth 登录；登录后在「个人中心 → 第三方账号绑定」可将第三方账号绑定到当前账号，绑定后下次可直接用该第三方账号登录（不要求邮箱相同）。
+
+### 1. 创建 OAuth 应用
+
+| 平台 | 入口 | 授权回调地址（Redirect URI） |
+|---|---|---|
+| Google | Google Cloud Console → Google Auth Platform → Clients | `http://localhost:5001/api/auth/oauth/google/callback` |
+| GitHub | GitHub Settings → Developer settings → OAuth Apps | `http://localhost:5001/api/auth/oauth/github/callback` |
+
+注意：Google 只接受 `localhost` 或 HTTPS 来源；回调地址必须与后端 `OAUTH_BACKEND_BASE_URL` 拼出的地址**逐字符一致**，否则报 `redirect_uri_mismatch`。测试阶段需把测试账号加入 Google OAuth 应用的 Test users，否则登录会返回 `403 access_denied`。
+
+### 2. 后端配置
+
+在 `backend/.env` 中填入（见 `.env.example`）：
+
+```dotenv
+OAUTH_BACKEND_BASE_URL=http://localhost:5001
+OAUTH_FRONTEND_URL=http://localhost:5173
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+```
+
+### 3. 数据库迁移
+
+第三方登录依赖 `006_oauth_login` 迁移（`users` 表新增 `oauth_provider` / `oauth_subject`，并将 `email` / `password_hash` 改为可空）。务必先执行：
+
+```powershell
+cd backend
+$env:FLASK_APP = "run.py"
+.\venv\Scripts\flask.exe apply-security-migrations
+```
+
+### 4. 登录与绑定行为
+
+- 第三方登录只按「提供商 + 第三方账号 ID」匹配账号，**不做邮箱自动合并**；首次登录自动创建账号，直接进入系统。
+- 自动建号时若该邮箱已被其他账号注册，会提示「该邮箱已被注册」，请先登录该邮箱账号后再绑定第三方。
+- 已登录用户在个人中心可绑定 Google / GitHub 到当前账号；若该第三方账号已绑定到其他账号则拒绝绑定。一个账号当前支持绑定一个第三方账号（可在页面「更换绑定」）。
+- OAuth 用户没有密码；如需设置密码，可在个人中心修改邮箱、昵称等信息。
+
+### 5. 相关接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/auth/oauth/{provider}/authorize` | 发起第三方登录（provider = google / github） |
+| POST | `/api/auth/oauth/{provider}/bind` | 已登录用户绑定第三方账号（需 JWT），返回授权跳转地址 |
+| GET | `/api/auth/oauth/{provider}/callback` | 第三方授权回调（登录 / 绑定统一入口） |
+
 ## 核心 API 一览
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST / GET | `/api/auth/login`、`/api/auth/me` | 认证 |
+| GET / POST | `/api/auth/oauth/{provider}/authorize`、`/bind` | 第三方登录 / 绑定（详见「第三方登录」章节） |
 | POST | `/api/security/projects` | 创建安全项目 |
 | GET | `/api/security/projects` | 项目列表 |
 | POST | `/api/security/projects/{id}/snapshots:upload` | 上传 ZIP 建立快照 |
@@ -179,6 +240,14 @@ MYSQL_DATABASE=cyberguard
 SECRET_KEY=your-secret-key
 JWT_SECRET_KEY=your-jwt-secret
 
+# OAuth 第三方登录（Google / GitHub）
+OAUTH_BACKEND_BASE_URL=http://localhost:5001
+OAUTH_FRONTEND_URL=http://localhost:5173
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+
 # LLM（可选，默认规则化模式）
 DASHSCOPE_API_KEY=your_api_key
 DASHSCOPE_MODEL=qwen-plus
@@ -206,7 +275,7 @@ REDIS_URL=redis://localhost:6379/0
 npm --prefix frontend run build
 ```
 
-当前测试基线：后端 169 项通过；前端生产构建通过。外部服务（MiniMax、DashScope、GitHub、OSV、Neo4j、Chroma）的真实连通性不属于默认测试路径，须显式验收，不能把“配置存在”误报为“服务可用”。
+当前测试基线：后端 184 项通过；前端生产构建通过。外部服务（MiniMax、DashScope、GitHub、OSV、Neo4j、Chroma）的真实连通性不属于默认测试路径，须显式验收，不能把“配置存在”误报为“服务可用”。
 
 ## License
 
