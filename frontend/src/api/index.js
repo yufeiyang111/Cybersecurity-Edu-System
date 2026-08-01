@@ -138,9 +138,22 @@ export const securityAPI = {
   uploadSnapshot: (projectId, formData) => api.post(`/security/projects/${projectId}/snapshots:upload`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  importGitHubSnapshot: (projectId, data) => api.post(`/security/projects/${projectId}/snapshots:github`, data),
   getTasks: (projectId) => api.get(`/security/projects/${projectId}/tasks`),
   getTask: (taskId) => api.get(`/security/tasks/${taskId}`),
-  getFindings: (taskId) => api.get(`/security/tasks/${taskId}/findings`)
+  getFindings: (taskId) => api.get(`/security/tasks/${taskId}/findings`),
+  cancelTask: (taskId) => api.post(`/security/tasks/${taskId}/cancel`),
+  retryTask: (taskId) => api.post(`/security/tasks/${taskId}/retry`),
+  getDependencies: (projectId, params) => api.get(`/security/projects/${projectId}/dependencies`, { params }),
+
+  listKnowledgeSources: (params) => api.get('/security/knowledge/sources', { params }),
+  createKnowledgeSource: (data) => api.post('/security/knowledge/sources', data),
+  listKnowledgeDocuments: (sourceId, params) => api.get(`/security/knowledge/sources/${sourceId}/documents`, { params }),
+  createKnowledgeDocument: (sourceId, data) => api.post(`/security/knowledge/sources/${sourceId}/documents`, data),
+
+  generateRemediationSuggestion: (findingId) => api.post(`/security/findings/${findingId}/suggestions`),
+  listRemediationSuggestions: (findingId, params) => api.get(`/security/findings/${findingId}/suggestions`, { params }),
+  reviewRemediationSuggestion: (suggestionId, data) => api.post(`/security/suggestions/${suggestionId}/review`, data)
 }
 
 export const adminAPI = {

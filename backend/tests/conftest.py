@@ -23,6 +23,13 @@ class TestConfig:
     REDIS_URL = "redis://localhost:6379/0"
     RQ_QUEUE_NAME = "cyberguard-security-test"
     RQ_ASYNC = False
+    GITHUB_API_TIMEOUT_SECONDS = 15
+    GITHUB_MAX_REDIRECTS = 1
+    SCA_OSV_ENABLED = False
+    SCA_OSV_API_URL = "https://api.osv.dev/v1/querybatch"
+    SCA_REQUEST_TIMEOUT_SECONDS = 15
+    SCA_CACHE_TTL_SECONDS = 86400
+    SCA_MAX_DEPENDENCIES = 10000
     ARCHIVE_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
     ARCHIVE_MAX_EXTRACT_BYTES = 500 * 1024 * 1024
     ARCHIVE_MAX_FILES = 20_000
@@ -41,6 +48,8 @@ def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         "app.routes.knowledge": "knowledge_bp",
         "app.routes.qa": "qa_bp",
         "app.routes.admin": "admin_bp",
+        "app.routes.projects": "projects_bp",
+        "app.routes.llm_health": "llm_health_bp",
     }.items():
         module = types.ModuleType(module_name)
         blueprint = Blueprint(blueprint_name, module_name)

@@ -1,4 +1,4 @@
-﻿"""Persistence models for the security scanning foundation."""
+"""Persistence models for the security scanning foundation."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -66,6 +66,13 @@ class EvidenceType(str, Enum):
     RAG_REFERENCE = "rag_reference"
 
 
+class RemediationReviewState(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    NEEDS_REVISION = "needs_revision"
+
+
 class Workspace(db.Model):
     __tablename__ = "workspaces"
     __table_args__ = (
@@ -88,6 +95,9 @@ class Workspace(db.Model):
         "SecurityProject", back_populates="workspace", cascade="all, delete-orphan"
     )
     audit_events = db.relationship("AuditEvent", back_populates="workspace")
+    knowledge_sources = db.relationship(
+        "SecurityKnowledgeSource", back_populates="workspace", cascade="all, delete-orphan"
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -212,6 +222,9 @@ class ProjectSnapshot(db.Model):
     scan_tasks = db.relationship(
         "ScanTask", back_populates="snapshot", cascade="all, delete-orphan"
     )
+    dependencies = db.relationship(
+        "SnapshotDependency", back_populates="snapshot", cascade="all, delete-orphan"
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -230,12 +243,98 @@ class ProjectSnapshot(db.Model):
         }
 
 
+class SnapshotDependency(db.Model):
+    """A normalized, non-sensitive dependency coordinate discovered in a snapshot."""
+
+    __tablename__ = "snapshot_dependencies"
+    __table_args__ = (
+        db.UniqueConstraint(
+            "snapshot_id",
+            "coordinate_hash",
+            name="uq_snapshot_dependency_coordinate",
+        ),
+        db.Index("ix_snapshot_dependencies_snapshot_id", "snapshot_id"),
+        db.Index("ix_snapshot_dependencies_coordinate_hash", "coordinate_hash"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    snapshot_id = db.Column(
+        db.Integer, db.ForeignKey("project_snapshots.id", ondelete="CASCADE"), nullable=False
+    )
+    ecosystem = db.Column(db.String(64), nullable=False)
+    package_name = db.Column(db.String(512), nullable=False)
+    version = db.Column(db.String(255), nullable=False)
+    manifest_path = db.Column(db.String(1024), nullable=False)
+    coordinate_hash = db.Column(db.String(64), nullable=False)
+    is_direct = db.Column(db.Boolean, nullable=False, default=True)
+    source_line = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    snapshot = db.relationship("ProjectSnapshot", back_populates="dependencies")
+
+    def to_dict(self) -> dict:
+        """Expose only the normalized dependency inventory, never source content."""
+        return {
+            "id": self.id,
+            "snapshot_id": self.snapshot_id,
+            "ecosystem": self.ecosystem,
+            "package_name": self.package_name,
+            "version": self.version,
+            "manifest_path": self.manifest_path,
+            "is_direct": bool(self.is_direct),
+            "source_line": self.source_line,
+        }
+
+
+class VulnerabilityAdvisoryCache(db.Model):
+    """Cached third-party advisory responses keyed by a dependency coordinate."""
+
+    __tablename__ = "vulnerability_advisory_cache"
+    __table_args__ = (
+        db.UniqueConstraint("cache_key", name="uq_vulnerability_advisory_cache_key"),
+        db.Index("ix_vulnerability_advisory_cache_expires_at", "expires_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    cache_key = db.Column(db.String(128), nullable=False)
+    ecosystem = db.Column(db.String(64), nullable=False)
+    package_name = db.Column(db.String(512), nullable=False)
+    version = db.Column(db.String(255), nullable=False)
+    response_json = db.Column(db.JSON)
+    fetched_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    def to_dict(self) -> dict:
+        """Return cache metadata without leaking an upstream advisory payload."""
+        return {
+            "id": self.id,
+            "cache_key": self.cache_key,
+            "coordinate": {
+                "ecosystem": self.ecosystem,
+                "package_name": self.package_name,
+                "version": self.version,
+            },
+            "has_cached_response": self.response_json is not None,
+            "fetched_at": self.fetched_at.isoformat() if self.fetched_at else None,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+        }
+
+
 class ScanTask(db.Model):
     __tablename__ = "scan_tasks"
     __table_args__ = (
         db.Index("ix_scan_tasks_snapshot_id", "snapshot_id"),
         db.Index("ix_scan_tasks_status", "status"),
         db.Index("ix_scan_tasks_created_at", "created_at"),
+        db.Index("ix_scan_tasks_dispatch_key", "dispatch_key"),
+        db.UniqueConstraint("dispatch_key", name="uq_scan_tasks_dispatch_key"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -250,6 +349,8 @@ class ScanTask(db.Model):
     progress = db.Column(db.Integer, nullable=False, default=0)
     policy_version = db.Column(db.String(100))
     worker_id = db.Column(db.String(255))
+    dispatch_key = db.Column(db.String(64), nullable=True)
+    retry_count = db.Column(db.Integer, nullable=False, default=0)
     error_code = db.Column(db.String(100))
     error_message = db.Column(db.Text)
     started_at = db.Column(db.DateTime)
@@ -273,6 +374,16 @@ class ScanTask(db.Model):
             "status": self.status.value if isinstance(self.status, Enum) else self.status,
             "progress": self.progress,
             "policy_version": self.policy_version,
+            "retry_count": self.retry_count,
+            "can_retry": (self.status.value if isinstance(self.status, Enum) else self.status)
+            in {ScanTaskStatus.FAILED.value, ScanTaskStatus.CANCELED.value},
+            "can_cancel": (self.status.value if isinstance(self.status, Enum) else self.status)
+            not in {
+                ScanTaskStatus.COMPLETED.value,
+                ScanTaskStatus.COMPLETED_WITH_WARNINGS.value,
+                ScanTaskStatus.FAILED.value,
+                ScanTaskStatus.CANCELED.value,
+            },
             "error_code": self.error_code,
             "has_error": bool(self.error_code),
             "started_at": self.started_at.isoformat() if self.started_at else None,
@@ -328,6 +439,9 @@ class SecurityFinding(db.Model):
     task = db.relationship("ScanTask", back_populates="findings")
     evidences = db.relationship(
         "FindingEvidence", back_populates="finding", cascade="all, delete-orphan"
+    )
+    remediation_suggestions = db.relationship(
+        "RemediationSuggestion", back_populates="finding", cascade="all, delete-orphan"
     )
 
     def to_dict(self, include_evidence: bool = False) -> dict:
@@ -437,3 +551,180 @@ class AuditEvent(db.Model):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+
+
+class SecurityKnowledgeSource(db.Model):
+    """Workspace-owned metadata for governed security knowledge."""
+
+    __tablename__ = "security_knowledge_sources"
+    __table_args__ = (
+        db.Index("ix_security_knowledge_sources_workspace_active", "workspace_id", "is_active"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    workspace_id = db.Column(
+        db.Integer, db.ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    name = db.Column(db.String(255), nullable=False)
+    source_type = db.Column(db.String(64), nullable=False)
+    source_uri = db.Column(db.String(2048))
+    license_name = db.Column(db.String(255))
+    source_version = db.Column(db.String(255), nullable=False)
+    content_hash = db.Column(db.String(128))
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    metadata_json = db.Column(db.JSON)
+    published_at = db.Column(db.DateTime)
+    effective_from = db.Column(db.DateTime)
+    effective_until = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    workspace = db.relationship("Workspace", back_populates="knowledge_sources")
+    documents = db.relationship(
+        "SecurityKnowledgeDocument", back_populates="source", cascade="all, delete-orphan"
+    )
+
+    def to_dict(self) -> dict:
+        """Expose governed source metadata without arbitrary source metadata payloads."""
+        return {
+            "id": self.id,
+            "workspace_id": self.workspace_id,
+            "name": self.name,
+            "source_type": self.source_type,
+            "source_uri": self.source_uri,
+            "license_name": self.license_name,
+            "source_version": self.source_version,
+            "content_hash": self.content_hash,
+            "is_active": bool(self.is_active),
+            "published_at": self.published_at.isoformat() if self.published_at else None,
+            "effective_from": self.effective_from.isoformat() if self.effective_from else None,
+            "effective_until": self.effective_until.isoformat() if self.effective_until else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class SecurityKnowledgeDocument(db.Model):
+    """A versioned document belonging to exactly one workspace knowledge source."""
+
+    __tablename__ = "security_knowledge_documents"
+    __table_args__ = (
+        db.UniqueConstraint("source_id", "document_version", name="uq_knowledge_source_document_version"),
+        db.Index("ix_security_knowledge_documents_source_active", "source_id", "is_active"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    source_id = db.Column(
+        db.Integer, db.ForeignKey("security_knowledge_sources.id", ondelete="CASCADE"), nullable=False
+    )
+    document_version = db.Column(db.String(255), nullable=False)
+    title = db.Column(db.String(500), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    summary = db.Column(db.Text)
+    tags_json = db.Column(db.JSON)
+    framework_metadata_json = db.Column(db.JSON)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    effective_from = db.Column(db.DateTime)
+    effective_until = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    source = db.relationship("SecurityKnowledgeSource", back_populates="documents")
+
+    @property
+    def workspace_id(self) -> int | None:
+        """Resolve document ownership through its source rather than duplicate workspace data."""
+        return self.source.workspace_id if self.source is not None else None
+
+    def to_dict(self, include_content: bool = False) -> dict:
+        """Content is opt-in; framework metadata stays internal to retrieval and governance logic."""
+        result = {
+            "id": self.id,
+            "source_id": self.source_id,
+            "document_version": self.document_version,
+            "title": self.title,
+            "summary": self.summary,
+            "tags": self.tags_json or [],
+            "is_active": bool(self.is_active),
+            "effective_from": self.effective_from.isoformat() if self.effective_from else None,
+            "effective_until": self.effective_until.isoformat() if self.effective_until else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+        if include_content:
+            result["content"] = self.content
+        return result
+
+
+class RemediationSuggestion(db.Model):
+    """Human-reviewable remediation output tied to one normalized security finding."""
+
+    __tablename__ = "remediation_suggestions"
+    __table_args__ = (
+        db.CheckConstraint("confidence IS NULL OR (confidence >= 0 AND confidence <= 1)", name="ck_remediation_suggestion_confidence"),
+        db.Index("ix_remediation_suggestions_finding_created", "finding_id", "created_at"),
+        db.Index("ix_remediation_suggestions_review_state", "review_state"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    finding_id = db.Column(
+        db.Integer, db.ForeignKey("security_findings.id", ondelete="CASCADE"), nullable=False
+    )
+    rationale = db.Column(db.Text, nullable=False)
+    remediation_steps_json = db.Column(db.JSON, nullable=False)
+    patch_diff = db.Column(db.Text)
+    citations_json = db.Column(db.JSON)
+    warning_codes_json = db.Column(db.JSON)
+    provider = db.Column(db.String(128), nullable=False)
+    model = db.Column(db.String(255))
+    model_version = db.Column(db.String(255))
+    confidence = db.Column(db.Float)
+    review_state = db.Column(
+        db.Enum(
+            RemediationReviewState,
+            name="remediation_review_state",
+            values_callable=_enum_values,
+            create_constraint=True,
+            validate_strings=True,
+        ),
+        nullable=False,
+        default=RemediationReviewState.PENDING.value,
+    )
+    reviewer_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    reviewed_at = db.Column(db.DateTime)
+    review_comment = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    finding = db.relationship("SecurityFinding", back_populates="remediation_suggestions")
+    reviewer = db.relationship("User", foreign_keys=[reviewer_id])
+
+    def to_dict(self) -> dict:
+        """Return only reviewed remediation material, never provider prompts or raw responses."""
+        return {
+            "id": self.id,
+            "finding_id": self.finding_id,
+            "rationale": self.rationale,
+            "remediation_steps": self.remediation_steps_json or [],
+            "patch_diff": self.patch_diff,
+            "citations": self.citations_json or [],
+            "warning_codes": self.warning_codes_json or [],
+            "provider": self.provider,
+            "model": self.model,
+            "model_version": self.model_version,
+            "confidence": self.confidence,
+            "review_state": self.review_state.value
+            if isinstance(self.review_state, Enum)
+            else self.review_state,
+            "reviewer_id": self.reviewer_id,
+            "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
+            "review_comment": self.review_comment,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

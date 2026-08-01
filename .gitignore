@@ -21,3 +21,12 @@ frontend/dist/
 .vscode/
 .idea/
 .superpowers/
+
+# Local tooling, docs and leftovers: never upload to git
+.claude/
+.lingma/
+docs/
+$seedPath
+query
+SPEC.md
+技术实现文档.md

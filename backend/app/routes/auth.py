@@ -9,12 +9,14 @@ from flask_jwt_extended import (
 from app import db
 from app.models.user import User, Role
 from app.utils.auth import verify_password, hash_password
+from app.services.rate_limit import rate_limit
 from datetime import datetime
 
 auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.route("/register", methods=["POST"])
+@rate_limit("auth-register", "SECURITY_RATE_LIMIT_PER_MINUTE")
 def register():
     """用户注册"""
     data = request.get_json()
@@ -59,6 +61,7 @@ def register():
 
 
 @auth_bp.route("/login", methods=["POST"])
+@rate_limit("auth-login", "SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE")
 def login():
     """用户登录"""
     data = request.get_json()

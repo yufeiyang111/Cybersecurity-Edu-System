@@ -1,7 +1,7 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from app import db
-from app.models.security import ProjectSnapshot, ScanTask, ScanTaskStatus, SecurityProject, Workspace, WorkspaceMember
+from app.models.security import ProjectSnapshot, ScanTask, ScanTaskStatus, SecurityProject, SnapshotDependency, Workspace, WorkspaceMember
 from app.models.user import User
 from app.services.scan_orchestrator import run_scan_task
 from app.services.scanners.base import BaseLanguageScanner, ProjectProfile, RawFinding
@@ -83,3 +83,52 @@ def test_missing_snapshot_fails_without_traceback(app, tmp_path):
         assert completed.status == ScanTaskStatus.FAILED.value
         assert completed.error_code == "SNAPSHOT_NOT_FOUND"
         assert completed.to_dict()["has_error"] is True
+
+
+def test_scan_persists_dependency_inventory_and_osv_disabled_warning(app, tmp_path):
+    with app.app_context():
+        task = create_scan_task(tmp_path, "import subprocess\nsubprocess.run(cmd, shell=True)\n")
+        (Path(task.snapshot.storage_path) / "requirements.txt").write_text("requests==2.31.0\n", encoding="utf-8")
+
+        completed = run_scan_task(task.id)
+
+        assert completed.status == ScanTaskStatus.COMPLETED_WITH_WARNINGS.value
+        assert completed.summary_json["dependencies_count"] == 1
+        assert completed.summary_json["sca_enabled"] is False
+        assert {warning["error"] for warning in completed.summary_json["warnings"]} == {"OSV_DISABLED"}
+        dependency = SnapshotDependency.query.filter_by(snapshot_id=task.snapshot_id).one()
+        assert (dependency.ecosystem, dependency.package_name, dependency.version) == ("PyPI", "requests", "2.31.0")
+
+
+def test_sca_provider_failure_keeps_sast_findings_and_adds_warning(app, tmp_path, monkeypatch):
+    with app.app_context():
+        task = create_scan_task(tmp_path, "import subprocess\nsubprocess.run(cmd, shell=True)\n")
+        (Path(task.snapshot.storage_path) / "requirements.txt").write_text("requests==2.31.0\n", encoding="utf-8")
+
+        class FailingProvider:
+            def query_batch(self, dependencies):
+                from app.services.osv_client import OSVQueryResult
+                return OSVQueryResult({dependency: () for dependency in dependencies}, ("OSV_REQUEST_FAILED",))
+
+        monkeypatch.setattr("app.services.scan_orchestrator.OSVVulnerabilityProvider", FailingProvider)
+        completed = run_scan_task(task.id)
+
+        assert completed.status == ScanTaskStatus.COMPLETED_WITH_WARNINGS.value
+        assert any(finding.rule_id == "PY-SHELL-TRUE" for finding in completed.findings)
+        assert {warning["error"] for warning in completed.summary_json["warnings"]} == {"OSV_REQUEST_FAILED"}
+
+
+def test_sca_provider_exception_is_isolated_from_completed_scanners(app, tmp_path, monkeypatch):
+    with app.app_context():
+        task = create_scan_task(tmp_path, "import subprocess\nsubprocess.run(cmd, shell=True)\n")
+
+        class RaisingProvider:
+            def query_batch(self, dependencies):
+                raise RuntimeError("raw provider body must not escape")
+
+        monkeypatch.setattr("app.services.scan_orchestrator.OSVVulnerabilityProvider", RaisingProvider)
+        completed = run_scan_task(task.id)
+
+        assert completed.status == ScanTaskStatus.COMPLETED_WITH_WARNINGS.value
+        assert any(finding.rule_id == "PY-SHELL-TRUE" for finding in completed.findings)
+        assert {warning["error"] for warning in completed.summary_json["warnings"]} == {"RuntimeError"}

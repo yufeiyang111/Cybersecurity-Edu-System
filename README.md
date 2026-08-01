@@ -300,12 +300,11 @@ CyberGuard 正在从“网络安全知识问答教学系统”升级为 **Agent 
 - **审计和可复现性**：项目快照保存内容 SHA-256；上传和扫描完成/失败事件写入审计表。
 - **前端安全工作台**：登录后进入“安全工作台”，创建项目、上传 ZIP、查看任务进度、风险概要和脱敏证据。
 
-### 第一期限制
+### 第一期基线与后续演进
 
-- 当前上传入口仅支持 ZIP；公开 GitHub 仓库导入在下一阶段实现。
-- 当前内置语言规则仅覆盖 Python；JS/TS 和 Java 扫描器将按统一插件契约扩展。
-- 当前只输出确定性扫描 Finding；受控 RAG 引用、Agent 研判和 Unified Diff 修复建议在下一阶段实现。
-- 当前本地 ChromaDB 继续服务既有知识问答；安全知识来源治理和工作区检索过滤尚未接入。
+- 第一期建立 ZIP 导入、Python 规则扫描、脱敏 Finding 与审计闭环；Phase 2 已在下文扩展为公开 GitHub 固定提交快照、JS/TS 与 Java 扫描器、依赖库存和 OSV SCA。
+- 当前只读扫描边界保持不变：平台不会安装依赖、构建、测试、导入或执行任何上传或导入的项目代码。
+- 受控 RAG 引用、Agent 研判和 Unified Diff 修复建议，以及安全知识来源治理与工作区检索过滤，见下文的 Phase 3 说明。
 
 ### 本地运行（安全扫描闭环）
 
@@ -347,3 +346,150 @@ npm run dev
 | `npm --prefix frontend run build` | 通过 | 安全工作台页面、路由和 API 集成可以生产构建。 |
 
 > 尚未在本机执行 MySQL 加性迁移或真实 Redis Worker 烟测，原因是它们依赖本地服务状态；执行前请确认使用开发数据库，切勿对生产库直接试运行。
+
+---
+
+## Phase 2：GitHub 导入、多语言 SAST 与 SCA
+
+第二阶段将安全工作台扩展为可用于 DevSecOps 演示的多源代码审计闭环：公共 GitHub 仓库只会被下载为固定 Commit 的 ZIP 快照，随后进入与本地 ZIP 相同的只读安全解压和静态分析流程。
+
+### 已实现能力
+
+- **受限 GitHub 导入**：只接受 `https://github.com/{owner}/{repo}` 形式的公开仓库地址；拒绝 Token、SSH、端口、IP、额外路径、查询参数和片段。
+- **固定提交快照**：先通过 GitHub API 解析默认分支与 Commit SHA，再从受验证归档域名下载 ZIP；不使用 `git clone`，不会执行 Hook、Submodule、LFS 或仓库代码。
+- **多语言 SAST**：
+  - Python：`shell=True`、危险 YAML 反序列化、Flask Debug、硬编码敏感信息。
+  - JavaScript / TypeScript：`eval`、`child_process`、`dangerouslySetInnerHTML`、宽松 CORS。
+  - Java：Runtime 命令执行、`ObjectInputStream`、XXE 工厂、宽松 CORS。
+- **依赖清单与 SCA**：解析 Python、Node.js 与 Java 的主流依赖文件；OSV 查询只发送 `{ecosystem, package_name, version}`，不发送源码、仓库地址、文件路径、用户身份或密钥。
+- **失败可见但不泄露**：外部 SCA 调用失败会转化为安全警告，扫描任务可标记为 `completed_with_warnings`，不会输出第三方错误正文。
+
+### 启用 OSV SCA
+
+默认 `SCA_OSV_ENABLED=false`，确保本地演示不依赖外部情报网络。确认合规后可在 `.env` 中显式开启：
+
+```dotenv
+SCA_OSV_ENABLED=true
+SCA_OSV_API_URL=https://api.osv.dev/v1/querybatch
+```
+
+### Phase 2 安全边界
+
+- 不执行 ZIP 或 GitHub 仓库中的任何文件，也不安装依赖、构建项目或启动 Hook。
+- ZIP 与 GitHub 归档复用路径穿越、Zip Bomb、符号链接、特殊文件、文件数量和解压体积防护。
+- SAST、Secret 与 SCA 统一持久化为证据化 Finding；展示层只读取脱敏证据。
+- GitHub 网络访问固定在允许的 GitHub API 与归档域名，并对重定向进行约束性验证。
+
+## 企业级 Agent + RAG 安全运营闭环（Phase 3）
+
+在已有 ZIP / 公共 GitHub 仓库安全导入、多语言 SAST 与 OSV SCA 的基础上，CyberGuard 现已形成面向 **SOC / DevSecOps** 的可信修复建议闭环：
+
+```text
+不可变项目快照
+  → Python / JavaScript / TypeScript / Java 静态扫描与 SCA
+  → 证据化 Finding（默认脱敏）
+  → 工作区级、版本化安全知识 RAG
+  → 受限上下文修复 Agent
+  → 严格 Unified Diff 校验
+  → 人工审核与审计事件
+```
+
+### Phase 3 核心能力
+
+- **工作区隔离的安全知识库**：知识来源与文档具有来源版本、文档版本、有效期、启停状态和审计记录；检索首先执行确定性词法排序，可选 Chroma 向量索引失败时会静默退化，不会跨工作区返回资料。
+- **可信修复 Agent**：修复 Agent 只接收标准化 Finding、已脱敏证据、工作区授权的 RAG 引用以及受限的局部代码窗口；不会读取完整仓库、用户身份、归档绝对路径或未脱敏密钥。
+- **Secret 防泄露边界**：Secret 类 Finding 不会把原文件上下文发给模型；知识检索片段、RAG 向量文本和前端展示内容均使用脱敏内容。
+- **LLM 可控降级**：`REMEDIATION_LLM_ENABLED=false` 为默认值。未启用、未配置密钥、Provider 请求失败或模型输出不合法时，系统会退回规则化建议，而不会阻塞扫描任务。
+- **安全 Diff 防线**：只接受目标 Finding 对应的单文件 Unified Diff；拒绝绝对路径、`..`、多文件、二进制、超限、无上下文和上下文不匹配的补丁。系统从不自动应用、执行、提交或推送 Agent 生成的补丁。
+- **人工审核与可追溯性**：建议状态只能是 `pending`、`accepted`、`rejected` 或 `needs_revision`；所有生成、审核、知识来源和知识文档操作都会写入不包含正文、代码、Prompt、Diff 或密钥的审计元数据。
+
+### 新增安全运营 API
+
+| 接口 | 说明 | 最低工作区角色 |
+| --- | --- | --- |
+| `POST /api/security/knowledge/sources` | 创建受治理的知识来源 | owner / security_admin |
+| `GET /api/security/knowledge/sources` | 列出本工作区知识来源元数据 | owner / security_admin |
+| `POST /api/security/knowledge/sources/{id}/documents` | 创建版本化知识文档 | owner / security_admin |
+| `GET /api/security/knowledge/sources/{id}/documents` | 列出文档元数据（不返回正文） | owner / security_admin |
+| `POST /api/security/findings/{id}/suggestions` | 为已授权 Finding 生成修复建议 | owner / security_admin / analyst / developer |
+| `GET /api/security/findings/{id}/suggestions` | 查看 Finding 的历史修复建议 | 任意有项目读取权限成员 |
+| `POST /api/security/suggestions/{id}/review` | 记录接受、拒绝或需要修改的审核决定 | owner / security_admin / analyst / developer |
+
+### 本地演示路径
+
+1. 进入“项目安全工作台”，创建项目并上传一个 ZIP，或导入符合约束的公共 GitHub 仓库。
+2. 等待扫描任务完成，在项目详情中选择一个 Finding。
+3. 进入“安全知识治理”，先创建来源与版本化文档；页面不会回显文档正文。
+4. 回到项目详情，点击“生成修复建议”。默认规则化模式可在不配置外部 LLM 的情况下运行。
+5. 查看 RAG 引用、警告代码和可选 Diff；仅可复制 Diff 到独立分支进行验证。
+6. 使用“人工审核”记录 `accepted`、`rejected` 或 `needs_revision`，在审计表中追溯操作。
+
+### Phase 3 环境变量
+
+```dotenv
+# 是否启用专属安全知识向量索引。关闭时仍会使用工作区隔离的词法检索。
+SECURITY_KNOWLEDGE_VECTOR_ENABLED=false
+
+# 修复 Agent 默认不调用外部模型；开启时仍要求配置相应 Provider 密钥。
+REMEDIATION_LLM_ENABLED=false
+REMEDIATION_MAX_CONTEXT_CHARS=12000
+REMEDIATION_MAX_OUTPUT_CHARS=8000
+REMEDIATION_RETRIEVAL_TOP_K=5
+REMEDIATION_PATCH_MAX_LINES=500
+REMEDIATION_PATCH_MAX_CHARS=50000
+```
+
+### 验证记录（2026-07-31）
+
+```powershell
+.\backend\venv\Scripts\python.exe -m pytest backend\tests -q
+# 129 passed
+.\backend\venv\Scripts\python.exe -m compileall backend\app
+# completed without compilation errors
+npm --prefix frontend run build
+# build succeeded
+```
+
+数据库验证：模型与 API 使用 SQLite 内存库完成自动化测试；2026-07-19 已在本机 `cyberguard` 开发库完成 MySQL 8 加性迁移 `001 → 002 → 003` 的真实执行和表结构核验。迁移前已导出仅结构备份；不要将这一流程直接用于未确认或生产环境。
+
+## Phase 4：生产化可靠性与安全运营
+
+Phase 4 在 Phase 1-3 的扫描、SCA、知识 RAG 和可信修复边界之上，补齐任务恢复、运行时健康检查和生产化运维能力。
+
+### 任务可靠性
+
+- `ScanTask` 使用内容快照复用、唯一 `dispatch_key` 和条件 worker 抢占，避免相同快照重复创建或重复执行。
+- 任务支持受保护的取消和失败/取消重试；重试次数由 `SCAN_TASK_MAX_RETRIES` 限制，默认值为 3，最大值为 10。
+- 队列派发失败会写入 `SCAN_DISPATCH_FAILED`，不会让任务永久停留在 `created` 状态。
+- 重试只复用不可变快照，Finding、依赖和证据写入保持指纹/坐标幂等；系统不会执行被扫描项目代码。
+
+### 健康检查与可观测性
+
+- `/api/health` 和 `/api/health/live` 只表示进程存活，不访问外部服务。
+- `/api/health/ready` 检查数据库和工作区存储；Neo4j、Chroma 和 LLM Provider 只返回是否配置或是否启用，不会被 readiness 请求擅自联网探测。
+- 每个请求返回受限的 `X-Request-ID`，调用链可以使用该值关联日志；输入过长或包含路径穿越字符的关联 ID 会被替换。
+- 健康响应、任务错误和审计元数据不包含密码、Token、Prompt、完整异常、原始代码或外部连接串。
+
+### 权限与前端边界
+
+- 取消和重试要求项目工作区的写角色，查询仍然执行工作区读取鉴权。
+- 前端任务表提供取消、重试和 loading 状态；这些操作由后端再次授权，不能依赖前端隐藏按钮。
+- 修复建议 Diff 仍然只能查看、复制和人工审核，不提供自动应用、执行、提交或推送入口。
+
+### 数据库迁移
+
+Phase 4 使用加性迁移 `004_phase4_task_reliability.sql`，为历史 `scan_tasks` 增加可为空的派发键和默认重试计数，并补充唯一约束与索引。迁移由有序迁移 runner 管理；本地初始化 SQL 已同步。未在本阶段执行生产数据库迁移。
+
+### Phase 4 验证记录（2026-07-31）
+
+```powershell
+.\backend\venv\Scripts\python.exe -m pytest backend\tests -q
+# 158 passed
+.\backend\venv\Scripts\python.exe -m compileall backend\app
+# completed without compilation errors
+npm --prefix frontend run build
+# build succeeded
+```
+
+
+外部 GitHub、OSV、Neo4j、Chroma 和 LLM Provider 的真实连通性不属于默认测试路径；相关检查必须显式执行，并且不能把配置存在误报为服务可用。

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from collections.abc import Mapping
@@ -17,6 +17,27 @@ DEFAULT_APP_ENV = "development"
 DEFAULT_CORS_ALLOWED_ORIGINS = ("http://localhost:5173",)
 DEFAULT_SECRET_PLACEHOLDER = "change-this-secret-key-in-production"
 DEFAULT_JWT_SECRET_PLACEHOLDER = "change-this-jwt-secret-key-in-production"
+DEFAULT_GITHUB_API_TIMEOUT_SECONDS = 15
+DEFAULT_GITHUB_MAX_REDIRECTS = 1
+DEFAULT_SCA_OSV_API_URL = "https://api.osv.dev/v1/querybatch"
+DEFAULT_SCA_REQUEST_TIMEOUT_SECONDS = 15
+DEFAULT_SCA_CACHE_TTL_SECONDS = 24 * 60 * 60
+DEFAULT_SCA_MAX_DEPENDENCIES = 10_000
+MAX_SCA_DEPENDENCIES = 50_000
+DEFAULT_REMEDIATION_MAX_CONTEXT_CHARS = 12_000
+DEFAULT_REMEDIATION_MAX_OUTPUT_CHARS = 8_000
+DEFAULT_REMEDIATION_RETRIEVAL_TOP_K = 5
+DEFAULT_REMEDIATION_PATCH_MAX_LINES = 500
+DEFAULT_REMEDIATION_PATCH_MAX_CHARS = 50_000
+MAX_REMEDIATION_CONTEXT_CHARS = 200_000
+MAX_REMEDIATION_OUTPUT_CHARS = 100_000
+MAX_REMEDIATION_RETRIEVAL_TOP_K = 50
+MAX_REMEDIATION_PATCH_MAX_LINES = 5_000
+MAX_REMEDIATION_PATCH_MAX_CHARS = 500_000
+DEFAULT_SCAN_TASK_MAX_RETRIES = 3
+MAX_SCAN_TASK_MAX_RETRIES = 10
+DEFAULT_SECURITY_RATE_LIMIT_PER_MINUTE = 60
+DEFAULT_SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE = 10
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -101,10 +122,29 @@ class Config:
     DASHSCOPE_MODEL = os.getenv("DASHSCOPE_MODEL", "qwen-plus")
 
     MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
-    MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMax-Text-01")
-    MINIMAX_API_BASE = os.getenv("MINIMAX_API_BASE", "https://api.minimax.chat/v1")
+    MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMax-M2.7")
+    MINIMAX_API_BASE = os.getenv("MINIMAX_API_BASE", "https://api.minimaxi.com/v1")
 
     CHROMA_PERSIST_DIRECTORY = str(DATA_DIR / "chroma_db")
+    SECURITY_KNOWLEDGE_VECTOR_ENABLED = _env_bool("SECURITY_KNOWLEDGE_VECTOR_ENABLED", False)
+    REMEDIATION_LLM_ENABLED = _env_bool("REMEDIATION_LLM_ENABLED", False)
+    REMEDIATION_LLM_PROVIDER = os.getenv("REMEDIATION_LLM_PROVIDER", "").strip()
+    SECURITY_RISK_POLICY = os.getenv("SECURITY_RISK_POLICY", "").strip()
+    REMEDIATION_MAX_CONTEXT_CHARS = _env_int(
+        "REMEDIATION_MAX_CONTEXT_CHARS", DEFAULT_REMEDIATION_MAX_CONTEXT_CHARS
+    )
+    REMEDIATION_MAX_OUTPUT_CHARS = _env_int(
+        "REMEDIATION_MAX_OUTPUT_CHARS", DEFAULT_REMEDIATION_MAX_OUTPUT_CHARS
+    )
+    REMEDIATION_RETRIEVAL_TOP_K = _env_int(
+        "REMEDIATION_RETRIEVAL_TOP_K", DEFAULT_REMEDIATION_RETRIEVAL_TOP_K
+    )
+    REMEDIATION_PATCH_MAX_LINES = _env_int(
+        "REMEDIATION_PATCH_MAX_LINES", DEFAULT_REMEDIATION_PATCH_MAX_LINES
+    )
+    REMEDIATION_PATCH_MAX_CHARS = _env_int(
+        "REMEDIATION_PATCH_MAX_CHARS", DEFAULT_REMEDIATION_PATCH_MAX_CHARS
+    )
 
     VECTOR_TOP_K = int(os.getenv("VECTOR_TOP_K", "10"))
     SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.5"))
@@ -144,6 +184,21 @@ class Config:
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     RQ_QUEUE_NAME = os.getenv("RQ_QUEUE_NAME", "cyberguard-security")
     RQ_ASYNC = _env_bool("RQ_ASYNC", False)
+    SCAN_TASK_MAX_RETRIES = _env_int("SCAN_TASK_MAX_RETRIES", DEFAULT_SCAN_TASK_MAX_RETRIES)
+    SECURITY_RATE_LIMIT_PER_MINUTE = _env_int("SECURITY_RATE_LIMIT_PER_MINUTE", DEFAULT_SECURITY_RATE_LIMIT_PER_MINUTE)
+    SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE = _env_int("SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE", DEFAULT_SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE)
+
+    GITHUB_API_TIMEOUT_SECONDS = _env_int(
+        "GITHUB_API_TIMEOUT_SECONDS", DEFAULT_GITHUB_API_TIMEOUT_SECONDS
+    )
+    GITHUB_MAX_REDIRECTS = _env_int("GITHUB_MAX_REDIRECTS", DEFAULT_GITHUB_MAX_REDIRECTS)
+    SCA_OSV_ENABLED = _env_bool("SCA_OSV_ENABLED", False)
+    SCA_OSV_API_URL = os.getenv("SCA_OSV_API_URL", DEFAULT_SCA_OSV_API_URL)
+    SCA_REQUEST_TIMEOUT_SECONDS = _env_int(
+        "SCA_REQUEST_TIMEOUT_SECONDS", DEFAULT_SCA_REQUEST_TIMEOUT_SECONDS
+    )
+    SCA_CACHE_TTL_SECONDS = _env_int("SCA_CACHE_TTL_SECONDS", DEFAULT_SCA_CACHE_TTL_SECONDS)
+    SCA_MAX_DEPENDENCIES = _env_int("SCA_MAX_DEPENDENCIES", DEFAULT_SCA_MAX_DEPENDENCIES)
 
     CORS_ALLOWED_ORIGINS = normalize_cors_origins(
         _env_list("CORS_ALLOWED_ORIGINS", DEFAULT_CORS_ALLOWED_ORIGINS)
@@ -165,82 +220,159 @@ class Config:
         }
 
     @classmethod
-    def validate_security_settings(cls, settings: Mapping[str, Any] | None = None) -> None:
-        configuration = settings if settings is not None else {
-            "APP_ENV": cls.APP_ENV,
-            "SECRET_KEY": cls.SECRET_KEY,
-            "JWT_SECRET_KEY": cls.JWT_SECRET_KEY,
-            "CORS_ALLOWED_ORIGINS": cls.CORS_ALLOWED_ORIGINS,
-            "SECURITY_WORKSPACE_ROOT": cls.SECURITY_WORKSPACE_ROOT,
-            "REDIS_URL": cls.REDIS_URL,
-            "RQ_QUEUE_NAME": cls.RQ_QUEUE_NAME,
-            "RQ_ASYNC": cls.RQ_ASYNC,
-            "ARCHIVE_MAX_UPLOAD_BYTES": cls.ARCHIVE_MAX_UPLOAD_BYTES,
-            "ARCHIVE_MAX_EXTRACT_BYTES": cls.ARCHIVE_MAX_EXTRACT_BYTES,
-            "ARCHIVE_MAX_FILES": cls.ARCHIVE_MAX_FILES,
-            "ARCHIVE_MAX_DEPTH": cls.ARCHIVE_MAX_DEPTH,
-        }
+    def validate_security_settings(cls, settings: Mapping[str, Any] | Any | None = None) -> None:
+        """Validate security-sensitive settings from Flask mappings or config objects."""
+        configuration: Mapping[str, Any] | Any = settings if settings is not None else cls
 
         def setting(name: str, default: Any = "") -> Any:
-            return configuration.get(name, default)
+            if isinstance(configuration, Mapping):
+                return configuration.get(name, default)
+            return getattr(configuration, name, default)
 
-        app_env = str(setting("APP_ENV")).strip().lower()
+        def positive_int(name: str, default: int, *, maximum: int | None = None) -> int:
+            try:
+                value = int(setting(name, default))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{name} must be a positive integer") from exc
+            if value <= 0:
+                raise ValueError(f"{name} must be positive")
+            if maximum is not None and value > maximum:
+                raise ValueError(f"{name} must not exceed {maximum}")
+            return value
+
+        def boolean(name: str, default: bool) -> bool:
+            value = setting(name, default)
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str):
+                normalized = value.strip().lower()
+                if normalized in {"1", "true", "yes", "on"}:
+                    return True
+                if normalized in {"0", "false", "no", "off"}:
+                    return False
+            if isinstance(value, int) and value in {0, 1}:
+                return bool(value)
+            raise ValueError(f"{name} must be a boolean")
+
+        app_env = str(setting("APP_ENV", cls.APP_ENV)).strip().lower()
         if app_env not in {"development", "local", "testing", "staging", "production", "prod"}:
             raise ValueError(
                 "APP_ENV must be one of development, local, testing, staging, production, prod"
             )
 
-        origins = normalize_cors_origins(setting("CORS_ALLOWED_ORIGINS", []))
+        origins = normalize_cors_origins(setting("CORS_ALLOWED_ORIGINS", cls.CORS_ALLOWED_ORIGINS))
         if not origins:
             raise ValueError("CORS_ALLOWED_ORIGINS must contain at least one explicit origin")
 
         if app_env in {"production", "prod"}:
-            if not cls._is_strong_secret(setting("SECRET_KEY")):
+            if not cls._is_strong_secret(setting("SECRET_KEY", cls.SECRET_KEY)):
                 raise ValueError(
                     "SECRET_KEY must be at least 32 characters and not use a placeholder in production"
                 )
-            if not cls._is_strong_secret(setting("JWT_SECRET_KEY")):
+            if not cls._is_strong_secret(setting("JWT_SECRET_KEY", cls.JWT_SECRET_KEY)):
                 raise ValueError(
                     "JWT_SECRET_KEY must be at least 32 characters and not use a placeholder in production"
                 )
 
-        workspace_root = Path(str(setting("SECURITY_WORKSPACE_ROOT"))).expanduser()
+        workspace_root = Path(str(setting("SECURITY_WORKSPACE_ROOT", cls.SECURITY_WORKSPACE_ROOT))).expanduser()
         if not workspace_root.is_absolute():
             workspace_root = BASE_DIR / workspace_root
         workspace_root = workspace_root.resolve()
         if workspace_root == Path(workspace_root.anchor):
             raise ValueError("SECURITY_WORKSPACE_ROOT must not point to a filesystem root")
 
-        queue_name = str(setting("RQ_QUEUE_NAME")).strip()
+        queue_name = str(setting("RQ_QUEUE_NAME", cls.RQ_QUEUE_NAME)).strip()
         if not queue_name:
             raise ValueError("RQ_QUEUE_NAME must not be empty")
 
-        rq_async_value = setting("RQ_ASYNC", False)
+        rq_async_value = setting("RQ_ASYNC", cls.RQ_ASYNC)
         rq_async = (
             rq_async_value.strip().lower() in {"1", "true", "yes", "on"}
             if isinstance(rq_async_value, str)
             else bool(rq_async_value)
         )
+
+        positive_int(
+            "SCAN_TASK_MAX_RETRIES",
+            setting("SCAN_TASK_MAX_RETRIES", DEFAULT_SCAN_TASK_MAX_RETRIES),
+            maximum=MAX_SCAN_TASK_MAX_RETRIES,
+        )
+
+        positive_int(
+            "SECURITY_RATE_LIMIT_PER_MINUTE",
+            setting("SECURITY_RATE_LIMIT_PER_MINUTE", DEFAULT_SECURITY_RATE_LIMIT_PER_MINUTE),
+            maximum=10_000,
+        )
+        positive_int(
+            "SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE",
+            setting("SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE", DEFAULT_SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE),
+            maximum=1_000,
+        )
         if rq_async:
-            redis_url = str(setting("REDIS_URL")).strip()
+            redis_url = str(setting("REDIS_URL", cls.REDIS_URL)).strip()
             parsed = urlparse(redis_url)
             if parsed.scheme not in {"redis", "rediss"} or not parsed.netloc:
                 raise ValueError(
                     "REDIS_URL must be a redis:// or rediss:// URL when RQ_ASYNC is enabled"
                 )
 
-        upload_limit = int(setting("ARCHIVE_MAX_UPLOAD_BYTES", 0))
-        extract_limit = int(setting("ARCHIVE_MAX_EXTRACT_BYTES", 0))
-        file_limit = int(setting("ARCHIVE_MAX_FILES", 0))
-        depth_limit = int(setting("ARCHIVE_MAX_DEPTH", 0))
-        if upload_limit <= 0:
-            raise ValueError("ARCHIVE_MAX_UPLOAD_BYTES must be positive")
-        if extract_limit <= 0:
-            raise ValueError("ARCHIVE_MAX_EXTRACT_BYTES must be positive")
-        if file_limit <= 0:
-            raise ValueError("ARCHIVE_MAX_FILES must be positive")
-        if depth_limit <= 0:
-            raise ValueError("ARCHIVE_MAX_DEPTH must be positive")
+        upload_limit = positive_int("ARCHIVE_MAX_UPLOAD_BYTES", cls.ARCHIVE_MAX_UPLOAD_BYTES)
+        extract_limit = positive_int("ARCHIVE_MAX_EXTRACT_BYTES", cls.ARCHIVE_MAX_EXTRACT_BYTES)
+        positive_int("ARCHIVE_MAX_FILES", cls.ARCHIVE_MAX_FILES)
+        positive_int("ARCHIVE_MAX_DEPTH", cls.ARCHIVE_MAX_DEPTH)
         if extract_limit < upload_limit:
-            raise ValueError("ARCHIVE_MAX_EXTRACT_BYTES must be greater than or equal to ARCHIVE_MAX_UPLOAD_BYTES")
+            raise ValueError(
+                "ARCHIVE_MAX_EXTRACT_BYTES must be greater than or equal to ARCHIVE_MAX_UPLOAD_BYTES"
+            )
 
+        positive_int(
+            "GITHUB_API_TIMEOUT_SECONDS", cls.GITHUB_API_TIMEOUT_SECONDS, maximum=300
+        )
+        github_max_redirects = positive_int(
+            "GITHUB_MAX_REDIRECTS", cls.GITHUB_MAX_REDIRECTS, maximum=1
+        )
+        if github_max_redirects != 1:
+            raise ValueError("GITHUB_MAX_REDIRECTS must be exactly 1 for fixed-host archive retrieval")
+        osv_api_url = str(setting("SCA_OSV_API_URL", cls.SCA_OSV_API_URL)).strip()
+        parsed_osv_url = urlparse(osv_api_url)
+        if (
+            parsed_osv_url.scheme != "https"
+            or not parsed_osv_url.netloc
+            or parsed_osv_url.username
+            or parsed_osv_url.password
+            or parsed_osv_url.fragment
+        ):
+            raise ValueError("SCA_OSV_API_URL must be a credential-free HTTPS URL")
+        positive_int("SCA_REQUEST_TIMEOUT_SECONDS", cls.SCA_REQUEST_TIMEOUT_SECONDS, maximum=300)
+        positive_int("SCA_CACHE_TTL_SECONDS", cls.SCA_CACHE_TTL_SECONDS, maximum=31 * 24 * 60 * 60)
+        positive_int(
+            "SCA_MAX_DEPENDENCIES", cls.SCA_MAX_DEPENDENCIES, maximum=MAX_SCA_DEPENDENCIES
+        )
+
+        boolean("SECURITY_KNOWLEDGE_VECTOR_ENABLED", cls.SECURITY_KNOWLEDGE_VECTOR_ENABLED)
+        boolean("REMEDIATION_LLM_ENABLED", cls.REMEDIATION_LLM_ENABLED)
+        positive_int(
+            "REMEDIATION_MAX_CONTEXT_CHARS",
+            cls.REMEDIATION_MAX_CONTEXT_CHARS,
+            maximum=MAX_REMEDIATION_CONTEXT_CHARS,
+        )
+        positive_int(
+            "REMEDIATION_MAX_OUTPUT_CHARS",
+            cls.REMEDIATION_MAX_OUTPUT_CHARS,
+            maximum=MAX_REMEDIATION_OUTPUT_CHARS,
+        )
+        positive_int(
+            "REMEDIATION_RETRIEVAL_TOP_K",
+            cls.REMEDIATION_RETRIEVAL_TOP_K,
+            maximum=MAX_REMEDIATION_RETRIEVAL_TOP_K,
+        )
+        positive_int(
+            "REMEDIATION_PATCH_MAX_LINES",
+            cls.REMEDIATION_PATCH_MAX_LINES,
+            maximum=MAX_REMEDIATION_PATCH_MAX_LINES,
+        )
+        positive_int(
+            "REMEDIATION_PATCH_MAX_CHARS",
+            cls.REMEDIATION_PATCH_MAX_CHARS,
+            maximum=MAX_REMEDIATION_PATCH_MAX_CHARS,
+        )

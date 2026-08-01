@@ -12,14 +12,20 @@ from app.models.security import (
     FindingSeverity,
     FindingStatus,
     ProjectSnapshot,
+    RemediationReviewState,
+    RemediationSuggestion,
     ProjectSourceType,
     ScanTask,
     ScanTaskStatus,
+    SnapshotDependency,
     SecurityFinding,
+    SecurityKnowledgeDocument,
+    SecurityKnowledgeSource,
     SecurityProject,
     Workspace,
     WorkspaceMember,
     WorkspaceMemberRole,
+    VulnerabilityAdvisoryCache,
 )
 
 __all__ = [
@@ -28,6 +34,9 @@ __all__ = [
     "QAConversation", "QARecord", "Favorite", "FeedbackLog",
     "Workspace", "WorkspaceMember", "WorkspaceMemberRole",
     "SecurityProject", "ProjectSnapshot", "ProjectSourceType",
-    "ScanTask", "ScanTaskStatus", "SecurityFinding", "FindingSeverity",
+    "ScanTask", "ScanTaskStatus", "SnapshotDependency", "VulnerabilityAdvisoryCache",
+    "SecurityFinding", "FindingSeverity",
+    "SecurityKnowledgeSource", "SecurityKnowledgeDocument",
+    "RemediationSuggestion", "RemediationReviewState",
     "FindingStatus", "FindingCategory", "FindingEvidence", "EvidenceType", "AuditEvent",
 ]

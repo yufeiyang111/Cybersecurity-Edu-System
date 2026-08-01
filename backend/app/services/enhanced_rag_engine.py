@@ -11,15 +11,8 @@ from app.config import Config
 from app.services.vector_store import get_vector_store
 from app.services.graph_store import get_knowledge_graph
 from app.services.secbert_embedding import get_embedding_service
-from app.services.minimax_llm import MiniMaxLLM, get_minimax_llm
-
-# 通义千问（保留作为备用）
-try:
-    import dashscope
-    from dashscope import Generation
-    DASHSCOPE_AVAILABLE = True
-except ImportError:
-    DASHSCOPE_AVAILABLE = False
+from app.services.llm import LLMRequest, LLMResponse
+from app.services.remediation.providers import select_configured_provider
 
 
 class Reranker:
@@ -125,19 +118,10 @@ class EnhancedRAGEngine:
         self.embedding_service = get_embedding_service()
         self.reranker = Reranker()
 
-        # LLM 配置 - 优先使用 MiniMax
-        self.llm_provider = "minimax"  # 或 "dashscope"
-        self.api_key = Config.MINIMAX_API_KEY
-        self.model_name = Config.MINIMAX_MODEL
-
-        # 初始化 MiniMax LLM
-        if self.api_key:
-            self.minimax_llm = MiniMaxLLM(
-                api_key=self.api_key,
-                model=self.model_name
-            )
-        else:
-            self.minimax_llm = None
+        # Provider is selected lazily so the RAG engine does not import a concrete SDK.
+        self.llm_provider = None
+        self.api_key = None
+        self.model_name = None
 
     def retrieve(self, query: str, top_k: int = None) -> List[Dict]:
         """混合检索：向量检索 + 知识图谱检索 + RRF融合"""
@@ -295,140 +279,104 @@ class EnhancedRAGEngine:
         conversation_history: List[Dict] = None,
         retrieved_docs: List[Dict] = None
     ) -> Dict[str, Any]:
-        """调用 LLM 生成答案（优先使用 MiniMax）"""
+        """Generate an answer through the shared Provider contract."""
         start_time = time.time()
-
-        # 构建消息
         messages = self.build_prompt(query, context, conversation_history)
+        provider = self._get_llm_provider()
+        if provider is None:
+            return self._unavailable_result(start_time)
 
-        # 优先使用 MiniMax
-        if self.minimax_llm and self.api_key:
-            try:
-                response = self.minimax_llm.chat(messages)
+        request = LLMRequest(
+            prompt=_render_messages_for_provider(messages),
+            system_prompt=_system_prompt_from_messages(messages),
+            max_tokens=2048,
+        )
+        try:
+            response = provider.generate(request)
+        except Exception:
+            return self._provider_failure_result(
+                provider,
+                start_time,
+                warning_code="LLM_PROVIDER_REQUEST_FAILED",
+            )
+        if not isinstance(response, LLMResponse):
+            return self._provider_failure_result(
+                provider,
+                start_time,
+                warning_code="LLM_PROVIDER_RESPONSE_INVALID",
+            )
+        if not response.is_success:
+            return self._provider_failure_result(
+                provider,
+                start_time,
+                warning_code=response.warning_code or "LLM_PROVIDER_FAILED",
+                response=response,
+            )
 
-                elapsed_time = time.time() - start_time
-
-                # 调试：打印完整响应
-                import sys
-                print(f"[MiniMax API] 完整响应: {response}", flush=True)
-                sys.stdout.flush()
-
-                if response.get("status_code") == 200:
-                    # 兼容不同的响应格式
-                    output = response.get("output", {})
-                    if isinstance(output, dict) and "choices" in output:
-                        answer = output["choices"][0]["message"]["content"]
-                    elif isinstance(output, dict) and "text" in output:
-                        answer = output["text"]
-                    else:
-                        answer = str(output)
-
-                    # 提取来源信息
-                    sources = []
-                    if retrieved_docs:
-                        for doc in retrieved_docs[:3]:
-                            metadata = doc.get("metadata", {})
-                            source_info = {
-                                "title": metadata.get("title", ""),
-                                "source": metadata.get("source", ""),
-                                "similarity": doc.get("similarity", 0)
-                            }
-                            if source_info not in sources:
-                                sources.append(source_info)
-
-                    return {
-                        "answer": answer,
-                        "sources": sources,
-                        "confidence": self._calculate_confidence(retrieved_docs),
-                        "model_name": f"MiniMax-{self.model_name}",
-                        "response_time": elapsed_time
-                    }
-                else:
-                    return {
-                        "answer": f"生成失败：{response.get('message', '未知错误')}",
-                        "sources": [],
-                        "confidence": 0.0,
-                        "model_name": f"MiniMax-{self.model_name}",
-                        "response_time": elapsed_time,
-                        "error": response.get("message", "")
-                    }
-
-            except Exception as e:
-                import sys
-                import traceback
-                print(f"[生成异常] {str(e)}", flush=True)
-                print(f"[生成异常] traceback: {traceback.format_exc()}", flush=True)
-                sys.stdout.flush()
-                return {
-                    "answer": f"生成过程出错：{str(e)}",
-                    "sources": [],
-                    "confidence": 0.0,
-                    "model_name": f"MiniMax-{self.model_name}",
-                    "response_time": time.time() - start_time,
-                    "error": str(e)
-                }
-
-        # 备用：使用 DashScope 通义千问
-        elif DASHSCOPE_AVAILABLE and Config.DASHSCOPE_API_KEY:
-            try:
-                response = Generation.call(
-                    model=Config.DASHSCOPE_MODEL,
-                    messages=messages,
-                    result_format="message",
-                    api_key=Config.DASHSCOPE_API_KEY
-                )
-
-                elapsed_time = time.time() - start_time
-
-                if response.status_code == 200:
-                    answer = response.output.choices[0].message.content
-
-                    sources = []
-                    if retrieved_docs:
-                        for doc in retrieved_docs[:3]:
-                            metadata = doc.get("metadata", {})
-                            source_info = {
-                                "title": metadata.get("title", ""),
-                                "source": metadata.get("source", ""),
-                                "similarity": doc.get("similarity", 0)
-                            }
-                            if source_info not in sources:
-                                sources.append(source_info)
-
-                    return {
-                        "answer": answer,
-                        "sources": sources,
-                        "confidence": self._calculate_confidence(retrieved_docs),
-                        "model_name": Config.DASHSCOPE_MODEL,
-                        "response_time": elapsed_time
-                    }
-                else:
-                    return {
-                        "answer": f"生成失败：{response.message}",
-                        "sources": [],
-                        "confidence": 0.0,
-                        "model_name": Config.DASHSCOPE_MODEL,
-                        "response_time": elapsed_time,
-                        "error": response.message
-                    }
-
-            except Exception as e:
-                return {
-                    "answer": f"生成过程出错：{str(e)}",
-                    "sources": [],
-                    "confidence": 0.0,
-                    "model_name": Config.DASHSCOPE_MODEL,
-                    "response_time": time.time() - start_time,
-                    "error": str(e)
-                }
-
-        # 都没有配置
         return {
-            "answer": "LLM服务暂不可用，请检查API配置。\n\n请在 .env 文件中配置 MINIMAX_API_KEY 或 DASHSCOPE_API_KEY",
+            "answer": response.text,
+            "sources": self._source_payload(retrieved_docs),
+            "confidence": self._calculate_confidence(retrieved_docs),
+            "model_name": response.model,
+            "provider": response.provider_name,
+            "model_version": response.model_version,
+            "response_time": _response_time_seconds(response, start_time),
+            "warning_code": response.warning_code,
+            "usage": response.usage,
+        }
+
+    def _get_llm_provider(self):
+        """Get the configured remote Provider from the shared selector."""
+        try:
+            return select_configured_provider()
+        except RuntimeError:
+            # Offline retrieval can continue without a Flask application context.
+            return None
+
+    def _source_payload(self, retrieved_docs: List[Dict] = None) -> list[dict]:
+        sources: list[dict] = []
+        for doc in (retrieved_docs or [])[:3]:
+            metadata = doc.get("metadata", {})
+            source_info = {
+                "title": metadata.get("title", ""),
+                "source": metadata.get("source", ""),
+                "similarity": doc.get("similarity", 0),
+            }
+            if source_info not in sources:
+                sources.append(source_info)
+        return sources
+
+    def _unavailable_result(self, start_time: float) -> Dict[str, Any]:
+        return {
+            "answer": "LLM服务暂不可用，请检查 Provider 配置。",
             "sources": [],
             "confidence": 0.0,
             "model_name": None,
-            "error": "API未配置"
+            "provider": None,
+            "model_version": None,
+            "response_time": time.time() - start_time,
+            "error": "API未配置",
+            "warning_code": "LLM_PROVIDER_UNAVAILABLE",
+        }
+
+    def _provider_failure_result(
+        self,
+        provider: object,
+        start_time: float,
+        *,
+        warning_code: str,
+        response: LLMResponse | None = None,
+    ) -> Dict[str, Any]:
+        return {
+            "answer": "生成失败：当前 LLM Provider 不可用。",
+            "sources": [],
+            "confidence": 0.0,
+            "model_name": response.model if response else getattr(provider, "model", None),
+            "provider": response.provider_name if response else getattr(provider, "provider_name", None),
+            "model_version": response.model_version if response else getattr(provider, "model_version", None),
+            "response_time": _response_time_seconds(response, start_time),
+            "error": warning_code,
+            "warning_code": warning_code,
         }
 
     def _calculate_confidence(self, retrieved_docs: List[Dict]) -> float:
@@ -499,70 +447,41 @@ class EnhancedRAGEngine:
         return result
 
     def get_suggested_questions(self, query: str) -> List[str]:
-        """根据问题推荐相关追问"""
-        suggestions = []
+        """Generate follow-up questions through the shared Provider contract."""
+        suggestions: list[str] = []
+        prompt = f"""\u57fa\u4e8e\u4ee5\u4e0b\u7f51\u7edc\u5b89\u5168\u95ee\u9898\uff0c\u751f\u62103\u4e2a\u76f8\u5173\u7684\u8ffd\u95ee\u5efa\u8bae\u3002
+\u8ffd\u95ee\u5e94\u8be5\uff1a
+1. \u6df1\u5165\u63a2\u8ba8\u539f\u95ee\u9898\u7684\u67d0\u4e2a\u65b9\u9762
+2. \u6d89\u53ca\u76f8\u5173\u7684\u5b9e\u9645\u5e94\u7528\u573a\u666f
+3. \u8be2\u95ee\u539f\u7406\u6216\u6700\u4f73\u5b9e\u8df5
 
-        prompt = f"""基于以下网络安全问题，生成3个相关的追问建议。
-追问应该：
-1. 深入探讨原问题的某个方面
-2. 涉及相关的实际应用场景
-3. 询问原理或最佳实践
+\u95ee\u9898\uff1a{query}
 
-问题：{query}
-
-请只输出追问建议，每行一个，格式为"追问：xxx"。"""
-
-        # 优先使用 MiniMax
-        if self.minimax_llm and self.api_key:
+\u8bf7\u53ea\u8f93\u51fa\u8ffd\u95ee\u5efa\u8bae\uff0c\u6bcf\u884c\u4e00\u4e2a\uff0c\u683c\u5f0f\u4e3a\"\u8ffd\u95ee\uff1axxx\"\u3002"""
+        provider = self._get_llm_provider()
+        if provider is not None:
             try:
-                messages = [{"role": "user", "content": prompt}]
-                response = self.minimax_llm.chat(messages)
-
-                if response.get("status_code") == 200:
-                    content = response["output"]["choices"][0]["message"]["content"]
-                    for line in content.split("\n"):
-                        line = line.strip()
-                        if "追问" in line or "？" in line or "?" in line:
-                            line = line.replace("追问：", "").replace("追问:", "").strip()
-                            if line and len(line) > 5:
-                                suggestions.append(line)
+                response = provider.generate(LLMRequest(prompt=prompt, max_tokens=512))
+                if isinstance(response, LLMResponse) and response.is_success and response.text:
+                    for line in response.text.splitlines():
+                        normalized = line.strip().replace("\u8ffd\u95ee\uff1a", "").replace("\u8ffd\u95ee:", "").strip()
+                        if normalized and len(normalized) > 5:
+                            suggestions.append(normalized)
             except Exception:
-                pass
+                suggestions = []
 
-        # 备用：使用 DashScope
-        elif DASHSCOPE_AVAILABLE and Config.DASHSCOPE_API_KEY:
-            try:
-                response = Generation.call(
-                    model=Config.DASHSCOPE_MODEL,
-                    messages=[{"role": "user", "content": prompt}],
-                    result_format="message",
-                    api_key=Config.DASHSCOPE_API_KEY
-                )
-
-                if response.status_code == 200:
-                    content = response.output.choices[0].message.content
-                    for line in content.split("\n"):
-                        line = line.strip()
-                        if "追问" in line or "？" in line or "?" in line:
-                            line = line.replace("追问：", "").replace("追问:", "").strip()
-                            if line and len(line) > 5:
-                                suggestions.append(line)
-            except Exception:
-                pass
-
-        # 如果LLM不可用或未返回足够建议，使用默认模板
         if len(suggestions) < 3:
+            topic = query.split()[0] if query.split() else "\u8fd9\u4e2a"
             default_suggestions = [
-                f"能详细解释一下{query.split()[0] if query.split() else '这个'}概念吗？",
-                f"{query}在实际场景中如何应用？",
-                f"有什么相关的安全案例？",
-                f"{query}的防御措施有哪些？",
-                f"{query}的原理是什么？"
+                f"\u80fd\u8be6\u7ec6\u89e3\u91ca\u4e00\u4e0b{topic}\u6982\u5ff5\u5417\uff1f",
+                f"{query}\u5728\u5b9e\u9645\u573a\u666f\u4e2d\u5982\u4f55\u5e94\u7528\uff1f",
+                "\u6709\u4ec0\u4e48\u76f8\u5173\u7684\u5b89\u5168\u6848\u4f8b\uff1f",
+                f"{query}\u7684\u9632\u5fa1\u63aa\u65bd\u6709\u54ea\u4e9b\uff1f",
+                f"{query}\u7684\u539f\u7406\u662f\u4ec0\u4e48\uff1f",
             ]
-            for sug in default_suggestions:
-                if sug not in suggestions and len(suggestions) < 3:
-                    suggestions.append(sug)
-
+            for suggestion in default_suggestions:
+                if suggestion not in suggestions and len(suggestions) < 3:
+                    suggestions.append(suggestion)
         return suggestions[:3]
 
     def index_knowledge(self, knowledge_items: List[Dict]) -> Dict[str, int]:
@@ -735,6 +654,29 @@ class EnhancedRAGEngine:
 
 # 全局单例
 enhanced_rag_engine = None
+
+
+def _system_prompt_from_messages(messages: List[Dict]) -> str | None:
+    system_messages = [message.get("content", "") for message in messages if message.get("role") == "system"]
+    return "\n\n".join(content for content in system_messages if content) or None
+
+
+def _render_messages_for_provider(messages: List[Dict]) -> str:
+    rendered = []
+    for message in messages:
+        role = str(message.get("role", "user")).strip() or "user"
+        content = str(message.get("content", ""))
+        if role == "system":
+            continue
+        rendered.append(f"[{role}]\n{content}")
+    return "\n\n".join(rendered)
+
+
+def _response_time_seconds(response: LLMResponse | None, started: float) -> float:
+    if response is not None and response.latency_ms is not None:
+        return response.latency_ms / 1000
+    return time.time() - started
+
 
 def get_enhanced_rag_engine() -> EnhancedRAGEngine:
     global enhanced_rag_engine

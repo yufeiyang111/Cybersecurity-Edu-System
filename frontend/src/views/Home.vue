@@ -65,7 +65,7 @@
           <div class="hero-actions">
             <el-button v-if="userStore.isLoggedIn" type="success" size="large" @click="$router.push('/security/projects')">
               <el-icon><Connection /></el-icon>
-              ???????
+              安全工作台
             </el-button>
             <el-button type="primary" size="large" @click="$router.push('/qa')">
               <el-icon><ChatDotRound /></el-icon>

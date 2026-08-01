@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import sys
 import types
@@ -25,6 +25,7 @@ def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         "app.routes.qa": "qa_bp",
         "app.routes.admin": "admin_bp",
         "app.routes.projects": "projects_bp",
+        "app.routes.llm_health": "llm_health_bp",
     }.items():
         module = types.ModuleType(module_name)
         blueprint = Blueprint(blueprint_name, module_name)
@@ -100,6 +101,15 @@ def test_validate_security_settings_rejects_insecure_config(
         kwargs["REDIS_URL"] = ""
     with pytest.raises(ValueError, match=message):
         create_app(_make_config(tmp_path, **kwargs))
+
+
+def test_validate_security_settings_rejects_unbounded_scan_retries(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _install_route_stubs(monkeypatch)
+    with pytest.raises(ValueError, match="SCAN_TASK_MAX_RETRIES"):
+        create_app(_make_config(tmp_path, SCAN_TASK_MAX_RETRIES=11))
 
 
 def test_validate_security_settings_reads_environment_at_call_time(monkeypatch: pytest.MonkeyPatch) -> None:

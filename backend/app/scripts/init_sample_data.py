@@ -151,14 +151,14 @@ def init_suggested_questions():
         ("SQL注入", ["SQL注入的原理是什么？", "如何预防SQL注入攻击？", "有哪些著名的SQL注入案例？"]),
         ("XSS攻击", ["XSS攻击有哪些类型？", "如何防止XSS攻击？", "CSP是什么？"]),
         ("CSRF", ["CSRF和XSS有什么区别？", "如何防范CSRF攻击？", "SameSite Cookie如何使用？"]),
-        ("密码加密", ["什么是对称加密？", ["非对称加密的优缺点？", "AES和RSA哪个更安全？"]),
-        ("渗透测试", ["渗透测试的流程是什么？", ["nmap有哪些常用命令？", "Metasploit如何使用？"]),
-        ("应急响应", ["如何处理安全事件？", ["数字取证的基本流程？", ["如何进行溯源分析？"]]),
+        ("密码加密", ["什么是对称加密？", "非对称加密的优缺点？", "AES和RSA哪个更安全？"]),
+        ("渗透测试", ["渗透测试的流程是什么？", "nmap有哪些常用命令？", "Metasploit如何使用？"]),
+        ("应急响应", ["如何处理安全事件？", "数字取证的基本流程？", "如何进行溯源分析？"]),
     ]
 
     created = 0
     for question, related in suggestions:
-        existing = SuggestedQuestion.query.filter_by(question__contains=question[:20]).first()
+        existing = SuggestedQuestion.query.filter_by(question=question).first()
         if not existing:
             sq = SuggestedQuestion(
                 question=question,

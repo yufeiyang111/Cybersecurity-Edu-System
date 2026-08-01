@@ -36,13 +36,19 @@ const routes = [
     path: '/security/projects',
     name: 'SecurityProjects',
     component: () => import('@/views/security/Projects.vue'),
-    meta: { title: '???????', requiresAuth: true }
+    meta: { title: '安全项目', requiresAuth: true }
   },
   {
     path: '/security/projects/:id',
     name: 'SecurityProjectDetail',
     component: () => import('@/views/security/ProjectDetail.vue'),
-    meta: { title: '??????', requiresAuth: true }
+    meta: { title: '安全知识治理', requiresAuth: true }
+  },
+  {
+    path: '/security/knowledge',
+    name: 'SecurityKnowledge',
+    component: () => import('@/views/security/Knowledge.vue'),
+    meta: { title: '安全知识治理', requiresAuth: true }
   },
   {
     path: '/knowledge',

@@ -1,4 +1,4 @@
-﻿"""Deterministic Python baseline scanner.
+"""Deterministic Python baseline scanner.
 
 The scanner reads source files as UTF-8 text only. It does not import, execute,
 or install anything from the scanned snapshot.
@@ -21,6 +21,10 @@ SECRET_ASSIGNMENT = re.compile(
 
 class PythonScanner(BaseLanguageScanner):
     language = "python"
+    scanner_name = "python-baseline"
+    scanner_version = "1.0.0"
+    supported_languages = ("python",)
+    categories = ("sast", "secret")
 
     def can_handle(self, snapshot_root: Path) -> bool:
         return bool(list(snapshot_root.rglob("*.py"))) or any(
