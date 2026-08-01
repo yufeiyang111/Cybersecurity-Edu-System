@@ -7,7 +7,13 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
+    AgreementCheckbox: typeof import('./components/auth/AgreementCheckbox.vue')['default']
     AiSecurityInsight: typeof import('./components/security/project/AiSecurityInsight.vue')['default']
+    AuthFooter: typeof import('./components/auth/AuthFooter.vue')['default']
+    AuthFormContainer: typeof import('./components/auth/AuthFormContainer.vue')['default']
+    AuthLayout: typeof import('./components/auth/AuthLayout.vue')['default']
+    AuthSwitchLink: typeof import('./components/auth/AuthSwitchLink.vue')['default']
+    BrandPanel: typeof import('./components/auth/BrandPanel.vue')['default']
     CitationList: typeof import('./components/security/project/CitationList.vue')['default']
     DependencyInventoryTable: typeof import('./components/security/dependencies/DependencyInventoryTable.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
@@ -47,6 +53,7 @@ declare module 'vue' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     FindingCard: typeof import('./components/security/project/FindingCard.vue')['default']
     FindingSeverityTag: typeof import('./components/security/FindingSeverityTag.vue')['default']
+    FormInput: typeof import('./components/auth/FormInput.vue')['default']
     GitHubImportDialog: typeof import('./components/security/import/GitHubImportDialog.vue')['default']
     ImportSafetyNotice: typeof import('./components/security/import/ImportSafetyNotice.vue')['default']
     KnowledgeCard: typeof import('./components/KnowledgeCard.vue')['default']
@@ -55,6 +62,7 @@ declare module 'vue' {
     KnowledgeSourceDialog: typeof import('./components/security/knowledge/KnowledgeSourceDialog.vue')['default']
     KnowledgeSourceList: typeof import('./components/security/knowledge/KnowledgeSourceList.vue')['default']
     MarkdownRenderer: typeof import('./components/MarkdownRenderer.vue')['default']
+    PasswordInput: typeof import('./components/auth/PasswordInput.vue')['default']
     PatchDiffViewer: typeof import('./components/security/project/PatchDiffViewer.vue')['default']
     QuestionCard: typeof import('./components/QuestionCard.vue')['default']
     RemediationReviewDialog: typeof import('./components/security/project/RemediationReviewDialog.vue')['default']
@@ -66,6 +74,7 @@ declare module 'vue' {
     ScanTaskTable: typeof import('./components/security/project/ScanTaskTable.vue')['default']
     ScaScanStatusCard: typeof import('./components/security/dependencies/ScaScanStatusCard.vue')['default']
     StatCard: typeof import('./components/StatCard.vue')['default']
+    SubmitButton: typeof import('./components/auth/SubmitButton.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']
