@@ -6,6 +6,7 @@
 import { computed } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
+import DOMPurify from 'dompurify'
 
 marked.setOptions({
   highlight: function(code, lang) {
@@ -22,12 +23,17 @@ const props = defineProps({
   content: {
     type: String,
     default: ''
+  },
+  sanitize: {
+    type: Boolean,
+    default: false
   }
 })
 
 const renderedContent = computed(() => {
   if (!props.content) return ''
-  return marked(props.content)
+  const html = marked(props.content)
+  return props.sanitize ? DOMPurify.sanitize(html) : html
 })
 </script>
 

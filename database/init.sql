@@ -519,3 +519,15 @@ CREATE TABLE IF NOT EXISTS remediation_suggestions (
     INDEX ix_remediation_suggestions_finding_created (finding_id, created_at),
     INDEX ix_remediation_suggestions_review_state (review_state)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Human-reviewable remediation suggestions';
+
+CREATE TABLE IF NOT EXISTS policy_documents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    slug VARCHAR(64) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    version INT NOT NULL DEFAULT 1,
+    updated_by VARCHAR(50) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_policy_documents_slug UNIQUE (slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Public-facing legal policy documents';

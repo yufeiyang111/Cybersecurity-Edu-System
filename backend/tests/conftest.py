@@ -50,6 +50,7 @@ def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         "app.routes.admin": "admin_bp",
         "app.routes.projects": "projects_bp",
         "app.routes.llm_health": "llm_health_bp",
+        "app.routes.policies": "policies_bp",
     }.items():
         module = types.ModuleType(module_name)
         blueprint = Blueprint(blueprint_name, module_name)

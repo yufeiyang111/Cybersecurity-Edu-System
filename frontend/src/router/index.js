@@ -21,6 +21,12 @@ const routes = [
     meta: { title: '注册', guest: true }
   },
   {
+    path: '/policies/:slug',
+    name: 'PolicyView',
+    component: () => import('@/views/PolicyView.vue'),
+    meta: { title: '政策文档' }
+  },
+  {
     path: '/qa',
     name: 'QA',
     component: () => import('@/views/QA.vue'),
@@ -123,6 +129,12 @@ const routes = [
         name: 'AdminKnowledge',
         component: () => import('@/views/admin/Knowledge.vue'),
         meta: { title: '知识管理' }
+      },
+      {
+        path: 'policies',
+        name: 'AdminPolicies',
+        component: () => import('@/views/admin/PolicyEditor.vue'),
+        meta: { title: '政策文档' }
       }
     ]
   }

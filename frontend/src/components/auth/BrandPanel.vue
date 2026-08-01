@@ -1,5 +1,8 @@
 <template>
-  <div class="brand-panel">
+  <div
+    class="brand-panel"
+    :class="{ 'brand-panel--compact': compact }"
+  >
     <div class="brand-panel__top">
       <div class="brand-panel__logo">
         <span class="brand-panel__logo-mark" aria-hidden="true">
@@ -15,10 +18,10 @@
         </span>
         <span class="brand-panel__logo-label">{{ logoLabel }}</span>
       </div>
-      <p class="brand-panel__tagline">{{ tagline }}</p>
+      <p v-if="tagline" class="brand-panel__tagline">{{ tagline }}</p>
     </div>
 
-    <div class="brand-panel__headline">
+    <div v-if="!compact" class="brand-panel__headline">
       <h1 class="brand-panel__title">{{ brandTitle }}</h1>
       <p class="brand-panel__subtitle">{{ brandSubtitle }}</p>
     </div>
@@ -32,11 +35,12 @@
 
 <script setup>
 defineProps({
-  logoLabel: { type: String, default: 'HaoAI' },
-  brandTitle: { type: String, default: 'HaoAI' },
-  brandSubtitle: { type: String, default: '模型清晰，价格透明，从容开始。' },
-  tagline: { type: String, default: '企业级安全运营与 DevSecOps 工作台' },
-  footerNote: { type: String, default: '' }
+  logoLabel: { type: String, default: 'CyberGuard' },
+  brandTitle: { type: String, default: 'CyberGuard' },
+  brandSubtitle: { type: String, default: '企业级安全运营与 DevSecOps 工作台' },
+  tagline: { type: String, default: '安全、透明、可信。' },
+  footerNote: { type: String, default: '' },
+  compact: { type: Boolean, default: false }
 })
 </script>
 
@@ -131,6 +135,24 @@ defineProps({
 
     &__subtitle {
       max-width: none;
+    }
+  }
+
+  &--compact {
+    gap: 32px;
+    justify-content: center;
+
+    .brand-panel__logo-mark svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .brand-panel__logo-label {
+      font-size: 18px;
+    }
+
+    .brand-panel__tagline {
+      font-size: 13px;
     }
   }
 }

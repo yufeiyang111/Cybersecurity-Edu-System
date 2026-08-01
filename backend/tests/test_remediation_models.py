@@ -269,6 +269,7 @@ def test_phase_three_schema_is_in_init_sql_and_ordered_migration_runner():
         "002_github_multilang_sca",
         "003_trusted_agent_rag_remediation",
         "004_phase4_task_reliability",
+        "005_legal_policies",
     )
     assert len(_statements(migration_sql)) == 3
     for table_name in (
@@ -290,7 +291,7 @@ def test_phase_four_migration_is_additive_and_registered():
     migration_path = repository_root / "database" / "migrations" / "004_phase4_task_reliability.sql"
     migration_sql = migration_path.read_text(encoding="utf-8")
 
-    assert MIGRATION_IDS[-1] == "004_phase4_task_reliability"
+    assert "004_phase4_task_reliability" in MIGRATION_IDS
     assert migration_path.exists()
     assert "ALTER TABLE scan_tasks" in migration_sql
     assert "dispatch_key" in migration_sql

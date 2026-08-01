@@ -53,7 +53,7 @@
 
           <SubmitButton :loading="submitting" text="注册" />
 
-          <AuthFooter text="注册即表示您同意用户协议及隐私政策" />
+          <AuthFooter text="注册即表示您同意" />
           <AuthSwitchLink hint="已有账号？" action="立即登录" to="/login" />
         </form>
       </AuthFormContainer>

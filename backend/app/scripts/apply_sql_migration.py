@@ -13,6 +13,7 @@ MIGRATION_IDS = (
     "002_github_multilang_sca",
     "003_trusted_agent_rag_remediation",
     "004_phase4_task_reliability",
+    "005_legal_policies",
 )
 
 

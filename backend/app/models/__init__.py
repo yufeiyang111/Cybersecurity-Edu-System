@@ -4,6 +4,7 @@
 from app.models.user import User, Role, LoginLog
 from app.models.knowledge import Category, KnowledgeItem, KnowledgeTag, KnowledgeFavorite
 from app.models.qa import QAConversation, QARecord, Favorite, FeedbackLog
+from app.models.policy import PolicyDocument
 from app.models.security import (
     AuditEvent,
     EvidenceType,
@@ -32,6 +33,7 @@ __all__ = [
     "User", "Role", "LoginLog",
     "Category", "KnowledgeItem", "KnowledgeTag", "KnowledgeFavorite",
     "QAConversation", "QARecord", "Favorite", "FeedbackLog",
+    "PolicyDocument",
     "Workspace", "WorkspaceMember", "WorkspaceMemberRole",
     "SecurityProject", "ProjectSnapshot", "ProjectSourceType",
     "ScanTask", "ScanTaskStatus", "SnapshotDependency", "VulnerabilityAdvisoryCache",

@@ -29,14 +29,14 @@
         我已阅读并同意
         <a
           class="agreement-checkbox__link"
-          href="#"
-          @click.prevent.stop
+          href="/policies/terms"
+          @click.prevent.stop="goPolicy('/policies/terms')"
         >《用户协议》</a>
         及
         <a
           class="agreement-checkbox__link"
-          href="#"
-          @click.prevent.stop
+          href="/policies/privacy"
+          @click.prevent.stop="goPolicy('/policies/privacy')"
         >《隐私政策》</a>
       </span>
     </label>
@@ -45,6 +45,8 @@
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
+
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   error: { type: String, default: '' }
@@ -52,8 +54,14 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
+const router = useRouter()
+
 function handleChange(event) {
   emit('update:modelValue', event.target.checked)
+}
+
+function goPolicy(path) {
+  router.push(path)
 }
 </script>
 

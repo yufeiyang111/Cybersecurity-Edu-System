@@ -191,4 +191,11 @@ export const systemAPI = {
   health: () => api.get('/health')
 }
 
+// 政策文档相关
+export const policyAPI = {
+  list: () => api.get('/policies'),
+  get: (slug) => api.get(`/policies/${slug}`),
+  update: (slug, data) => api.put(`/policies/${slug}`, data)
+}
+
 export default api

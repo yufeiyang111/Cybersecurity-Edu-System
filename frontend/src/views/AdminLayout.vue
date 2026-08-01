@@ -10,6 +10,7 @@
           <router-link to="/admin/dashboard">系统概览</router-link>
           <router-link to="/admin/users">用户管理</router-link>
           <router-link to="/admin/knowledge">知识管理</router-link>
+          <router-link to="/admin/policies">政策文档</router-link>
           <router-link to="/">返回前台</router-link>
         </nav>
         <div class="user-info">
