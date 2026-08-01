@@ -25,6 +25,20 @@ def generate_token(user_id, role):
         additional_claims={"role": role}
     )
 
+
+def issue_tokens(user):
+    """统一签发 access/refresh token，供登录与 OAuth 登录复用"""
+    from flask_jwt_extended import create_access_token, create_refresh_token
+    access_token = create_access_token(
+        identity=str(user.id),
+        additional_claims={
+            "username": user.username,
+            "role": user.role.name if user.role else "guest",
+        },
+    )
+    refresh_token = create_refresh_token(identity=user.id)
+    return access_token, refresh_token
+
 def verify_token(token):
     """验证JWT令牌"""
     from flask_jwt_extended import decode_token

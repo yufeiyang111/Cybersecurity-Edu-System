@@ -21,6 +21,12 @@ const routes = [
     meta: { title: '注册', guest: true }
   },
   {
+    path: '/oauth/callback',
+    name: 'OAuthCallback',
+    component: () => import('@/views/OAuthCallback.vue'),
+    meta: { title: '第三方登录', guest: true }
+  },
+  {
     path: '/policies/:slug',
     name: 'PolicyView',
     component: () => import('@/views/PolicyView.vue'),

@@ -102,6 +102,14 @@ class Config:
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", DEFAULT_JWT_SECRET_PLACEHOLDER)
     JWT_ACCESS_TOKEN_EXPIRES = 86400
 
+    # OAuth 第三方登录（Google / GitHub）
+    OAUTH_BACKEND_BASE_URL = os.getenv("OAUTH_BACKEND_BASE_URL", "http://localhost:5001")
+    OAUTH_FRONTEND_URL = os.getenv("OAUTH_FRONTEND_URL", "http://localhost:5173")
+    GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+    GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+
     MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
     MYSQL_PORT = os.getenv("MYSQL_PORT", "3306")
     MYSQL_USER = os.getenv("MYSQL_USER", "root")

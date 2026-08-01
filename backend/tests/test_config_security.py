@@ -21,6 +21,7 @@ def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
 
     for module_name, blueprint_name in {
         "app.routes.auth": "auth_bp",
+        "app.routes.oauth": "oauth_bp",
         "app.routes.knowledge": "knowledge_bp",
         "app.routes.qa": "qa_bp",
         "app.routes.admin": "admin_bp",
@@ -31,6 +32,8 @@ def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         module = types.ModuleType(module_name)
         blueprint = Blueprint(blueprint_name, module_name)
         setattr(module, blueprint_name, blueprint)
+        if module_name == "app.routes.oauth":
+            setattr(module, "init_oauth", lambda app: None)
         monkeypatch.setitem(sys.modules, module_name, module)
 
 

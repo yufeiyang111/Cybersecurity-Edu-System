@@ -3,12 +3,11 @@
 """
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import (
-    create_access_token, create_refresh_token,
     jwt_required, get_jwt_identity, get_jwt
 )
 from app import db
 from app.models.user import User, Role
-from app.utils.auth import verify_password, hash_password
+from app.utils.auth import verify_password, hash_password, issue_tokens
 from app.services.rate_limit import rate_limit
 from datetime import datetime
 
@@ -83,16 +82,9 @@ def login():
     # 更新登录时间
     user.last_login_at = datetime.utcnow()
     db.session.commit()
-    
+
     # 创建 JWT token
-    access_token = create_access_token(
-        identity=str(user.id),  # 转换为字符串避免某些JWT版本问题
-        additional_claims={
-            "username": user.username,
-            "role": user.role.name if user.role else "guest"
-        }
-    )
-    refresh_token = create_refresh_token(identity=user.id)
+    access_token, refresh_token = issue_tokens(user)
     
     return jsonify({
         "message": "登录成功",
@@ -112,13 +104,7 @@ def refresh():
     if not user or not user.is_active:
         return jsonify({"error": "用户不存在或已禁用"}), 401
 
-    access_token = create_access_token(
-        identity=str(user.id),  # 转换为字符串
-        additional_claims={
-            "username": user.username,
-            "role": user.role.name if user.role else "guest"
-        }
-    )
+    access_token, _ = issue_tokens(user)
     
     return jsonify({
         "access_token": access_token,

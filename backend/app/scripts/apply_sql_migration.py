@@ -14,6 +14,7 @@ MIGRATION_IDS = (
     "003_trusted_agent_rag_remediation",
     "004_phase4_task_reliability",
     "005_legal_policies",
+    "006_oauth_login",
 )
 
 

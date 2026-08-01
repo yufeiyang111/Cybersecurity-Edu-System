@@ -37,15 +37,18 @@ ON DUPLICATE KEY UPDATE
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
-    email VARCHAR(100) NOT NULL UNIQUE COMMENT '邮箱',
-    password_hash VARCHAR(255) NOT NULL COMMENT '密码哈希',
+    email VARCHAR(100) UNIQUE COMMENT '邮箱',
+    password_hash VARCHAR(255) COMMENT '密码哈希',
     nickname VARCHAR(50) COMMENT '昵称',
     avatar_url VARCHAR(255) COMMENT '头像URL',
+    oauth_provider VARCHAR(20) COMMENT '第三方登录提供商',
+    oauth_subject VARCHAR(100) COMMENT '第三方账号唯一标识',
     role_id INT NOT NULL DEFAULT 3 COMMENT '角色ID',
     is_active BOOLEAN DEFAULT TRUE COMMENT '是否激活',
     last_login_at DATETIME COMMENT '最后登录时间',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_users_oauth (oauth_provider, oauth_subject),
     FOREIGN KEY (role_id) REFERENCES roles(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
 
