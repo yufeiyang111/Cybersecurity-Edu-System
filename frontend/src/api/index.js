@@ -68,7 +68,8 @@ export const authAPI = {
   updateProfile: (data) => api.put('/auth/me', data),
   changePassword: (data) => api.put('/auth/password', data),
   getLoginLogs: (params) => api.get('/auth/login-logs', { params }),
-  checkAvailable: (params) => api.get('/auth/check', { params })
+  checkAvailable: (params) => api.get('/auth/check', { params }),
+  bindOAuth: (provider) => api.post(`/auth/oauth/${provider}/bind`)
 }
 
 // 知识库相关

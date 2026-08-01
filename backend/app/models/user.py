@@ -52,6 +52,7 @@ class User(db.Model):
             "email": self.email,
             "nickname": self.nickname,
             "avatar_url": self.avatar_url,
+            "oauth_provider": self.oauth_provider,
             "role": self.role.name if self.role else "guest",
             "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None

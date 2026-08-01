@@ -92,15 +92,45 @@
         </el-form-item>
       </el-form>
     </el-card>
+
+    <el-card class="mt-16">
+      <template #header>
+        <div class="card-header">
+          <span>第三方账号绑定</span>
+        </div>
+      </template>
+
+      <p class="oauth-bind__desc">
+        绑定后，下次可直接使用对应的第三方账号登录当前账号，无需再输密码。
+      </p>
+
+      <div v-for="p in providers" :key="p.key" class="oauth-bind__item">
+        <span class="oauth-bind__name">{{ p.label }}</span>
+        <el-tag v-if="isBound(p.key)" type="success" effect="plain">已绑定</el-tag>
+        <el-tag v-else type="info" effect="plain">未绑定</el-tag>
+        <el-button
+          size="small"
+          type="primary"
+          plain
+          :loading="bindingKey === p.key"
+          @click="handleBind(p.key)"
+        >
+          {{ isBound(p.key) ? '更换绑定' : '绑定' }}
+        </el-button>
+      </div>
+    </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { authAPI } from '@/api'
 import { ElMessage } from 'element-plus'
 
 const userStore = useUserStore()
+const route = useRoute()
 const formRef = ref()
 const passwordFormRef = ref()
 const loading = ref(false)
@@ -160,6 +190,36 @@ const getRoleText = (role) => {
   }
   return texts[role] || role
 }
+
+const providers = [
+  { key: 'github', label: 'GitHub' },
+  { key: 'google', label: 'Google' }
+]
+const bindingKey = ref('')
+
+const isBound = (key) => userStore.user?.oauth_provider === key
+
+const handleBind = async (key) => {
+  bindingKey.value = key
+  try {
+    const res = await authAPI.bindOAuth(key)
+    window.location.href = res.url
+  } catch (error) {
+    bindingKey.value = ''
+  }
+}
+
+watch(
+  () => route.query.oauth_bind,
+  async (val) => {
+    if (val === 'ok') {
+      ElMessage.success('第三方账号绑定成功')
+      bindingKey.value = ''
+      await userStore.checkAuth()
+    }
+  },
+  { immediate: true }
+)
 
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
@@ -286,6 +346,32 @@ onMounted(() => {
         font-size: 12px;
         color: #909399;
       }
+    }
+  }
+
+  .oauth-bind {
+    &__desc {
+      margin: 0 0 16px;
+      font-size: 13px;
+      color: #909399;
+      line-height: 1.6;
+    }
+
+    &__item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    &__name {
+      flex: 1;
+      font-weight: 500;
     }
   }
 }

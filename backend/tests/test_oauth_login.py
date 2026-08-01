@@ -1,0 +1,213 @@
+"""OAuth 第三方登录与绑定流程测试（mock 外部授权，不发起真实网络请求）。"""
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+
+import pytest
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+
+class OAuthTestConfig:
+    APP_ENV = "testing"
+    DEBUG = False
+    TESTING = True
+    SECRET_KEY = "a" * 32
+    JWT_SECRET_KEY = "b" * 32
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]
+    SECURITY_WORKSPACE_ROOT = "security-workspaces"
+    UPLOAD_FOLDER = "uploads"
+    LOG_FILE = "logs/test.log"
+    OAUTH_BACKEND_BASE_URL = "http://localhost:5001"
+    OAUTH_FRONTEND_URL = "http://localhost:5173"
+    GOOGLE_CLIENT_ID = "test-google-id"
+    GOOGLE_CLIENT_SECRET = "test-google-secret"
+    GITHUB_CLIENT_ID = "test-github-id"
+    GITHUB_CLIENT_SECRET = "test-github-secret"
+    REDIS_URL = "redis://localhost:6379/0"
+    RQ_QUEUE_NAME = "cyberguard-security-test"
+    RQ_ASYNC = False
+
+
+class _FakeOAuthResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+@pytest.fixture()
+def app():
+    from app import create_app, db
+    import app.models
+
+    application = create_app(OAuthTestConfig)
+    with application.app_context():
+        db.create_all()
+        _seed_default_role()
+        yield application
+        db.session.remove()
+        db.drop_all()
+
+
+def _seed_default_role():
+    from app import db
+    from app.models.user import Role
+
+    if Role.query.filter_by(name="user").first() is None:
+        db.session.add(Role(name="user", description="普通用户"))
+        db.session.commit()
+
+
+def _mock_github(monkeypatch, payload=None):
+    from app.routes.oauth import oauth
+
+    github = oauth.github
+    monkeypatch.setattr(github, "authorize_access_token", lambda: {"access_token": "t"})
+    data = payload or {
+        "id": "1001",
+        "login": "octo",
+        "email": "octo@example.com",
+        "avatar_url": "https://example.com/a.png",
+        "name": "Octo",
+    }
+    monkeypatch.setattr(github, "get", lambda url: _FakeOAuthResponse(data))
+    return data
+
+
+def _mock_google(monkeypatch, payload=None):
+    from app.routes.oauth import oauth
+
+    google = oauth.google
+    monkeypatch.setattr(google, "authorize_access_token", lambda: {"access_token": "t"})
+    data = payload or {
+        "sub": "2002",
+        "email": "gmail@example.com",
+        "name": "Gopher",
+        "picture": "https://example.com/g.png",
+    }
+    monkeypatch.setattr(google, "get", lambda url: _FakeOAuthResponse(data))
+    return data
+
+
+def _create_user(username, email=None, **kwargs):
+    from app import db
+    from app.models.user import User
+
+    user = User(username=username, email=email, role_id=_default_role_id(), **kwargs)
+    db.session.add(user)
+    db.session.commit()
+    return user
+
+
+def _default_role_id():
+    from app.models.user import Role
+
+    return Role.query.filter_by(name="user").first().id
+
+
+def test_oauth_login_creates_new_user(app, monkeypatch):
+    data = _mock_github(monkeypatch)
+    client = app.test_client()
+
+    resp = client.get("/api/auth/oauth/github/callback")
+
+    assert resp.status_code == 302
+    location = resp.headers["Location"]
+    assert location.startswith("http://localhost:5173/oauth/callback?token=")
+
+    from app.models.user import User
+
+    user = User.query.filter_by(oauth_provider="github", oauth_subject=str(data["id"])).first()
+    assert user is not None
+    assert user.email == data["email"]
+    assert user.password_hash is None
+
+
+def test_oauth_login_reuses_bound_user(app, monkeypatch):
+    _mock_github(monkeypatch)
+    bound = _create_user("octo", email="octo@example.com", oauth_provider="github", oauth_subject="1001")
+    client = app.test_client()
+
+    resp = client.get("/api/auth/oauth/github/callback")
+
+    assert resp.status_code == 302
+    location = resp.headers["Location"]
+    assert location.startswith("http://localhost:5173/oauth/callback?token=")
+
+    from app.models.user import User
+
+    assert User.query.count() == 1
+    assert User.query.first().id == bound.id
+
+
+def test_oauth_login_rejects_taken_email(app, monkeypatch):
+    _mock_github(monkeypatch)
+    _create_user("someone", email="octo@example.com")
+    client = app.test_client()
+
+    resp = client.get("/api/auth/oauth/github/callback")
+
+    assert resp.status_code == 302
+    location = resp.headers["Location"]
+    assert location.startswith("http://localhost:5173/oauth/callback?error=")
+    assert "%E9%82%AE%E7%AE%B1%E5%B7%B2%E8%A2%AB%E6%B3%A8%E5%86%8C" in location
+
+
+def test_oauth_bind_links_third_party_to_current_user(app, monkeypatch):
+    _mock_github(monkeypatch)
+    user = _create_user("admin")
+    client = app.test_client()
+
+    with client.session_transaction() as sess:
+        sess["oauth_bind_user_id"] = str(user.id)
+
+    resp = client.get("/api/auth/oauth/github/callback")
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].startswith("http://localhost:5173/user/profile?oauth_bind=ok")
+
+    from app.models.user import User
+
+    assert User.query.get(user.id).oauth_provider == "github"
+    assert User.query.get(user.id).oauth_subject == "1001"
+
+
+def test_oauth_bind_rejects_third_party_bound_elsewhere(app, monkeypatch):
+    _mock_github(monkeypatch)
+    _create_user("owner", email="owner@example.com", oauth_provider="github", oauth_subject="1001")
+    other = _create_user("other")
+    client = app.test_client()
+
+    with client.session_transaction() as sess:
+        sess["oauth_bind_user_id"] = str(other.id)
+
+    resp = client.get("/api/auth/oauth/github/callback")
+
+    assert resp.status_code == 302
+    assert "error=" in resp.headers["Location"]
+
+    from app.models.user import User
+
+    assert User.query.get(other.id).oauth_provider is None
+
+
+def test_oauth_login_google_creates_new_user(app, monkeypatch):
+    data = _mock_google(monkeypatch)
+    client = app.test_client()
+
+    resp = client.get("/api/auth/oauth/google/callback")
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].startswith("http://localhost:5173/oauth/callback?token=")
+
+    from app.models.user import User
+
+    user = User.query.filter_by(oauth_provider="google", oauth_subject=str(data["sub"])).first()
+    assert user is not None
