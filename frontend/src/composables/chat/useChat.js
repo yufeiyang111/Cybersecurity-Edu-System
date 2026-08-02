@@ -1,10 +1,22 @@
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { qaAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 let keySeed = 0
+
+let typeTimer = null
+
+const stopTyping = () => {
+  if (typeTimer !== null) {
+    clearInterval(typeTimer)
+    typeTimer = null
+  }
+}
+
+const TYPE_TICK_MS = 16
+const TYPE_CHARS_PER_TICK = 3
 
 /**
  * 问答页核心状态与交互逻辑
@@ -13,6 +25,8 @@ let keySeed = 0
 export function useChat(threadRef) {
   const router = useRouter()
   const userStore = useUserStore()
+
+  onUnmounted(stopTyping)
 
   const messages = ref([])
   const conversations = ref([])
@@ -170,7 +184,32 @@ export function useChat(threadRef) {
     }
     for (const f of files || []) formData.append('files', f)
 
+    // 打字机分片渲染：无论后端块多大，都逐小片刷出
+    const typeBuffer = []
+    const feedTyping = (text) => {
+      typeBuffer.push(...Array.from(text))
+      if (typeTimer === null) {
+        typeTimer = setInterval(() => {
+          if (!typeBuffer.length) {
+            stopTyping()
+            return
+          }
+          assistantMsg.content += typeBuffer.splice(0, TYPE_CHARS_PER_TICK).join('')
+          scrollToBottom()
+        }, TYPE_TICK_MS)
+      }
+    }
+    const flushTyping = () => {
+      stopTyping()
+      if (typeBuffer.length) {
+        assistantMsg.content += typeBuffer.join('')
+        typeBuffer.length = 0
+        scrollToBottom()
+      }
+    }
+
     const handleStreamError = (message) => {
+      flushTyping()
       assistantMsg.streaming = false
       assistantMsg.isError = true
       assistantMsg.content = assistantMsg.content || message || '抱歉，生成答案时出现错误，请稍后重试。'
@@ -181,11 +220,11 @@ export function useChat(threadRef) {
       await qaAPI.askStream(formData, {
         onEvent: ({ event, data }) => {
           if (event === 'delta') {
-            assistantMsg.content += data.delta || ''
-            scrollToBottom()
+            feedTyping(data.delta || '')
           } else if (event === 'reasoning') {
             assistantMsg.reasoning += data.delta || ''
           } else if (event === 'done') {
+            flushTyping()
             assistantMsg.streaming = false
             assistantMsg.content = data.answer || assistantMsg.content
             assistantMsg.reasoning = data.reasoning || assistantMsg.reasoning

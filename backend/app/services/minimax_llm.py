@@ -186,6 +186,7 @@ class MiniMaxLLM:
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": True,
+            "use_standard_sse": True,
             **kwargs
         }
 
