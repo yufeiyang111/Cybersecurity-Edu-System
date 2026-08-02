@@ -7,7 +7,7 @@
           <path d="M9.5 12l2 2 3.5-4" />
         </svg>
       </div>
-      <span class="cs-brand-name">网安卫士</span>
+      <span class="cs-brand-name">网安助手</span>
       <span class="cs-spacer"></span>
       <button class="cs-icon-btn" title="收起侧边栏" @click="$emit('toggle-collapse')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M15 6l-6 6 6 6" /></svg>

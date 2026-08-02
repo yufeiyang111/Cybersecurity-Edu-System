@@ -15,7 +15,7 @@
       <div class="qa-topbar">
         <div class="qa-model-picker" @click="notifyModel">
           <span class="qa-model-dot"></span>
-          <span>网安卫士 · 全部</span>
+          <span>网安助手 · 全部</span>
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 9l6 6 6-6" /></svg>
         </div>
       </div>
@@ -35,7 +35,7 @@
       </div>
 
       <ChatComposer :disabled="loading" @send="handleSend" />
-      <div class="qa-legal">网安卫士可能会犯错。请核查重要信息。</div>
+      <div class="qa-legal">网安助手可能会犯错。请核查重要信息。</div>
     </main>
   </div>
 </template>

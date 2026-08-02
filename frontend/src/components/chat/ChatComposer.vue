@@ -78,7 +78,7 @@ let uidSeed = 0
 
 const canSend = computed(() => text.value.trim().length > 0 || attachments.value.length > 0)
 const hintText = computed(() =>
-  attachments.value.length ? `${attachments.value.length} 个附件已就绪` : '网安卫士 · 全部模式：自动选择检索策略'
+  attachments.value.length ? `${attachments.value.length} 个附件已就绪` : '网安助手 · 全部模式：自动选择检索策略'
 )
 
 const resize = () => {
