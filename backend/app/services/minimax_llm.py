@@ -149,6 +149,112 @@ class MiniMaxLLM:
                 "message": "请求失败"
             }
 
+    def chat_stream(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+        **kwargs
+    ) -> Any:
+        """
+        流式对话（SSE 格式增量输出）
+
+        Args:
+            messages: 消息列表 [{"role": "user/assistant/system", "content": "..."}]
+            temperature: 温度参数
+            max_tokens: 最大生成token数
+
+        Yields:
+            事件字典: {"status_code": int, "delta": str, "reasoning_delta": str, "finish": bool}
+        """
+        url = f"{self.api_base}/text/chatcompletion_v2"
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+
+        timeout_seconds = kwargs.pop("timeout_seconds", 120)
+        try:
+            timeout_seconds = max(0.1, float(timeout_seconds))
+        except (TypeError, ValueError):
+            timeout_seconds = 120
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True,
+            **kwargs
+        }
+
+        logger.info("MiniMax streaming request started (message_count=%d)", len(messages))
+
+        try:
+            with requests.post(url, headers=headers, json=payload, timeout=timeout_seconds, stream=True) as response:
+                if response.status_code != 200:
+                    logger.warning(
+                        "MiniMax streaming API returned non-success status (status_code=%d)",
+                        response.status_code,
+                    )
+                    yield {
+                        "status_code": response.status_code,
+                        "delta": "",
+                        "reasoning_delta": "",
+                        "finish": True,
+                    }
+                    return
+
+                for line in response.iter_lines(decode_unicode=True):
+                    if not line:
+                        continue
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[len("data:"):].strip()
+                    if not data or data == "[DONE]":
+                        continue
+
+                    try:
+                        event = json.loads(data)
+                    except json.JSONDecodeError:
+                        continue
+
+                    choices = event.get("choices")
+                    if not choices:
+                        continue
+                    delta = choices[0].get("delta") or {}
+                    content = delta.get("content") or ""
+                    reasoning = delta.get("reasoning_content") or ""
+                    finish = bool(choices[0].get("finish_reason"))
+                    yield {
+                        "status_code": 200,
+                        "delta": content,
+                        "reasoning_delta": reasoning,
+                        "finish": finish,
+                    }
+                    if finish:
+                        return
+        except requests.exceptions.Timeout:
+            logger.warning("MiniMax streaming request timed out")
+            yield {
+                "status_code": 408,
+                "delta": "",
+                "reasoning_delta": "",
+                "finish": True,
+            }
+        except requests.exceptions.RequestException as exc:
+            logger.warning(
+                "MiniMax streaming request failed (error_type=%s)",
+                type(exc).__name__,
+            )
+            yield {
+                "status_code": 500,
+                "delta": "",
+                "reasoning_delta": "",
+                "finish": True,
+            }
+
     def generate(
         self,
         prompt: str,

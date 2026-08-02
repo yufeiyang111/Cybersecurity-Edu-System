@@ -405,6 +405,125 @@ class EnhancedRAGEngine:
         confidence = min(avg_score * 1.5, 1.0)
         return round(confidence, 3)
 
+    def _retrieve_and_build(
+        self,
+        query: str,
+        use_rerank: bool = True
+    ) -> Tuple[List[Dict], str]:
+        """混合检索并构建上下文（供 ask / generate_stream 复用）"""
+        retrieved_docs = self.retrieve(query)
+        if use_rerank and retrieved_docs:
+            retrieved_docs = self.rerank_results(query, retrieved_docs)
+        context = self.build_context(retrieved_docs)
+        return retrieved_docs, context
+
+    def generate_stream(
+        self,
+        query: str,
+        context: str,
+        conversation_history: List[Dict] = None,
+        retrieved_docs: List[Dict] = None,
+    ) -> Any:
+        """流式生成回答，逐块产出事件字典。
+
+        Yields:
+            {"type": "delta", "content": str}
+            {"type": "reasoning", "delta": str}
+            {"type": "done", "answer": ..., "reasoning": ..., ...} 完整结果
+        """
+        start_time = time.time()
+        messages = self.build_prompt(query, context, conversation_history)
+        provider = self._get_llm_provider()
+        if provider is None:
+            yield {"type": "done", **self._unavailable_result(start_time)}
+            return
+
+        request = LLMRequest(
+            prompt=_render_messages_for_provider(messages),
+            system_prompt=_system_prompt_from_messages(messages),
+            max_tokens=2048,
+        )
+        stream_method = getattr(provider, "generate_stream", None)
+        if not callable(stream_method):
+            # Provider 不支持流式：降级为一次性生成
+            result = self.generate(query, context, conversation_history, retrieved_docs)
+            yield {"type": "done", **result}
+            return
+
+        text_parts: list[str] = []
+        reasoning_parts: list[str] = []
+        warning_code: str | None = None
+        try:
+            for chunk in stream_method(request):
+                if chunk.delta:
+                    text_parts.append(chunk.delta)
+                    yield {"type": "delta", "content": chunk.delta}
+                if chunk.reasoning_delta:
+                    reasoning_parts.append(chunk.reasoning_delta)
+                    yield {"type": "reasoning", "delta": chunk.reasoning_delta}
+                if chunk.warning_code:
+                    warning_code = chunk.warning_code
+                if chunk.finished:
+                    break
+        except Exception:
+            warning_code = "LLM_PROVIDER_REQUEST_FAILED"
+
+        answer = "".join(text_parts).strip()
+        if not answer or warning_code:
+            result = self._provider_failure_result(
+                provider,
+                start_time,
+                warning_code=warning_code or "LLM_OUTPUT_INVALID",
+            )
+            yield {"type": "done", **result}
+            return
+
+        yield {
+            "type": "done",
+            "answer": answer,
+            "reasoning": "".join(reasoning_parts).strip() or None,
+            "sources": self._source_payload(retrieved_docs),
+            "confidence": self._calculate_confidence(retrieved_docs),
+            "model_name": getattr(provider, "model", None),
+            "provider": getattr(provider, "provider_name", None),
+            "model_version": getattr(provider, "model_version", None),
+            "response_time": _response_time_seconds(None, start_time),
+            "warning_code": None,
+            "usage": {},
+        }
+
+    def _retrieved_docs_payload(self, retrieved_docs: List[Dict]) -> list[dict]:
+        """序列化检索文档供端点返回"""
+        return [
+            {
+                "id": doc["id"],
+                "title": doc.get("metadata", {}).get("title", ""),
+                "source": doc.get("metadata", {}).get("source", ""),
+                "similarity": doc.get("similarity", 0),
+                "source_type": doc.get("source", "unknown")
+            }
+            for doc in retrieved_docs[:5]
+        ]
+
+    def ask_stream(
+        self,
+        query: str,
+        conversation_history: List[Dict] = None,
+        use_rerank: bool = True
+    ) -> Any:
+        """完整的流式 RAG 问答流程，逐块产出事件字典。
+
+        Yields:
+            {"type": "delta", "content": str}
+            {"type": "reasoning", "delta": str}
+            {"type": "done", ...完整结果, "retrieved_docs": [...]}
+        """
+        retrieved_docs, context = self._retrieve_and_build(query, use_rerank)
+        for event in self.generate_stream(query, context, conversation_history, retrieved_docs):
+            if event["type"] == "done":
+                event["retrieved_docs"] = self._retrieved_docs_payload(retrieved_docs)
+            yield event
+
     def ask(
         self,
         query: str,
@@ -422,30 +541,14 @@ class EnhancedRAGEngine:
         Returns:
             包含答案、来源、置信度等信息的字典
         """
-        # 1. 混合检索
-        retrieved_docs = self.retrieve(query)
-
-        # 2. 可选：重排序
-        if use_rerank and retrieved_docs:
-            retrieved_docs = self.rerank_results(query, retrieved_docs)
-
-        # 3. 构建上下文
-        context = self.build_context(retrieved_docs)
+        # 1. 混合检索 + 2. 重排序 + 3. 构建上下文
+        retrieved_docs, context = self._retrieve_and_build(query, use_rerank)
 
         # 4. 生成答案
         result = self.generate(query, context, conversation_history, retrieved_docs)
 
         # 5. 补充来源信息
-        result["retrieved_docs"] = [
-            {
-                "id": doc["id"],
-                "title": doc.get("metadata", {}).get("title", ""),
-                "source": doc.get("metadata", {}).get("source", ""),
-                "similarity": doc.get("similarity", 0),
-                "source_type": doc.get("source", "unknown")
-            }
-            for doc in retrieved_docs[:5]
-        ]
+        result["retrieved_docs"] = self._retrieved_docs_payload(retrieved_docs)
 
         return result
 

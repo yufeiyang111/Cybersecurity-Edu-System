@@ -4,7 +4,9 @@ from .contracts import (
     LLMProvider,
     LLMRequest,
     LLMResponse,
+    LLMStreamChunk,
     ProviderUnavailableError,
+    StreamingLLMProvider,
 )
 from .fallback import RuleBasedProvider
 
@@ -12,6 +14,8 @@ __all__ = [
     "LLMProvider",
     "LLMRequest",
     "LLMResponse",
+    "LLMStreamChunk",
     "ProviderUnavailableError",
     "RuleBasedProvider",
+    "StreamingLLMProvider",
 ]

@@ -40,22 +40,6 @@ export function useChat(threadRef) {
     source_type: s.source_type || s.source || 'unknown'
   }))
 
-  const pushAssistantMessage = (res) => {
-    messages.value.push({
-      key: ++keySeed,
-      role: 'assistant',
-      content: res.answer,
-      reasoning: res.reasoning || '',
-      sources: normalizeSources(res.sources),
-      confidence: res.confidence,
-      response_time: res.response_time,
-      model_name: res.model_name || res.provider,
-      recordId: res.id,
-      attachments: res.attachments || []
-    })
-    scrollToBottom()
-  }
-
   const loadConversations = async () => {
     try {
       const res = await qaAPI.getConversations({ per_page: 50 })
@@ -153,7 +137,7 @@ export function useChat(threadRef) {
   const sendMessage = async ({ text, files }) => {
     if (loading.value) return
 
-    messages.value.push({
+    const userMsg = {
       key: ++keySeed,
       role: 'user',
       content: text,
@@ -162,49 +146,79 @@ export function useChat(threadRef) {
         type: f.type.startsWith('image/') ? 'image' : 'file',
         preview: null
       }))
-    })
+    }
+    messages.value.push(userMsg)
+    scrollToBottom()
+
+    const assistantMsg = {
+      key: ++keySeed,
+      role: 'assistant',
+      content: '',
+      reasoning: '',
+      sources: [],
+      attachments: [],
+      streaming: true
+    }
+    messages.value.push(assistantMsg)
     scrollToBottom()
 
     loading.value = true
+    const formData = new FormData()
+    formData.append('question', text)
+    if (currentConversationId.value) {
+      formData.append('conversation_id', currentConversationId.value)
+    }
+    for (const f of files || []) formData.append('files', f)
+
+    const handleStreamError = (message) => {
+      assistantMsg.streaming = false
+      assistantMsg.isError = true
+      assistantMsg.content = assistantMsg.content || message || '抱歉，生成答案时出现错误，请稍后重试。'
+      scrollToBottom()
+    }
+
     try {
-      let res
-      if (files && files.length) {
-        const formData = new FormData()
-        formData.append('question', text)
-        if (currentConversationId.value) {
-          formData.append('conversation_id', currentConversationId.value)
+      await qaAPI.askStream(formData, {
+        onEvent: ({ event, data }) => {
+          if (event === 'delta') {
+            assistantMsg.content += data.delta || ''
+            scrollToBottom()
+          } else if (event === 'reasoning') {
+            assistantMsg.reasoning += data.delta || ''
+          } else if (event === 'done') {
+            assistantMsg.streaming = false
+            assistantMsg.content = data.answer || assistantMsg.content
+            assistantMsg.reasoning = data.reasoning || assistantMsg.reasoning
+            assistantMsg.sources = normalizeSources(data.sources)
+            assistantMsg.confidence = data.confidence
+            assistantMsg.response_time = data.response_time
+            assistantMsg.model_name = data.model_name || data.provider
+            assistantMsg.recordId = data.id
+            if (data.attachments?.length) {
+              assistantMsg.attachments = data.attachments.map((a) => ({
+                ...a,
+                type: a.type === 'image' ? 'image' : 'file'
+              }))
+              userMsg.attachments = assistantMsg.attachments
+            }
+            if (currentConversationId.value) {
+              const conv = conversations.value.find(c => c.id === currentConversationId.value)
+              if (conv) conv.title = conv.title || text.slice(0, 30)
+              loadConversations()
+            }
+            scrollToBottom()
+          } else if (event === 'error') {
+            handleStreamError(data.error)
+            ElMessage.error(data.error || '生成答案失败')
+          }
+        },
+        onError: (err) => {
+          handleStreamError(err?.message)
+          ElMessage.error(err?.message || '生成答案失败')
         }
-        for (const f of files) formData.append('files', f)
-        res = await qaAPI.ask(formData)
-      } else {
-        res = await qaAPI.ask({
-          question: text,
-          conversation_id: currentConversationId.value
-        })
-      }
-
-      const userMsg = messages.value[messages.value.length - 1]
-      if (userMsg?.role === 'user' && res.attachments?.length) {
-        userMsg.attachments = res.attachments.map((a) => ({
-          ...a,
-          type: a.type === 'image' ? 'image' : 'file'
-        }))
-      }
-
-      pushAssistantMessage(res)
-      if (currentConversationId.value) {
-        const conv = conversations.value.find(c => c.id === currentConversationId.value)
-        if (conv) conv.title = conv.title || text.slice(0, 30)
-        loadConversations()
-      }
-    } catch (e) {
-      messages.value.push({
-        key: ++keySeed,
-        role: 'assistant',
-        content: '抱歉，生成答案时出现错误，请稍后重试。',
-        sources: [],
-        isError: true
       })
+    } catch (e) {
+      handleStreamError()
       ElMessage.error('生成答案失败')
     } finally {
       loading.value = false

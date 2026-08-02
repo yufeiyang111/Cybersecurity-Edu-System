@@ -1,8 +1,8 @@
 <template>
-  <div v-if="seconds !== null" class="chat-thinking">
+  <div v-if="seconds !== null || reasoning" class="chat-thinking">
     <div class="ct-toggle" :class="{ open }" @click="open = !open">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6" /></svg>
-      已思考 {{ seconds }} 秒
+      {{ seconds !== null ? `已思考 ${seconds} 秒` : '思考过程' }}
     </div>
     <div v-if="open" class="ct-panel">
       <div v-if="reasoning" class="ct-reasoning">{{ reasoning }}</div>

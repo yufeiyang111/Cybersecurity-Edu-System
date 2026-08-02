@@ -1,7 +1,7 @@
 """统一远程 LLM Provider 的选择与文本生成适配。"""
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from time import perf_counter
 from typing import Any
 
@@ -11,6 +11,7 @@ from app.services.llm import (
     LLMProvider,
     LLMRequest,
     LLMResponse,
+    LLMStreamChunk,
     ProviderUnavailableError,
 )
 
@@ -70,6 +71,41 @@ class MiniMaxProvider:
             )
         return _legacy_result(response) if legacy_call else response
 
+    def generate_stream(
+        self,
+        request: LLMRequest,
+    ) -> Iterator[LLMStreamChunk]:
+        """流式生成，逐块产出增量；客户端不支持流式时降级为一次性输出。"""
+        chat_stream = getattr(self._client, "chat_stream", None)
+        if not callable(chat_stream):
+            response = self.generate(request)
+            if isinstance(response, LLMResponse) and response.is_success:
+                yield LLMStreamChunk(delta=response.text or "", finished=True)
+                return
+            yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_REQUEST_FAILED")
+            return
+
+        chat_kwargs: dict[str, Any] = {
+            "temperature": request.temperature,
+            "max_tokens": request.max_tokens,
+        }
+        if request.timeout_seconds is not None:
+            chat_kwargs["timeout_seconds"] = request.timeout_seconds
+        try:
+            for event in chat_stream(_messages(request), **chat_kwargs):
+                event_dict = event if isinstance(event, dict) else {}
+                status_code = _as_int(event_dict.get("status_code"))
+                yield LLMStreamChunk(
+                    delta=str(event_dict.get("delta") or ""),
+                    reasoning_delta=str(event_dict.get("reasoning_delta") or ""),
+                    finished=bool(event_dict.get("finish")),
+                    warning_code=None if status_code == 200 else "LLM_PROVIDER_NON_SUCCESS",
+                )
+                if event_dict.get("finish"):
+                    return
+        except Exception:
+            yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_REQUEST_FAILED")
+
 
 class DashScopeProvider:
     """将 DashScope Generation 响应归一化为统一文本输出。"""
@@ -120,6 +156,44 @@ class DashScopeProvider:
                 started=started,
             )
         return _legacy_result(response) if legacy_call else response
+
+    def generate_stream(
+        self,
+        request: LLMRequest,
+    ) -> Iterator[LLMStreamChunk]:
+        """流式生成（incremental_output），逐块产出增量。"""
+        messages = _messages(request)
+        try:
+            stream = self._generation_call(
+                model=self.model,
+                messages=messages,
+                result_format="message",
+                api_key=self._api_key,
+                max_tokens=request.max_tokens,
+                temperature=request.temperature,
+                stream=True,
+                incremental_output=True,
+            )
+        except Exception:
+            yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_REQUEST_FAILED")
+            return
+
+        try:
+            for item in stream:
+                status_code = _as_int(_read_value(item, "status_code"))
+                if status_code != 200:
+                    yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_NON_SUCCESS")
+                    return
+                message = _stream_message(item)
+                content = _read_value(message, "content")
+                thinking = _read_value(message, "thinking")
+                yield LLMStreamChunk(
+                    delta=str(content) if isinstance(content, str) else "",
+                    reasoning_delta=str(thinking) if isinstance(thinking, str) else "",
+                )
+            yield LLMStreamChunk(finished=True)
+        except Exception:
+            yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_REQUEST_FAILED")
 
 
 def create_configured_provider(provider_name: str) -> LLMProvider | None:
@@ -348,6 +422,15 @@ def _nested_reasoning(value: object, field_name: str) -> str | None:
 
 def _dashscope_message_content(response: object) -> str | None:
     return _nested_content(response)
+
+
+def _stream_message(value: object) -> object:
+    """从流式响应项中提取增量消息对象。"""
+    output = _read_value(value, "output")
+    choices = _read_value(output, "choices")
+    if not choices:
+        return None
+    return _read_value(choices[0], "message")
 
 
 def _read_value(value: object, name: str) -> object:

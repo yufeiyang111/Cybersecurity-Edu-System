@@ -1,9 +1,10 @@
 """
 问答相关路由
 """
+import json
 import os
 import uuid
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, Response, stream_with_context
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models.qa import QAConversation, QARecord, Favorite, FeedbackLog
@@ -55,19 +56,18 @@ def _save_qa_attachments(files) -> list:
     return attachments
 
 
-@qa_bp.route("/ask", methods=["POST"])
-@jwt_required()
-def ask_question():
-    """提交问题并获取答案"""
-    user_id = get_jwt_identity()
+def _sse_event(name: str, data: dict) -> str:
+    """构造 SSE 事件文本"""
+    return f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _prepare_ask_inputs(user_id: int):
+    """解析问题、会话、附件并组装引擎输入（ask / ask_stream 复用）"""
     payload = request.get_json(silent=True) or {}
     question = (request.form.get("question") or payload.get("question", "")).strip()
     conversation_id = request.form.get("conversation_id", type=int)
     if conversation_id is None:
         conversation_id = payload.get("conversation_id")
-
-    if not question:
-        return jsonify({"error": "问题不能为空"}), 400
 
     # 处理附件：文本类附件提取内容注入上下文，图片附件记录名称
     attachments = []
@@ -83,12 +83,12 @@ def ask_question():
     if attachment_parts:
         engine_query = "用户上传了以下附件内容，请结合附件内容与知识库回答：\n\n" + \
             "\n\n".join(attachment_parts) + f"\n\n用户问题：{question}"
-    
+
     # 获取会话历史
     conversation_history = []
     if conversation_id:
         conversation = QAConversation.query.filter_by(
-            id=conversation_id, 
+            id=conversation_id,
             user_id=user_id
         ).first()
         if conversation:
@@ -102,7 +102,37 @@ def ask_question():
                         "role": "assistant",
                         "content": record.answer
                     })
-    
+
+    return question, conversation_id, engine_query, conversation_history, attachments
+
+
+def _save_qa_record(user_id: int, conversation_id: int, question: str, result: dict, attachments: list) -> QARecord:
+    """保存问答记录（ask / ask_stream 复用）"""
+    record = QARecord(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        question=question,
+        answer=result.get("answer"),
+        sources=result.get("retrieved_docs") or result.get("sources"),
+        confidence=result.get("confidence"),
+        model_name=result.get("model_name"),
+        response_time=result.get("response_time")
+    )
+    db.session.add(record)
+    db.session.commit()
+    return record
+
+
+@qa_bp.route("/ask", methods=["POST"])
+@jwt_required()
+def ask_question():
+    """提交问题并获取答案"""
+    user_id = get_jwt_identity()
+    question, conversation_id, engine_query, conversation_history, attachments = _prepare_ask_inputs(user_id)
+
+    if not question:
+        return jsonify({"error": "问题不能为空"}), 400
+
     # 调用RAG引擎获取答案
     try:
         rag_engine = get_rag_engine()
@@ -111,21 +141,10 @@ def ask_question():
         return jsonify({
             "error": f"生成答案失败: {str(e)}"
         }), 500
-    
+
     # 保存问答记录
-    record = QARecord(
-        conversation_id=conversation_id,
-        user_id=user_id,
-        question=question,
-        answer=result.get("answer"),
-        sources=result.get("retrieved_docs"),
-        confidence=result.get("confidence"),
-        model_name=result.get("model_name"),
-        response_time=result.get("response_time")
-    )
-    db.session.add(record)
-    db.session.commit()
-    
+    record = _save_qa_record(user_id, conversation_id, question, result, attachments)
+
     return jsonify({
         "id": record.id,
         "question": question,
@@ -137,6 +156,46 @@ def ask_question():
         "attachments": attachments,
         "created_at": record.created_at.isoformat() if record.created_at else None
     }), 200
+
+
+@qa_bp.route("/ask/stream", methods=["POST"])
+@jwt_required()
+def ask_question_stream():
+    """流式提交问题并获取答案（SSE，ChatGPT 风格打字机输出）"""
+    user_id = get_jwt_identity()
+    question, conversation_id, engine_query, conversation_history, attachments = _prepare_ask_inputs(user_id)
+
+    if not question:
+        return jsonify({"error": "问题不能为空"}), 400
+
+    rag_engine = get_rag_engine()
+
+    def generate():
+        try:
+            for event in rag_engine.ask_stream(engine_query, conversation_history):
+                if event["type"] in ("delta", "reasoning"):
+                    yield _sse_event(event["type"], {"delta": event.get("content") or event.get("delta") or ""})
+                elif event["type"] == "done":
+                    record = _save_qa_record(user_id, conversation_id, question, event, attachments)
+                    yield _sse_event("done", {
+                        "id": record.id,
+                        "answer": event.get("answer"),
+                        "reasoning": event.get("reasoning"),
+                        "sources": event.get("retrieved_docs") or event.get("sources") or [],
+                        "confidence": event.get("confidence"),
+                        "response_time": event.get("response_time"),
+                        "attachments": attachments,
+                        "created_at": record.created_at.isoformat() if record.created_at else None,
+                        "warning_code": event.get("warning_code"),
+                    })
+        except Exception:
+            # 不向客户端泄漏内部实现细节
+            yield _sse_event("error", {"error": "生成答案时发生异常，请稍后重试。"})
+
+    response = Response(stream_with_context(generate()), mimetype="text/event-stream")
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
 
 
 @qa_bp.route("/suggestions", methods=["GET"])

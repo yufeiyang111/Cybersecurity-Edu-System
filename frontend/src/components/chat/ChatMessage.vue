@@ -31,7 +31,10 @@
           :model-name="message.model_name"
           :reasoning="message.reasoning"
         />
-        <ChatMarkdown :content="message.content" />
+        <div v-if="message.streaming && !message.content" class="cm-stream-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <ChatMarkdown v-if="message.content" :content="message.content" />
         <ChatSources :sources="message.sources" />
         <div class="cm-actions">
           <button title="复制" @click="$emit('copy', message)">
@@ -103,6 +106,20 @@ defineEmits(['copy', 'favorite', 'feedback'])
 }
 
 .cm-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.cm-stream-dots {
+  display: flex; gap: 4px; align-items: center; height: 24px;
+  span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--chat-hollow);
+    animation: cm-blink 1.2s infinite ease-in-out;
+    &:nth-child(2) { animation-delay: .2s; }
+    &:nth-child(3) { animation-delay: .4s; }
+  }
+}
+@keyframes cm-blink {
+  0%, 80%, 100% { opacity: .25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
 .cm-att {
   display: flex; align-items: center; gap: 6px;
   border: 1px solid var(--chat-hairline);

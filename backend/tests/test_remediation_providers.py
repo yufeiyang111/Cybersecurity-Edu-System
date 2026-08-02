@@ -256,3 +256,169 @@ def test_provider_selection_degrades_when_dashscope_sdk_is_missing(app, monkeypa
 
     with app.app_context():
         assert providers.select_configured_provider() is None
+
+
+class _MiniMaxStreamClient:
+    model = "MiniMax-stream-test"
+
+    def __init__(self, events):
+        self.events = events
+        self.calls = []
+
+    def chat_stream(self, messages, *, temperature, max_tokens, timeout_seconds=None):
+        self.calls.append((messages, temperature, max_tokens, timeout_seconds))
+        for event in self.events:
+            yield event
+
+
+def test_minimax_adapter_forwards_stream_events_as_chunks():
+    providers = _providers_module()
+    client = _MiniMaxStreamClient(
+        [
+            {"status_code": 200, "delta": "你", "reasoning_delta": "", "finish": False},
+            {"status_code": 200, "delta": "好", "reasoning_delta": "", "finish": False},
+            {"status_code": 200, "delta": "", "reasoning_delta": "先思考", "finish": False},
+            {"status_code": 200, "delta": "", "reasoning_delta": "", "finish": True},
+        ]
+    )
+    provider = providers.MiniMaxProvider(client)
+
+    from app.services.llm import LLMRequest, LLMStreamChunk
+
+    request = LLMRequest(prompt="prompt", system_prompt="system", temperature=0.3, max_tokens=123, timeout_seconds=30)
+    chunks = list(provider.generate_stream(request))
+
+    assert [c.delta for c in chunks] == ["你", "好", "", ""]
+    assert [c.reasoning_delta for c in chunks] == ["", "", "先思考", ""]
+    assert chunks[-1].finished is True
+    assert all(c.warning_code is None for c in chunks)
+    assert isinstance(chunks[0], LLMStreamChunk)
+    assert client.calls == [
+        (
+            [
+                {"role": "system", "content": "system"},
+                {"role": "user", "content": "prompt"},
+            ],
+            0.3,
+            123,
+            30,
+        )
+    ]
+
+
+def test_minimax_adapter_stream_marks_non_success_events():
+    providers = _providers_module()
+    client = _MiniMaxStreamClient(
+        [
+            {"status_code": 200, "delta": "partial", "reasoning_delta": "", "finish": False},
+            {"status_code": 429, "delta": "", "reasoning_delta": "", "finish": True},
+        ]
+    )
+    provider = providers.MiniMaxProvider(client)
+
+    from app.services.llm import LLMRequest
+
+    chunks = list(provider.generate_stream(LLMRequest(prompt="prompt")))
+
+    assert chunks[0].warning_code is None
+    assert chunks[-1].finished is True
+    assert chunks[-1].warning_code == "LLM_PROVIDER_NON_SUCCESS"
+
+
+def test_minimax_adapter_stream_degrades_to_one_shot_without_client_stream():
+    providers = _providers_module()
+    client = _MiniMaxChatClient()
+    provider = providers.MiniMaxProvider(client)
+
+    from app.services.llm import LLMRequest
+
+    chunks = list(provider.generate_stream(LLMRequest(prompt="prompt")))
+
+    assert len(chunks) == 1
+    assert chunks[0].delta == "unified-answer"
+    assert chunks[0].finished is True
+    assert chunks[0].warning_code is None
+
+
+class _StreamingDashScopeItem:
+    def __init__(self, content="", thinking=""):
+        self.status_code = 200
+        self.output = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=content, thinking=thinking))]
+        )
+
+
+def test_dashscope_adapter_streams_incremental_output_and_thinking():
+    providers = _providers_module()
+    captured: dict[str, object] = {}
+
+    def generation_call(**kwargs):
+        captured.update(kwargs)
+        return iter(
+            [
+                _StreamingDashScopeItem(content="网", thinking="分析"),
+                _StreamingDashScopeItem(content="安", thinking="中"),
+                _StreamingDashScopeItem(content="", thinking=""),
+            ]
+        )
+
+    provider = providers.DashScopeProvider(
+        api_key="test-key",
+        model="qwen-test",
+        generation_call=generation_call,
+    )
+
+    from app.services.llm import LLMRequest
+
+    chunks = list(provider.generate_stream(LLMRequest(prompt="prompt")))
+
+    assert captured["stream"] is True
+    assert captured["incremental_output"] is True
+    assert captured["model"] == "qwen-test"
+    assert [c.delta for c in chunks] == ["\u7f51", "\u5b89", "", ""]
+    assert [c.reasoning_delta for c in chunks] == ["\u5206\u6790", "\u4e2d", "", ""]
+    assert chunks[-1].finished is True
+    assert all(c.warning_code is None for c in chunks)
+
+
+def test_dashscope_adapter_stream_surfaces_non_success_status():
+    providers = _providers_module()
+
+    class ErrorItem:
+        status_code = 400
+        message = "provider details"
+
+    provider = providers.DashScopeProvider(
+        api_key="test-key",
+        model="qwen-test",
+        generation_call=lambda **_kwargs: iter([ErrorItem()]),
+    )
+
+    from app.services.llm import LLMRequest
+
+    chunks = list(provider.generate_stream(LLMRequest(prompt="prompt")))
+
+    assert chunks[-1].finished is True
+    assert chunks[-1].warning_code == "LLM_PROVIDER_NON_SUCCESS"
+
+
+def test_dashscope_adapter_stream_failure_yields_safe_warning():
+    providers = _providers_module()
+
+    def failing_call(**kwargs):
+        raise RuntimeError("secret reasoning must not escape")
+
+    provider = providers.DashScopeProvider(
+        api_key="test-key",
+        model="qwen-test",
+        generation_call=failing_call,
+    )
+
+    from app.services.llm import LLMRequest
+
+    chunks = list(provider.generate_stream(LLMRequest(prompt="prompt")))
+
+    assert len(chunks) == 1
+    assert chunks[0].finished is True
+    assert chunks[0].warning_code == "LLM_PROVIDER_REQUEST_FAILED"
+    assert "secret" not in repr(chunks[0])

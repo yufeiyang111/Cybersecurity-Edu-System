@@ -1,6 +1,7 @@
 """LLM Provider 的统一请求与响应契约。"""
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -46,6 +47,23 @@ class LLMProvider(Protocol):
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         """生成标准化响应。"""
+
+
+@dataclass(frozen=True)
+class LLMStreamChunk:
+    """流式生成过程中的单次增量块。"""
+
+    delta: str = ""
+    reasoning_delta: str = ""
+    finished: bool = False
+    warning_code: str | None = None
+
+
+class StreamingLLMProvider(LLMProvider, Protocol):
+    """支持流式文本生成的 Provider（可选协议，非强制）。"""
+
+    def generate_stream(self, request: LLMRequest) -> Iterator[LLMStreamChunk]:
+        """流式生成，逐块产出增量；结束时产出 finished 块。"""
 
 
 class ProviderUnavailableError(RuntimeError):

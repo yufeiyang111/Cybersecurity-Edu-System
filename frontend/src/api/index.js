@@ -121,6 +121,62 @@ export const qaAPI = {
     }
     return api.post('/qa/ask', data)
   },
+
+  // SSE 流式问答：formData 请求体，逐事件回调 { event, data }
+  askStream: async (formData, { onEvent, onError, signal } = {}) => {
+    const token = localStorage.getItem('token')
+    let res
+    try {
+      res = await fetch('/api/qa/ask/stream', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+        signal
+      })
+    } catch (e) {
+      if (e?.name !== 'AbortError') onError?.(e)
+      return
+    }
+    if (!res.ok) {
+      let msg = '请求失败'
+      try {
+        const body = await res.json()
+        if (body?.error) msg = body.error
+      } catch (e) { /* ignore */ }
+      onError?.(new Error(msg))
+      return
+    }
+    if (!res.body) {
+      onError?.(new Error('浏览器不支持流式响应'))
+      return
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+
+    const flush = () => {
+      let sep
+      while ((sep = buffer.indexOf('\n\n')) !== -1) {
+        const raw = buffer.slice(0, sep)
+        buffer = buffer.slice(sep + 2)
+        parseSSEEvent(raw, onEvent)
+      }
+    }
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        flush()
+      }
+      if (buffer.trim()) parseSSEEvent(buffer, onEvent)
+    } catch (e) {
+      if (e?.name !== 'AbortError') onError?.(e)
+    }
+  },
+
   getSuggestions: (params) => api.get('/qa/suggestions', { params }),
   getSimilar: (params) => api.get('/qa/similar', { params }),
   getHistory: (params) => api.get('/qa/history', { params }),
@@ -138,6 +194,25 @@ export const qaAPI = {
   getFavorites: (params) => api.get('/qa/favorites', { params }),
   addFavorite: (data) => api.post('/qa/favorites', data),
   removeFavorite: (id) => api.delete(`/qa/favorites/${id}`)
+}
+
+function parseSSEEvent(raw, onEvent) {
+  let event = 'message'
+  let dataText = ''
+  for (const line of raw.split('\n')) {
+    if (line.startsWith('event:')) {
+      event = line.slice(6).trim()
+    } else if (line.startsWith('data:')) {
+      dataText += line.slice(5).trim()
+    }
+  }
+  if (!dataText) return
+  try {
+    const data = JSON.parse(dataText)
+    if (onEvent) onEvent({ event, data })
+  } catch (e) {
+    console.error('SSE 解析失败', e)
+  }
 }
 
 // 管理后台相关
@@ -165,8 +240,7 @@ export const securityAPI = {
   reviewRemediationSuggestion: (suggestionId, data) => api.post(`/security/suggestions/${suggestionId}/review`, data)
 }
 
-export const adminAPI = {
-  getOverviewStats: () => api.get('/admin/stats/overview'),
+export const adminAPI = {  getOverviewStats: () => api.get('/admin/stats/overview'),
   getQAStats: () => api.get('/admin/stats/qa'),
 
   getUsers: (params) => api.get('/admin/users', { params }),
