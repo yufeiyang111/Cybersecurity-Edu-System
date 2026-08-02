@@ -1,6 +1,7 @@
 ﻿"""
 用户相关模型
 """
+import json
 from datetime import datetime
 from app import db
 import bcrypt
@@ -23,6 +24,7 @@ class User(db.Model):
     avatar_url = db.Column(db.Text)
     oauth_provider = db.Column(db.String(20), nullable=True)
     oauth_subject = db.Column(db.String(100), nullable=True)
+    oauth_bindings = db.Column(db.Text, nullable=True)
     role_id = db.Column(db.Integer, db.ForeignKey("roles.id"), default=3)
     is_active = db.Column(db.Boolean, default=True)
     last_login_at = db.Column(db.DateTime)
@@ -45,6 +47,32 @@ class User(db.Model):
     def check_password(self, password):
         return bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8"))
 
+    def get_oauth_bindings(self):
+        """返回全部第三方绑定列表：[{"provider": ..., "subject": ...}, ...]"""
+        if not self.oauth_bindings:
+            return []
+        try:
+            bindings = json.loads(self.oauth_bindings)
+            if not isinstance(bindings, list):
+                return []
+            return [b for b in bindings if isinstance(b, dict) and b.get("provider") and b.get("subject")]
+        except (ValueError, TypeError):
+            return []
+
+    def add_oauth_binding(self, provider, subject):
+        """追加（或覆盖同 provider）一个第三方绑定，并同步主绑定列。"""
+        bindings = [b for b in self.get_oauth_bindings() if b.get("provider") != provider]
+        bindings.append({"provider": provider, "subject": str(subject)})
+        self.oauth_bindings = json.dumps(bindings, ensure_ascii=False)
+        self.oauth_provider = provider
+        self.oauth_subject = str(subject)
+
+    def has_oauth_binding(self, provider, subject):
+        return any(
+            b.get("provider") == provider and str(b.get("subject")) == str(subject)
+            for b in self.get_oauth_bindings()
+        ) or (self.oauth_provider == provider and str(self.oauth_subject) == str(subject))
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -53,6 +81,7 @@ class User(db.Model):
             "nickname": self.nickname,
             "avatar_url": self.avatar_url,
             "oauth_provider": self.oauth_provider,
+            "oauth_bindings": self.get_oauth_bindings(),
             "role": self.role.name if self.role else "guest",
             "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None

@@ -9,7 +9,7 @@
         <div class="oauth-status">
           <div v-if="!hasError" class="status-spinner" aria-hidden="true"></div>
           <p class="status-text" :class="{ 'is-error': hasError }">{{ statusText }}</p>
-          <el-button v-if="hasError" type="primary" round @click="goLogin">返回登录</el-button>
+          <el-button v-if="hasError" type="primary" round @click="goBack">{{ backText }}</el-button>
         </div>
       </AuthFormContainer>
     </template>
@@ -29,6 +29,7 @@ const userStore = useUserStore()
 
 const statusText = ref('正在处理登录，请稍候...')
 const hasError = ref(false)
+const backText = ref('返回登录')
 
 onMounted(async () => {
   const { token, error } = route.query
@@ -36,12 +37,14 @@ onMounted(async () => {
   if (error) {
     hasError.value = true
     statusText.value = decodeURIComponent(error)
+    backText.value = userStore.isLoggedIn ? '返回个人中心' : '返回登录'
     return
   }
 
   if (!token) {
     hasError.value = true
     statusText.value = '登录回调缺少凭证，请重新登录'
+    backText.value = userStore.isLoggedIn ? '返回个人中心' : '返回登录'
     return
   }
 
@@ -58,8 +61,12 @@ onMounted(async () => {
   }
 })
 
-function goLogin() {
-  router.replace('/login')
+function goBack() {
+  if (userStore.isLoggedIn) {
+    router.replace('/user/profile')
+  } else {
+    router.replace('/login')
+  }
 }
 </script>
 

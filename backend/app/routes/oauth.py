@@ -9,6 +9,7 @@ OAuth 第三方登录路由（Google / GitHub）
 - 第三方登录只按 (provider, subject) 匹配账号，不做邮箱自动合并；
 - 自动建号时若邮箱已被占用则拒绝，避免与已有账号冲突。
 """
+import json
 import secrets
 from datetime import datetime
 from urllib.parse import quote
@@ -80,6 +81,7 @@ def _create_oauth_user(provider, subject, email, nickname, avatar):
         avatar_url=avatar,
         oauth_provider=provider,
         oauth_subject=subject,
+        oauth_bindings=json.dumps([{"provider": provider, "subject": str(subject)}], ensure_ascii=False),
         role_id=default_role.id if default_role else None,
     )
     db.session.add(user)
@@ -88,14 +90,23 @@ def _create_oauth_user(provider, subject, email, nickname, avatar):
 
 
 def _fetch_identity(provider, client):
-    """拉取第三方用户资料，返回 (subject, email, nickname, avatar)。"""
+    """拉取第三方用户资料，返回 (subject, email, nickname, avatar)。
+
+    Google 为 OpenID Connect，authorize_access_token 阶段已从 id_token
+    解析出 userinfo 存于 client.token["userinfo"]，优先复用避免额外的
+    网络请求（该请求受代理稳定性影响）。
+    """
     if provider == "google":
-        info = client.get("userinfo").json()
+        token = client.token or {}
+        userinfo = token.get("userinfo") or {}
+        if not userinfo.get("sub"):
+            info = client.get("userinfo").json()
+            userinfo = info
         return (
-            str(info.get("sub") or ""),
-            info.get("email"),
-            info.get("name"),
-            info.get("picture"),
+            str(userinfo.get("sub") or ""),
+            userinfo.get("email"),
+            userinfo.get("name"),
+            userinfo.get("picture"),
         )
     info = client.get("user").json()
     return (
@@ -106,9 +117,20 @@ def _fetch_identity(provider, client):
     )
 
 
+def _find_user_by_binding(provider, subject):
+    """按 (provider, subject) 查找用户：先匹配主绑定列，再遍历全部绑定。"""
+    user = User.query.filter_by(oauth_provider=provider, oauth_subject=str(subject)).first()
+    if user:
+        return user
+    for candidate in User.query.filter(User.oauth_bindings.isnot(None)).all():
+        if candidate.has_oauth_binding(provider, subject):
+            return candidate
+    return None
+
+
 def _handle_login(provider, subject, email, nickname, avatar):
     """第三方登录：按 (provider, subject) 匹配，未匹配则自动建号。"""
-    user = User.query.filter_by(oauth_provider=provider, oauth_subject=subject).first()
+    user = _find_user_by_binding(provider, subject)
     if user is None:
         if email:
             email_owner = User.query.filter_by(email=email).first()
@@ -129,8 +151,8 @@ def _handle_login(provider, subject, email, nickname, avatar):
 
 
 def _handle_bind(provider, subject, bind_user_id):
-    """绑定：把第三方账号绑定到已登录的当前用户。"""
-    existing = User.query.filter_by(oauth_provider=provider, oauth_subject=subject).first()
+    """绑定：把第三方账号绑定到已登录的当前用户（可多个）。"""
+    existing = _find_user_by_binding(provider, subject)
     if existing and str(existing.id) != str(bind_user_id):
         return _redirect_error("该第三方账号已绑定到其他账号")
 
@@ -138,8 +160,7 @@ def _handle_bind(provider, subject, bind_user_id):
     if not user:
         return _redirect_error("账号不存在，请重新登录")
 
-    user.oauth_provider = provider
-    user.oauth_subject = subject
+    user.add_oauth_binding(provider, subject)
     db.session.commit()
     return redirect(_frontend_url(f"/user/profile?oauth_bind=ok&provider={provider}"))
 
@@ -155,7 +176,9 @@ def oauth_authorize(provider):
 
     session.pop("oauth_bind_user_id", None)
     client = getattr(oauth, provider)
-    return client.authorize_redirect(_callback_url(provider))
+    # 登录场景也强制显示账号选择器，让用户主动选择登录账号，
+    # 避免已授权账号静默直接登录。
+    return client.authorize_redirect(_callback_url(provider), prompt="select_account")
 
 
 @oauth_bp.route("/oauth/<provider>/bind", methods=["POST"])
@@ -171,10 +194,45 @@ def oauth_bind(provider):
     bind_user_id = get_jwt_identity()
     client = getattr(oauth, provider)
     callback_url = _callback_url(provider)
-    authorization_url, state = client.create_authorization_url(callback_url)
-    session[f"_oauth2_{provider}_authorization_state"] = state
+    # Google/GitHub 已授权过的账号会跳过登录/确认页直接回调，绑定场景必须
+    # 强制显示账号选择器，让用户主动选择要绑定的账号，避免静默绑定当前账号。
+    # Google 额外加 consent：强制每次显示授权确认页；GitHub 平台仅支持
+    # select_account（官方无 consent 参数），只能保证账号选择器出现。
+    extra_params = {"prompt": "select_account consent"} if provider == "google" else {"prompt": "select_account"}
+    rv = client.create_authorization_url(callback_url, **extra_params)
+    client.save_authorize_data(redirect_uri=callback_url, **rv)
     session["oauth_bind_user_id"] = bind_user_id
-    return jsonify({"url": authorization_url}), 200
+    return jsonify({"url": rv["url"]}), 200
+
+
+@oauth_bp.route("/oauth/<provider>/bind", methods=["DELETE"])
+@jwt_required()
+def oauth_unbind(provider):
+    """已登录用户取消某个第三方账号的绑定。"""
+    if provider not in _SUPPORTED_PROVIDERS:
+        return jsonify({"error": "不支持的第三方登录方式"}), 400
+
+    user = User.query.get(get_jwt_identity())
+    if not user:
+        return jsonify({"error": "账号不存在，请重新登录"}), 404
+
+    bindings = user.get_oauth_bindings()
+    if not any(b.get("provider") == provider for b in bindings):
+        return jsonify({"error": "未绑定该第三方账号"}), 400
+
+    remaining = [b for b in bindings if b.get("provider") != provider]
+    user.oauth_bindings = json.dumps(remaining, ensure_ascii=False) if remaining else None
+
+    if user.oauth_provider == provider:
+        if remaining:
+            user.oauth_provider = remaining[0]["provider"]
+            user.oauth_subject = remaining[0]["subject"]
+        else:
+            user.oauth_provider = None
+            user.oauth_subject = None
+
+    db.session.commit()
+    return jsonify({"message": "已取消绑定"}), 200
 
 
 @oauth_bp.route("/oauth/<provider>/callback")
