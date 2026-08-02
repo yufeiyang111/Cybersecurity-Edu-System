@@ -4,10 +4,13 @@
       <div>
         <p class="section-eyebrow">SNAPSHOT SCANS</p>
         <h2>扫描任务</h2>
-        <p>进行中的任务会自动刷新，离开页面即停止轮询。选择一个任务以查看其快照中的风险与依赖。</p>
+        <p>进行中的任务自动刷新；选择任务查看快照风险与依赖。</p>
       </div>
     </div>
-    <el-empty v-if="!loading && tasks.length === 0" description="该项目还没有扫描记录。" />
+    <div v-if="loading" class="table-skeleton">
+      <el-skeleton :rows="3" animated />
+    </div>
+    <el-empty v-else-if="tasks.length === 0" description="该项目还没有扫描记录。" />
     <div v-else class="table-wrap">
       <el-table :data="tasks" class="task-table" :row-class-name="rowClassName">
         <el-table-column label="任务" min-width="92"><template #default="{ row }">#{{ row.id }}</template></el-table-column>
@@ -86,6 +89,7 @@ const rowClassName = ({ row }) => row.id === props.selectedTaskId ? 'task-table_
 .section-heading h2 { margin: 0; color: #102a43; font-size: 19px; }
 .section-heading p:last-child { margin: 7px 0 20px; color: #627d98; line-height: 1.6; }
 .table-wrap { overflow-x: auto; }
+.table-skeleton { padding: 8px 4px 4px; }
 .task-table { min-width: 980px; }
 .task-actions { display: flex; align-items: center; gap: 4px; }
 .language-tags { display: flex; flex-wrap: wrap; gap: 6px; }

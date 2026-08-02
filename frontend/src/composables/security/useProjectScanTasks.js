@@ -7,6 +7,7 @@ const completedTaskStatuses = new Set(['completed', 'completed_with_warnings'])
 
 export function useProjectScanTasks(projectId, { onFindingsChanged = async () => {} } = {}) {
   const loading = ref(false)
+  const findingsLoading = ref(false)
   const errorMessage = ref('')
   const tasks = ref([])
   const findings = ref([])
@@ -43,6 +44,7 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
   const loadFindings = async (taskId, params = {}) => {
     selectedTaskId.value = taskId
     findings.value = []
+    findingsLoading.value = true
     const requestSequence = ++findingsRequestSequence
     try {
       const response = await securityAPI.getFindings(taskId, params)
@@ -53,6 +55,8 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
       if (requestSequence === findingsRequestSequence) {
         errorMessage.value = securityApiErrorMessage(error, '加载风险发现项失败。')
       }
+    } finally {
+      if (requestSequence === findingsRequestSequence) findingsLoading.value = false
     }
   }
 
@@ -111,6 +115,7 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
 
   return {
     loading,
+    findingsLoading,
     errorMessage,
     tasks,
     findings,
