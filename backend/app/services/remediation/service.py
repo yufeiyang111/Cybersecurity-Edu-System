@@ -51,9 +51,15 @@ class RemediationService:
             _retrieval_query(finding),
             _config_int("REMEDIATION_RETRIEVAL_TOP_K", 5),
         )
-        citation_payloads = [_citation_dict(citation) for citation in citations]
-
         warning_codes = list(context.warning_codes)
+        citation_payloads = [_citation_dict(citation) for citation in citations]
+        safe_citation_payloads = [
+            payload
+            for payload, citation in zip(citation_payloads, citations)
+            if not citation.injection_flags
+        ]
+        if len(safe_citation_payloads) != len(citation_payloads):
+            warning_codes.append("CITATION_INJECTION_FILTERED")
         provider = configured_provider(self.provider)
         if provider is None:
             warning_codes.append(
@@ -76,7 +82,7 @@ class RemediationService:
                 provider,
                 finding,
                 context,
-                citation_payloads,
+                safe_citation_payloads,
                 max_output_chars=max_output_chars,
             )
             if generated.payload is None:
@@ -176,6 +182,8 @@ def _citation_dict(citation: object) -> dict:
         "version": citation.version,
         "snippet": citation.snippet,
         "score": citation.score,
+        "trust_score": citation.trust_score,
+        "injection_flags": list(citation.injection_flags),
     }
 
 

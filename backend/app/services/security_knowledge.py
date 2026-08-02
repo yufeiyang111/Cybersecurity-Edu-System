@@ -15,6 +15,7 @@ from flask import current_app, has_app_context
 
 from app.config import Config
 from app.models.security import SecurityKnowledgeDocument, SecurityKnowledgeSource
+from app.services.rag_guard import detect_prompt_injection
 
 
 _SECRET_ASSIGNMENT_PATTERN = re.compile(
@@ -35,40 +36,58 @@ class KnowledgeCitation:
     snippet: str
     score: float
     citation_id: str
+    trust_score: float = 1.0
+    injection_flags: tuple[str, ...] = ()
 
 
-class _ChromaCollectionAdapter:
-    """Small lazy adapter so tests never need an embedding model or Chroma server."""
-
-    def __init__(self) -> None:
-        import chromadb
+def _current_embedding_version() -> str:
+    """当前 embedding 服务的版本标签，写入向量 payload 元数据用于溯源。"""
+    try:
         from app.services.secbert_embedding import get_embedding_service
 
-        settings = current_app.config if has_app_context() else Config
-        self._client = chromadb.PersistentClient(path=str(settings.CHROMA_PERSIST_DIRECTORY))
-        self._collection = self._client.get_or_create_collection(
-            name="security_knowledge_embeddings",
-            metadata={"description": "Workspace-scoped security knowledge retrieval"},
-        )
+        service = get_embedding_service()
+        model = str(getattr(service, "model_name", "unknown") or "unknown")
+        dimension = int(getattr(service, "dimension", 0))
+        return f"{model}:dim{dimension}"[:128]
+    except Exception:
+        return "unknown"
+
+
+class _VectorKnowledgeAdapter:
+    """Small lazy adapter over the configured vector backend (Chroma or Qdrant).
+
+    Tests inject a fake index through SecurityKnowledgeIndex(vector_index=...),
+    so they never need an embedding model or a vector server.
+    """
+
+    def __init__(self) -> None:
+        from app.services.secbert_embedding import get_embedding_service
+        from app.services.vector_stores.contracts import SECURITY_KNOWLEDGE_COLLECTION_NAME, to_2d_list
+        from app.services.vector_stores.factory import create_vector_backend
+
+        self._to_2d_list = to_2d_list
+        self._backend = create_vector_backend(collection_name=SECURITY_KNOWLEDGE_COLLECTION_NAME)
         self._embedding_service = get_embedding_service()
 
     def upsert(self, *, ids: list[str], documents: list[str], metadatas: list[dict[str, Any]]) -> None:
         vectors = self._embedding_service.encode_documents(documents).tolist()
-        self._collection.upsert(ids=ids, documents=documents, embeddings=vectors, metadatas=metadatas)
+        embedding_version = _current_embedding_version()
+        metadatas = [
+            {**metadata, "embedding_version": embedding_version} for metadata in metadatas
+        ]
+        self._backend.upsert(ids=ids, vectors=vectors, texts=documents, metadatas=metadatas)
 
     def delete(self, *, where: dict[str, Any]) -> None:
-        self._collection.delete(where=where)
+        self._backend.delete(where=where)
 
     def query(self, *, query_texts: list[str], where: dict[str, Any], n_results: int) -> dict[str, Any]:
         vectors = self._embedding_service.encode_query(query_texts[0])
-        if getattr(vectors, "ndim", 0) == 1:
-            vectors = vectors.reshape(1, -1)
-        return self._collection.query(
-            query_embeddings=vectors.tolist(),
-            where=where,
-            n_results=n_results,
-            include=["metadatas", "distances"],
-        )
+        vector = self._to_2d_list(vectors)[0]
+        hits = self._backend.search(vector=vector, where=where, top_k=n_results)
+        return {
+            "metadatas": [[hit.metadata for hit in hits]],
+            "distances": [[hit.distance for hit in hits]],
+        }
 
 
 class SecurityKnowledgeIndex:
@@ -91,7 +110,7 @@ class SecurityKnowledgeIndex:
             return None
         if self._vector_index is None:
             try:
-                self._vector_index = _ChromaCollectionAdapter()
+                self._vector_index = _VectorKnowledgeAdapter()
             except Exception:
                 self._vector_unavailable = True
                 return None
@@ -111,6 +130,7 @@ class SecurityKnowledgeIndex:
                         "source_id": document.source_id,
                         "workspace_id": document.source.workspace_id,
                         "document_version": document.document_version,
+                        "embedding_version": _current_embedding_version(),
                     }
                 ],
             )
@@ -267,7 +287,22 @@ def _citation(document: SecurityKnowledgeDocument, score: float, query_tokens: I
         snippet=snippet,
         score=round(float(score), 4),
         citation_id=f"knowledge-{document.id}-{stable}",
+        trust_score=_trust_score(document, score),
+        injection_flags=detect_prompt_injection(_document_text(document)),
     )
+
+
+def _trust_score(document: SecurityKnowledgeDocument, score: float) -> float:
+    """确定性引用可信度：检索得分归一化 + 注入命中惩罚。
+
+    得分上限按词法+向量融合的上界 200 归一化；命中注入模式时大幅折减，
+    让下游（Agent prompt 构造）可以据此剔除或降级。
+    """
+    normalized = min(max(float(score), 0.0), 200.0) / 200.0
+    trust = round(0.6 + 0.4 * normalized, 3)
+    if detect_prompt_injection(_document_text(document)):
+        trust = round(trust * 0.35, 3)
+    return trust
 
 
 def _snippet(text: str, query_tokens: Iterable[str]) -> str:

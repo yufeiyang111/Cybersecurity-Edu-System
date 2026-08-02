@@ -21,6 +21,7 @@ class _FakeStreamEngine:
             "response_time": 1.2,
             "warning_code": None,
             "retrieved_docs": [],
+            "rag_warnings": ["knowledge-9:ignore_instructions"],
         }
 
 
@@ -104,6 +105,7 @@ def test_ask_stream_emits_sse_events_and_persists_record(qa_app, monkeypatch):
     assert "\u4f60\u597d\uff0c\u4e16\u754c" in text
     assert '"confidence": 0.8' in text
     assert '"response_time": 1.2' in text
+    assert '"rag_warnings": ["knowledge-9:ignore_instructions"]' in text
 
     from app.models.qa import QARecord
 

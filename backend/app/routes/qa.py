@@ -153,6 +153,7 @@ def ask_question():
         "sources": result.get("retrieved_docs"),
         "confidence": result.get("confidence"),
         "response_time": result.get("response_time"),
+        "rag_warnings": result.get("rag_warnings") or [],
         "attachments": attachments,
         "created_at": record.created_at.isoformat() if record.created_at else None
     }), 200
@@ -187,6 +188,7 @@ def ask_question_stream():
                         "attachments": attachments,
                         "created_at": record.created_at.isoformat() if record.created_at else None,
                         "warning_code": event.get("warning_code"),
+                        "rag_warnings": event.get("rag_warnings") or [],
                     })
         except Exception:
             # 不向客户端泄漏内部实现细节

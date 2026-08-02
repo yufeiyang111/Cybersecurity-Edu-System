@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from importlib.util import find_spec
 from pathlib import Path
@@ -33,7 +35,7 @@ def readiness_payload(config: Mapping[str, Any]) -> dict[str, Any]:
         _database_component(),
         _storage_component(config),
         _optional_component("neo4j", bool(str(config.get("NEO4J_URI", "")).strip())),
-        _chroma_component(config),
+        _vector_component(config),
     ]
     required_failures = [item for item in components if item.required and item.status != "healthy"]
     return {
@@ -65,12 +67,79 @@ def _optional_component(name: str, configured: bool) -> HealthComponent:
     return HealthComponent(name, "configured_not_checked" if configured else "disabled", False)
 
 
-def _chroma_component(config: Mapping[str, Any]) -> HealthComponent:
+def _vector_component(config: Mapping[str, Any]) -> HealthComponent:
     enabled = bool(config.get("SECURITY_KNOWLEDGE_VECTOR_ENABLED", False))
+    backend = str(config.get("VECTOR_BACKEND", "qdrant")).strip().lower() or "qdrant"
+    if backend not in ("chroma", "qdrant"):
+        backend = "qdrant"
     if not enabled:
-        return HealthComponent("chroma", "disabled", False)
+        return HealthComponent(backend, "disabled", False)
     try:
-        available = find_spec("chromadb") is not None
-    except (ImportError, ModuleNotFoundError, ValueError):
-        available = False
-    return HealthComponent("chroma", "configured_not_checked" if available else "sdk_unavailable", False)
+        healthy = _ping_vector_backend(backend, config)
+    except Exception:
+        healthy = False
+    return HealthComponent(backend, "healthy" if healthy else "unavailable", False)
+
+
+def _ping_vector_backend(backend: str, config: Mapping[str, Any]) -> bool:
+    """真实连通探测；任何异常都视为不可用，不向上泄漏错误细节。"""
+    if backend == "qdrant":
+        return _ping_qdrant(config)
+    return _ping_chroma(config)
+
+
+def _ensure_no_proxy_for_loopback(url: str) -> None:
+    """本地向量服务经系统代理访问会失败（本机代理对回环请求返回 502）。"""
+    try:
+        host = urllib.parse.urlparse(url).netloc.split(":")[0]
+    except ValueError:
+        host = ""
+    if host in ("127.0.0.1", "localhost", "::1"):
+        existing = os.environ.get("NO_PROXY", "") or os.environ.get("no_proxy", "") or ""
+        hosts = {item.strip() for item in existing.split(",") if item.strip()}
+        hosts.update({"127.0.0.1", "localhost"})
+        os.environ["NO_PROXY"] = ",".join(sorted(hosts))
+        os.environ["no_proxy"] = os.environ["NO_PROXY"]
+
+
+def _ping_qdrant(config: Mapping[str, Any]) -> bool:
+    url = str(config.get("QDRANT_URL", "") or "").rstrip("/") or "http://127.0.0.1:6333"
+    _ensure_no_proxy_for_loopback(url)
+    try:
+        with urllib.request.urlopen(f"{url}/healthz", timeout=2.0) as response:
+            return response.status == 200
+    except Exception:
+        return False
+
+
+def _ping_chroma(config: Mapping[str, Any]) -> bool:
+    host = str(config.get("CHROMA_HOST", "") or "").strip()
+    try:
+        if host:
+            from chromadb.config import Settings
+
+            client = _chroma_client(host, int(config.get("CHROMA_PORT", 8000) or 8000))
+            return bool(client.heartbeat())
+        path = Path(str(config.get("CHROMA_PERSIST_DIRECTORY", "chroma_db"))).expanduser()
+        return path.is_dir() and os.access(path, os.R_OK | os.W_OK)
+    except Exception:
+        return False
+
+
+def _chroma_client(host: str, port: int):
+    from chromadb.config import Settings
+
+    try:
+        import chromadb
+
+        return chromadb.Client(
+            Settings(
+                chroma_server_host=host,
+                chroma_server_http_port=port,
+                anonymized_telemetry=False,
+            )
+        )
+    except (TypeError, ValueError):
+        from chromadb import HttpClient
+
+        return HttpClient(host=host, port=port)
