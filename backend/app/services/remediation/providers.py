@@ -234,6 +234,7 @@ def _minimax_response(raw_response: object, model: str | None, started: float) -
         status_code=status_code,
         latency_ms=_latency_ms(started),
         usage=usage,
+        reasoning=_nested_reasoning(raw_response, "reasoning_content"),
     )
 
 
@@ -264,6 +265,7 @@ def _dashscope_response(raw_response: object, model: str, started: float) -> LLM
         status_code=status_code,
         latency_ms=_latency_ms(started),
         usage=_as_dict(_read_value(raw_response, "usage")),
+        reasoning=_nested_reasoning(raw_response, "thinking"),
     )
 
 
@@ -328,6 +330,19 @@ def _nested_content(value: object) -> str | None:
     text = _read_value(output, "text")
     if isinstance(text, str) and text.strip():
         return text
+    return None
+
+
+def _nested_reasoning(value: object, field_name: str) -> str | None:
+    """从首个 choice 的 message 中提取思维链字段（如 reasoning_content / thinking）。"""
+    output = _read_value(value, "output")
+    choices = _read_value(output, "choices")
+    if not choices:
+        return None
+    message = _read_value(choices[0], "message")
+    reasoning = _read_value(message, field_name)
+    if isinstance(reasoning, str) and reasoning.strip():
+        return reasoning
     return None
 
 

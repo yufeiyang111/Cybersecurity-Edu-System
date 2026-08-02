@@ -130,6 +130,7 @@ def ask_question():
         "id": record.id,
         "question": question,
         "answer": result.get("answer"),
+        "reasoning": result.get("reasoning"),
         "sources": result.get("retrieved_docs"),
         "confidence": result.get("confidence"),
         "response_time": result.get("response_time"),

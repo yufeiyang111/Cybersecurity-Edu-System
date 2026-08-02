@@ -315,6 +315,7 @@ class EnhancedRAGEngine:
 
         return {
             "answer": response.text,
+            "reasoning": response.reasoning,
             "sources": self._source_payload(retrieved_docs),
             "confidence": self._calculate_confidence(retrieved_docs),
             "model_name": response.model,
@@ -349,6 +350,7 @@ class EnhancedRAGEngine:
     def _unavailable_result(self, start_time: float) -> Dict[str, Any]:
         return {
             "answer": "LLM服务暂不可用，请检查 Provider 配置。",
+            "reasoning": None,
             "sources": [],
             "confidence": 0.0,
             "model_name": None,
@@ -369,6 +371,7 @@ class EnhancedRAGEngine:
     ) -> Dict[str, Any]:
         return {
             "answer": "生成失败：当前 LLM Provider 不可用。",
+            "reasoning": None,
             "sources": [],
             "confidence": 0.0,
             "model_name": response.model if response else getattr(provider, "model", None),

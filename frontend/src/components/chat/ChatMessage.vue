@@ -29,6 +29,7 @@
           :sources="message.sources"
           :confidence="message.confidence"
           :model-name="message.model_name"
+          :reasoning="message.reasoning"
         />
         <ChatMarkdown :content="message.content" />
         <ChatSources :sources="message.sources" />

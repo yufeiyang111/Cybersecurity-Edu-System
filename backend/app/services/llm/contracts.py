@@ -29,6 +29,7 @@ class LLMResponse:
     latency_ms: int | None = None
     usage: dict[str, Any] = field(default_factory=dict)
     finish_reason: str | None = None
+    reasoning: str | None = None
 
     @property
     def is_success(self) -> bool:

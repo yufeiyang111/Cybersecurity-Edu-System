@@ -5,22 +5,25 @@
       已思考 {{ seconds }} 秒
     </div>
     <div v-if="open" class="ct-panel">
-      <div class="ct-row">
-        <span class="ct-label">检索来源</span>
-        <span>{{ sourceCount }} 篇文档</span>
-      </div>
-      <div v-if="avgSimilarity !== null" class="ct-row">
-        <span class="ct-label">平均相似度</span>
-        <span>{{ avgSimilarity }}%</span>
-      </div>
-      <div v-if="confidence !== null" class="ct-row">
-        <span class="ct-label">回答置信度</span>
-        <span>{{ (confidence * 100).toFixed(0) }}%</span>
-      </div>
-      <div v-if="modelName" class="ct-row">
-        <span class="ct-label">模型</span>
-        <span>{{ modelName }}</span>
-      </div>
+      <div v-if="reasoning" class="ct-reasoning">{{ reasoning }}</div>
+      <template v-else>
+        <div class="ct-row">
+          <span class="ct-label">检索来源</span>
+          <span>{{ sourceCount }} 篇文档</span>
+        </div>
+        <div v-if="avgSimilarity !== null" class="ct-row">
+          <span class="ct-label">平均相似度</span>
+          <span>{{ avgSimilarity }}%</span>
+        </div>
+        <div v-if="confidence !== null" class="ct-row">
+          <span class="ct-label">回答置信度</span>
+          <span>{{ (confidence * 100).toFixed(0) }}%</span>
+        </div>
+        <div v-if="modelName" class="ct-row">
+          <span class="ct-label">模型</span>
+          <span>{{ modelName }}</span>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -32,7 +35,8 @@ const props = defineProps({
   seconds: { type: Number, default: null },
   sources: { type: Array, default: () => [] },
   confidence: { type: Number, default: null },
-  modelName: { type: String, default: '' }
+  modelName: { type: String, default: '' },
+  reasoning: { type: String, default: '' }
 })
 
 const open = ref(false)
@@ -60,6 +64,12 @@ const avgSimilarity = computed(() => {
   border-left: 2px solid var(--chat-hairline);
   padding: 2px 0 2px 14px;
   margin-top: 4px;
+}
+.ct-reasoning {
+  font-size: 13px; line-height: 1.7;
+  color: var(--chat-hollow);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .ct-row {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
