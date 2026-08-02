@@ -69,7 +69,8 @@ export const authAPI = {
   changePassword: (data) => api.put('/auth/password', data),
   getLoginLogs: (params) => api.get('/auth/login-logs', { params }),
   checkAvailable: (params) => api.get('/auth/check', { params }),
-  bindOAuth: (provider) => api.post(`/auth/oauth/${provider}/bind`)
+  bindOAuth: (provider) => api.post(`/auth/oauth/${provider}/bind`),
+  unbindOAuth: (provider) => api.delete(`/auth/oauth/${provider}/bind`)
 }
 
 // 知识库相关
@@ -112,7 +113,14 @@ export const knowledgeAPI = {
 
 // 问答相关
 export const qaAPI = {
-  ask: (data) => api.post('/qa/ask', data),
+  ask: (data) => {
+    if (data instanceof FormData) {
+      return api.post('/qa/ask', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+    }
+    return api.post('/qa/ask', data)
+  },
   getSuggestions: (params) => api.get('/qa/suggestions', { params }),
   getSimilar: (params) => api.get('/qa/similar', { params }),
   getHistory: (params) => api.get('/qa/history', { params }),
@@ -142,7 +150,7 @@ export const securityAPI = {
   importGitHubSnapshot: (projectId, data) => api.post(`/security/projects/${projectId}/snapshots:github`, data),
   getTasks: (projectId) => api.get(`/security/projects/${projectId}/tasks`),
   getTask: (taskId) => api.get(`/security/tasks/${taskId}`),
-  getFindings: (taskId) => api.get(`/security/tasks/${taskId}/findings`),
+  getFindings: (taskId, params) => api.get(`/security/tasks/${taskId}/findings`, { params }),
   cancelTask: (taskId) => api.post(`/security/tasks/${taskId}/cancel`),
   retryTask: (taskId) => api.post(`/security/tasks/${taskId}/retry`),
   getDependencies: (projectId, params) => api.get(`/security/projects/${projectId}/dependencies`, { params }),

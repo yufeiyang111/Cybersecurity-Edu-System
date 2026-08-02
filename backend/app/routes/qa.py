@@ -1,14 +1,58 @@
 """
 问答相关路由
 """
-from flask import Blueprint, request, jsonify
+import os
+import uuid
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models.qa import QAConversation, QARecord, Favorite, FeedbackLog
 from app.services.rag_engine import get_rag_engine
-import json
+from app.services.document_parser import parse_document
 
 qa_bp = Blueprint("qa", __name__)
+
+QA_ATTACHMENT_FOLDER = 'uploads/qa_attachments'
+_TEXT_ATTACHMENT_EXTS = {'txt', 'md', 'markdown', 'html', 'htm', 'docx', 'doc', 'pdf', 'csv', 'json', 'xml', 'yaml', 'yml', 'log'}
+_IMAGE_ATTACHMENT_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'}
+
+
+def _safe_filename(filename: str) -> str:
+    """清理上传文件名，仅保留基础名并移除空字节"""
+    name = filename.replace('\\', '/').split('/')[-1].replace('\x00', '').strip()
+    return name or 'unnamed_file'
+
+
+def _save_qa_attachments(files) -> list:
+    """保存问答附件，文本类附件提取内容供上下文使用"""
+    if not files:
+        return []
+    upload_path = os.path.join(current_app.root_path, '..', QA_ATTACHMENT_FOLDER)
+    os.makedirs(upload_path, exist_ok=True)
+    attachments = []
+    for file in files:
+        if not file or not file.filename:
+            continue
+        display_name = _safe_filename(file.filename)
+        ext = display_name.rsplit('.', 1)[-1].lower() if '.' in display_name else ''
+        stored_name = f"{uuid.uuid4().hex[:8]}_{display_name}"
+        filepath = os.path.join(upload_path, stored_name)
+        file.save(filepath)
+        entry = {
+            "name": display_name,
+            "type": "image" if ext in _IMAGE_ATTACHMENT_EXTS else ("text" if ext in _TEXT_ATTACHMENT_EXTS else "file"),
+            "size": os.path.getsize(filepath),
+            "text": ""
+        }
+        if ext in _TEXT_ATTACHMENT_EXTS:
+            try:
+                should_clean = ext not in ('html', 'htm', 'md', 'markdown', 'docx', 'doc', 'pdf')
+                result = parse_document(filepath, clean_text=should_clean)
+                entry["text"] = (result.get("content") or "")[:20000]
+            except Exception:
+                entry["text"] = ""
+        attachments.append(entry)
+    return attachments
 
 
 @qa_bp.route("/ask", methods=["POST"])
@@ -16,13 +60,29 @@ qa_bp = Blueprint("qa", __name__)
 def ask_question():
     """提交问题并获取答案"""
     user_id = get_jwt_identity()
-    data = request.get_json()
-    
-    question = data.get("question", "").strip()
-    conversation_id = data.get("conversation_id")
-    
+    payload = request.get_json(silent=True) or {}
+    question = (request.form.get("question") or payload.get("question", "")).strip()
+    conversation_id = request.form.get("conversation_id", type=int)
+    if conversation_id is None:
+        conversation_id = payload.get("conversation_id")
+
     if not question:
         return jsonify({"error": "问题不能为空"}), 400
+
+    # 处理附件：文本类附件提取内容注入上下文，图片附件记录名称
+    attachments = []
+    if request.files:
+        attachments = _save_qa_attachments(request.files.getlist("files"))
+    engine_query = question
+    attachment_parts = []
+    for att in attachments:
+        if att.get("text"):
+            attachment_parts.append(f"[附件] {att['name']}\n{att['text']}")
+        elif att.get("type") == "image":
+            attachment_parts.append(f"[图片附件] {att['name']}")
+    if attachment_parts:
+        engine_query = "用户上传了以下附件内容，请结合附件内容与知识库回答：\n\n" + \
+            "\n\n".join(attachment_parts) + f"\n\n用户问题：{question}"
     
     # 获取会话历史
     conversation_history = []
@@ -46,7 +106,7 @@ def ask_question():
     # 调用RAG引擎获取答案
     try:
         rag_engine = get_rag_engine()
-        result = rag_engine.ask(question, conversation_history)
+        result = rag_engine.ask(engine_query, conversation_history)
     except Exception as e:
         return jsonify({
             "error": f"生成答案失败: {str(e)}"
@@ -73,6 +133,7 @@ def ask_question():
         "sources": result.get("retrieved_docs"),
         "confidence": result.get("confidence"),
         "response_time": result.get("response_time"),
+        "attachments": attachments,
         "created_at": record.created_at.isoformat() if record.created_at else None
     }), 200
 

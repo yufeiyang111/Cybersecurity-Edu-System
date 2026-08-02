@@ -1,0 +1,17 @@
+// ==================== 聊天页 ChatGPT 风格设计 Token ====================
+// 仅定义 CSS 变量，不写任何元素规则；由 chat 组件 scoped 样式引用
+
+:root {
+  --chat-sidebar: #f9f9f9;
+  --chat-canvas: #ffffff;
+  --chat-ink: #0d0d0d;
+  --chat-hollow: #8f8f8f;
+  --chat-hairline: rgba(0, 0, 0, 0.06);
+  --chat-hairline-strong: rgba(0, 0, 0, 0.12);
+  --chat-hover: rgba(0, 0, 0, 0.05);
+  --chat-bubble: #f4f4f5;
+  --chat-code-bg: #262624;
+  --chat-code-head: #2f2f2d;
+  --chat-radius: 10px;
+  --chat-link: #0b6bcb;
+}
