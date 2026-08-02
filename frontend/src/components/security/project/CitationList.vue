@@ -9,15 +9,43 @@
         <code>{{ citation.citation_id }}</code>
         <span>{{ citation.source_name }} · {{ citation.title }} · {{ citation.version || '未标注版本' }}</span>
       </div>
+      <div v-if="hasGovernance(citation)" class="citation-governance">
+        <span class="trust-badge" :class="trustToneClass(citation.trust_score)">
+          可信度 {{ trustPercent(citation.trust_score) }}
+        </span>
+        <el-tag
+          v-for="flag in citation.injection_flags || []"
+          :key="flag"
+          type="danger"
+          size="small"
+          effect="dark"
+          class="flag-tag"
+        >{{ injectionFlagLabel(flag) }}</el-tag>
+      </div>
       <p>{{ citation.snippet }}</p>
     </article>
   </section>
 </template>
 
 <script setup>
-defineProps({
+import { injectionFlagLabel } from '@/features/security/warningCodes'
+
+const props = defineProps({
   citations: { type: Array, default: () => [] }
 })
+
+const hasGovernance = (citation) =>
+  citation.trust_score !== undefined || (citation.injection_flags && citation.injection_flags.length)
+
+const trustPercent = (score) =>
+  typeof score === 'number' ? `${Math.round(score * 100)}%` : '服务端未提供'
+
+const trustToneClass = (score) => {
+  if (typeof score !== 'number') return 'trust-neutral'
+  if (score >= 0.8) return 'trust-high'
+  if (score >= 0.6) return 'trust-mid'
+  return 'trust-low'
+}
 </script>
 
 <style scoped lang="scss">
@@ -31,4 +59,15 @@ defineProps({
 .citation-item code { color: #087f5b; }
 .citation-item span, .citation-item p { color: #486581; font-size: 12px; }
 .citation-item p { margin: 7px 0 0; white-space: pre-wrap; line-height: 1.6; }
+.citation-governance { margin-top: 7px; }
+.trust-badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+}
+.trust-high { color: #087f5b; background: #e6f7f0; }
+.trust-mid { color: #b7791f; background: #fdf4e3; }
+.trust-low { color: #c53030; background: #fdeaea; }
+.trust-neutral { color: #627d98; background: #eef2f6; }
+.flag-tag { margin-left: 6px; }
 </style>

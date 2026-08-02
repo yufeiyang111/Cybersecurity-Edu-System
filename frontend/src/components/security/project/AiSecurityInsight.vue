@@ -29,13 +29,21 @@
 
     <div v-if="suggestion.warning_codes?.length" class="insight-warnings">
       <strong>服务端安全提示</strong>
-      <el-tag v-for="warning in suggestion.warning_codes" :key="warning" type="warning" size="small">{{ warning }}</el-tag>
+      <el-tag
+        v-for="warning in suggestion.warning_codes"
+        :key="warning"
+        type="warning"
+        size="small"
+        effect="light"
+        :title="warning"
+      >{{ warningCodeLabel(warning) }}</el-tag>
     </div>
   </section>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { warningCodeLabel } from '@/features/security/warningCodes'
 
 const props = defineProps({
   suggestion: { type: Object, required: true }

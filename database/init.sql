@@ -169,6 +169,7 @@ CREATE TABLE IF NOT EXISTS qa_records (
     confidence FLOAT COMMENT '置信度',
     model_name VARCHAR(50) COMMENT '使用的模型',
     response_time FLOAT COMMENT '响应时间(秒)',
+    rag_warnings JSON NULL COMMENT 'RAG 注入防护警告（docId:flag 列表）',
     feedback ENUM('good', 'neutral', 'bad') COMMENT '用户反馈',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES qa_conversations(id) ON DELETE SET NULL,

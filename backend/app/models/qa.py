@@ -41,6 +41,7 @@ class QARecord(db.Model):
     confidence = db.Column(db.Float)
     model_name = db.Column(db.String(50))
     response_time = db.Column(db.Float)
+    rag_warnings = db.Column(db.JSON)
     feedback = db.Column(db.Enum("good", "neutral", "bad"))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -59,6 +60,7 @@ class QARecord(db.Model):
             "confidence": self.confidence,
             "model_name": self.model_name,
             "response_time": self.response_time,
+            "rag_warnings": self.rag_warnings or [],
             "feedback": self.feedback,
             "is_favorited": len(self.favorites) > 0,
             "created_at": self.created_at.isoformat() if self.created_at else None

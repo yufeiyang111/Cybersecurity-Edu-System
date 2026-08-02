@@ -116,7 +116,8 @@ def _save_qa_record(user_id: int, conversation_id: int, question: str, result: d
         sources=result.get("retrieved_docs") or result.get("sources"),
         confidence=result.get("confidence"),
         model_name=result.get("model_name"),
-        response_time=result.get("response_time")
+        response_time=result.get("response_time"),
+        rag_warnings=result.get("rag_warnings") or None
     )
     db.session.add(record)
     db.session.commit()

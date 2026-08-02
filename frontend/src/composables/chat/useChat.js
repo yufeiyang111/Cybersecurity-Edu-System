@@ -84,6 +84,7 @@ export function useChat(threadRef) {
             confidence: r.confidence,
             response_time: r.response_time,
             model_name: r.model_name,
+            ragWarnings: r.rag_warnings || [],
             recordId: r.id,
             feedback: r.feedback,
             isFavorite: r.is_favorited,
@@ -232,6 +233,7 @@ export function useChat(threadRef) {
             assistantMsg.confidence = data.confidence
             assistantMsg.response_time = data.response_time
             assistantMsg.model_name = data.model_name || data.provider
+            assistantMsg.ragWarnings = data.rag_warnings || []
             assistantMsg.recordId = data.id
             if (data.attachments?.length) {
               assistantMsg.attachments = data.attachments.map((a) => ({

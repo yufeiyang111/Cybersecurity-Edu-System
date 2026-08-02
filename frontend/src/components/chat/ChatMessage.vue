@@ -35,6 +35,7 @@
           <span></span><span></span><span></span>
         </div>
         <ChatMarkdown v-if="message.content" :content="message.content" />
+        <ChatRagWarnings :warnings="message.ragWarnings" />
         <ChatSources :sources="message.sources" />
         <div class="cm-actions">
           <button title="复制" @click="$emit('copy', message)">
@@ -73,6 +74,7 @@
 
 <script setup>
 import ChatMarkdown from './ChatMarkdown.vue'
+import ChatRagWarnings from './ChatRagWarnings.vue'
 import ChatSources from './ChatSources.vue'
 import ChatThinking from './ChatThinking.vue'
 

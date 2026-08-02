@@ -18,6 +18,7 @@ declare module 'vue' {
     ChatComposer: typeof import('./components/chat/ChatComposer.vue')['default']
     ChatMarkdown: typeof import('./components/chat/ChatMarkdown.vue')['default']
     ChatMessage: typeof import('./components/chat/ChatMessage.vue')['default']
+    ChatRagWarnings: typeof import('./components/chat/ChatRagWarnings.vue')['default']
     ChatSidebar: typeof import('./components/chat/ChatSidebar.vue')['default']
     ChatSources: typeof import('./components/chat/ChatSources.vue')['default']
     ChatThinking: typeof import('./components/chat/ChatThinking.vue')['default']
