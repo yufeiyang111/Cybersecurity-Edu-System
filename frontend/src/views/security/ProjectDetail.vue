@@ -52,21 +52,29 @@
       </el-alert>
       <el-empty v-if="!loading && !selectedTaskId" description="请选择扫描任务" />
       <el-empty v-else-if="!loading && findings.length === 0" description="该任务未发现可展示的风险。" />
-      <div v-else ref="findingListElement" class="finding-list">
-        <FindingCard
-          v-for="finding in findings"
-          :key="finding.id"
-          :finding="finding"
-          :focused="focusedFindingId === finding.id"
-          :suggestions="suggestionsFor(finding.id)"
-          :suggestions-loaded="Boolean(suggestionsLoaded[finding.id])"
-          :loading="Boolean(suggestionLoading[finding.id])"
-          :error-message="suggestionErrors[finding.id]"
-          @generate="handleGenerateSuggestion"
-          @load-suggestions="loadSuggestions"
-          @copy-patch="copyPatch"
-          @review="openReviewDialog"
-        />
+      <div v-else class="finding-workbench">
+        <div ref="findingListElement" class="finding-list" role="list" aria-label="风险发现列表">
+          <FindingListItem
+            v-for="finding in findings"
+            :key="finding.id"
+            :finding="finding"
+            :selected="selectedFindingId === finding.id"
+            @select="selectFinding"
+          />
+        </div>
+        <div class="finding-panel">
+          <FindingDetailPanel
+            :finding="selectedFinding"
+            :suggestions="suggestionsFor(selectedFinding?.id)"
+            :suggestions-loaded="Boolean(suggestionsLoaded[selectedFinding?.id])"
+            :loading="Boolean(suggestionLoading[selectedFinding?.id])"
+            :error-message="suggestionErrors[selectedFinding?.id]"
+            @generate="handleGenerateSuggestion"
+            @load-suggestions="loadSuggestions"
+            @copy-patch="copyPatch"
+            @review="openReviewDialog"
+          />
+        </div>
       </div>
     </section>
 
@@ -108,14 +116,15 @@
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import DependencyInventoryTable from '@/components/security/dependencies/DependencyInventoryTable.vue'
 import ScaFindingList from '@/components/security/dependencies/ScaFindingList.vue'
 import ScaScanStatusCard from '@/components/security/dependencies/ScaScanStatusCard.vue'
-import FindingCard from '@/components/security/project/FindingCard.vue'
+import FindingDetailPanel from '@/components/security/project/FindingDetailPanel.vue'
+import FindingListItem from '@/components/security/project/FindingListItem.vue'
 import RemediationReviewDialog from '@/components/security/project/RemediationReviewDialog.vue'
 import ScanTaskTable from '@/components/security/project/ScanTaskTable.vue'
 import { useProjectDependencies } from '@/composables/security/useProjectDependencies'
@@ -129,8 +138,11 @@ const project = { id: Number(route.params.id), name: `项目 #${route.params.id}
 const reviewDialogVisible = ref(false)
 const reviewSubmitting = ref(false)
 const selectedSuggestion = ref(null)
-const focusedFindingId = ref(null)
+const selectedFindingId = ref(null)
 const findingListElement = ref(null)
+const selectedFinding = computed(
+  () => findings.value.find((finding) => finding.id === selectedFindingId.value) || null
+)
 const {
   suggestionsLoaded,
   suggestionLoading,
@@ -175,8 +187,17 @@ watch([selectedTask, findings], ([task, currentFindings]) => {
     clearDependencies()
     return
   }
+  if (!currentFindings.length) {
+    selectedFindingId.value = null
+  } else if (!currentFindings.some((finding) => finding.id === selectedFindingId.value)) {
+    selectedFindingId.value = currentFindings[0].id
+  }
   loadDependencies(task.snapshot_id, currentFindings, task.summary)
 })
+
+const selectFinding = (finding) => {
+  selectedFindingId.value = finding.id
+}
 
 const handleCancelTask = async (task) => {
   try {
@@ -212,10 +233,10 @@ const copyPatch = async (patchDiff) => {
 }
 
 const focusFinding = async (findingId) => {
-  focusedFindingId.value = findingId
+  selectedFindingId.value = findingId
   await nextTick()
   const target = findingListElement.value?.querySelector(`#finding-${findingId}`)
-  target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  target?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   target?.focus({ preventScroll: true })
 }
 
@@ -262,8 +283,34 @@ onBeforeUnmount(stopPolling)
 .section-heading h2 { margin: 7px 0 0; font-size: 20px; }
 .section-heading > div > p:last-child { margin: 7px 0 0; color: #627d98; line-height: 1.6; }
 .agent-boundary { margin-bottom: 16px; }
-.finding-list { display: grid; gap: 12px; }
+.finding-workbench {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.finding-list {
+  display: grid;
+  gap: 10px;
+  max-height: calc(100vh - 380px);
+  min-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+.finding-panel {
+  max-height: calc(100vh - 380px);
+  min-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
 .dependency-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(300px, .9fr); gap: 16px; margin-top: 16px; }
-@media (max-width: 900px) { .dependency-layout { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .dependency-layout { grid-template-columns: 1fr; }
+  .finding-workbench { grid-template-columns: 1fr; }
+  .finding-list { max-height: 40vh; }
+  .finding-panel { max-height: none; overflow: visible; }
+}
 @media (max-width: 760px) { .summary-grid { grid-template-columns: repeat(2, 1fr); }.detail-header { flex-direction: column; }.header-actions { justify-content: flex-start; }.workbench-section { padding: 16px; } }
 </style>
