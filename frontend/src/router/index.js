@@ -24,7 +24,7 @@ const routes = [
     path: '/oauth/callback',
     name: 'OAuthCallback',
     component: () => import('@/views/OAuthCallback.vue'),
-    meta: { title: '第三方登录', guest: true }
+    meta: { title: '第三方登录' }
   },
   {
     path: '/policies/:slug',

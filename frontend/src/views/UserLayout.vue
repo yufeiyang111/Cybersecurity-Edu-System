@@ -36,7 +36,12 @@
 
     <main class="user-main">
       <div class="main-container">
-        <router-view />
+        <div class="user-body">
+          <ProfileSidebar />
+          <div class="user-content">
+            <router-view />
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -47,6 +52,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import { Connection, HomeFilled, SwitchButton } from '@element-plus/icons-vue'
+import ProfileSidebar from '@/components/user/ProfileSidebar.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -63,15 +69,17 @@ const handleCommand = (command) => {
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/user-vars' as *;
+
 .user-layout {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: $bg-page;
 }
 
 .user-header {
-  background: #fff;
+  background: $bg-white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  
+
   .header-content {
     max-width: 1200px;
     margin: 0 auto;
@@ -81,50 +89,69 @@ const handleCommand = (command) => {
     align-items: center;
     gap: 40px;
   }
-  
+
   .logo {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 18px;
     font-weight: 600;
-    color: #303133;
+    color: $text-primary;
     cursor: pointer;
   }
-  
+
   .user-nav {
     display: flex;
     gap: 32px;
     flex: 1;
-    
+
     a {
-      color: #606266;
+      color: $text-regular;
       font-size: 15px;
-      
-      &:hover, &.router-link-active {
-        color: #10b981;
+
+      &:hover,
+      &.router-link-active {
+        color: $brand-color;
       }
     }
   }
-  
+
   .user-info {
     .dropdown-trigger {
       display: flex;
       align-items: center;
       gap: 8px;
       cursor: pointer;
-      color: #606266;
+      color: $text-regular;
     }
   }
 }
 
 .user-main {
   padding: 24px 0;
-  
+
   .main-container {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 20px;
+  }
+}
+
+.user-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.user-content {
+  flex: 1;
+  min-width: 0;
+}
+
+@include respond-to('lg') {
+  .user-body {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

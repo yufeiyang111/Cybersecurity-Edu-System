@@ -1,0 +1,47 @@
+// ==================== 个人中心品牌色（局部作用域，不影响全站绿色主题） ====================
+// 暖色调，与登录注册页保持一致（参考 AuthLayout / SubmitButton）
+@use 'sass:map';
+$brand-color: #8d8d85;
+$brand-hover: #76766f;
+$brand-light: rgba(141, 141, 133, 0.12);
+$brand-border: rgba(141, 141, 133, 0.28);
+
+$text-primary: #1a1a1a;
+$text-regular: #4a4a45;
+$text-secondary: #6b6b6b;
+$text-placeholder: #9a9a92;
+
+$border-color: #d9d9d3;
+$border-light: #e6e6e0;
+$border-lighter: #f0f0ea;
+$bg-page: #f6f5f1;
+$bg-white: #ffffff;
+$bg-hover: #f7f7f5;
+$bg-inset: #f3f2ed;
+
+$danger-color: #cf222e;
+$danger-light: rgba(207, 34, 46, 0.1);
+
+$shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+$font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+
+$sidebar-width: 296px;
+$avatar-size: 120px;
+$avatar-size-sm: 96px;
+
+$breakpoints: (
+  'xs': 480px,
+  'sm': 640px,
+  'md': 768px,
+  'lg': 1024px,
+  'xl': 1280px
+);
+
+@mixin respond-to($breakpoint) {
+  @if map.has-key($breakpoints, $breakpoint) {
+    @media (max-width: map.get($breakpoints, $breakpoint)) {
+      @content;
+    }
+  }
+}

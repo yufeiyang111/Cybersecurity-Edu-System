@@ -1,378 +1,75 @@
 <template>
   <div class="profile-page">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>个人信息</span>
-        </div>
-      </template>
+    <ProfileTabs
+      :questions="questions"
+      :favorites="favorites"
+    />
 
-      <div class="avatar-section">
-        <el-avatar :size="80" :src="form.avatar_url || undefined">
-          {{ form.nickname?.[0] || form.username?.[0] || '用户' }}
-        </el-avatar>
-        <div class="avatar-actions">
-          <el-upload
-            :show-file-list="false"
-            :before-upload="handleAvatarBeforeUpload"
-            :http-request="handleAvatarUpload"
-            accept="image/*"
-          >
-            <el-button size="small" type="primary">更换头像</el-button>
-          </el-upload>
-          <span class="avatar-tip">支持 JPG、PNG 格式，建议 200x200 像素</span>
-        </div>
+    <section class="profile-overview">
+      <ContributionHeatmap />
+      <RecentActivityList class="profile-overview__item" />
+    </section>
+
+    <section id="security" class="profile-security">
+      <div class="profile-security__header">
+        <h3>安全设置</h3>
+        <span class="profile-security__sub">第三方账号绑定</span>
       </div>
-
-      <el-divider />
-
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-width="100px"
-      >
-        <el-form-item label="用户名">
-          <el-input v-model="form.username" disabled />
-        </el-form-item>
-
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="form.email" />
-        </el-form-item>
-
-        <el-form-item label="昵称" prop="nickname">
-          <el-input v-model="form.nickname" placeholder="请输入昵称" />
-        </el-form-item>
-
-        <el-form-item label="角色">
-          <el-tag>{{ getRoleText(userStore.user?.role) }}</el-tag>
-        </el-form-item>
-
-        <el-form-item label="注册时间">
-          <span>{{ formatDate(userStore.user?.created_at) }}</span>
-        </el-form-item>
-
-        <el-form-item>
-          <el-button type="primary" @click="handleUpdateProfile" :loading="loading">
-            保存修改
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card class="mt-16">
-      <template #header>
-        <div class="card-header">
-          <span>修改密码</span>
-        </div>
-      </template>
-
-      <el-form
-        ref="passwordFormRef"
-        :model="passwordForm"
-        :rules="passwordRules"
-        label-width="100px"
-      >
-        <el-form-item label="旧密码" prop="oldPassword">
-          <el-input v-model="passwordForm.oldPassword" type="password" show-password />
-        </el-form-item>
-
-        <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="passwordForm.newPassword" type="password" show-password />
-        </el-form-item>
-
-        <el-form-item label="确认密码" prop="confirmPassword">
-          <el-input v-model="passwordForm.confirmPassword" type="password" show-password />
-        </el-form-item>
-
-        <el-form-item>
-          <el-button type="primary" @click="handleChangePassword" :loading="passwordLoading">
-            修改密码
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card class="mt-16">
-      <template #header>
-        <div class="card-header">
-          <span>第三方账号绑定</span>
-        </div>
-      </template>
-
-      <p class="oauth-bind__desc">
-        绑定后，下次可直接使用对应的第三方账号登录当前账号，无需再输密码。
-      </p>
-
-      <div v-for="p in providers" :key="p.key" class="oauth-bind__item">
-        <span class="oauth-bind__name">{{ p.label }}</span>
-        <el-tag v-if="isBound(p.key)" type="success" effect="plain">已绑定</el-tag>
-        <el-tag v-else type="info" effect="plain">未绑定</el-tag>
-        <el-button
-          size="small"
-          type="primary"
-          plain
-          :loading="bindingKey === p.key"
-          @click="handleBind(p.key)"
-        >
-          {{ isBound(p.key) ? '更换绑定' : '绑定' }}
-        </el-button>
-      </div>
-    </el-card>
+      <OAuthBindingCard />
+    </section>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import { authAPI } from '@/api'
-import { ElMessage } from 'element-plus'
+import { onMounted } from 'vue'
+import ProfileTabs from '@/components/user/ProfileTabs.vue'
+import ContributionHeatmap from '@/components/user/ContributionHeatmap.vue'
+import RecentActivityList from '@/components/user/RecentActivityList.vue'
+import OAuthBindingCard from '@/components/user/OAuthBindingCard.vue'
+import { useProfileStats } from '@/composables/user/useProfileStats'
 
-const userStore = useUserStore()
-const route = useRoute()
-const formRef = ref()
-const passwordFormRef = ref()
-const loading = ref(false)
-const passwordLoading = ref(false)
-
-const form = reactive({
-  username: '',
-  email: '',
-  nickname: '',
-  avatar_url: ''
-})
-
-const passwordForm = reactive({
-  oldPassword: '',
-  newPassword: '',
-  confirmPassword: ''
-})
-
-const validateConfirmPassword = (rule, value, callback) => {
-  if (value !== passwordForm.newPassword) {
-    callback(new Error('两次输入的密码不一致'))
-  } else {
-    callback()
-  }
-}
-
-const rules = {
-  email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
-  ],
-  nickname: [
-    { min: 2, max: 20, message: '昵称长度2-20个字符', trigger: 'blur' }
-  ]
-}
-
-const passwordRules = {
-  oldPassword: [
-    { required: true, message: '请输入旧密码', trigger: 'blur' }
-  ],
-  newPassword: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码至少6个字符', trigger: 'blur' }
-  ],
-  confirmPassword: [
-    { required: true, message: '请确认密码', trigger: 'blur' },
-    { validator: validateConfirmPassword, trigger: 'blur' }
-  ]
-}
-
-const getRoleText = (role) => {
-  const texts = {
-    admin: '管理员',
-    teacher: '教师',
-    user: '普通用户',
-    guest: '游客'
-  }
-  return texts[role] || role
-}
-
-const providers = [
-  { key: 'github', label: 'GitHub' },
-  { key: 'google', label: 'Google' }
-]
-const bindingKey = ref('')
-
-const isBound = (key) => userStore.user?.oauth_provider === key
-
-const handleBind = async (key) => {
-  bindingKey.value = key
-  try {
-    const res = await authAPI.bindOAuth(key)
-    window.location.href = res.url
-  } catch (error) {
-    bindingKey.value = ''
-  }
-}
-
-watch(
-  () => route.query.oauth_bind,
-  async (val) => {
-    if (val === 'ok') {
-      ElMessage.success('第三方账号绑定成功')
-      bindingKey.value = ''
-      await userStore.checkAuth()
-    }
-  },
-  { immediate: true }
-)
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString('zh-CN')
-}
-
-const handleUpdateProfile = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
-
-  loading.value = true
-  const result = await userStore.updateProfile({
-    email: form.email,
-    nickname: form.nickname,
-    avatar_url: form.avatar_url
-  })
-  loading.value = false
-
-  if (result.success) {
-    ElMessage.success('个人信息更新成功')
-  } else {
-    ElMessage.error(result.error || '更新失败')
-  }
-}
-
-const handleAvatarBeforeUpload = (file) => {
-  const isImage = file.type.startsWith('image/')
-  const isLt2M = file.size / 1024 / 1024 < 2
-
-  if (!isImage) {
-    ElMessage.error('只能上传图片文件')
-    return false
-  }
-  if (!isLt2M) {
-    ElMessage.error('图片大小不能超过 2MB')
-    return false
-  }
-  return true
-}
-
-const handleAvatarUpload = async ({ file }) => {
-  // 简单实现：使用 Base64 编码上传
-  const reader = new FileReader()
-  reader.onload = async (e) => {
-    const avatarUrl = e.target.result
-    form.avatar_url = avatarUrl
-
-    // 自动保存
-    loading.value = true
-    const result = await userStore.updateProfile({
-      email: form.email,
-      nickname: form.nickname,
-      avatar_url: avatarUrl
-    })
-    loading.value = false
-
-    if (result.success) {
-      ElMessage.success('头像更新成功')
-    } else {
-      ElMessage.error(result.error || '头像更新失败')
-    }
-  }
-  reader.readAsDataURL(file)
-}
-
-const handleChangePassword = async () => {
-  const valid = await passwordFormRef.value.validate().catch(() => false)
-  if (!valid) return
-
-  passwordLoading.value = true
-  const result = await userStore.changePassword(
-    passwordForm.oldPassword,
-    passwordForm.newPassword
-  )
-  passwordLoading.value = false
-
-  if (result.success) {
-    ElMessage.success('密码修改成功')
-    passwordForm.oldPassword = ''
-    passwordForm.newPassword = ''
-    passwordForm.confirmPassword = ''
-    passwordFormRef.value.resetFields()
-  } else {
-    ElMessage.error(result.error || '修改失败')
-  }
-}
+const { questions, favorites, load } = useProfileStats()
 
 onMounted(() => {
-  if (userStore.user) {
-    form.username = userStore.user.username || ''
-    form.email = userStore.user.email || ''
-    form.nickname = userStore.user.nickname || ''
-    form.avatar_url = userStore.user.avatar_url || ''
-  }
+  load()
 })
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/user-vars' as *;
+
 .profile-page {
-  :deep(.el-card) {
-    max-width: 600px;
-  }
+  min-width: 0;
+}
 
-  .mt-16 {
-    margin-top: 24px;
-  }
+.profile-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 
-  .card-header {
+  &__item {
+    margin-top: 0;
+  }
+}
+
+.profile-security {
+  margin-top: 24px;
+  scroll-margin-top: 16px;
+}
+
+.profile-security__header {
+  margin-bottom: 12px;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
     font-weight: 600;
+    color: $text-primary;
   }
+}
 
-  .avatar-section {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    padding: 16px 0;
-
-    .avatar-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-
-      .avatar-tip {
-        font-size: 12px;
-        color: #909399;
-      }
-    }
-  }
-
-  .oauth-bind {
-    &__desc {
-      margin: 0 0 16px;
-      font-size: 13px;
-      color: #909399;
-      line-height: 1.6;
-    }
-
-    &__item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 0;
-      border-bottom: 1px solid #f0f0f0;
-
-      &:last-child {
-        border-bottom: none;
-      }
-    }
-
-    &__name {
-      flex: 1;
-      font-weight: 500;
-    }
-  }
+.profile-security__sub {
+  font-size: 12px;
+  color: $text-secondary;
 }
 </style>
