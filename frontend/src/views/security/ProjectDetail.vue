@@ -20,6 +20,10 @@
       <article class="summary-card"><span>已完成</span><strong>{{ completedTaskCount }}</strong></article>
       <article class="summary-card"><span>风险发现</span><strong>{{ findings.length }}</strong></article>
       <article class="summary-card"><span>高危及以上</span><strong class="risk-number">{{ highRiskCount }}</strong></article>
+      <article class="summary-card">
+        <span>平均风险分</span>
+        <strong :class="{ 'risk-number': avgRiskScore >= 60 }">{{ avgRiskScore !== null ? avgRiskScore.toFixed(1) : '-' }}</strong>
+      </article>
     </section>
 
     <ScanTaskTable :tasks="tasks" :loading="loading" :selected-task-id="selectedTaskId" :action-loading="taskActionLoading" @select-task="loadFindings" @cancel-task="handleCancelTask" @retry-task="handleRetryTask" />
@@ -31,6 +35,17 @@
           <h2>风险发现与 AI 修复建议</h2>
           <p>{{ selectedTaskId ? `任务 #${selectedTaskId} 的证据化发现项。建议必须人工审核，页面不会提供自动应用补丁。` : '选择一条扫描任务查看发现项。' }}</p>
         </div>
+        <el-radio-group
+          v-if="selectedTaskId"
+          class="findings-sort"
+          :model-value="findingsSort"
+          size="small"
+          aria-label="发现项排序方式"
+          @update:model-value="setFindingsSort"
+        >
+          <el-radio-button value="default">默认</el-radio-button>
+          <el-radio-button value="risk">风险评分</el-radio-button>
+        </el-radio-group>
       </div>
       <el-alert type="warning" :closable="false" show-icon class="agent-boundary" title="AI 修复建议仅供人工审阅">
         页面只展示服务端返回的建议、RAG 引用和受限 Diff；系统不会执行、应用、提交或推送任何代码。
@@ -136,8 +151,11 @@ const {
   selectedTask,
   completedTaskCount,
   highRiskCount,
+  avgRiskScore,
+  findingsSort,
   load,
   loadFindings,
+  setFindingsSort,
   cancelTask,
   retryTask,
   stopPolling
@@ -234,7 +252,7 @@ onBeforeUnmount(stopPolling)
 .page-eyebrow, .section-eyebrow { margin: 12px 0 0; color: #0e9384; font-size: 11px; font-weight: 700; letter-spacing: .1em; }
 .header-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .alert { margin-bottom: 16px; }
-.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 18px; }
 .summary-card { padding: 20px; border: 1px solid #d9e2ec; border-radius: 14px; background: #fff; box-shadow: 0 8px 20px rgba(16, 42, 67, .04); }
 .summary-card span { display: block; color: #627d98; font-size: 13px; }
 .summary-card strong { display: block; margin-top: 8px; color: #102a43; font-size: 28px; }

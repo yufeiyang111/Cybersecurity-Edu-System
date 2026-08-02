@@ -2,6 +2,7 @@
   <article :id="`finding-${finding.id}`" class="finding-item" :class="{ 'finding-item--focused': focused }" tabindex="-1">
     <div class="finding-topline">
       <FindingSeverityTag :severity="finding.severity" />
+      <RiskScoreBadge :risk="finding.risk" />
       <code>{{ finding.rule_id }}</code>
       <span v-if="finding.cwe_id">{{ finding.cwe_id }}</span>
       <span v-if="finding.cve_id">{{ finding.cve_id }}</span>
@@ -17,6 +18,11 @@
       <span>脱敏证据</span>
       <code>{{ finding.evidence[0].content }}</code>
     </div>
+
+    <el-button v-if="finding.risk" text size="small" class="factor-toggle" @click="factorsVisible = !factorsVisible">
+      {{ factorsVisible ? '收起风险因子' : '展开风险因子' }}
+    </el-button>
+    <RiskFactorPanel v-if="factorsVisible" :risk="finding.risk" />
 
     <div class="finding-actions">
       <el-button type="primary" size="small" :loading="loading" @click="emit('generate', finding)">生成修复建议</el-button>
@@ -38,9 +44,11 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import FindingSeverityTag from '@/components/security/FindingSeverityTag.vue'
 import RemediationSuggestionCard from './RemediationSuggestionCard.vue'
+import RiskFactorPanel from './RiskFactorPanel.vue'
+import RiskScoreBadge from './RiskScoreBadge.vue'
 
 const props = defineProps({
   finding: { type: Object, required: true },
@@ -52,6 +60,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['generate', 'load-suggestions', 'copy-patch', 'review'])
+const factorsVisible = ref(false)
 const confidenceLabel = computed(() => typeof props.finding.confidence === 'number'
   ? `${Math.round(props.finding.confidence * 100)}%`
   : '服务端未提供')
@@ -70,6 +79,8 @@ const confidenceLabel = computed(() => typeof props.finding.confidence === 'numb
 .evidence span { white-space: nowrap; color: #8b651a; }
 .evidence code { color: #624b13; overflow-wrap: anywhere; }
 .finding-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.factor-toggle { margin: 10px 0 0; padding: 0; }
+.finding-actions + .factor-toggle { margin-top: 0; }
 .suggestion-error { margin-top: 12px; }
 .empty-suggestions { margin: 14px 0 0; color: #627d98; font-size: 13px; }
 .suggestion-list { display: grid; gap: 12px; margin-top: 16px; }

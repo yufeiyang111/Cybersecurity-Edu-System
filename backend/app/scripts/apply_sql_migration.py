@@ -15,6 +15,7 @@ MIGRATION_IDS = (
     "004_phase4_task_reliability",
     "005_legal_policies",
     "006_oauth_login",
+    "007_multi_oauth_bindings",
 )
 
 

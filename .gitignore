@@ -26,8 +26,10 @@ frontend/dist/
 .claude/
 .lingma/
 docs/
+design/
 $seedPath
 query
 SPEC.md
 技术实现文档.md
 CLAUDE.md
+.qdrant-initialized

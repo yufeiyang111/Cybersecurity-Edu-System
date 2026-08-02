@@ -10,6 +10,7 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
   const errorMessage = ref('')
   const tasks = ref([])
   const findings = ref([])
+  const findingsSort = ref('default')
   const selectedTaskId = ref(null)
   const taskActionLoading = ref({})
   let pollTimer = null
@@ -17,6 +18,13 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
 
   const completedTaskCount = computed(() => tasks.value.filter((task) => completedTaskStatuses.has(task.status)).length)
   const highRiskCount = computed(() => findings.value.filter((finding) => ['critical', 'high'].includes(finding.severity)).length)
+  const avgRiskScore = computed(() => {
+    const scores = findings.value
+      .map((finding) => finding.risk?.score)
+      .filter((score) => typeof score === 'number')
+    if (!scores.length) return null
+    return scores.reduce((sum, score) => sum + score, 0) / scores.length
+  })
   const hasRunningTasks = computed(() => tasks.value.some((task) => !terminalTaskStatuses.has(task.status)))
   const selectedTask = computed(() => tasks.value.find((task) => task.id === selectedTaskId.value) || null)
 
@@ -32,12 +40,12 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
     pollTimer = null
   }
 
-  const loadFindings = async (taskId) => {
+  const loadFindings = async (taskId, params = {}) => {
     selectedTaskId.value = taskId
     findings.value = []
     const requestSequence = ++findingsRequestSequence
     try {
-      const response = await securityAPI.getFindings(taskId)
+      const response = await securityAPI.getFindings(taskId, params)
       if (requestSequence !== findingsRequestSequence) return
       findings.value = response.items || []
       await onFindingsChanged(findings.value)
@@ -48,6 +56,12 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
     }
   }
 
+  const setFindingsSort = async (sort) => {
+    findingsSort.value = sort
+    if (!selectedTaskId.value) return
+    await loadFindings(selectedTaskId.value, sort === 'risk' ? { sort: 'risk' } : undefined)
+  }
+
   async function load() {
     loading.value = true
     errorMessage.value = ''
@@ -56,7 +70,7 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
       tasks.value = response.items || []
       const activeTask = tasks.value.find((task) => task.id === selectedTaskId.value) || tasks.value[0]
       if (activeTask) {
-        await loadFindings(activeTask.id)
+        await loadFindings(activeTask.id, findingsSort.value === 'risk' ? { sort: 'risk' } : undefined)
       } else {
         selectedTaskId.value = null
         findings.value = []
@@ -105,8 +119,11 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
     taskActionLoading,
     completedTaskCount,
     highRiskCount,
+    avgRiskScore,
+    findingsSort,
     load,
     loadFindings,
+    setFindingsSort,
     cancelTask: (taskId) => runTaskAction(taskId, 'cancel'),
     retryTask: (taskId) => runTaskAction(taskId, 'retry'),
     stopPolling

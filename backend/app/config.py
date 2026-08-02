@@ -134,6 +134,9 @@ class Config:
     MINIMAX_API_BASE = os.getenv("MINIMAX_API_BASE", "https://api.minimaxi.com/v1")
 
     CHROMA_PERSIST_DIRECTORY = str(DATA_DIR / "chroma_db")
+    VECTOR_BACKEND = os.getenv("VECTOR_BACKEND", "qdrant").strip().lower()
+    QDRANT_URL = os.getenv("QDRANT_URL", "http://127.0.0.1:6333").strip()
+    QDRANT_PATH = os.getenv("QDRANT_PATH", str(DATA_DIR / "qdrant_db"))
     SECURITY_KNOWLEDGE_VECTOR_ENABLED = _env_bool("SECURITY_KNOWLEDGE_VECTOR_ENABLED", False)
     REMEDIATION_LLM_ENABLED = _env_bool("REMEDIATION_LLM_ENABLED", False)
     REMEDIATION_LLM_PROVIDER = os.getenv("REMEDIATION_LLM_PROVIDER", "").strip()

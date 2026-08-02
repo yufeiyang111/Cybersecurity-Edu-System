@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url VARCHAR(255) COMMENT '头像URL',
     oauth_provider VARCHAR(20) COMMENT '第三方登录提供商',
     oauth_subject VARCHAR(100) COMMENT '第三方账号唯一标识',
+    oauth_bindings TEXT COMMENT '全部第三方绑定 JSON 数组',
     role_id INT NOT NULL DEFAULT 3 COMMENT '角色ID',
     is_active BOOLEAN DEFAULT TRUE COMMENT '是否激活',
     last_login_at DATETIME COMMENT '最后登录时间',

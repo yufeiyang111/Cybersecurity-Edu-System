@@ -21,6 +21,9 @@ def _ensure_directory(path: str | Path) -> None:
 
 
 def create_app(config_object: type | None = None) -> Flask:
+    from app.utils.proxy import normalize_system_proxy_env
+
+    normalize_system_proxy_env()
     app = Flask(__name__)
     active_config = config_object or Config
     app.config.from_object(active_config)
