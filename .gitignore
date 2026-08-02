@@ -27,6 +27,8 @@ frontend/dist/
 .lingma/
 docs/
 design/
+.github/
+start-dev.bat
 $seedPath
 query
 SPEC.md
