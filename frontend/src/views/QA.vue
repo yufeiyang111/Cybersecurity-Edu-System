@@ -31,9 +31,6 @@
             @favorite="toggleFavorite"
             @feedback="submitFeedback"
           />
-          <div v-if="loading" class="qa-loading">
-            <span></span><span></span><span></span>
-          </div>
         </div>
       </div>
 
@@ -153,25 +150,6 @@ onMounted(async () => {
   width: 100%;
   margin: 0 auto;
   padding: 24px 20px 8px;
-}
-
-.qa-loading {
-  display: flex; align-items: center; gap: 4px;
-  padding: 8px 0 20px;
-  margin-left: 44px;
-  span {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--chat-ink);
-    opacity: 0.35;
-    animation: chat-bounce 1.2s ease-in-out infinite;
-  }
-  span:nth-child(2) { animation-delay: .15s; }
-  span:nth-child(3) { animation-delay: .3s; }
-}
-
-@keyframes chat-bounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
-  30% { transform: translateY(-4px); opacity: 0.9; }
 }
 
 .qa-legal {

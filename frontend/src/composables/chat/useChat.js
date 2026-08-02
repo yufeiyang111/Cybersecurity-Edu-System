@@ -137,7 +137,7 @@ export function useChat(threadRef) {
   const sendMessage = async ({ text, files }) => {
     if (loading.value) return
 
-    const userMsg = {
+    messages.value.push({
       key: ++keySeed,
       role: 'user',
       content: text,
@@ -146,11 +146,11 @@ export function useChat(threadRef) {
         type: f.type.startsWith('image/') ? 'image' : 'file',
         preview: null
       }))
-    }
-    messages.value.push(userMsg)
+    })
+    const userMsg = messages.value[messages.value.length - 1]
     scrollToBottom()
 
-    const assistantMsg = {
+    messages.value.push({
       key: ++keySeed,
       role: 'assistant',
       content: '',
@@ -158,8 +158,8 @@ export function useChat(threadRef) {
       sources: [],
       attachments: [],
       streaming: true
-    }
-    messages.value.push(assistantMsg)
+    })
+    const assistantMsg = messages.value[messages.value.length - 1]
     scrollToBottom()
 
     loading.value = true
