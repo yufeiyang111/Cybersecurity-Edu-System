@@ -1,6 +1,9 @@
 ﻿# Environment and local runtime
 backend/.env
 backend/venv/
+backend/venv.bat
+backend/venv.cmd
+backend/venv.ps1
 backend/data/
 backend/logs/
 backend/security-workspaces/
