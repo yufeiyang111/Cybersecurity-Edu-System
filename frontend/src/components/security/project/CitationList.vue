@@ -49,20 +49,23 @@ const trustToneClass = (score) => {
 </script>
 
 <style scoped lang="scss">
-.citation-list { margin-top: 14px; padding: 14px; border-radius: 10px; background: #f4f8f6; border: 1px solid #d7eee4; }
+.citation-list { margin-top: 10px; padding: 10px 12px; border-radius: 6px; background: #f4f8f6; border: 1px solid #d7eee4; max-height: 320px; overflow-y: auto; }
+.citation-list::-webkit-scrollbar { width: 8px; }
+.citation-list::-webkit-scrollbar-thumb { background: #c2ccd9; border-radius: 4px; }
+.citation-list::-webkit-scrollbar-track { background: transparent; }
 .citation-list__header { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.citation-list strong { color: #155c48; font-size: 13px; }
-.citation-list__header span { color: #627d98; font-size: 12px; }
-.citation-item { padding: 10px 0; border-top: 1px solid #dfe9e4; }
-.citation-item:first-of-type { border-top: 0; padding-top: 10px; }
+.citation-list strong { color: #155c48; font-size: 12.5px; }
+.citation-list__header span { color: #6a7890; font-size: 12px; }
+.citation-item { padding: 8px 0; border-top: 1px solid #dfe9e4; }
+.citation-item:first-of-type { border-top: 0; padding-top: 8px; }
 .citation-item div { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.citation-item code { color: #087f5b; }
-.citation-item span, .citation-item p { color: #486581; font-size: 12px; }
-.citation-item p { margin: 7px 0 0; white-space: pre-wrap; line-height: 1.6; }
-.citation-governance { margin-top: 7px; }
+.citation-item code { color: #087f5b; font-size: 11.5px; }
+.citation-item span, .citation-item p { color: #52627a; font-size: 12px; }
+.citation-item p { margin: 6px 0 0; white-space: pre-wrap; line-height: 1.6; }
+.citation-governance { margin-top: 6px; }
 .trust-badge {
   display: inline-flex; align-items: center;
-  padding: 2px 8px; border-radius: 999px;
+  padding: 2px 8px; border-radius: 4px;
   font-size: 12px; font-weight: 600;
 }
 .trust-high { color: #087f5b; background: #e6f7f0; }

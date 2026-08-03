@@ -1,11 +1,8 @@
 <template>
   <section class="content-card">
-    <div class="section-heading">
-      <div>
-        <p class="section-eyebrow">SNAPSHOT SCANS</p>
-        <h2>扫描任务</h2>
-        <p>进行中的任务自动刷新；选择任务查看快照风险与依赖。</p>
-      </div>
+    <div class="card-head">
+      <h2>扫描任务</h2>
+      <span class="note">进行中的任务自动刷新，选择任务查看对应快照</span>
     </div>
     <div v-if="loading" class="table-skeleton">
       <el-skeleton :rows="3" animated />
@@ -13,10 +10,10 @@
     <el-empty v-else-if="tasks.length === 0" description="该项目还没有扫描记录。" />
     <div v-else class="table-wrap">
       <el-table :data="tasks" class="task-table" :row-class-name="rowClassName">
-        <el-table-column label="任务" min-width="92"><template #default="{ row }">#{{ row.id }}</template></el-table-column>
-        <el-table-column label="快照" min-width="100"><template #default="{ row }">#{{ row.snapshot_id }}</template></el-table-column>
-        <el-table-column label="状态" min-width="150"><template #default="{ row }"><ScanStatusTag :status="row.status" /></template></el-table-column>
-        <el-table-column label="检测语言" min-width="190">
+        <el-table-column label="任务" min-width="76"><template #default="{ row }"><span class="mono">#{{ row.id }}</span></template></el-table-column>
+        <el-table-column label="快照" min-width="88"><template #default="{ row }"><span class="snap-tag">#{{ row.snapshot_id }}</span></template></el-table-column>
+        <el-table-column label="状态" min-width="130"><template #default="{ row }"><ScanStatusTag :status="row.status" /></template></el-table-column>
+        <el-table-column label="语言" min-width="170">
           <template #default="{ row }">
             <div v-if="languagesFor(row).length" class="language-tags">
               <el-tag v-for="language in languagesFor(row)" :key="language" size="small" effect="plain">{{ language }}</el-tag>
@@ -24,9 +21,9 @@
             <span v-else class="muted-value">未识别</span>
           </template>
         </el-table-column>
-        <el-table-column label="进度" min-width="160"><template #default="{ row }"><el-progress :percentage="row.progress || 0" :status="row.status === 'failed' ? 'exception' : undefined" /></template></el-table-column>
-        <el-table-column label="创建时间" min-width="180"><template #default="{ row }">{{ formatSecurityDate(row.created_at) }}</template></el-table-column>
-        <el-table-column label="操作" min-width="220">
+        <el-table-column label="进度" min-width="110"><template #default="{ row }"><span class="progress-text" :class="{ 'progress-text--err': row.status === 'failed' }">{{ row.progress || 0 }}%</span></template></el-table-column>
+        <el-table-column label="创建时间" min-width="160"><template #default="{ row }"><span class="time">{{ formatSecurityDate(row.created_at) }}</span></template></el-table-column>
+        <el-table-column label="操作" min-width="180">
           <template #default="{ row }">
             <div class="task-actions">
               <el-button text type="primary" @click="emit('select-task', row.id)">{{ row.id === selectedTaskId ? '当前任务' : '查看风险' }}</el-button>
@@ -84,16 +81,24 @@ const rowClassName = ({ row }) => row.id === props.selectedTaskId ? 'task-table_
 </script>
 
 <style scoped lang="scss">
-.content-card { max-width: 1200px; margin: 18px auto 0; padding: 24px; border: 1px solid #d9e2ec; border-radius: 16px; background: #fff; box-shadow: 0 10px 24px rgba(16, 42, 67, .04); }
-.section-eyebrow { margin: 0 0 6px; color: #0e9384; font-size: 11px; font-weight: 700; letter-spacing: .09em; }
-.section-heading h2 { margin: 0; color: #102a43; font-size: 19px; }
-.section-heading p:last-child { margin: 7px 0 20px; color: #627d98; line-height: 1.6; }
+.content-card { background: #fff; border: 1px solid #e2e7ee; border-radius: 8px; margin-top: 8px; padding: 14px 16px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.card-head h2 { margin: 0; color: #1f2d3d; font-size: 15px; font-weight: 600; }
+.card-head .note { color: #6a7890; font-size: 12.5px; }
 .table-wrap { overflow-x: auto; }
 .table-skeleton { padding: 8px 4px 4px; }
-.task-table { min-width: 980px; }
+.task-table { min-width: 900px; }
+.task-table :deep(th.el-table__cell) { background: #fafbfd; color: #6a7890; font-size: 12.5px; font-weight: 600; }
+.task-table :deep(td.el-table__cell) { padding: 9px 0; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #37465c; font-weight: 600; }
+.snap-tag { background: #eef3f9; color: #52627a; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.progress-text { color: #37465c; font-size: 13px; font-variant-numeric: tabular-nums; }
+.progress-text--err { color: #d43b3b; }
+.time { color: #8494a8; font-size: 12.5px; }
 .task-actions { display: flex; align-items: center; gap: 4px; }
 .language-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.muted-value { color: #829ab1; font-size: 13px; }
-:deep(.task-table__selected-row > td.el-table__cell) { background: #eefcf7 !important; }
-@media (max-width: 760px) { .content-card { padding: 16px; }.task-table { font-size: 12px; } }
+.language-tags :deep(.el-tag) { background: #f1f4f8; border-color: #e2e7ee; color: #52627a; }
+.muted-value { color: #9aa7b8; font-size: 13px; }
+:deep(.task-table__selected-row > td.el-table__cell) { background: #f2f8ff !important; }
+@media (max-width: 760px) { .content-card { padding: 12px; }.card-head { flex-direction: column; align-items: flex-start; } }
 </style>

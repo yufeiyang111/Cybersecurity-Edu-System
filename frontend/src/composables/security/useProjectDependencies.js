@@ -70,23 +70,30 @@ function deriveScaStatus(taskSummary, findings) {
 export function useProjectDependencies(projectId) {
   const dependencies = ref([])
   const dependenciesLoading = ref(false)
+  const dependenciesLoadingMore = ref(false)
   const dependenciesError = ref('')
+  const dependenciesTotal = ref(0)
   const loadedSnapshotId = ref(null)
   const scaFindings = ref([])
   const scaStatus = ref(deriveScaStatus(null, []))
   let requestSequence = 0
 
+  const DEPENDENCIES_PAGE_SIZE = 50
+
   const dependencyCount = computed(() => dependencies.value.length)
+  const dependenciesHasMore = computed(() => dependencies.value.length < dependenciesTotal.value)
   const resolveProjectId = () => typeof projectId === 'function' ? projectId() : projectId
 
   const clearDependencies = () => {
     requestSequence += 1
     dependencies.value = []
     dependenciesError.value = ''
+    dependenciesTotal.value = 0
     loadedSnapshotId.value = null
     scaFindings.value = []
     scaStatus.value = deriveScaStatus(null, [])
     dependenciesLoading.value = false
+    dependenciesLoadingMore.value = false
   }
 
   const loadDependencies = async (snapshotId, findings, taskSummary) => {
@@ -98,8 +105,10 @@ export function useProjectDependencies(projectId) {
     if (!snapshotId) {
       dependencies.value = []
       dependenciesError.value = ''
+      dependenciesTotal.value = 0
       loadedSnapshotId.value = null
       dependenciesLoading.value = false
+      dependenciesLoadingMore.value = false
       return
     }
 
@@ -107,11 +116,16 @@ export function useProjectDependencies(projectId) {
 
     dependencies.value = []
     dependenciesError.value = ''
+    dependenciesTotal.value = 0
     dependenciesLoading.value = true
     try {
-      const response = await securityAPI.getDependencies(resolveProjectId(), { snapshot_id: snapshotId })
+      const response = await securityAPI.getDependencies(resolveProjectId(), {
+        snapshot_id: snapshotId,
+        limit: DEPENDENCIES_PAGE_SIZE
+      })
       if (requestId !== requestSequence) return
       dependencies.value = response.items || []
+      dependenciesTotal.value = response.pagination?.total ?? dependencies.value.length
       loadedSnapshotId.value = snapshotId
     } catch (error) {
       if (requestId === requestSequence) {
@@ -124,14 +138,45 @@ export function useProjectDependencies(projectId) {
     }
   }
 
+  const loadMoreDependencies = async () => {
+    const snapshotId = loadedSnapshotId.value
+    if (!snapshotId || dependenciesLoadingMore.value || dependenciesLoading.value) return
+    const requestId = ++requestSequence
+    dependenciesLoadingMore.value = true
+    try {
+      const response = await securityAPI.getDependencies(resolveProjectId(), {
+        snapshot_id: snapshotId,
+        limit: DEPENDENCIES_PAGE_SIZE,
+        offset: dependencies.value.length
+      })
+      if (requestId !== requestSequence) return
+      const incoming = response.items || []
+      const knownKeys = new Set(dependencies.value.map((item) => item.id))
+      dependencies.value = [...dependencies.value, ...incoming.filter((item) => !knownKeys.has(item.id))]
+      dependenciesTotal.value = response.pagination?.total ?? dependencies.value.length
+    } catch (error) {
+      if (requestId === requestSequence) {
+        dependenciesError.value = securityApiErrorMessage(error, '加载更多依赖失败。')
+      }
+    } finally {
+      if (requestId === requestSequence) {
+        dependenciesLoadingMore.value = false
+      }
+    }
+  }
+
   return {
     dependencies,
     dependenciesLoading,
+    dependenciesLoadingMore,
     dependenciesError,
+    dependenciesTotal,
+    dependenciesHasMore,
     scaFindings,
     scaStatus,
     dependencyCount,
     loadDependencies,
+    loadMoreDependencies,
     clearDependencies
   }
 }

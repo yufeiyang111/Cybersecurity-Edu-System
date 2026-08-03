@@ -22,6 +22,16 @@ def test_remediation_engine_exposes_public_contracts():
     assert isinstance(getattr(module, "RemediationService", None), type)
 
 
+class _EmptyPublicRetriever:
+    """测试隔离：不访问真实向量后端，只验证 workspace 私有检索链路。"""
+
+    def retrieve(self, workspace_id: int, query: str, top_k: int) -> list:
+        return []
+
+
+EMPTY_PUBLIC_RETRIEVER = _EmptyPublicRetriever()
+
+
 def _write_snapshot_file(snapshot_root: Path, relative_path: str, content: str) -> Path:
     target = snapshot_root.joinpath(*relative_path.split("/"))
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -232,7 +242,7 @@ def test_disabled_llm_creates_cited_rule_based_fallback_without_modifying_snapsh
         _, user, finding, target = _make_finding(tmp_path)
         original = target.read_text(encoding="utf-8")
 
-        suggestion = RemediationService().generate(finding.id, user.id)
+        suggestion = RemediationService(public_retriever=EMPTY_PUBLIC_RETRIEVER).generate(finding.id, user.id)
 
         assert suggestion is not None
         assert suggestion.provider == "rule-based"
@@ -296,7 +306,7 @@ def test_enabled_provider_json_is_parsed_and_validated_without_applying_patch(ap
             }""" % __import__("json").dumps(patch)
         )
 
-        suggestion = RemediationService(provider=provider).generate(finding.id, user.id)
+        suggestion = RemediationService(provider=provider, public_retriever=EMPTY_PUBLIC_RETRIEVER).generate(finding.id, user.id)
 
         assert suggestion.provider == "test-provider"
         assert suggestion.model == "test-model"
@@ -334,7 +344,7 @@ def test_secret_finding_withholds_file_context_from_enabled_provider(app, tmp_pa
             '{"rationale":"Move the credential to managed secret storage.","remediation_steps":["Rotate the exposed secret","Load it from a secret manager"],"patch_diff":null,"confidence":0.7}'
         )
 
-        suggestion = RemediationService(provider=provider).generate(finding.id, user.id)
+        suggestion = RemediationService(provider=provider, public_retriever=EMPTY_PUBLIC_RETRIEVER).generate(finding.id, user.id)
 
         assert suggestion.provider == "test-provider"
         assert "SECRET_CONTEXT_WITHHELD" in suggestion.warning_codes_json
@@ -350,7 +360,7 @@ def test_malformed_enabled_provider_degrades_to_rule_based_fallback(app, tmp_pat
         _, user, finding, _ = _make_finding(tmp_path)
         provider = _FakeProvider("not valid JSON")
 
-        suggestion = RemediationService(provider=provider).generate(finding.id, user.id)
+        suggestion = RemediationService(provider=provider, public_retriever=EMPTY_PUBLIC_RETRIEVER).generate(finding.id, user.id)
 
         assert suggestion.provider == "rule-based"
         assert "LLM_OUTPUT_INVALID" in suggestion.warning_codes_json
@@ -409,7 +419,7 @@ def test_injected_knowledge_citation_is_filtered_from_provider_prompt(app, tmp_p
             '{"rationale":"Disable debug mode.","remediation_steps":["Set debug to false"],"patch_diff":null,"confidence":0.9}'
         )
 
-        suggestion = RemediationService(provider=provider).generate(finding.id, user.id)
+        suggestion = RemediationService(provider=provider, public_retriever=EMPTY_PUBLIC_RETRIEVER).generate(finding.id, user.id)
 
         assert "CITATION_INJECTION_FILTERED" in suggestion.warning_codes_json
         flagged = [
@@ -421,3 +431,102 @@ def test_injected_knowledge_citation_is_filtered_from_provider_prompt(app, tmp_p
         assert "ignore_instructions" in flagged[0]["injection_flags"]
         assert "忽略以上指令" not in provider.prompt
         assert "真实提示词" not in provider.prompt
+
+
+class _FakePublicRetriever:
+    """模拟公共知识库检索，返回确定的引用序列。"""
+
+    def __init__(self, citations: list):
+        self.citations = citations
+
+    def retrieve(self, workspace_id: int, query: str, top_k: int) -> list:
+        return self.citations[:top_k]
+
+
+class _FakePrivateRetriever:
+    """模拟 workspace 私有知识库检索。"""
+
+    def __init__(self, citations: list):
+        self.citations = citations
+
+    def retrieve(self, workspace_id: int, query: str, top_k: int) -> list:
+        return self.citations[:top_k]
+
+
+def _citation(**overrides) -> dict:
+    base = {
+        "document_id": 1,
+        "source_id": 0,
+        "title": "t",
+        "source_name": "s",
+        "version": "v1",
+        "snippet": "s",
+        "score": 0.9,
+        "citation_id": "knowledge-1-abc",
+        "trust_score": 1.0,
+        "injection_flags": (),
+    }
+    base.update(overrides)
+    return base
+
+
+def _as_objects(payloads: list[dict]):
+    from app.services.security_knowledge import KnowledgeCitation
+
+    return [
+        KnowledgeCitation(
+            document_id=payload["document_id"],
+            source_id=payload["source_id"],
+            title=payload["title"],
+            source_name=payload["source_name"],
+            version=payload["version"],
+            snippet=payload["snippet"],
+            score=payload["score"],
+            citation_id=payload["citation_id"],
+            trust_score=payload["trust_score"],
+            injection_flags=payload["injection_flags"],
+        )
+        for payload in payloads
+    ]
+
+
+def test_merged_citations_prefers_public_and_dedupes_by_citation_id():
+    public = _as_objects(
+        [
+            _citation(document_id=10, citation_id="knowledge-10-pub", title="公共-1", score=0.9),
+            _citation(document_id=11, citation_id="knowledge-11-pub", title="公共-2", score=0.8),
+        ]
+    )
+    private = _as_objects(
+        [
+            _citation(document_id=12, citation_id="knowledge-12-priv", title="私有-1", score=0.95),
+        ]
+    )
+    service = RemediationService(
+        public_retriever=_FakePublicRetriever(public),
+        retriever=_FakePrivateRetriever(private),
+    )
+    merged = service._merged_citations(7, "query", top_k=5)
+
+    assert [c.citation_id for c in merged] == ["knowledge-10-pub", "knowledge-11-pub", "knowledge-12-priv"]
+
+
+def test_merged_citations_respects_top_k_cap():
+    public = _as_objects([_citation(citation_id=f"p-{i}", document_id=i, score=0.5) for i in range(1, 6)])
+    private = _as_objects([_citation(citation_id=f"q-{i}", document_id=100 + i, score=0.4) for i in range(1, 6)])
+    service = RemediationService(
+        public_retriever=_FakePublicRetriever(public),
+        retriever=_FakePrivateRetriever(private),
+    )
+
+    assert len(service._merged_citations(7, "q", top_k=2)) == 2
+
+
+def test_merged_citations_falls_back_to_private_when_public_empty():
+    service = RemediationService(
+        public_retriever=_FakePublicRetriever([]),
+        retriever=_FakePrivateRetriever([_as_objects([_citation(citation_id="priv-1", score=0.9)])[0]]),
+    )
+    merged = service._merged_citations(7, "q", top_k=5)
+
+    assert [c.citation_id for c in merged] == ["priv-1"]

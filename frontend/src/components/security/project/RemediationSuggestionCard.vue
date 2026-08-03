@@ -35,12 +35,13 @@ const emit = defineEmits(['copy-patch', 'review'])
 </script>
 
 <style scoped lang="scss">
-.suggestion-card { padding: 18px; border: 1px solid #b7ead7; border-radius: 14px; background: #fbfffd; }
+.suggestion-card { padding: 12px 14px; border: 1px solid #d9e9dd; border-radius: 6px; background: #f7fbf8; }
 .suggestion-header, .suggestion-footer { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
-.suggestion-header span, .suggestion-footer span { display: block; margin-top: 4px; color: #627d98; font-size: 12px; line-height: 1.55; }
-.rationale { margin: 16px 0 0; color: #243b53; line-height: 1.65; }
-.steps { margin: 10px 0 0; padding-left: 22px; color: #334e68; line-height: 1.6; }
-.steps li + li { margin-top: 5px; }
-.suggestion-footer { margin-top: 16px; padding-top: 14px; border-top: 1px solid #d9e2ec; }
+.suggestion-header strong { color: #1f2d3d; font-size: 13.5px; }
+.suggestion-header span, .suggestion-footer span { display: block; margin-top: 2px; color: #6a7890; font-size: 12px; line-height: 1.55; }
+.rationale { margin: 10px 0 0; color: #37465c; font-size: 13px; line-height: 1.65; }
+.steps { margin: 8px 0 0; padding-left: 22px; color: #52627a; font-size: 13px; line-height: 1.6; }
+.steps li + li { margin-top: 4px; }
+.suggestion-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e7ee; }
 @media (max-width: 760px) { .suggestion-header, .suggestion-footer { align-items: flex-start; flex-direction: column; } }
 </style>

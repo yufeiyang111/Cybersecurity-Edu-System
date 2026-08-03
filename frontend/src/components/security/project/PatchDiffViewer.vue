@@ -21,10 +21,11 @@ const emit = defineEmits(['copy'])
 </script>
 
 <style scoped lang="scss">
-.patch-block { margin-top: 14px; padding: 14px; border-radius: 10px; background: #102a43; color: #eaf2f8; }
-.patch-block__header { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
-.patch-block__header span { display: block; margin-top: 4px; color: #bcd2e4; font-size: 12px; line-height: 1.5; }
-.patch-block pre { margin: 0; max-height: 360px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.55; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.no-patch { margin: 14px 0 0; color: #627d98; font-size: 13px; }
-@media (max-width: 760px) { .patch-block__header { flex-direction: column; } }
+.patch-block { margin-top: 8px; border: 1px solid #dce3ec; border-radius: 6px; background: #f8fafc; }
+.patch-block__header { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #e2e7ee; }
+.patch-block__header strong { color: #37465c; font-size: 12.5px; }
+.patch-block__header span { display: block; margin-top: 2px; color: #6a7890; font-size: 12px; line-height: 1.5; }
+.patch-block pre { margin: 0; max-height: 360px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.55; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #2b3a4e; padding: 8px 10px; }
+.no-patch { margin: 12px 0 0; color: #6a7890; font-size: 13px; }
+@media (max-width: 760px) { .patch-block__header { flex-direction: column; align-items: flex-start; } }
 </style>

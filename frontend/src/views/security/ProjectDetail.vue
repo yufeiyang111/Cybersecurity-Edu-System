@@ -1,91 +1,131 @@
 <template>
   <main class="detail-page">
-    <header class="detail-header">
-      <div>
-        <el-button text :icon="ArrowLeft" @click="router.push('/security/projects')">返回项目中心</el-button>
-        <p class="page-eyebrow">PROJECT SECURITY WORKBENCH</p>
-        <h1>{{ project.name }}</h1>
-        <p>仅展示脱敏证据；所有修复建议必须人工审核。</p>
-      </div>
-      <div class="header-actions">
-        <el-button plain @click="router.push('/security/knowledge')">安全知识治理</el-button>
+    <header class="topbar">
+      <el-button text :icon="ArrowLeft" @click="router.push('/security/projects')">返回项目中心</el-button>
+      <div class="actions">
+        <el-button plain @click="router.push('/security/knowledge')">安全知识库</el-button>
         <el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
       </div>
     </header>
 
     <el-alert v-if="errorMessage" :title="errorMessage" type="error" :closable="false" show-icon class="alert" />
 
-    <section class="summary-grid" aria-label="当前风险概要">
+    <div class="head-card">
+      <div class="head-title">
+        <h1>{{ project.name }}</h1>
+        <span class="status" :class="`status--${scanState.kind}`">{{ scanState.label }}</span>
+      </div>
+      <div class="head-meta">
+        <template v-if="selectedTask">
+          快照 #{{ selectedTask.snapshot_id }}<span class="meta-sep">·</span>语言 {{ languageLabel }}<span class="meta-sep">·</span>最近任务 {{ formatSecurityDate(selectedTask.created_at) }}
+        </template>
+        <template v-else>暂无扫描记录</template>
+      </div>
+    </div>
+
+    <div class="stats">
       <template v-if="loading || findingsLoading">
-        <article v-for="index in 5" :key="index" class="summary-card summary-card--skeleton">
-          <el-skeleton animated :rows="2" />
-        </article>
+        <div v-for="index in 5" :key="index" class="stat stat--skeleton"><el-skeleton animated :rows="2" /></div>
       </template>
       <template v-else>
-        <article class="summary-card"><span>扫描任务</span><strong>{{ tasks.length }}</strong></article>
-        <article class="summary-card"><span>已完成</span><strong>{{ completedTaskCount }}</strong></article>
-        <article class="summary-card"><span>风险发现</span><strong>{{ findings.length }}</strong></article>
-        <article class="summary-card"><span>高危及以上</span><strong class="risk-number">{{ highRiskCount }}</strong></article>
-        <article class="summary-card">
-          <span>平均风险分</span>
-          <strong :class="{ 'risk-number': avgRiskScore >= 60 }">{{ avgRiskScore !== null ? avgRiskScore.toFixed(1) : '-' }}</strong>
-        </article>
-      </template>
-    </section>
-
-    <ScanTaskTable :tasks="tasks" :loading="loading" :selected-task-id="selectedTaskId" :action-loading="taskActionLoading" @select-task="loadFindings" @cancel-task="handleCancelTask" @retry-task="handleRetryTask" />
-
-    <section class="workbench-section content-card">
-      <div class="section-heading">
-        <div>
-          <p class="section-eyebrow">FINDINGS AND CONTEXTUAL AI</p>
-          <h2>风险发现与 AI 修复建议</h2>
-          <p>{{ selectedTaskId ? `任务 #${selectedTaskId} 的证据化发现项，建议必须人工审核。` : '选择一条扫描任务查看发现项。' }}</p>
+        <div class="stat">
+          <div class="num" :class="avgRiskScore !== null && avgRiskScore >= 60 ? 'num--red' : ''">{{ avgRiskScore !== null ? Math.round(avgRiskScore) : '-' }}</div>
+          <div class="lbl">综合风险分</div>
         </div>
-        <el-radio-group
-          v-if="selectedTaskId"
-          class="findings-sort"
-          :model-value="findingsSort"
-          size="small"
-          aria-label="发现项排序方式"
-          @update:model-value="setFindingsSort"
-        >
-          <el-radio-button value="default">默认</el-radio-button>
-          <el-radio-button value="risk">风险评分</el-radio-button>
-        </el-radio-group>
+        <div class="stat">
+          <div class="num num--red">{{ highRiskCount }}</div>
+          <div class="lbl">高危及以上发现</div>
+        </div>
+        <div class="stat">
+          <div class="num">{{ findingsTotal }}</div>
+          <div class="lbl">风险发现总数</div>
+        </div>
+        <div class="stat">
+          <div class="num num--green">{{ suggestionStats.total ? `${suggestionStats.reviewed} / ${suggestionStats.total}` : '0 / 0' }}</div>
+          <div class="lbl">修复建议已审核</div>
+        </div>
+        <div class="stat">
+          <div class="num">{{ tasks.length }}</div>
+          <div class="lbl">扫描任务</div>
+        </div>
+      </template>
+    </div>
+
+    <ScanTaskTable
+      :tasks="tasks"
+      :loading="loading"
+      :selected-task-id="selectedTaskId"
+      :action-loading="taskActionLoading"
+      @select-task="loadFindings"
+      @cancel-task="handleCancelTask"
+      @retry-task="handleRetryTask"
+    />
+
+    <section class="card">
+      <div class="card-head">
+        <h2>风险发现</h2>
+        <div class="card-head__side">
+          <span class="note">{{ selectedTaskId ? '任务 #' + selectedTaskId + ' 的证据化发现项，建议须人工审核' : '选择一条扫描任务查看发现项' }}</span>
+          <el-radio-group
+            v-if="selectedTaskId"
+            class="findings-sort"
+            :model-value="findingsSort"
+            size="small"
+            aria-label="发现项排序方式"
+            @update:model-value="setFindingsSort"
+          >
+            <el-radio-button value="default">默认排序</el-radio-button>
+            <el-radio-button value="risk">风险评分</el-radio-button>
+          </el-radio-group>
+        </div>
       </div>
-      <el-alert type="warning" :closable="false" show-icon class="agent-boundary" title="AI 修复建议仅供人工审阅">
-        页面只展示服务端返回的建议、RAG 引用和受限 Diff；系统不会执行、应用、提交或推送任何代码。
-      </el-alert>
-      <div v-if="findingsLoading" class="finding-workbench" aria-label="风险发现加载中">
+
+      <div class="notice">
+        AI 修复建议仅供人工审阅：页面只展示服务端返回的建议、引用和受限 Diff，系统不会执行、应用、提交或推送任何代码。
+      </div>
+
+      <div v-if="findingsLoading" class="workbench" aria-label="风险发现加载中">
         <div class="finding-list finding-list--skeleton">
           <el-skeleton v-for="index in 4" :key="index" :rows="3" animated />
         </div>
-        <div class="finding-panel finding-panel--skeleton">
+        <div class="panel panel--skeleton">
           <el-skeleton :rows="8" animated />
         </div>
       </div>
       <el-empty v-else-if="!selectedTaskId" description="请选择扫描任务" />
       <el-empty v-else-if="findings.length === 0" description="该任务未发现可展示的风险。" />
-      <div v-else class="finding-workbench">
+      <div v-else class="workbench">
         <div ref="findingListElement" class="finding-list" role="list" aria-label="风险发现列表">
           <FindingListItem
             v-for="finding in findings"
             :key="finding.id"
             :finding="finding"
+            :suggestion-ready="finding.suggestion_count > 0"
             :selected="selectedFindingId === finding.id"
             @select="selectFinding"
           />
+          <button
+            v-if="findingsHasMore"
+            class="load-more"
+            :disabled="findingsLoadingMore"
+            @click="loadMoreFindings"
+          >
+            {{ findingsLoadingMore ? '加载中…' : `加载更多发现项（已显示 ${findings.length} / ${findingsTotal}）` }}
+          </button>
         </div>
-        <div class="finding-panel">
+        <div class="panel">
           <FindingDetailPanel
             :finding="selectedFinding"
             :suggestions="suggestionsFor(selectedFinding?.id)"
             :suggestions-loaded="Boolean(suggestionsLoaded[selectedFinding?.id])"
+            :suggestion-total="selectedFinding ? (suggestionsTotal[selectedFinding.id] ?? selectedFinding.suggestion_count ?? 0) : 0"
+            :suggestions-has-more="Boolean(selectedFinding && suggestionsTotal[selectedFinding.id] > suggestionsFor(selectedFinding.id).length)"
+            :suggestions-loading-more="Boolean(suggestionsLoadingMore[selectedFinding?.id])"
             :loading="Boolean(suggestionLoading[selectedFinding?.id])"
             :error-message="suggestionErrors[selectedFinding?.id]"
             @generate="handleGenerateSuggestion"
             @load-suggestions="loadSuggestions"
+            @load-more-suggestions="loadMoreSuggestions"
             @copy-patch="copyPatch"
             @review="openReviewDialog"
           />
@@ -93,42 +133,48 @@
       </div>
     </section>
 
-    <section class="workbench-section dependency-section">
-      <div class="section-heading">
-        <div>
-          <p class="section-eyebrow">SNAPSHOT DEPENDENCIES</p>
-          <h2>依赖与软件成分分析</h2>
-          <p>依赖库存和风险严格以当前选中扫描任务的快照为范围。</p>
-        </div>
-        <div class="dependency-heading-actions">
-          <el-tag v-if="selectedTask" effect="plain">快照 #{{ selectedTask.snapshot_id }}</el-tag>
-          <el-button size="small" text type="primary" :icon="dependenciesExpanded ? ArrowUp : ArrowDown" @click="dependenciesExpanded = !dependenciesExpanded">
-            {{ dependenciesExpanded ? '收起' : '展开' }}
-          </el-button>
+    <section class="card">
+      <div class="card-head">
+        <h2>依赖与软件成分分析</h2>
+        <div class="card-head__side">
+          <span v-if="selectedTask" class="note">范围：当前任务快照 #{{ selectedTask.snapshot_id }}</span>
+          <button class="dep-toggle" @click="dependenciesExpanded = !dependenciesExpanded">{{ dependenciesExpanded ? '收起' : '展开' }}</button>
         </div>
       </div>
 
       <el-collapse-transition>
-        <div v-show="dependenciesExpanded">
+        <div v-show="dependenciesExpanded" class="dep-body">
           <el-empty v-if="!selectedTask" description="选择扫描任务后查看该快照的依赖库存与 SCA 结果。" />
           <template v-else>
             <ScaScanStatusCard :status="scaStatus" />
-            <div class="dependency-layout">
-              <DependencyInventoryTable
-                :dependencies="dependencies"
-                :loading="dependenciesLoading"
-                :error="dependenciesError"
-              />
-              <ScaFindingList
-                :findings="scaFindings"
-                :loading="dependenciesLoading"
-                @select-finding="focusFinding"
-              />
+            <div class="dep-layout">
+              <div class="mini-card">
+                <h3>依赖库存</h3>
+                <DependencyInventoryTable
+                  :dependencies="dependencies"
+                  :loading="dependenciesLoading"
+                  :loading-more="dependenciesLoadingMore"
+                  :error="dependenciesError"
+                  :has-more="dependenciesHasMore"
+                  :total="dependenciesTotal"
+                  @load-more="loadMoreDependencies"
+                />
+              </div>
+              <div class="mini-card">
+                <h3>SCA 风险</h3>
+                <ScaFindingList
+                  :findings="scaFindings"
+                  :loading="dependenciesLoading"
+                  @select-finding="focusFinding"
+                />
+              </div>
             </div>
           </template>
         </div>
       </el-collapse-transition>
     </section>
+
+    <p class="foot-note">所有修复建议均须人工审核；系统不会自动执行、应用、提交或推送任何代码。</p>
 
     <RemediationReviewDialog
       v-model="reviewDialogVisible"
@@ -143,7 +189,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, ArrowLeft, ArrowUp, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import DependencyInventoryTable from '@/components/security/dependencies/DependencyInventoryTable.vue'
 import ScaFindingList from '@/components/security/dependencies/ScaFindingList.vue'
 import ScaScanStatusCard from '@/components/security/dependencies/ScaScanStatusCard.vue'
@@ -154,7 +200,7 @@ import ScanTaskTable from '@/components/security/project/ScanTaskTable.vue'
 import { useProjectDependencies } from '@/composables/security/useProjectDependencies'
 import { useProjectScanTasks } from '@/composables/security/useProjectScanTasks'
 import { useRemediationSuggestions } from '@/composables/security/useRemediationSuggestions'
-import { securityApiErrorMessage } from '@/features/security/presentation'
+import { formatSecurityDate, securityApiErrorMessage } from '@/features/security/presentation'
 
 const route = useRoute()
 const router = useRouter()
@@ -172,41 +218,72 @@ const {
   suggestionsLoaded,
   suggestionLoading,
   suggestionErrors,
+  suggestionsTotal,
+  suggestionsLoadingMore,
   suggestionsFor,
   loadSuggestions,
-  preloadForFindings,
+  loadMoreSuggestions,
   generateSuggestion,
   reviewSuggestion
 } = useRemediationSuggestions()
 const {
   loading,
   findingsLoading,
+  findingsLoadingMore,
   errorMessage,
   tasks,
   findings,
+  findingsStats,
+  findingsTotal,
+  findingsHasMore,
   selectedTaskId,
   taskActionLoading,
   selectedTask,
   completedTaskCount,
   highRiskCount,
   avgRiskScore,
+  hasRunningTasks,
   findingsSort,
   load,
   loadFindings,
+  loadMoreFindings,
   setFindingsSort,
   cancelTask,
   retryTask,
   stopPolling
-} = useProjectScanTasks(() => route.params.id, { onFindingsChanged: preloadForFindings })
+} = useProjectScanTasks(() => route.params.id)
 const {
   dependencies,
   dependenciesLoading,
+  dependenciesLoadingMore,
   dependenciesError,
+  dependenciesTotal,
+  dependenciesHasMore,
   scaFindings,
   scaStatus,
   loadDependencies,
+  loadMoreDependencies,
   clearDependencies
 } = useProjectDependencies(() => route.params.id)
+
+const scanState = computed(() => {
+  if (hasRunningTasks.value) return { kind: 'run', label: '扫描中' }
+  if (tasks.value.length) return { kind: 'ok', label: '扫描完成' }
+  return { kind: 'none', label: '暂无记录' }
+})
+const languageLabel = computed(() => {
+  const languages = selectedTask.value?.summary?.languages
+  return Array.isArray(languages) && languages.length ? languages.join(' / ') : '未识别'
+})
+const suggestionStats = computed(() => {
+  const stats = findingsStats.value
+  if (stats?.suggestion_total !== undefined) {
+    return { total: stats.suggestion_total, reviewed: stats.suggestion_reviewed ?? 0 }
+  }
+  const all = findings.value.flatMap((finding) => suggestionsFor(finding.id))
+  const reviewed = all.filter((item) => ['accepted', 'rejected', 'needs_revision'].includes(item.review_state)).length
+  return { reviewed, total: all.length }
+})
 
 watch([selectedTask, findings], ([task, currentFindings]) => {
   if (!task) {
@@ -291,83 +368,91 @@ onBeforeUnmount(stopPolling)
 </script>
 
 <style scoped lang="scss">
-.detail-page { min-height: 100vh; padding: 24px clamp(20px, 4vw, 64px); background: #f6f8fb; color: #102a43; }
-.detail-header, .summary-grid, .content-card, .dependency-section, .alert { max-width: 1200px; margin-left: auto; margin-right: auto; }
-.detail-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  align-items: flex-start;
-  margin-bottom: 18px;
-  padding: 12px 14px 12px;
-  margin-left: auto;
-  margin-right: auto;
-  margin-top: -12px;
-  background: rgba(246, 248, 251, .92);
+.detail-page { min-height: 100vh; padding: 12px 16px 32px; background: #f4f6f9; color: #1f2d3d; }
+
+/* 顶部操作栏 */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 0; margin-bottom: 8px;
+  background: rgba(244, 246, 249, .94);
   backdrop-filter: blur(8px);
-  border-radius: 12px;
 }
-.detail-header h1 { margin: 6px 0 0; font-size: clamp(24px, 4vw, 36px); letter-spacing: -.025em; }
-.detail-header > div > p:last-child { max-width: 720px; margin: 8px 0 0; color: #486581; line-height: 1.65; }
-.page-eyebrow, .section-eyebrow { margin: 12px 0 0; color: #0e9384; font-size: 11px; font-weight: 700; letter-spacing: .1em; }
-.header-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-.alert { margin-bottom: 16px; }
-.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
-.summary-card { padding: 14px 18px; border: 1px solid #d9e2ec; border-radius: 12px; background: #fff; box-shadow: 0 8px 20px rgba(16, 42, 67, .04); }
-.summary-card--skeleton { padding: 18px; }
-.summary-card span { display: block; color: #627d98; font-size: 12px; }
-.summary-card strong { display: block; margin-top: 4px; color: #102a43; font-size: 24px; }
-.summary-card .risk-number { color: #b42318; }
-.workbench-section { margin-top: 18px; padding: 24px; border: 1px solid #d9e2ec; border-radius: 16px; background: #fff; box-shadow: 0 10px 24px rgba(16, 42, 67, .04); }
-.section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-.section-heading h2 { margin: 7px 0 0; font-size: 20px; }
-.section-heading > div > p:last-child { margin: 7px 0 0; color: #627d98; line-height: 1.6; }
-.agent-boundary { margin-bottom: 16px; }
-.finding-workbench {
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
+.actions { display: flex; gap: 8px; align-items: center; }
+.alert { margin-bottom: 8px; }
+
+/* 项目信息头卡 */
+.head-card { background: #fff; border: 1px solid #e2e7ee; border-radius: 8px; padding: 14px 16px; }
+.head-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.head-title h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: 0; }
+.status { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+.status--ok { background: #e8f6ee; color: #1c8a4d; }
+.status--run { background: #e8f1fb; color: #1d4ed8; }
+.status--none { background: #eef2f7; color: #6a7890; }
+.head-meta { margin-top: 6px; color: #6a7890; font-size: 13px; }
+.meta-sep { margin: 0 8px; color: #c2ccd9; }
+
+/* 统计卡 */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 8px; }
+.stat { background: #fff; border: 1px solid #e2e7ee; border-radius: 8px; padding: 10px 14px; }
+.stat--skeleton { padding: 12px 14px; }
+.stat .num { font-size: 22px; font-weight: 700; line-height: 1.2; color: #1f2d3d; font-variant-numeric: tabular-nums; }
+.stat .num--red { color: #d43b3b; }
+.stat .num--green { color: #1c8a4d; }
+.stat .lbl { color: #6a7890; font-size: 12.5px; margin-top: 1px; }
+
+/* 内容卡 */
+.card { background: #fff; border: 1px solid #e2e7ee; border-radius: 8px; margin-top: 8px; padding: 14px 16px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.card-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.card-head__side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.card-head__side .note { color: #6a7890; font-size: 12.5px; }
+.findings-sort :deep(.el-radio-button__inner) { padding: 6px 12px; font-size: 12.5px; }
+
+.notice {
+  display: flex; gap: 8px; align-items: flex-start;
+  background: #fffbf0; border: 1px solid #f0dfae; border-radius: 6px;
+  color: #7c5c12; font-size: 12.5px; padding: 8px 12px; margin-bottom: 10px;
 }
+
+/* 风险工作台 */
+.workbench { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 10px; align-items: start; }
 .finding-list {
-  display: grid;
-  gap: 10px;
-  max-height: calc(100vh - 380px);
-  min-height: 300px;
-  overflow-y: auto;
-  padding-right: 4px;
-  scrollbar-gutter: stable;
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 560px; min-height: 200px;
+  overflow-y: auto; padding-right: 4px;
 }
-.finding-panel {
-  max-height: calc(100vh - 380px);
-  min-height: 300px;
-  overflow-y: auto;
-  padding-right: 4px;
-  scrollbar-gutter: stable;
+.finding-list--skeleton, .panel--skeleton { align-content: start; }
+.load-more {
+  display: block; width: 100%; margin-top: 2px;
+  border: 1px dashed #c2ccd9; border-radius: 6px;
+  background: #fafbfd; color: #52627a; font-size: 12.5px;
+  padding: 8px 0; cursor: pointer;
 }
-.finding-list--skeleton,
-.finding-panel--skeleton { align-content: start; }
-.finding-list--skeleton { gap: 12px; }
-.finding-panel--skeleton { padding: 24px; background: #fff; border: 1px solid #d9e2ec; border-radius: 14px; }
-.finding-list::-webkit-scrollbar,
-.finding-panel::-webkit-scrollbar { width: 6px; }
-.finding-list::-webkit-scrollbar-thumb,
-.finding-panel::-webkit-scrollbar-thumb { background: #c8d4de; border-radius: 3px; }
-.finding-list::-webkit-scrollbar-thumb:hover,
-.finding-panel::-webkit-scrollbar-thumb:hover { background: #9fb3c8; }
-.finding-list::-webkit-scrollbar-track,
-.finding-panel::-webkit-scrollbar-track { background: transparent; }
-.finding-list,
-.finding-panel { scrollbar-width: thin; scrollbar-color: #c8d4de transparent; }
-.dependency-heading-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.dependency-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(300px, .9fr); gap: 16px; margin-top: 16px; }
-@media (max-width: 900px) {
-  .dependency-layout { grid-template-columns: 1fr; }
-  .finding-workbench { grid-template-columns: 1fr; }
+.load-more:hover:not(:disabled) { border-color: #0b7fd1; color: #0b7fd1; }
+.load-more:disabled { cursor: default; opacity: .6; }
+.finding-list::-webkit-scrollbar, .panel :deep(.finding-detail-panel)::-webkit-scrollbar { width: 6px; }
+.finding-list::-webkit-scrollbar-thumb, .panel :deep(.finding-detail-panel)::-webkit-scrollbar-thumb { background: #ccd5e0; border-radius: 3px; }
+.finding-list::-webkit-scrollbar-track, .panel :deep(.finding-detail-panel)::-webkit-scrollbar-track { background: transparent; }
+.panel { border: 1px solid #e2e7ee; border-radius: 8px; background: #fff; overflow: hidden; }
+.panel--skeleton { padding: 14px; }
+
+/* 依赖区 */
+.dep-toggle { border: 0; background: none; color: #0b7fd1; font-size: 13px; cursor: pointer; padding: 0; }
+.dep-body { padding-top: 2px; }
+.dep-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(300px, .9fr); gap: 10px; margin-top: 10px; }
+.mini-card { border: 1px solid #e2e7ee; border-radius: 6px; padding: 12px; }
+.mini-card h3 { margin: 0 0 8px; font-size: 13.5px; font-weight: 600; }
+
+.foot-note { margin: 14px auto 0; text-align: center; color: #8494a8; font-size: 12px; }
+
+@media (max-width: 960px) {
+  .workbench, .dep-layout { grid-template-columns: 1fr; }
   .finding-list { max-height: 40vh; }
-  .finding-panel { max-height: none; overflow: visible; }
 }
-@media (max-width: 760px) { .summary-grid { grid-template-columns: repeat(2, 1fr); }.detail-header { flex-direction: column; }.header-actions { justify-content: flex-start; }.workbench-section { padding: 16px; } }</style>
+@media (max-width: 760px) {
+  .detail-page { padding: 10px 10px 24px; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .card-head { flex-direction: column; align-items: flex-start; }
+}
+</style>

@@ -115,21 +115,21 @@
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg></div>
           <div class="body">
             <div class="lbl">累计提问</div>
-            <div class="val"><span class="count" :data-target="stats.questions">0</span><small>次</small></div>
+            <div class="val"><span class="count" :data-target="questions">0</span><small>次</small></div>
           </div>
         </div>
         <div class="stat reveal d1">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg></div>
           <div class="body">
             <div class="lbl">知识收藏</div>
-            <div class="val"><span class="count" :data-target="stats.favorites">0</span><small>条</small></div>
+            <div class="val"><span class="count" :data-target="favorites">0</span><small>条</small></div>
           </div>
         </div>
         <div class="stat reveal d2">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
           <div class="body">
             <div class="lbl">累计回答</div>
-            <div class="val"><span class="count" :data-target="stats.answers">0</span><small>次</small></div>
+            <div class="val"><span class="count" :data-target="answers">0</span><small>次</small></div>
           </div>
         </div>
       </div>
@@ -290,7 +290,7 @@ const typeText = ref(null)
 const refsEl = ref(null)
 
 const hotItems = ref([])
-const stats = useProfileStats()
+const { questions, favorites, answers, load: loadStats } = useProfileStats()
 
 const difficultyClass = { easy: 'tag-easy', medium: 'tag-mid', hard: 'tag-hard' }
 const difficultyText = { easy: '入门', medium: '进阶', hard: '高级' }
@@ -335,7 +335,7 @@ onMounted(async () => {
   await fetchHotKnowledge()
   effects.refresh()
   setTimeout(() => {
-    stats.load().then(() => effects.refresh())
+    loadStats().then(() => effects.refresh())
   }, 800)
 })
 </script>

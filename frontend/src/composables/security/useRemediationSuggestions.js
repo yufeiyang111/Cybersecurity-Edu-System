@@ -7,19 +7,15 @@ export function useRemediationSuggestions() {
   const suggestionsLoaded = ref({})
   const suggestionLoading = ref({})
   const suggestionErrors = ref({})
-  let findingsGeneration = 0
+  const suggestionsTotal = ref({})
+  const suggestionsLoadingMore = ref({})
+
+  const SUGGESTIONS_PAGE_SIZE = 5
 
   const suggestionsFor = (findingId) => suggestionsByFinding.value[findingId] || []
 
   const setSuggestionState = (target, findingId, value) => {
     target.value = { ...target.value, [findingId]: value }
-  }
-
-  const resetForFindings = () => {
-    suggestionsByFinding.value = {}
-    suggestionsLoaded.value = {}
-    suggestionLoading.value = {}
-    suggestionErrors.value = {}
   }
 
   const loadSuggestions = async (findingId, { silent = false, shouldApply = () => true } = {}) => {
@@ -29,11 +25,12 @@ export function useRemediationSuggestions() {
       setSuggestionState(suggestionErrors, findingId, '')
     }
     try {
-      const response = await securityAPI.listRemediationSuggestions(findingId, { limit: 20 })
+      const response = await securityAPI.listRemediationSuggestions(findingId, { limit: SUGGESTIONS_PAGE_SIZE })
       if (!shouldApply()) return []
       const items = response.items || []
       setSuggestionState(suggestionsByFinding, findingId, items)
       setSuggestionState(suggestionsLoaded, findingId, true)
+      setSuggestionState(suggestionsTotal, findingId, response.pagination?.total ?? items.length)
       return items
     } catch (error) {
       if (shouldApply() && !silent) {
@@ -45,15 +42,33 @@ export function useRemediationSuggestions() {
     }
   }
 
-  const preloadForFindings = async (findings) => {
-    const generation = ++findingsGeneration
-    resetForFindings()
-    await Promise.all(
-      findings.slice(0, 20).map((finding) => loadSuggestions(finding.id, {
-        silent: true,
-        shouldApply: () => generation === findingsGeneration
-      }))
-    )
+  const loadMoreSuggestions = async (findingId, { shouldApply = () => true } = {}) => {
+    const current = suggestionsFor(findingId)
+    if (suggestionLoading.value[findingId] || suggestionsLoadingMore.value[findingId]) return []
+    if (!shouldApply()) return []
+    setSuggestionState(suggestionsLoadingMore, findingId, true)
+    try {
+      const response = await securityAPI.listRemediationSuggestions(findingId, {
+        limit: SUGGESTIONS_PAGE_SIZE,
+        offset: current.length
+      })
+      if (!shouldApply()) return []
+      const incoming = response.items || []
+      const knownIds = new Set(current.map((item) => item.id))
+      setSuggestionState(
+        suggestionsByFinding,
+        findingId,
+        [...current, ...incoming.filter((item) => !knownIds.has(item.id))]
+      )
+      setSuggestionState(suggestionsTotal, findingId, response.pagination?.total ?? current.length + incoming.length)
+      setSuggestionState(suggestionsLoaded, findingId, true)
+      return incoming
+    } catch (error) {
+      setSuggestionState(suggestionErrors, findingId, securityApiErrorMessage(error, '加载更多修复建议失败。'))
+      return []
+    } finally {
+      if (shouldApply()) setSuggestionState(suggestionsLoadingMore, findingId, false)
+    }
   }
 
   const generateSuggestion = async (finding) => {
@@ -61,15 +76,16 @@ export function useRemediationSuggestions() {
     setSuggestionState(suggestionLoading, finding.id, true)
     setSuggestionState(suggestionErrors, finding.id, '')
     try {
-      const response = await securityAPI.generateRemediationSuggestion(finding.id)
-      const current = suggestionsFor(finding.id)
-      setSuggestionState(
-        suggestionsByFinding,
-        finding.id,
-        [response.suggestion, ...current.filter((item) => item.id !== response.suggestion.id)]
-      )
-      setSuggestionState(suggestionsLoaded, finding.id, true)
-      return response.suggestion
+    const response = await securityAPI.generateRemediationSuggestion(finding.id)
+    const current = suggestionsFor(finding.id)
+    setSuggestionState(
+      suggestionsByFinding,
+      finding.id,
+      [response.suggestion, ...current.filter((item) => item.id !== response.suggestion.id)]
+    )
+    setSuggestionState(suggestionsLoaded, finding.id, true)
+    setSuggestionState(suggestionsTotal, finding.id, (suggestionsTotal.value[finding.id] ?? current.length) + 1)
+    return response.suggestion
     } catch (error) {
       setSuggestionState(suggestionErrors, finding.id, securityApiErrorMessage(error, '生成修复建议失败。'))
       return null
@@ -96,9 +112,11 @@ export function useRemediationSuggestions() {
     suggestionsLoaded,
     suggestionLoading,
     suggestionErrors,
+    suggestionsTotal,
+    suggestionsLoadingMore,
     suggestionsFor,
     loadSuggestions,
-    preloadForFindings,
+    loadMoreSuggestions,
     generateSuggestion,
     reviewSuggestion
   }

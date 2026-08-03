@@ -8,24 +8,34 @@ const completedTaskStatuses = new Set(['completed', 'completed_with_warnings'])
 export function useProjectScanTasks(projectId, { onFindingsChanged = async () => {} } = {}) {
   const loading = ref(false)
   const findingsLoading = ref(false)
+  const findingsLoadingMore = ref(false)
   const errorMessage = ref('')
   const tasks = ref([])
   const findings = ref([])
+  const findingsStats = ref(null)
   const findingsSort = ref('default')
   const selectedTaskId = ref(null)
   const taskActionLoading = ref({})
   let pollTimer = null
   let findingsRequestSequence = 0
 
+  const FINDINGS_PAGE_SIZE = 50
+
   const completedTaskCount = computed(() => tasks.value.filter((task) => completedTaskStatuses.has(task.status)).length)
-  const highRiskCount = computed(() => findings.value.filter((finding) => ['critical', 'high'].includes(finding.severity)).length)
+  const highRiskCount = computed(() => {
+    if (findingsStats.value?.high_count !== undefined) return findingsStats.value.high_count
+    return findings.value.filter((finding) => ['critical', 'high'].includes(finding.severity)).length
+  })
   const avgRiskScore = computed(() => {
+    if (findingsStats.value?.avg_score !== undefined) return findingsStats.value.avg_score
     const scores = findings.value
       .map((finding) => finding.risk?.score)
       .filter((score) => typeof score === 'number')
     if (!scores.length) return null
     return scores.reduce((sum, score) => sum + score, 0) / scores.length
   })
+  const findingsTotal = computed(() => findingsStats.value?.total ?? findings.value.length)
+  const findingsHasMore = computed(() => findings.value.length < findingsTotal.value)
   const hasRunningTasks = computed(() => tasks.value.some((task) => !terminalTaskStatuses.has(task.status)))
   const selectedTask = computed(() => tasks.value.find((task) => task.id === selectedTaskId.value) || null)
 
@@ -44,12 +54,14 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
   const loadFindings = async (taskId, params = {}) => {
     selectedTaskId.value = taskId
     findings.value = []
+    findingsStats.value = null
     findingsLoading.value = true
     const requestSequence = ++findingsRequestSequence
     try {
-      const response = await securityAPI.getFindings(taskId, params)
+      const response = await securityAPI.getFindings(taskId, { limit: FINDINGS_PAGE_SIZE, ...params })
       if (requestSequence !== findingsRequestSequence) return
       findings.value = response.items || []
+      findingsStats.value = response.stats || null
       await onFindingsChanged(findings.value)
     } catch (error) {
       if (requestSequence === findingsRequestSequence) {
@@ -57,6 +69,30 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
       }
     } finally {
       if (requestSequence === findingsRequestSequence) findingsLoading.value = false
+    }
+  }
+
+  const loadMoreFindings = async () => {
+    if (!selectedTaskId.value || findingsLoadingMore.value) return
+    const requestSequence = ++findingsRequestSequence
+    findingsLoadingMore.value = true
+    try {
+      const response = await securityAPI.getFindings(selectedTaskId.value, {
+        limit: FINDINGS_PAGE_SIZE,
+        offset: findings.value.length,
+        sort: findingsSort.value === 'risk' ? 'risk' : undefined
+      })
+      if (requestSequence !== findingsRequestSequence) return
+      const incoming = response.items || []
+      const knownIds = new Set(findings.value.map((finding) => finding.id))
+      findings.value = [...findings.value, ...incoming.filter((finding) => !knownIds.has(finding.id))]
+      findingsStats.value = response.stats || findingsStats.value
+    } catch (error) {
+      if (requestSequence === findingsRequestSequence) {
+        errorMessage.value = securityApiErrorMessage(error, '加载更多风险发现项失败。')
+      }
+    } finally {
+      if (requestSequence === findingsRequestSequence) findingsLoadingMore.value = false
     }
   }
 
@@ -116,18 +152,24 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
   return {
     loading,
     findingsLoading,
+    findingsLoadingMore,
     errorMessage,
     tasks,
     findings,
+    findingsStats,
+    findingsTotal,
+    findingsHasMore,
     selectedTaskId,
     selectedTask,
     taskActionLoading,
     completedTaskCount,
     highRiskCount,
     avgRiskScore,
+    hasRunningTasks,
     findingsSort,
     load,
     loadFindings,
+    loadMoreFindings,
     setFindingsSort,
     cancelTask: (taskId) => runTaskAction(taskId, 'cancel'),
     retryTask: (taskId) => runTaskAction(taskId, 'retry'),

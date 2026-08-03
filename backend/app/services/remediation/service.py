@@ -5,7 +5,8 @@ from typing import Iterable
 
 from app import db
 from app.models.security import EvidenceType, FindingEvidence, RemediationSuggestion, SecurityFinding
-from app.services.security_knowledge import SecurityKnowledgeRetriever
+from app.services.public_knowledge import PublicKnowledgeRetriever
+from app.services.security_knowledge import KnowledgeCitation, SecurityKnowledgeRetriever
 
 from .context import _extract_code_context, _value
 from .fallback_rules import _rule_based_fallback
@@ -24,9 +25,11 @@ class RemediationService:
         self,
         *,
         retriever: SecurityKnowledgeRetriever | None = None,
+        public_retriever: PublicKnowledgeRetriever | None = None,
         provider: object | None = None,
     ) -> None:
         self.retriever = retriever or SecurityKnowledgeRetriever()
+        self.public_retriever = public_retriever or PublicKnowledgeRetriever()
         self.provider = provider
 
     def generate(self, finding_id: int, actor_id: int) -> RemediationSuggestion:
@@ -46,7 +49,7 @@ class RemediationService:
         max_patch_lines = _config_int("REMEDIATION_PATCH_MAX_LINES", 500)
         max_patch_chars = _config_int("REMEDIATION_PATCH_MAX_CHARS", 50_000)
         context = _extract_code_context(snapshot.storage_path, finding, max_context_chars)
-        citations = self.retriever.retrieve(
+        citations = self._merged_citations(
             workspace_id,
             _retrieval_query(finding),
             _config_int("REMEDIATION_RETRIEVAL_TOP_K", 5),
@@ -139,6 +142,25 @@ class RemediationService:
         _persist_rag_references(finding.id, citations)
         db.session.flush()
         return suggestion
+
+    def _merged_citations(self, workspace_id: int, query: str, top_k: int) -> list[KnowledgeCitation]:
+        """公共知识库优先，工作区私有知识叠加，按数据源归属去重。
+
+        同一 document_id 可能同时出现在公共库与工作区私有库，按 citation_id 去重
+        保留排序靠前的版本，避免重复引用同一篇文档。
+        """
+        public_citations = self.public_retriever.retrieve(workspace_id, query, top_k)
+        private_citations = self.retriever.retrieve(workspace_id, query, top_k)
+        seen: set[str] = set()
+        merged: list[KnowledgeCitation] = []
+        for citation in [*public_citations, *private_citations]:
+            if citation.citation_id in seen:
+                continue
+            seen.add(citation.citation_id)
+            merged.append(citation)
+            if len(merged) >= top_k:
+                break
+        return merged
 def _retrieval_query(finding: SecurityFinding) -> str:
     return " ".join(
         part

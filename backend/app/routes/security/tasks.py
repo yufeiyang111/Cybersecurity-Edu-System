@@ -4,9 +4,15 @@ from __future__ import annotations
 from flask import current_app, jsonify, request
 from app.services.rate_limit import rate_limit
 from flask_jwt_extended import jwt_required
+from sqlalchemy import func
 
 from app import db
-from app.models.security import ProjectSnapshot, ScanTask, SnapshotDependency
+from app.models.security import (
+    ProjectSnapshot,
+    RemediationSuggestion,
+    ScanTask,
+    SnapshotDependency,
+)
 from app.services.scan_task_lifecycle import (
     ScanTaskStateError,
     cancel_scan_task,
@@ -20,6 +26,8 @@ from .common import (
     AuthorizationError,
     PROJECT_ROLES,
     _current_user_id,
+    _list_params,
+    _pagination_payload,
     _project_or_404,
     _task_or_404,
 )
@@ -41,9 +49,19 @@ def list_project_dependencies(project_id: int):
             SnapshotDependency.package_name,
             SnapshotDependency.version,
         ).all()
-        return jsonify({"items": [dependency.to_dict() for dependency in dependencies]})
+        total = len(dependencies)
+        limit, offset = _list_params()
+        page = dependencies[offset : offset + limit]
+        return jsonify(
+            {
+                "items": [dependency.to_dict() for dependency in page],
+                "pagination": _pagination_payload(total=total, limit=limit, offset=offset),
+            }
+        )
     except AuthorizationError as exc:
         return jsonify({"error": str(exc)}), 403
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
 
 @projects_bp.route("/projects/<int:project_id>/tasks", methods=["GET"])
@@ -101,9 +119,66 @@ def get_task_findings(task_id: int):
                 ),
                 reverse=True,
             )
-        return jsonify({"items": items})
+        else:
+            items.sort(key=lambda item: item.get("id") or 0)
+
+        total = len(items)
+        limit, offset = _list_params()
+        page = items[offset : offset + limit]
+
+        suggestion_counts, suggestion_reviewed = _suggestion_aggregates(
+            [finding.id for finding in task.findings]
+        )
+        for item in items:
+            item["suggestion_count"] = suggestion_counts.get(item["id"], 0)
+
+        scores = [
+            item["risk"].get("score")
+            for item in items
+            if isinstance(item["risk"].get("score"), (int, float))
+        ]
+        return jsonify(
+            {
+                "items": page,
+                "pagination": _pagination_payload(total=total, limit=limit, offset=offset),
+                "stats": {
+                    "total": total,
+                    "high_count": sum(
+                        1 for item in items if item.get("severity") in {"critical", "high"}
+                    ),
+                    "avg_score": round(sum(scores) / len(scores), 2) if scores else None,
+                    "suggestion_total": sum(suggestion_counts.values()),
+                    "suggestion_reviewed": suggestion_reviewed,
+                },
+            }
+        )
     except AuthorizationError as exc:
         return jsonify({"error": str(exc)}), 403
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+def _suggestion_aggregates(finding_ids: list[int]) -> tuple[dict[int, int], int]:
+    """按 finding 聚合建议数，并统计已审核（非 pending）数量。"""
+    if not finding_ids:
+        return {}, 0
+    count_rows = (
+        db.session.query(RemediationSuggestion.finding_id, func.count(RemediationSuggestion.id))
+        .filter(RemediationSuggestion.finding_id.in_(finding_ids))
+        .group_by(RemediationSuggestion.finding_id)
+        .all()
+    )
+    counts = {finding_id: count for finding_id, count in count_rows}
+    reviewed = (
+        db.session.query(func.count(RemediationSuggestion.id))
+        .filter(
+            RemediationSuggestion.finding_id.in_(finding_ids),
+            RemediationSuggestion.review_state.in_(["accepted", "rejected", "needs_revision"]),
+        )
+        .scalar()
+        or 0
+    )
+    return counts, reviewed
 
 
 @projects_bp.route("/tasks/<int:task_id>/cancel", methods=["POST"])
