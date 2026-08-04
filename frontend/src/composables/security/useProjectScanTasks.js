@@ -149,6 +149,22 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
     }
   }
 
+  const rescanLoading = ref(false)
+  async function rescan() {
+    if (rescanLoading.value) return false
+    rescanLoading.value = true
+    try {
+      await securityAPI.rescanProject(resolveProjectId())
+      await load()
+      return true
+    } catch (error) {
+      errorMessage.value = securityApiErrorMessage(error, '重新扫描失败。')
+      return false
+    } finally {
+      rescanLoading.value = false
+    }
+  }
+
   return {
     loading,
     findingsLoading,
@@ -173,6 +189,8 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
     setFindingsSort,
     cancelTask: (taskId) => runTaskAction(taskId, 'cancel'),
     retryTask: (taskId) => runTaskAction(taskId, 'retry'),
+    rescan,
+    rescanLoading,
     stopPolling
   }
 }

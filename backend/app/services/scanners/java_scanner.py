@@ -1,7 +1,7 @@
 """Read-only Java baseline security scanner.
 
-The scanner reads UTF-8 source only. It never invokes Java, Maven, Gradle, or
-any executable contained in the scanned project.
+The scanner reads source as text with encoding fallback. It never invokes Java,
+Maven, Gradle, or any executable contained in the scanned project.
 """
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ class JavaScanner(BaseLanguageScanner):
         manifests = [manifest for manifest in JAVA_MANIFESTS if (snapshot_root / manifest).is_file()]
         hints: list[str] = []
         for source_file in self._source_files(snapshot_root):
-            text = self._read_utf8(source_file)
+            text = self.read_text_detected(source_file)
             if text and re.search(r"\b(?:org\.springframework|@SpringBootApplication|@RestController)\b", text):
                 hints.append("spring")
         return ProjectProfile(
@@ -55,7 +55,7 @@ class JavaScanner(BaseLanguageScanner):
     def run_sast(self, snapshot_root: Path) -> list[RawFinding]:
         findings: list[RawFinding] = []
         for source_file in self._source_files(snapshot_root):
-            text = self._read_utf8(source_file)
+            text = self.read_text_detected(source_file)
             if text is None:
                 continue
             relative_path = source_file.relative_to(snapshot_root).as_posix()
@@ -93,13 +93,6 @@ class JavaScanner(BaseLanguageScanner):
     @staticmethod
     def _source_files(snapshot_root: Path) -> list[Path]:
         return sorted(path for path in snapshot_root.rglob("*.java") if path.is_file())
-
-    @staticmethod
-    def _read_utf8(path: Path) -> str | None:
-        try:
-            return path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            return None
 
     @staticmethod
     def _mask_comments_and_literals(

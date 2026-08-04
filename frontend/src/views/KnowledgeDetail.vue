@@ -159,25 +159,31 @@ const fetchDetail = async () => {
   try {
     const res = await knowledgeAPI.getKnowledge(route.params.id)
     item.value = res.item
+    // 正文不依赖推荐结果，先展示内容；推荐和收藏状态在后台加载。
+    loading.value = false
 
     // 获取相关知识（使用混合推荐算法）
-    try {
-      const relatedRes = await knowledgeAPI.getRelatedKnowledge(route.params.id, { top_k: 4 })
-      relatedItems.value = relatedRes.items || []
-    } catch (e) {
-      console.error('获取相关知识失败', e)
-      relatedItems.value = []
-    }
+    const relatedPromise = knowledgeAPI.getRelatedKnowledge(route.params.id, { top_k: 4 })
+      .then((relatedRes) => {
+        relatedItems.value = relatedRes.items || []
+      })
+      .catch((e) => {
+        console.error('获取相关知识失败', e)
+        relatedItems.value = []
+      })
 
     // 获取收藏状态
-    if (userStore.isLoggedIn) {
-      try {
-        const favRes = await knowledgeAPI.getFavoriteStatus(route.params.id)
-        isFavorited.value = favRes.is_favorited
-      } catch (e) {
-        console.error('获取收藏状态失败', e)
-      }
-    }
+    const favoritePromise = userStore.isLoggedIn
+      ? knowledgeAPI.getFavoriteStatus(route.params.id)
+        .then((favRes) => {
+          isFavorited.value = favRes.is_favorited
+        })
+        .catch((e) => {
+          console.error('获取收藏状态失败', e)
+        })
+      : Promise.resolve()
+
+    await Promise.all([relatedPromise, favoritePromise])
   } catch (error) {
     ElMessage.error('获取知识详情失败')
   } finally {

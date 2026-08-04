@@ -272,6 +272,7 @@ def test_phase_three_schema_is_in_init_sql_and_ordered_migration_runner():
         "005_legal_policies",
         "006_oauth_login",
         "007_multi_oauth_bindings",
+        "008_qa_rag_warnings",
     )
     assert len(_statements(migration_sql)) == 3
     for table_name in (

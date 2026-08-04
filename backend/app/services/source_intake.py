@@ -7,7 +7,6 @@ from an uploaded project.
 
 from __future__ import annotations
 
-import codecs
 import hashlib
 import os
 import re
@@ -62,6 +61,42 @@ class ArchiveSafetyPolicy:
                 ".bat",
                 ".cmd",
                 ".sql",
+                ".go",
+                ".rs",
+                ".rb",
+                ".php",
+                ".vue",
+                ".svelte",
+                ".c",
+                ".h",
+                ".cpp",
+                ".cc",
+                ".hpp",
+                ".cxx",
+                ".hxx",
+                ".cs",
+                ".kt",
+                ".swift",
+                ".scala",
+                ".pl",
+                ".pm",
+                ".lua",
+                ".dart",
+                ".ex",
+                ".exs",
+                ".bash",
+                ".zsh",
+                ".fish",
+                ".awk",
+                ".html",
+                ".htm",
+                ".css",
+                ".scss",
+                ".sass",
+                ".less",
+                ".pem",
+                ".key",
+                ".ovpn",
             }
         )
     )
@@ -79,6 +114,41 @@ class ArchiveSafetyPolicy:
                 "yarn.lock",
                 "gradlew",
                 "gradlew.bat",
+                ".env",
+                ".gitignore",
+                ".dockerignore",
+                ".editorconfig",
+                ".gitattributes",
+                ".helmignore",
+                ".markdownlintrc",
+                ".gitmodules",
+                ".bashrc",
+                ".zshrc",
+                ".profile",
+                ".pylintrc",
+                ".flake8",
+                ".babelrc",
+                ".gitconfig",
+                ".npmrc",
+                ".pypirc",
+                "go.mod",
+                "go.sum",
+                "cargo.toml",
+                "cargo.lock",
+                "gemfile",
+                "gemfile.lock",
+                "composer.json",
+                "composer.lock",
+                "bower.json",
+                "build.gradle",
+                "settings.gradle",
+                "build.gradle.kts",
+                "settings.gradle.kts",
+                "gradle.properties",
+                "pubspec.yaml",
+                "pubspec.lock",
+                "cmakelists.txt",
+                "gnumakefile",
             }
         )
     )
@@ -131,8 +201,8 @@ def validate_and_extract_zip(
     """Validate and extract an archive into an immutable static-analysis snapshot.
 
     All ZIP entries are validated before ``destination`` is created or any member
-    content is written.  Only allowlisted UTF-8 text files are extracted; other
-    regular files are represented as skipped manifest entries.
+    content is written.  Only allowlisted text files are extracted; binary files
+    and other regular files are represented as skipped manifest entries.
     """
 
     archive_path = Path(archive_path)
@@ -281,7 +351,7 @@ def _extract_validated_entries(
                 delete=False,
             ) as staging_file:
                 staging_path = Path(staging_file.name)
-                file_sha256, file_size, extracted_bytes, is_utf8_text = _stream_member_to_staging(
+                file_sha256, file_size, extracted_bytes, is_text = _stream_member_to_staging(
                     archive,
                     info,
                     staging_file,
@@ -289,9 +359,9 @@ def _extract_validated_entries(
                     extracted_bytes,
                 )
 
-            if not is_utf8_text:
+            if not is_text:
                 staging_path.unlink(missing_ok=True)
-                skipped_files.append(SkippedSnapshotFile(relative_path, "binary_or_non_utf8"))
+                skipped_files.append(SkippedSnapshotFile(relative_path, "binary_or_non_text"))
                 continue
 
             os.replace(staging_path, target_path)
@@ -319,7 +389,9 @@ def _relative_path_from_info(info: zipfile.ZipInfo) -> str:
 def _is_analysis_relevant(relative_path: str, policy: ArchiveSafetyPolicy) -> bool:
     path = PurePosixPath(relative_path)
     filename = path.name.lower()
-    return filename in policy.allowed_filenames or path.suffix.lower() in policy.allowed_extensions
+    if filename in policy.allowed_filenames or path.suffix.lower() in policy.allowed_extensions:
+        return True
+    return filename == ".env" or filename.startswith(".env.")
 
 
 def _consume_member(
@@ -342,9 +414,9 @@ def _stream_member_to_staging(
     extracted_bytes: int,
 ) -> tuple[str, int, int, bool]:
     digest = hashlib.sha256()
-    decoder = codecs.getincrementaldecoder("utf-8")("strict")
     file_size = 0
-    is_utf8_text = True
+    head = b""
+    has_nul = False
 
     with archive.open(info, "r") as source:
         while chunk := source.read(policy.chunk_size):
@@ -352,22 +424,49 @@ def _stream_member_to_staging(
             file_size += len(chunk)
             digest.update(chunk)
             staging_file.write(chunk)  # type: ignore[attr-defined]
-            if is_utf8_text:
-                if b"\x00" in chunk:
-                    is_utf8_text = False
-                    continue
-                try:
-                    decoder.decode(chunk)
-                except UnicodeDecodeError:
-                    is_utf8_text = False
+            if not has_nul and b"\x00" in chunk:
+                has_nul = True
+            if len(head) < _BINARY_MAGIC_HEAD_BYTES:
+                head = (head + chunk)[:_BINARY_MAGIC_HEAD_BYTES]
 
-    if is_utf8_text:
-        try:
-            decoder.decode(b"", final=True)
-        except UnicodeDecodeError:
-            is_utf8_text = False
+    is_text = not has_nul and not _matches_binary_magic(head)
+    return digest.hexdigest(), file_size, extracted_bytes, is_text
 
-    return digest.hexdigest(), file_size, extracted_bytes, is_utf8_text
+
+_BINARY_MAGIC_HEAD_BYTES = 8
+
+_BINARY_MAGIC_PREFIXES = (
+    b"\x89PNG",
+    b"\xff\xd8\xff",
+    b"GIF8",
+    b"%PDF",
+    b"PK\x03\x04",
+    b"PK\x05\x06",
+    b"PK\x07\x08",
+    b"MZ",
+    b"\x7fELF",
+    b"\xca\xfe\xba\xbe",
+    b"\x1f\x8b",
+    b"BM",
+    b"fLaC",
+    b"OggS",
+    b"\x00\x01\x00\x00",
+    b"wOFF",
+    b"wOF2",
+    b"7z\xbc\xaf\x27\x1c",
+    b"RIFF",
+    b"\x1a\x45\xdf\xa3",
+    b"\x00\x00\x00\x18ftyp",
+)
+
+
+def _matches_binary_magic(head: bytes) -> bool:
+    if not head:
+        return False
+    for magic in _BINARY_MAGIC_PREFIXES:
+        if head[: len(magic)] == magic:
+            return True
+    return False
 
 
 def _increment_extracted_bytes(

@@ -6,6 +6,7 @@ from flask_jwt_extended import jwt_required
 
 from app import db
 from app.models.security import SecurityProject
+from app.services.security_workbench import build_workspace_dashboard
 
 from . import projects_bp
 from .common import AuthorizationError, READ_ROLES, _current_user_id, get_or_create_personal_workspace, require_workspace_role
@@ -39,7 +40,7 @@ def list_projects():
     try:
         workspace = get_or_create_personal_workspace(_current_user_id())
         require_workspace_role(workspace.id, _current_user_id(), READ_ROLES)
-        projects = SecurityProject.query.filter_by(workspace_id=workspace.id).order_by(SecurityProject.updated_at.desc()).all()
-        return jsonify({"items": [project.to_dict() for project in projects]})
+        dashboard = build_workspace_dashboard(workspace.id)
+        return jsonify({"items": dashboard["projects"]})
     except AuthorizationError as exc:
         return jsonify({"error": str(exc)}), 403

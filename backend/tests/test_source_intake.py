@@ -70,6 +70,6 @@ def test_skips_binary_files_without_extracting_them(tmp_path):
 
     assert manifest.file_count == 1
     assert manifest.skipped_files[0].relative_path == "payload.py"
-    assert manifest.skipped_files[0].reason == "binary_or_non_utf8"
+    assert manifest.skipped_files[0].reason == "binary_or_non_text"
     assert not (tmp_path / "out" / "payload.py").exists()
 

@@ -1,7 +1,7 @@
 """Read-only JavaScript and TypeScript baseline security scanner.
 
-The scanner processes extracted UTF-8 source as text only. It never invokes Node,
-package managers, or scanned project code.
+The scanner processes source as text with encoding fallback. It never invokes
+Node, package managers, or scanned project code.
 """
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ class JavaScriptTypeScriptScanner(BaseLanguageScanner):
         if package_manifest.is_file():
             candidate_files.append(package_manifest)
         for source_file in candidate_files:
-            text = self._read_utf8(source_file)
+            text = self.read_text_detected(source_file)
             if text is None:
                 continue
             for package_name, hint in FRAMEWORK_IMPORTS.items():
@@ -71,7 +71,7 @@ class JavaScriptTypeScriptScanner(BaseLanguageScanner):
     def run_sast(self, snapshot_root: Path) -> list[RawFinding]:
         findings: list[RawFinding] = []
         for source_file in self._source_files(snapshot_root):
-            text = self._read_utf8(source_file)
+            text = self.read_text_detected(source_file)
             if text is None:
                 continue
             relative_path = source_file.relative_to(snapshot_root).as_posix()
@@ -113,13 +113,6 @@ class JavaScriptTypeScriptScanner(BaseLanguageScanner):
             path for path in snapshot_root.rglob("*")
             if path.is_file() and path.suffix.lower() in JAVASCRIPT_SUFFIXES
         )
-
-    @staticmethod
-    def _read_utf8(path: Path) -> str | None:
-        try:
-            return path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            return None
 
     @staticmethod
     def _child_process_symbols(text: str) -> tuple[set[str], set[str]]:

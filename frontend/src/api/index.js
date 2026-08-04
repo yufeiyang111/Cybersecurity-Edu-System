@@ -223,7 +223,9 @@ export const securityAPI = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   importGitHubSnapshot: (projectId, data) => api.post(`/security/projects/${projectId}/snapshots:github`, data),
+  rescanProject: (projectId) => api.post(`/security/projects/${projectId}/rescan`),
   getTasks: (projectId) => api.get(`/security/projects/${projectId}/tasks`),
+  getWorkbenchOverview: () => api.get('/security/workbench/overview'),
   getTask: (taskId) => api.get(`/security/tasks/${taskId}`),
   getFindings: (taskId, params) => api.get(`/security/tasks/${taskId}/findings`, { params }),
   cancelTask: (taskId) => api.post(`/security/tasks/${taskId}/cancel`),

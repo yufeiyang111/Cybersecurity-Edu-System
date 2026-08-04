@@ -4,6 +4,7 @@
       <el-button text :icon="ArrowLeft" @click="router.push('/security/projects')">返回项目中心</el-button>
       <div class="actions">
         <el-button plain @click="router.push('/security/knowledge')">安全知识库</el-button>
+        <el-button type="primary" :icon="Refresh" :loading="rescanLoading" @click="handleRescan">重新扫描</el-button>
         <el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
       </div>
     </header>
@@ -250,6 +251,8 @@ const {
   setFindingsSort,
   cancelTask,
   retryTask,
+  rescan,
+  rescanLoading,
   stopPolling
 } = useProjectScanTasks(() => route.params.id)
 const {
@@ -320,6 +323,19 @@ const handleRetryTask = async (task) => {
   }
 
 }
+const handleRescan = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '重新扫描将基于项目最近一次快照发起全新扫描，无需重新上传代码。确定继续吗？',
+      '重新扫描',
+      { type: 'warning', confirmButtonText: '开始扫描' }
+    )
+    if (await rescan()) ElMessage.success('重新扫描任务已创建，正在后台运行')
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error(securityApiErrorMessage(error, '重新扫描失败'))
+  }
+}
+
 const handleGenerateSuggestion = async (finding) => {
   const suggestion = await generateSuggestion(finding)
   if (suggestion) ElMessage.success('修复建议已生成，等待人工审核')

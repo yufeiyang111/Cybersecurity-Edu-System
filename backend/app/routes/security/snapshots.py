@@ -11,6 +11,7 @@ from app.services.github_source import GitHubSourceError
 from app.services.snapshot_service import (
     SnapshotCreationError,
     create_github_snapshot,
+    create_rescan_task,
     create_uploaded_snapshot,
 )
 from app.services.source_intake import ArchiveValidationError
@@ -79,3 +80,29 @@ def import_github_snapshot(project_id: int):
             exc.stage,
         )
         return jsonify({"error": "创建 GitHub 扫描任务失败"}), 502
+
+
+@projects_bp.route("/projects/<int:project_id>/rescan", methods=["POST"])
+@jwt_required()
+@rate_limit("security-expensive", "SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE")
+def rescan_project(project_id: int):
+    """对项目最近一次快照发起全新扫描，不重新上传代码。"""
+    try:
+        project = db.session.get(SecurityProject, project_id)
+        if project is None:
+            return jsonify({"error": "项目不存在"}), 404
+        user_id = _current_user_id()
+        require_workspace_role(project.workspace_id, user_id, PROJECT_ROLES)
+        result = create_rescan_task(project, user_id, current_app.config)
+        return jsonify(result.to_response()), 202
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except (GitHubSourceError, ArchiveValidationError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    except SnapshotCreationError as exc:
+        current_app.logger.exception(
+            "Security rescan failed (project_id=%s, stage=%s)",
+            project_id,
+            exc.stage,
+        )
+        return jsonify({"error": "重新扫描失败"}), 502

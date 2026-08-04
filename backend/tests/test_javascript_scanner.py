@@ -1,4 +1,5 @@
 ﻿from app.services.scanners import get_scanners
+from app.services.scanners.go_scanner import GoScanner
 from app.services.scanners.javascript_scanner import JavaScriptTypeScriptScanner
 from app.services.scanners.java_scanner import JavaScanner
 from app.services.scanners.python_scanner import PythonScanner
@@ -56,4 +57,5 @@ def test_registry_exposes_scanners_in_stable_language_order():
         PythonScanner,
         JavaScriptTypeScriptScanner,
         JavaScanner,
+        GoScanner,
     ]

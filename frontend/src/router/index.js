@@ -45,22 +45,30 @@ const routes = [
     meta: { title: '会话详情', requiresAuth: true }
   },
   {
-    path: '/security/projects',
-    name: 'SecurityProjects',
-    component: () => import('@/views/security/Projects.vue'),
-    meta: { title: '安全项目', requiresAuth: true }
-  },
-  {
-    path: '/security/projects/:id',
-    name: 'SecurityProjectDetail',
-    component: () => import('@/views/security/ProjectDetail.vue'),
-    meta: { title: '安全知识治理', requiresAuth: true }
-  },
-  {
-    path: '/security/knowledge',
-    name: 'SecurityKnowledge',
-    component: () => import('@/views/security/Knowledge.vue'),
-    meta: { title: '安全知识治理', requiresAuth: true }
+    path: '/security',
+    component: () => import('@/views/SecurityWorkbenchLayout.vue'),
+    meta: { requiresAuth: true },
+    redirect: '/security/projects',
+    children: [
+      {
+        path: 'projects',
+        name: 'SecurityProjects',
+        component: () => import('@/views/security/Projects.vue'),
+        meta: { title: '安全项目' }
+      },
+      {
+        path: 'projects/:id',
+        name: 'SecurityProjectDetail',
+        component: () => import('@/views/security/ProjectDetail.vue'),
+        meta: { title: '项目详情' }
+      },
+      {
+        path: 'knowledge',
+        name: 'SecurityKnowledge',
+        component: () => import('@/views/security/Knowledge.vue'),
+        meta: { title: '安全知识治理' }
+      }
+    ]
   },
   {
     path: '/knowledge',

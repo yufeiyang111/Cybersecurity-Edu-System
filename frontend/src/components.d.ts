@@ -81,9 +81,12 @@ declare module 'vue' {
     PatchDiffViewer: typeof import('./components/security/project/PatchDiffViewer.vue')['default']
     ProfileSidebar: typeof import('./components/user/ProfileSidebar.vue')['default']
     ProfileTabs: typeof import('./components/user/ProfileTabs.vue')['default']
+    ProjectCard: typeof import('./components/security/project/ProjectCard.vue')['default']
+    ProjectVulnPanel: typeof import('./components/security/project/ProjectVulnPanel.vue')['default']
     ProviderIcon: typeof import('./components/ProviderIcon.vue')['default']
     QuestionCard: typeof import('./components/QuestionCard.vue')['default']
     RecentActivityList: typeof import('./components/user/RecentActivityList.vue')['default']
+    RecentScanList: typeof import('./components/security/project/RecentScanList.vue')['default']
     RemediationReviewDialog: typeof import('./components/security/project/RemediationReviewDialog.vue')['default']
     RemediationSuggestionCard: typeof import('./components/security/project/RemediationSuggestionCard.vue')['default']
     RiskFactorPanel: typeof import('./components/security/project/RiskFactorPanel.vue')['default']
@@ -100,6 +103,7 @@ declare module 'vue' {
     UserAvatarCard: typeof import('./components/user/UserAvatarCard.vue')['default']
     UserInfoCard: typeof import('./components/user/UserInfoCard.vue')['default']
     UserStatsCard: typeof import('./components/user/UserStatsCard.vue')['default']
+    WorkbenchOverviewCards: typeof import('./components/security/project/WorkbenchOverviewCards.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

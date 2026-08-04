@@ -177,6 +177,57 @@ def create_github_snapshot(
         raise SnapshotCreationError("创建 GitHub 扫描任务失败", stage=stage) from exc
 
 
+def create_rescan_task(
+    project: SecurityProject,
+    actor_id: int,
+    settings: Mapping[str, Any],
+    *,
+    dispatcher: ScanTaskDispatcher | None = None,
+) -> SnapshotTaskResult:
+    """对项目最近一次快照发起全新扫描。
+
+    GitHub 快照会重新下载最新 zipball（内容未变时通过哈希去重复用快照行）；
+    ZIP 快照直接复用已落盘的只读快照，跳过解压阶段。
+    """
+    snapshot = (
+        ProjectSnapshot.query.filter_by(project_id=project.id)
+        .order_by(ProjectSnapshot.created_at.desc(), ProjectSnapshot.id.desc())
+        .first()
+    )
+    if snapshot is None:
+        raise SnapshotCreationError("该项目还没有可重新扫描的快照", stage="rescan_lookup")
+
+    if snapshot.source_type.value == "github":
+        return create_github_snapshot(
+            project,
+            actor_id,
+            snapshot.source_ref or "",
+            settings,
+            dispatcher=dispatcher,
+        )
+
+    latest_task = (
+        ScanTask.query.filter_by(snapshot_id=snapshot.id)
+        .order_by(ScanTask.created_at.desc(), ScanTask.id.desc())
+        .first()
+    )
+    policy_version = latest_task.policy_version if latest_task is not None else "baseline-rules-v2"
+    task = _create_and_dispatch_task(
+        snapshot=snapshot,
+        actor_id=actor_id,
+        action="scan.rescanned",
+        policy_version=policy_version,
+        audit_metadata={
+            "source_type": "zip",
+            "snapshot_id": snapshot.id,
+            "file_count": snapshot.file_count,
+        },
+        settings=settings,
+        dispatcher=dispatcher,
+    )
+    return SnapshotTaskResult(snapshot=snapshot, task=task, queued=bool(settings.get("RQ_ASYNC", False)))
+
+
 def _persist_and_dispatch(
     *,
     project: SecurityProject,
@@ -224,6 +275,44 @@ def _persist_and_dispatch(
         db.session.add(snapshot)
         db.session.flush()
 
+    audit_metadata: dict[str, Any] = {
+        "source_type": source_type,
+        "snapshot_id": snapshot.id,
+        "file_count": manifest.file_count,
+        "skipped_files_count": len(manifest.skipped_files),
+        "deduplicated_snapshot": existing_snapshot is not None,
+    }
+    if commit_sha:
+        audit_metadata["commit_sha"] = commit_sha
+
+    task = _create_and_dispatch_task(
+        snapshot=snapshot,
+        actor_id=actor_id,
+        action="scan.snapshot_reused" if existing_snapshot is not None else action,
+        policy_version=policy_version,
+        audit_metadata=audit_metadata,
+        settings=settings,
+        dispatcher=dispatcher,
+    )
+
+    return SnapshotTaskResult(
+        snapshot=snapshot,
+        task=task,
+        queued=bool(settings.get("RQ_ASYNC", False)),
+    )
+
+
+def _create_and_dispatch_task(
+    *,
+    snapshot: ProjectSnapshot,
+    actor_id: int,
+    action: str,
+    policy_version: str,
+    audit_metadata: Mapping[str, Any],
+    settings: Mapping[str, Any],
+    dispatcher: ScanTaskDispatcher | None,
+) -> ScanTask:
+    """创建扫描任务、写审计并派发；提交失败时保持幂等安全。"""
     task = ScanTask(
         snapshot_id=snapshot.id,
         status="created",
@@ -234,23 +323,14 @@ def _persist_and_dispatch(
     )
     db.session.add(task)
     db.session.flush()
-    audit_metadata: dict[str, Any] = {
-        "source_type": source_type,
-        "snapshot_id": snapshot.id,
-        "file_count": manifest.file_count,
-        "skipped_files_count": len(manifest.skipped_files),
-        "deduplicated_snapshot": existing_snapshot is not None,
-    }
-    if commit_sha:
-        audit_metadata["commit_sha"] = commit_sha
     db.session.add(
         AuditEvent(
-            workspace_id=project.workspace_id,
+            workspace_id=snapshot.project.workspace_id,
             actor_id=actor_id,
-            action="scan.snapshot_reused" if existing_snapshot is not None else action,
+            action=action,
             target_type="scan_task",
             target_id=task.id,
-            metadata_json=audit_metadata,
+            metadata_json=dict(audit_metadata),
         )
     )
     db.session.commit()
@@ -263,8 +343,4 @@ def _persist_and_dispatch(
         mark_dispatch_failed(task.id)
         raise SnapshotCreationError("创建扫描任务失败", stage="dispatch") from exc
 
-    return SnapshotTaskResult(
-        snapshot=snapshot,
-        task=task,
-        queued=bool(settings.get("RQ_ASYNC", False)),
-    )
+    return task

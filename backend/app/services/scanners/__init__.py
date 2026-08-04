@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from .base import BaseLanguageScanner, ProjectProfile, RawFinding
 from .contracts import NormalizedFinding, ScannerDescriptor
+from .go_scanner import GoScanner
 from .java_scanner import JavaScanner
 from .javascript_scanner import JavaScriptTypeScriptScanner
 from .normalizer import finding_fingerprint, normalize_finding
@@ -15,6 +16,7 @@ def _build_default_registry() -> ScannerRegistry:
     registry.register(PythonScanner)
     registry.register(JavaScriptTypeScriptScanner)
     registry.register(JavaScanner)
+    registry.register(GoScanner)
     return registry
 
 
@@ -43,6 +45,7 @@ __all__ = [
     "NormalizedFinding",
     "ScannerDescriptor",
     "ScannerRegistry",
+    "GoScanner",
     "JavaScanner",
     "JavaScriptTypeScriptScanner",
     "PythonScanner",
