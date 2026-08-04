@@ -43,6 +43,13 @@
           <router-link class="side-item" :class="{ 'side-item--active': route.path.startsWith('/security/projects') }" to="/security/projects">
             <el-icon><Grid /></el-icon><span>项目总览</span>
           </router-link>
+          <router-link
+            class="side-item side-item--agent"
+            :class="{ 'side-item--active': route.path.includes('/agent') }"
+            to="/security/agent"
+          >
+            <el-icon><Promotion /></el-icon><span>Agent 工作台</span>
+          </router-link>
           <router-link class="side-item" :class="{ 'side-item--active': route.path.startsWith('/security/knowledge') }" to="/security/knowledge">
             <el-icon><Collection /></el-icon><span>知识库</span>
           </router-link>
@@ -96,7 +103,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Box, Collection, DataLine, Document, Grid, Key, List, Monitor, Setting, User, Warning } from '@element-plus/icons-vue'
+import { Box, Collection, DataLine, Document, Grid, Key, List, Monitor, Promotion, Setting, User, Warning } from '@element-plus/icons-vue'
 import { securityAPI } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { DocumentIcon, GithubIcon, PlusIcon } from '@/components/icons'

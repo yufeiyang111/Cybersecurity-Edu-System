@@ -63,6 +63,12 @@ const routes = [
         meta: { title: '项目详情' }
       },
       {
+        path: 'agent',
+        name: 'SecurityAgentHome',
+        component: () => import('@/views/security/AgentWorkbench.vue'),
+        meta: { title: 'Agent 工作台' }
+      },
+      {
         path: 'projects/:id/agent',
         name: 'SecurityProjectAgent',
         component: () => import('@/views/security/AgentWorkbench.vue'),

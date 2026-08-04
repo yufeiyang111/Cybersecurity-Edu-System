@@ -68,19 +68,26 @@ def test_create_run_executes_inventory_and_finishes(agent_api_app, tmp_path):
     run = response.json["run"]
     assert run["status"] == "completed"
     assert run["snapshot_id"] == snapshot_id
-    assert run["tool_call_count"] == 2
+    assert run["tool_call_count"] == 5
 
     detail = client.get(f"/api/security/agent-runs/{run['id']}", headers=auth_headers(agent_api_app, user_id))
     assert detail.status_code == 200
     payload = detail.json
     assert payload["run"]["id"] == run["id"]
     assert payload["plan"]["planner_source"] == "rule_based_policy"
-    assert payload["plan"]["nodes"][0]["node_key"] == "inventory"
-    assert len(payload["steps"]) == 2
-    assert len(payload["tool_calls"]) == 2
+    assert [node["node_key"] for node in payload["plan"]["nodes"]] == [
+        "inventory",
+        "baseline_scan",
+        "coverage_analysis",
+        "risk_ranking",
+        "report",
+    ]
+    assert len(payload["steps"]) == 5
+    assert len(payload["tool_calls"]) == 5
     assert payload["tool_calls"][0]["tool_name"] == "inventory_snapshot"
     assert "文件" in payload["tool_calls"][0]["output_summary"]
     assert payload["last_sequence"] >= 10
+    assert payload["messages"][0]["role"] == "user"
 
     events = client.get(
         f"/api/security/agent-runs/{run['id']}/events", headers=auth_headers(agent_api_app, user_id)

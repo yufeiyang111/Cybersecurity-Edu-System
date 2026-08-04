@@ -44,6 +44,11 @@ from app.models.agent_runtime import (
     AgentToolCall,
 )
 from app.models.agent_events import AgentEvent
+from app.models.scan_coverage import (
+    CoverageKind,
+    ProjectSnapshotFile,
+    ScanFileReceipt,
+)
 
 __all__ = [
     "User", "Role", "LoginLog",
@@ -61,4 +66,5 @@ __all__ = [
     "AgentMessage", "AgentPlan", "AgentPlanNode", "AgentPlanNodeStatus", "AgentPlanNodeType",
     "AgentPlanEdge", "AgentStepExecution", "AgentToolCall",
     "AgentArtifact", "AgentCheckpoint", "AgentEvent",
+    "CoverageKind", "ProjectSnapshotFile", "ScanFileReceipt",
 ]

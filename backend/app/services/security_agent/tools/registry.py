@@ -44,8 +44,17 @@ def get_tool_registry() -> ToolRegistry:
 
 
 def _register_builtin_tools(registry: ToolRegistry) -> None:
+    from app.services.security_agent.tools.coverage_tools import build_coverage_handler
     from app.services.security_agent.tools.inventory_tools import build_inventory_handler
     from app.services.security_agent.tools.report_tools import build_report_handler
+    from app.services.security_agent.tools.risk_tools import (
+        build_findings_handler,
+        build_rank_findings_handler,
+    )
+    from app.services.security_agent.tools.scan_tools import (
+        build_baseline_scan_handler,
+        build_dependency_inventory_handler,
+    )
 
     registry.register(
         ToolDescriptor(
@@ -60,6 +69,74 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
             produces_artifact_types=["inventory_report"],
         ),
         build_inventory_handler(),
+    )
+    registry.register(
+        ToolDescriptor(
+            name="run_baseline_scan",
+            version="1.0",
+            category="scanner",
+            description="通过既有扫描管线对快照执行确定性基线扫描（SAST + SCA + 通用 Secret），返回发现统计与任务引用。",
+            input_schema={"type": "object", "properties": {}},
+            risk_level="safe_read",
+            timeout_seconds=600,
+            idempotent=True,
+            produces_artifact_types=["finding_set"],
+        ),
+        build_baseline_scan_handler(),
+    )
+    registry.register(
+        ToolDescriptor(
+            name="get_dependency_inventory",
+            version="1.0",
+            category="scanner",
+            description="读取快照的依赖坐标库存与生态分布。",
+            input_schema={"type": "object", "properties": {}},
+            risk_level="safe_read",
+            timeout_seconds=30,
+            idempotent=True,
+        ),
+        build_dependency_inventory_handler(),
+    )
+    registry.register(
+        ToolDescriptor(
+            name="get_scan_coverage",
+            version="1.0",
+            category="coverage",
+            description="生成文件级扫描覆盖报告：基线覆盖、专用 SAST、通用扫描、排除与发现分布。",
+            input_schema={"type": "object", "properties": {}},
+            risk_level="safe_read",
+            timeout_seconds=30,
+            idempotent=True,
+            produces_artifact_types=["coverage_report"],
+        ),
+        build_coverage_handler(),
+    )
+    registry.register(
+        ToolDescriptor(
+            name="rank_findings",
+            version="1.0",
+            category="risk",
+            description="复用可解释风险评分对发现项排序，输出严重/高危统计与 Top 列表。",
+            input_schema={"type": "object", "properties": {}},
+            risk_level="safe_read",
+            timeout_seconds=30,
+            idempotent=True,
+            produces_artifact_types=["risk_ranking"],
+        ),
+        build_rank_findings_handler(),
+    )
+    registry.register(
+        ToolDescriptor(
+            name="get_findings",
+            version="1.0",
+            category="risk",
+            description="查询指定快照最近扫描任务的发现项统计。",
+            input_schema={"type": "object", "properties": {}},
+            risk_level="safe_read",
+            timeout_seconds=30,
+            idempotent=True,
+        ),
+        build_findings_handler(),
     )
     registry.register(
         ToolDescriptor(

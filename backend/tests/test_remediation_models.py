@@ -276,6 +276,7 @@ def test_phase_three_schema_is_in_init_sql_and_ordered_migration_runner():
         "009_user_preferences",
         "010_scan_exclusion_rules",
         "011_agent_runtime_events",
+        "012_scan_coverage_receipts",
     )
     assert len(_statements(migration_sql)) == 3
     for table_name in (

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from app import db
 from app.models.security import ScanTask, ScanTaskStatus
-from app.services.scan_execution import execute_scan_stages
+from app.services.scan_execution import execute_scan_stages, execute_universal_secret_scan
 from app.services.osv_client import OSVVulnerabilityProvider
 from app.services.scan_task_lifecycle import (
     TERMINAL_STATUSES,
@@ -59,12 +59,14 @@ def run_scan_task(task_id: int) -> ScanTask:
             scanners=get_scanners(),
             vulnerability_provider=OSVVulnerabilityProvider(),
         )
+        secret_findings = execute_universal_secret_scan(task, snapshot_root)
         task.summary_json = {
             "findings_count": execution.findings_count,
             "languages": execution.languages,
             "dependencies_count": execution.dependencies_count,
             "sca_findings_count": execution.sca_findings_count,
             "sca_enabled": execution.sca_enabled,
+            "secret_findings_count": secret_findings,
             "warnings": execution.warnings,
         }
         if execution.completed_scanners:

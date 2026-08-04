@@ -138,41 +138,73 @@ class InlinePlanRunner:
             plan_version=run.plan_version + 1,
             planner_source=PLANNER_RULE_BASED,
             objective=run.goal_text,
-            decision_summary="本地策略基线：先清点快照，再生成运行摘要。",
-            completion_criteria_json=["inventory 完成", "report 完成"],
+            decision_summary="本地策略基线：清点快照 → 确定性基线扫描 → 覆盖分析 → 风险排序 → 运行摘要。",
+            completion_criteria_json=["inventory 完成", "baseline_scan 完成", "coverage 完成", "risk 完成", "report 完成"],
         )
         db.session.add(plan)
         db.session.flush()
 
-        inventory_node = AgentPlanNode(
-            plan_id=plan.id,
-            node_key="inventory",
-            node_type=AgentPlanNodeType.INVENTORY.value,
-            status=AgentPlanNodeStatus.READY.value,
-            title="清点快照文件",
-            description="读取快照文件元数据：文件数、字节数、扩展名与语言分布。",
-            tool_name="inventory_snapshot",
-        )
-        report_node = AgentPlanNode(
-            plan_id=plan.id,
-            node_key="report",
-            node_type=AgentPlanNodeType.REPORT_GENERATION.value,
-            status=AgentPlanNodeStatus.PENDING.value,
-            title="生成运行摘要",
-            description="汇总已完成的确定性证据，生成运行摘要 Artifact。",
-            tool_name="finalize_agent_report",
-            depends_on_json=["inventory"],
-        )
-        db.session.add_all([inventory_node, report_node])
-        db.session.flush()
-        db.session.add(
-            AgentPlanEdge(
+        nodes = [
+            AgentPlanNode(
                 plan_id=plan.id,
-                from_node="inventory",
-                to_node="report",
-                edge_type=AgentPlanEdgeType.SUCCESS.value,
-            )
-        )
+                node_key="inventory",
+                node_type=AgentPlanNodeType.INVENTORY.value,
+                status=AgentPlanNodeStatus.READY.value,
+                title="清点快照文件",
+                description="读取快照文件元数据：文件数、字节数、扩展名与语言分布。",
+                tool_name="inventory_snapshot",
+            ),
+            AgentPlanNode(
+                plan_id=plan.id,
+                node_key="baseline_scan",
+                node_type=AgentPlanNodeType.BASELINE_SCAN.value,
+                status=AgentPlanNodeStatus.PENDING.value,
+                title="执行基线扫描",
+                description="复用确定性扫描管线执行 SAST、SCA 与通用 Secret 扫描，持久化发现项。",
+                tool_name="run_baseline_scan",
+                depends_on_json=["inventory"],
+            ),
+            AgentPlanNode(
+                plan_id=plan.id,
+                node_key="coverage_analysis",
+                node_type=AgentPlanNodeType.COVERAGE_ANALYSIS.value,
+                status=AgentPlanNodeStatus.PENDING.value,
+                title="分析扫描覆盖",
+                description="生成文件级覆盖报告：基线覆盖、专用 SAST、通用扫描、排除与发现分布。",
+                tool_name="get_scan_coverage",
+                depends_on_json=["baseline_scan"],
+            ),
+            AgentPlanNode(
+                plan_id=plan.id,
+                node_key="risk_ranking",
+                node_type=AgentPlanNodeType.RISK_RANKING.value,
+                status=AgentPlanNodeStatus.PENDING.value,
+                title="风险排序",
+                description="复用可解释风险评分对发现项排序，输出严重/高危统计与 Top 列表。",
+                tool_name="rank_findings",
+                depends_on_json=["baseline_scan"],
+            ),
+            AgentPlanNode(
+                plan_id=plan.id,
+                node_key="report",
+                node_type=AgentPlanNodeType.REPORT_GENERATION.value,
+                status=AgentPlanNodeStatus.PENDING.value,
+                title="生成运行摘要",
+                description="汇总已完成的确定性证据，生成运行摘要 Artifact。",
+                tool_name="finalize_agent_report",
+                depends_on_json=["coverage_analysis", "risk_ranking"],
+            ),
+        ]
+        db.session.add_all(nodes)
+        db.session.flush()
+        edges = [
+            AgentPlanEdge(plan_id=plan.id, from_node="inventory", to_node="baseline_scan", edge_type=AgentPlanEdgeType.SUCCESS.value),
+            AgentPlanEdge(plan_id=plan.id, from_node="baseline_scan", to_node="coverage_analysis", edge_type=AgentPlanEdgeType.SUCCESS.value),
+            AgentPlanEdge(plan_id=plan.id, from_node="baseline_scan", to_node="risk_ranking", edge_type=AgentPlanEdgeType.SUCCESS.value),
+            AgentPlanEdge(plan_id=plan.id, from_node="coverage_analysis", to_node="report", edge_type=AgentPlanEdgeType.SUCCESS.value),
+            AgentPlanEdge(plan_id=plan.id, from_node="risk_ranking", to_node="report", edge_type=AgentPlanEdgeType.SUCCESS.value),
+        ]
+        db.session.add_all(edges)
 
         run.plan_version = plan.plan_version
         run.planner_source = plan.planner_source
@@ -183,7 +215,7 @@ class InlinePlanRunner:
                 "plan_id": plan.id,
                 "plan_version": plan.plan_version,
                 "planner_source": plan.planner_source,
-                "nodes": ["inventory", "report"],
+                "nodes": ["inventory", "baseline_scan", "coverage_analysis", "risk_ranking", "report"],
             },
             trace_id=trace_id,
         )

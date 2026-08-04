@@ -107,7 +107,7 @@ class AgentRunService:
             run,
             AgentRunStatus.QUEUED,
             actor_id=user_id,
-            reason="运行已创建，等待执行",
+            reason="杩愯宸插垱寤猴紝绛夊緟鎵ц",
             trace_id=trace_id,
         )
         self._dispatch(run, trace_id)
@@ -119,7 +119,7 @@ class AgentRunService:
             run,
             AgentRunStatus.PAUSED,
             actor_id=actor_id,
-            reason="用户暂停",
+            reason="鐢ㄦ埛鏆傚仠",
         )
         self._events.emit(run, EVENT_RUN_PAUSED, {"run_id": run.id})
         db.session.commit()
@@ -131,7 +131,7 @@ class AgentRunService:
             run,
             AgentRunStatus.EXECUTING_TOOLS,
             actor_id=actor_id,
-            reason="用户恢复",
+            reason="鐢ㄦ埛鎭㈠",
         )
         self._events.emit(run, EVENT_RUN_RESUMED, {"run_id": run.id})
         db.session.commit()
@@ -144,7 +144,7 @@ class AgentRunService:
             run,
             AgentRunStatus.CANCELED,
             actor_id=actor_id,
-            reason="用户取消",
+            reason="鐢ㄦ埛鍙栨秷",
         )
         self._runner._cancel_remaining_nodes(run)
         db.session.commit()
@@ -174,12 +174,19 @@ class AgentRunService:
             )
         )
         events = self._events.tail(run.id, limit=100)
+        messages = (
+            AgentMessage.query.filter_by(run_id=run.id)
+            .order_by(AgentMessage.id.asc())
+            .all()
+        )
         return {
             "run": run.to_dict(),
             "plan": plan.to_dict() if plan is not None else None,
             "steps": [step.to_dict() for step in steps],
             "tool_calls": [tool_call.to_dict() for tool_call in tool_calls],
             "events": [event.to_dict() for event in events],
+            "messages": [message.to_dict() for message in messages],
+            "scan_summary": _scan_summary(run.snapshot_id),
             "last_sequence": run.last_event_sequence,
             "state_version": run.state_version,
         }
@@ -205,3 +212,53 @@ class AgentRunService:
             daemon=True,
         )
         thread.start()
+
+
+SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+
+
+def _scan_summary(snapshot_id: int) -> dict | None:
+    from app.models.security import ScanTask, SecurityFinding
+
+    task = (
+        ScanTask.query.filter_by(snapshot_id=snapshot_id)
+        .order_by(ScanTask.id.desc())
+        .first()
+    )
+    if task is None:
+        return None
+    rows = SecurityFinding.query.filter_by(task_id=task.id).all()
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+    for finding in rows:
+        severity = (
+            finding.severity.value if hasattr(finding.severity, "value") else str(finding.severity)
+        )
+        counts[severity] = counts.get(severity, 0) + 1
+    top = sorted(
+        rows,
+        key=lambda item: (
+            SEVERITY_ORDER.get(
+                item.severity.value if hasattr(item.severity, "value") else str(item.severity), 9
+            ),
+            item.file_path,
+        ),
+    )[:10]
+    return {
+        "task_id": task.id,
+        "findings_count": len(rows),
+        "severity_counts": counts,
+        "languages": (task.summary_json or {}).get("languages", []),
+        "top_findings": [
+            {
+                "id": item.id,
+                "rule_id": item.rule_id,
+                "severity": item.severity.value
+                if hasattr(item.severity, "value")
+                else str(item.severity),
+                "file_path": item.file_path,
+                "start_line": item.start_line,
+                "message": item.message[:120],
+            }
+            for item in top
+        ],
+    }

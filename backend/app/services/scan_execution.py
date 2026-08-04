@@ -230,6 +230,37 @@ def persist_sca_findings(
     return persisted_count
 
 
+def execute_universal_secret_scan(
+    task: ScanTask,
+    snapshot_root: Path,
+    *,
+    exclusion_matcher: GitignoreMatcher | None = None,
+) -> int:
+    """Run the independent Universal Secret Scanner once over every text file.
+
+    Findings persist idempotently (fingerprint dedupe); returns the count of new
+    secret findings written by this pass.
+    """
+    from app.services.scanners.universal.secret_scanner import UniversalSecretScanner
+
+    matcher = exclusion_matcher if exclusion_matcher is not None else _task_exclusion_matcher(task)
+    scanner = UniversalSecretScanner(matcher)
+    before = SecurityFinding.query.filter_by(task_id=task.id).count()
+    for finding in scanner.run(snapshot_root):
+        persist_finding(task, normalize_finding(finding, _UNIVERSAL_SECRET_DESCRIPTOR))
+    db.session.flush()
+    after = SecurityFinding.query.filter_by(task_id=task.id).count()
+    return after - before
+
+
+_UNIVERSAL_SECRET_DESCRIPTOR = ScannerDescriptor(
+    name="universal_secret",
+    version="1.0.0",
+    supported_languages=("universal",),
+    categories=("secret",),
+)
+
+
 def _task_exclusion_matcher(task: ScanTask) -> GitignoreMatcher | None:
     """从任务快照的排除规则构建匹配器；无规则返回 None。"""
     patterns = task.exclusion_rules or []
