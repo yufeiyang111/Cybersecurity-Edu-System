@@ -382,6 +382,8 @@ class AgentStepExecution(db.Model):
             "attempt_number": self.attempt_number,
             "worker_id": self.worker_id,
             "status": self.status,
+            "node_key": self.node.node_key if self.node is not None else None,
+            "tool_name": self.node.tool_name if self.node is not None else None,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "finished_at": self.finished_at.isoformat() if self.finished_at else None,
             "retry_reason": self.retry_reason,

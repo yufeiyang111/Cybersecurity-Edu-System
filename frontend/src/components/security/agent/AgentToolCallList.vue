@@ -15,7 +15,7 @@
             <el-tag :type="metaOf(call.status).tagType" size="small">{{ metaOf(call.status).label }}</el-tag>
             <span v-if="call.latency_ms != null" class="tool-row__latency">{{ call.latency_ms }} ms</span>
           </div>
-          <div v-if="call.summary" class="tool-row__summary">{{ call.summary }}</div>
+          <div v-if="summaryOf(call)" class="tool-row__summary">{{ summaryOf(call) }}</div>
           <div v-if="call.warning_codes?.length" class="tool-row__warnings">
             警告：{{ call.warning_codes.join(', ') }}
           </div>
@@ -35,6 +35,10 @@ defineProps({
 })
 
 const metaOf = (status) => toolStatusMetaOf(status)
+
+function summaryOf(call) {
+  return call.summary || call.output_summary || ''
+}
 </script>
 
 <style scoped lang="scss">

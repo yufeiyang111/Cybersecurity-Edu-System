@@ -124,6 +124,9 @@ export function reduceAgentEvent(state, event) {
         artifact_refs: payload.artifact_refs || [],
         metrics: payload.metrics || null
       }, TOOL_CALL_CAP)
+      if (event.event_type === 'tool.started' && next.run) {
+        next.run = { ...next.run, tool_call_count: (next.run.tool_call_count || 0) + 1 }
+      }
       break
     }
     case 'warning.raised': {

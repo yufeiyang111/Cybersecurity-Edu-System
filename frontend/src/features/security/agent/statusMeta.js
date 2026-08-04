@@ -45,7 +45,7 @@ export const connectionStateMeta = {
   connected: { label: '已连接', tagType: 'success' },
   reconnecting: { label: '重连中', tagType: 'warning' },
   resyncing: { label: '状态同步', tagType: 'warning' },
-  closed: { label: '已断开', tagType: 'info' }
+  closed: { label: '已结束', tagType: 'info' }
 }
 
 export function agentStatusMeta(status) {

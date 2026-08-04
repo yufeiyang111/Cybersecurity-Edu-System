@@ -151,6 +151,7 @@ class AgentRunService:
         return run
 
     def get_run_payload(self, run: AgentRun) -> dict:
+        db.session.refresh(run)
         plan = (
             AgentPlan.query.filter_by(run_id=run.id)
             .order_by(AgentPlan.plan_version.desc())
