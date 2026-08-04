@@ -17,10 +17,10 @@
           v-for="project in projects"
           :key="project.id"
           class="project-card"
-          @click="router.push(`/security/projects/${project.id}/agent`)"
+          @click="startConversation(project)"
         >
           <span class="project-card__name">{{ project.name }}</span>
-          <span class="project-card__meta">项目 #{{ project.id }}</span>
+          <span class="project-card__meta">项目 #{{ project.id }} · 开始对话</span>
         </button>
       </div>
     </section>
@@ -36,20 +36,21 @@
         <div class="tip-card">
           <h3>运行说明</h3>
           <ul>
-            <li>Agent 将真实执行确定性工具：快照清点 → 基线扫描 → 覆盖分析 → 风险排序。</li>
-            <li>扫描结果与文件级覆盖报告持久化，刷新不丢失。</li>
-            <li>多轮对话与上下文管理将在接入 LLM 后启用。</li>
+            <li>每条消息都会创建一个新的 Turn，并复用项目快照执行（无需重复上传）。</li>
+            <li>Agent 将真实执行：快照清点 → 基线扫描 → 覆盖分析 → 风险排序。</li>
+            <li>多轮对话的 LLM 分析将在接入 Provider 后启用。</li>
           </ul>
         </div>
       </div>
     </section>
 
-    <!-- ============ 任务对话视图（/security/agent-runs/:runId） ============ -->
+    <!-- ============ 会话 / 任务视图（conversation 或 run 模式） ============ -->
     <section v-else class="agent-conversation">
       <header class="conv-head">
         <el-button text :icon="ArrowLeft" @click="goBack">返回</el-button>
         <div class="conv-head__title">
-          <span>Agent 任务 #{{ runId }}</span>
+          <span v-if="mode === 'conversation'">{{ conversationTitle }}</span>
+          <span v-else>Agent 任务 #{{ runId }}</span>
           <el-tag v-if="store.run" :type="statusMeta.tagType" size="small">{{ statusMeta.label }}</el-tag>
         </div>
         <div class="conv-head__actions">
@@ -65,15 +66,28 @@
       <div class="conv-layout">
         <!-- 对话流 -->
         <main class="conv-main">
-          <div v-if="loading && !store.run" class="conv-skeleton">
+          <div v-if="loading && !store.run && !conversationMeta" class="conv-skeleton">
             <el-skeleton :rows="6" animated />
           </div>
           <div v-else ref="threadRef" class="conv-thread">
+            <div v-if="mode === 'conversation' && turns.length > 1" class="turn-timeline">
+              <span class="turn-timeline__label">Turn 时间线：</span>
+              <button
+                v-for="turn in turns"
+                :key="turn.id"
+                class="turn-chip"
+                :class="{ 'turn-chip--active': currentRunId === turn.run_id }"
+                @click="jumpToTurn(turn)"
+              >
+                Turn {{ turn.turn_sequence }}
+              </button>
+            </div>
             <div v-for="message in conversation" :key="message.key" class="conv-message" :class="`conv-message--${message.role}`">
               <div class="conv-bubble">
                 <div class="conv-bubble__head">
                   <span class="conv-bubble__role">{{ message.role === 'user' ? '你' : 'Agent' }}</span>
                   <span v-if="message.time" class="conv-bubble__time">{{ message.time }}</span>
+                  <span v-if="message.turnSeq" class="conv-bubble__time">Turn {{ message.turnSeq }}</span>
                 </div>
                 <p class="conv-bubble__text">{{ message.text }}</p>
                 <div v-if="message.detail && message.detail.length" class="conv-bubble__detail">
@@ -99,7 +113,7 @@
             :placeholder="composerPlaceholder"
             @send="handleSendMessage"
           />
-          <p class="conv-legal">Agent 的执行结果基于确定性扫描工具；多轮对话的 LLM 分析将在接入 Provider 后启用。</p>
+          <p class="conv-legal">每条消息创建一个新 Turn 并复用当前快照；多轮对话的 LLM 分析将在接入 Provider 后启用。</p>
         </main>
 
         <!-- 右侧信息面板 -->
@@ -182,18 +196,31 @@ const {
   loadCoverage,
   loadMore: loadMoreCoverage,
   hasMore: coverageHasMore
-} = useAgentCoverage(() => runId.value)
+} = useAgentCoverage(() => currentRunId.value)
 const creating = ref(false)
 const sendingMessage = ref(false)
 const threadRef = ref(null)
 const projects = ref([])
 const projectsLoading = ref(false)
+const conversationMeta = ref(null)
+const conversationMessages = ref([])
+const conversationTotal = ref(0)
+const turns = ref([])
+const currentRunId = ref(null)
 
 const runId = computed(() => Number(route.params.runId))
 const projectId = computed(() => Number(route.params.id))
-const mode = computed(() => (runId.value ? 'run' : projectId.value ? 'project' : 'home'))
+const conversationId = computed(() => Number(route.params.conversationId))
+const mode = computed(() =>
+  conversationId.value ? 'conversation' : runId.value ? 'run' : projectId.value ? 'project' : 'home'
+)
 
 const statusMeta = computed(() => agentStatusMeta(store.run?.status))
+
+const conversationTitle = computed(() => {
+  if (!conversationMeta.value) return `Agent 会话 #${conversationId.value}`
+  return conversationMeta.value.title || `Agent 会话 #${conversationId.value}`
+})
 
 const baselineMetrics = computed(() => {
   if (store.scanSummary) return store.scanSummary
@@ -202,22 +229,37 @@ const baselineMetrics = computed(() => {
 })
 
 const composerPlaceholder = computed(() => {
-  if (!store.run) return '输入安全审计目标，创建 Agent 任务'
-  if (store.isTerminal) return '任务已结束，可继续输入目标（LLM 分析接入后回复）'
+  if (mode.value === 'project') return '输入第一条安全审计目标'
+  if (!store.run && !conversationMeta.value) return '输入安全审计目标'
+  if (store.isTerminal || !store.run) return '继续输入目标，创建新 Turn（LLM 分析接入后回复）'
   return 'Agent 执行中…可输入补充指令'
 })
 
 const conversation = computed(() => {
   const items = []
-  const stored = store.messages || []
-  const userMessages = stored.filter((message) => message.role === 'user')
-  for (const message of userMessages) {
-    items.push({
-      key: `msg-${message.id}`,
-      role: 'user',
-      text: message.content,
-      time: formatSecurityDate(message.created_at)
-    })
+  if (mode.value === 'conversation') {
+    for (const message of conversationMessages.value) {
+      if (message.role !== 'user') continue
+      const turn = turns.value.find((item) => item.input_message_id === message.id)
+      items.push({
+        key: `conv-msg-${message.id}`,
+        role: 'user',
+        text: message.content,
+        time: formatSecurityDate(message.created_at),
+        turnSeq: turn?.turn_sequence || null
+      })
+    }
+  } else {
+    const stored = store.messages || []
+    for (const message of stored) {
+      if (message.role !== 'user') continue
+      items.push({
+        key: `msg-${message.id}`,
+        role: 'user',
+        text: message.content,
+        time: formatSecurityDate(message.created_at)
+      })
+    }
   }
   if (store.run) {
     items.push({
@@ -259,12 +301,52 @@ function toggleExpand(message) {
   message.expanded = !message.expanded
 }
 
+// ------------------------------------------------------------------ conversation
+
+async function loadConversation(conversationIdValue) {
+  errorMessage.value = ''
+  try {
+    const [metaResponse, messagesResponse] = await Promise.all([
+      agentAPI.getConversation(conversationIdValue),
+      agentAPI.getConversationMessages(conversationIdValue, { page: 1, page_size: 50 })
+    ])
+    conversationMeta.value = metaResponse.conversation
+    turns.value = metaResponse.conversation.turns || []
+    conversationMessages.value = messagesResponse.items || []
+    conversationTotal.value = messagesResponse.pagination?.total || 0
+    const latestRunTurn = [...turns.value].reverse().find((turn) => turn.run_id)
+    if (latestRunTurn?.run_id) {
+      currentRunId.value = latestRunTurn.run_id
+      loadRun(latestRunTurn.run_id)
+    } else {
+      currentRunId.value = null
+    }
+    await nextTickScroll()
+  } catch (error) {
+    errorMessage.value = securityApiErrorMessage(error, '加载会话失败。')
+  }
+}
+
 async function handleSendMessage({ text }) {
-  if (!text.trim() || sendingMessage.value || !runId.value) return
+  const content = (text || '').trim()
+  if (!content || sendingMessage.value) return
   sendingMessage.value = true
   try {
-    const response = await agentAPI.sendMessage(runId.value, text.trim())
-    store.messages = [...(store.messages || []), response.message]
+    if (mode.value === 'conversation') {
+      const clientMessageId = generateClientMessageId()
+      const response = await agentAPI.postConversationMessage(conversationId.value, {
+        content,
+        client_message_id: clientMessageId
+      })
+      if (response.run) {
+        conversationMessages.value = [...conversationMessages.value, response.message]
+        currentRunId.value = response.run.id
+        await loadRun(response.run.id)
+      }
+    } else if (mode.value === 'run' && runId.value) {
+      const response = await agentAPI.sendMessage(runId.value, content)
+      store.messages = [...(store.messages || []), response.message]
+    }
     await nextTickScroll()
   } catch (error) {
     ElMessage.error(securityApiErrorMessage(error, '发送消息失败'))
@@ -273,10 +355,37 @@ async function handleSendMessage({ text }) {
   }
 }
 
+function generateClientMessageId() {
+  const random = Math.random().toString(36).slice(2, 10)
+  return `msg-${Date.now().toString(36)}-${random}`
+}
+
+function jumpToTurn(turn) {
+  if (!turn.run_id) return
+  currentRunId.value = turn.run_id
+  loadRun(turn.run_id)
+  loadCoverage('')
+}
+
+async function startConversation(project) {
+  creating.value = true
+  try {
+    const response = await agentAPI.createConversation(project.id, { title: `${project.name} 安全审计` })
+    ElMessage.success('会话已创建')
+    router.push(`/security/agent-conversations/${response.conversation.id}`)
+  } catch (error) {
+    ElMessage.error(securityApiErrorMessage(error, '创建会话失败'))
+  } finally {
+    creating.value = false
+  }
+}
+
 async function nextTickScroll() {
   await nextTick()
   threadRef.value?.scrollTo({ top: threadRef.value.scrollHeight, behavior: 'smooth' })
 }
+
+// ------------------------------------------------------------------ run actions
 
 async function handleCreate({ goal, mode }) {
   if (creating.value) return
@@ -293,15 +402,16 @@ async function handleCreate({ goal, mode }) {
 }
 
 async function handlePause() {
-  if (await pauseRun(runId.value)) ElMessage.success('任务已暂停')
+  if (await pauseRun(currentRunId.value || runId.value)) ElMessage.success('任务已暂停')
 }
 async function handleResume() {
-  if (await resumeRun(runId.value)) ElMessage.success('任务已恢复')
+  if (await resumeRun(currentRunId.value || runId.value)) ElMessage.success('任务已恢复')
 }
 async function handleCancel() {
+  const targetId = currentRunId.value || runId.value
   try {
     await ElMessageBox.confirm('确认取消该 Agent 任务吗？已产生的证据与事件会保留。', '取消 Agent 任务', { type: 'warning' })
-    if (await cancelRun(runId.value)) ElMessage.success('任务已取消')
+    if (await cancelRun(targetId)) ElMessage.success('任务已取消')
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') ElMessage.error(securityApiErrorMessage(error, '取消任务失败'))
   }
@@ -312,7 +422,8 @@ function selectCoverageKind(kind) {
 }
 
 const reload = () => {
-  if (runId.value) loadRun(runId.value)
+  if (mode.value === 'conversation') loadConversation(conversationId.value)
+  else if (runId.value) loadRun(runId.value)
   else if (mode.value === 'home') loadProjects()
 }
 
@@ -329,9 +440,14 @@ async function loadProjects() {
 }
 
 function goBack() {
-  if (runId.value) router.push(`/security/projects/${store.run?.project_id || ''}/agent`)
+  if (mode.value === 'conversation') router.push(`/security/projects/${conversationMeta.value?.project_id || ''}/agent`)
+  else if (runId.value) router.push(`/security/projects/${store.run?.project_id || ''}/agent`)
   else router.push('/security/projects')
 }
+
+watch(conversationId, (id) => {
+  if (id) loadConversation(id)
+})
 
 watch(runId, (id) => {
   if (id) loadRun(id)
@@ -340,7 +456,7 @@ watch(runId, (id) => {
 watch(
   () => store.isTerminal,
   (terminal) => {
-    if (terminal && runId.value) {
+    if (terminal && currentRunId.value) {
       loadCoverage('')
       nextTickScroll()
     }
@@ -348,7 +464,8 @@ watch(
 )
 
 onMounted(() => {
-  if (mode.value === 'run') loadRun(runId.value)
+  if (mode.value === 'conversation') loadConversation(conversationId.value)
+  else if (mode.value === 'run') loadRun(runId.value)
   else if (mode.value === 'home') loadProjects()
 })
 </script>
@@ -388,7 +505,7 @@ onMounted(() => {
   padding: 8px 16px; background: #fff; border-bottom: 1px solid #e2e7ee;
   flex: 0 0 auto;
 }
-.conv-head__title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; flex: 1; }
+.conv-head__title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conv-head__actions { display: flex; align-items: center; gap: 8px; }
 .conv-alert { margin: 8px 16px 0; flex: 0 0 auto; }
 .conv-layout { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 380px; min-height: 0; }
@@ -418,6 +535,20 @@ onMounted(() => {
 }
 .conv-detail-panel { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
 .conv-legal { flex: 0 0 auto; text-align: center; color: #94a3b8; font-size: 12px; padding: 6px 0; }
+
+/* Turn 时间线 */
+.turn-timeline {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 6px 10px; border: 1px solid #e2e7ee; border-radius: 8px; background: #fafbfd;
+  font-size: 12px; color: #6a7890;
+}
+.turn-timeline__label { font-weight: 600; }
+.turn-chip {
+  border: 1px solid #c2ccd9; background: #fff; color: #52627a;
+  border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer;
+}
+.turn-chip:hover { border-color: #0b7fd1; color: #0b7fd1; }
+.turn-chip--active { background: #eff6ff; border-color: #2563eb; color: #2563eb; font-weight: 600; }
 
 /* 右侧面板 */
 .conv-side {

@@ -49,6 +49,13 @@ from app.models.scan_coverage import (
     ProjectSnapshotFile,
     ScanFileReceipt,
 )
+from app.models.conversation import (
+    AgentConversation,
+    AgentConversationMessage,
+    AgentTurn,
+    ConversationStatus,
+    TurnStatus,
+)
 
 __all__ = [
     "User", "Role", "LoginLog",
@@ -67,4 +74,6 @@ __all__ = [
     "AgentPlanEdge", "AgentStepExecution", "AgentToolCall",
     "AgentArtifact", "AgentCheckpoint", "AgentEvent",
     "CoverageKind", "ProjectSnapshotFile", "ScanFileReceipt",
+    "AgentConversation", "AgentConversationMessage", "AgentTurn",
+    "ConversationStatus", "TurnStatus",
 ]

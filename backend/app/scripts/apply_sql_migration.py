@@ -21,6 +21,7 @@ MIGRATION_IDS = (
     "010_scan_exclusion_rules",
     "011_agent_runtime_events",
     "012_scan_coverage_receipts",
+    "013_agent_conversations",
 )
 
 

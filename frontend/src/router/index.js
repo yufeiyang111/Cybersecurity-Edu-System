@@ -81,6 +81,12 @@ const routes = [
         meta: { title: 'Agent 任务' }
       },
       {
+        path: 'agent-conversations/:conversationId',
+        name: 'SecurityAgentConversation',
+        component: () => import('@/views/security/AgentWorkbench.vue'),
+        meta: { title: 'Agent 会话' }
+      },
+      {
         path: 'knowledge',
         name: 'SecurityKnowledge',
         component: () => import('@/views/security/Knowledge.vue'),

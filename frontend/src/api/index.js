@@ -287,6 +287,10 @@ export const agentAPI = {
   getEvents: (runId, params) => api.get(`/security/agent-runs/${runId}/events`, { params }),
   getCoverage: (runId, params) => api.get(`/security/agent-runs/${runId}/coverage`, { params }),
   sendMessage: (runId, content) => api.post(`/security/agent-runs/${runId}/messages`, { content }),
+  createConversation: (projectId, data) => api.post(`/security/projects/${projectId}/agent-conversations`, data || {}),
+  getConversation: (conversationId) => api.get(`/security/agent-conversations/${conversationId}`),
+  getConversationMessages: (conversationId, params) => api.get(`/security/agent-conversations/${conversationId}/messages`, { params }),
+  postConversationMessage: (conversationId, data) => api.post(`/security/agent-conversations/${conversationId}/messages`, data),
 
   // 可重放 SSE：Last-Event-ID 只通过请求头传递，JWT 不进入 URL。
   // resolve：'ended'（服务端正常关闭）| 'aborted'（主动取消）；异常 throw。
