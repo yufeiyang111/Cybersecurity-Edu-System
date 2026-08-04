@@ -1,50 +1,216 @@
 ﻿<template>
-  <article class="panel documents-panel">
-    <div class="panel-heading">
-      <div>
-        <h2>{{ selectedSource ? `${selectedSource.name} 的文档` : '版本化文档' }}</h2>
-        <p>{{ selectedSource ? '列表仅返回治理元数据，不回显文档正文。' : '选择一个知识来源后查看文档版本。' }}</p>
+  <BasePanel>
+    <template #header>
+      <div class="panel-title-group">
+        <h3 class="panel-title">
+          <BaseIcon name="book" :size="16" />
+          版本化文档
+          <BaseBadge v-if="documents.length > 0" type="blue">{{ documents.length }}</BaseBadge>
+        </h3>
+        <p class="panel-subtitle">选择一个知识来源后查看文档版本。</p>
       </div>
-      <el-button type="primary" plain :disabled="!selectedSource" :icon="Document" @click="emit('create-document')">新增文档</el-button>
-    </div>
+      <div class="panel-actions">
+        <BaseButton variant="ghost" size="sm" :disabled="!selectedSource" @click="emit('create-document')">
+          <BaseIcon name="plus" :size="13" />
+          新增文档
+        </BaseButton>
+      </div>
+    </template>
 
-    <el-empty v-if="!selectedSource" description="请选择左侧知识来源" />
-    <el-empty v-else-if="!loading && documents.length === 0" description="该来源还没有版本化文档。" />
-    <el-table v-else :data="documents" class="document-table">
-      <el-table-column prop="title" label="标题" min-width="190" />
-      <el-table-column prop="document_version" label="版本" min-width="130" />
-      <el-table-column label="标签" min-width="160">
-        <template #default="{ row }"><el-tag v-for="tag in row.tags || []" :key="tag" size="small" class="tag">{{ tag }}</el-tag></template>
-      </el-table-column>
-      <el-table-column label="状态" width="90">
-        <template #default="{ row }"><el-tag size="small" :type="row.is_active ? 'success' : 'info'">{{ row.is_active ? '生效' : '停用' }}</el-tag></template>
-      </el-table-column>
-      <el-table-column label="更新时间" min-width="170">
-        <template #default="{ row }">{{ formatSecurityDate(row.updated_at) }}</template>
-      </el-table-column>
-    </el-table>
-  </article>
+    <div v-if="!selectedSource" class="empty-state">
+      <BaseIcon name="file-text" :size="32" />
+      <p>请选择左侧知识来源</p>
+    </div>
+    <div v-else-if="loading && documents.length === 0" class="loading-state">
+      <div v-for="i in 4" :key="i" class="doc-skeleton" />
+    </div>
+    <div v-else-if="documents.length === 0" class="empty-state">
+      <BaseIcon name="file" :size="32" />
+      <p>该来源还没有版本化文档</p>
+    </div>
+    <div v-else class="doc-list">
+      <button
+        v-for="doc in documents"
+        :key="doc.id"
+        type="button"
+        class="doc-item"
+        :class="{ selected: selectedDocId === doc.id }"
+        @click="selectDoc(doc)"
+      >
+        <div class="doc-icon">
+          <BaseIcon name="file" :size="16" />
+        </div>
+        <div class="doc-info">
+          <div class="doc-title">{{ doc.title }}</div>
+          <div class="doc-meta">
+            <BaseBadge type="blue">{{ doc.document_version }}</BaseBadge>
+            <BaseBadge v-for="tag in (doc.tags || []).slice(0, 2)" :key="tag" type="gray">{{ tag }}</BaseBadge>
+          </div>
+        </div>
+        <span class="doc-time">{{ formatDate(doc.updated_at) }}</span>
+      </button>
+    </div>
+  </BasePanel>
+
+  <transition name="slide">
+    <KnowledgeDocumentDetail
+      v-if="selectedDoc"
+      :document="selectedDoc"
+      @close="selectedDocId = null"
+    />
+  </transition>
 </template>
 
 <script setup>
-import { Document } from '@element-plus/icons-vue'
-import { formatSecurityDate } from '@/features/security/presentation'
+import { ref } from 'vue'
+import { BaseIcon, BaseBadge, BasePanel, BaseButton } from '@/components/ui'
+import KnowledgeDocumentDetail from './KnowledgeDocumentDetail.vue'
 
 defineProps({
   selectedSource: { type: Object, default: null },
   documents: { type: Array, default: () => [] },
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['create-document'])
+
+const selectedDocId = ref(null)
+const selectedDoc = ref(null)
+
+function selectDoc(doc) {
+  if (selectedDocId.value === doc.id) {
+    selectedDocId.value = null
+    selectedDoc.value = null
+  } else {
+    selectedDocId.value = doc.id
+    selectedDoc.value = doc
+  }
+}
+
+function formatDate(val) {
+  if (!val) return ''
+  const d = new Date(val)
+  const now = new Date()
+  const diff = now - d
+  const mins = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+  if (mins < 1) return '刚刚'
+  if (mins < 60) return `${mins}分钟前`
+  if (hours < 24) return `${hours}小时前`
+  if (days < 7) return `${days}天前`
+  return d.toLocaleDateString('zh-CN')
+}
 </script>
 
 <style scoped lang="scss">
-.panel { background:#fff; border:1px solid #e6eaf0; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(20,33,61,.06); }
-.panel-heading { display:flex; gap:16px; align-items:flex-start; justify-content:space-between; margin-bottom:20px; }
-.panel-heading h2 { margin:0; font-size:19px; }
-.panel-heading p { margin:7px 0 0; color:#788496; line-height:1.55; }
-.document-table { width:100%; }
-.tag { margin:2px; }
-@media(max-width:820px){ .panel{padding:18px} }
+.panel-title-group { flex: 1; min-width: 0; }
+
+.panel-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-subtitle {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.panel-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 0;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.loading-state { display: grid; gap: 8px; }
+
+.doc-skeleton {
+  height: 52px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.doc-list { display: grid; gap: 6px; }
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: background 0.12s;
+  text-align: left;
+  width: 100%;
+  background: #fff;
+  color: inherit;
+}
+
+.doc-item:hover { background: #f8fafc; }
+
+.doc-item.selected {
+  background: #eff6ff;
+  border-color: #2563eb;
+}
+
+.doc-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+}
+
+.doc-info { flex: 1; min-width: 0; }
+
+.doc-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+
+.doc-time {
+  font-size: 12px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.slide-enter-active, .slide-leave-active { transition: all 0.2s ease; }
+.slide-enter-from, .slide-leave-to { opacity: 0; transform: translateY(-8px); }
 </style>

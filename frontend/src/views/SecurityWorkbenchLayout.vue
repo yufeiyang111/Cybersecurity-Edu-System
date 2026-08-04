@@ -16,9 +16,9 @@
       </nav>
 
       <div class="top-actions">
-        <el-button class="btn-doc" plain :icon="QuestionFilled" @click="onDocClick">文档</el-button>
-        <el-button class="btn-gh" :icon="Link" @click="goWithQuery('import')">GitHub 导入</el-button>
-        <el-button type="primary" :icon="Plus" @click="goWithQuery('new')">新建项目</el-button>
+        <el-button class="btn-doc" plain :icon="DocumentIcon" @click="onDocClick">文档</el-button>
+        <el-button class="btn-gh" :icon="GithubIcon" @click="goWithQuery('import')">GitHub 导入</el-button>
+        <el-button type="primary" :icon="PlusIcon" @click="goWithQuery('new')">新建项目</el-button>
         <el-dropdown trigger="click" @command="handleCommand">
           <span class="user-trigger">
             <el-avatar class="user-avatar" :size="32" :src="userStore.user?.avatar_url || undefined">
@@ -40,8 +40,11 @@
       <aside class="sidebar">
         <div class="side-group">
           <p class="side-title">工作台</p>
-          <router-link class="side-item side-item--active" to="/security/projects">
+          <router-link class="side-item" :class="{ 'side-item--active': route.path.startsWith('/security/projects') }" to="/security/projects">
             <el-icon><Grid /></el-icon><span>项目总览</span>
+          </router-link>
+          <router-link class="side-item" :class="{ 'side-item--active': route.path.startsWith('/security/knowledge') }" to="/security/knowledge">
+            <el-icon><Collection /></el-icon><span>知识库</span>
           </router-link>
           <span class="side-item side-item--disabled" title="即将上线">
             <el-icon><Warning /></el-icon><span>漏洞库</span>
@@ -91,13 +94,15 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Box, DataLine, Document, Grid, Key, Link, List, Monitor, Plus, QuestionFilled, Setting, User, Warning } from '@element-plus/icons-vue'
+import { Box, Collection, DataLine, Document, Grid, Key, List, Monitor, Setting, User, Warning } from '@element-plus/icons-vue'
 import { securityAPI } from '@/api'
 import { useUserStore } from '@/stores/user'
+import { DocumentIcon, GithubIcon, PlusIcon } from '@/components/icons'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const vulnBadge = ref(0)
 
