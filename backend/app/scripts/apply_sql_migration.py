@@ -20,6 +20,7 @@ MIGRATION_IDS = (
     "009_user_preferences",
     "010_scan_exclusion_rules",
     "011_agent_runtime_events",
+    "012_scan_coverage_receipts",
 )
 
 
