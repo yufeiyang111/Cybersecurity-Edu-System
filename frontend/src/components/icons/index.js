@@ -1,0 +1,8 @@
+export { default as CalendarIcon } from './CalendarIcon.vue'
+export { default as DocumentIcon } from './DocumentIcon.vue'
+export { default as FileIcon } from './FileIcon.vue'
+export { default as GithubIcon } from './GithubIcon.vue'
+export { default as GoogleIcon } from './GoogleIcon.vue'
+export { default as PlusIcon } from './PlusIcon.vue'
+export { default as ScanIcon } from './ScanIcon.vue'
+export { default as UploadIcon } from './UploadIcon.vue'

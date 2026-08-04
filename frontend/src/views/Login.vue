@@ -39,7 +39,7 @@
               class="oauth-button oauth-button--github"
               @click="loginWithOAuth('github')"
             >
-              <ProviderIcon provider="github" class="oauth-button__icon" />
+              <GithubIcon class="oauth-button__icon" />
               <span>GitHub 登录</span>
             </button>
 
@@ -48,7 +48,7 @@
               class="oauth-button oauth-button--google"
               @click="loginWithOAuth('google')"
             >
-              <ProviderIcon provider="google" class="oauth-button__icon" />
+              <GoogleIcon class="oauth-button__icon" />
               <span>Google 登录</span>
             </button>
           </div>
@@ -76,7 +76,7 @@ import {
   AuthFooter,
   AuthSwitchLink
 } from '@/components/auth'
-import ProviderIcon from '@/components/ProviderIcon.vue'
+import { GithubIcon, GoogleIcon } from '@/components/icons'
 
 const router = useRouter()
 const route = useRoute()

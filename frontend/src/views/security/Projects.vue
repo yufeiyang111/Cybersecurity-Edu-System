@@ -51,7 +51,7 @@
       <el-empty v-if="!loading && projects.length === 0" description="还没有安全项目，先创建一个项目开始扫描。" :image-size="96">
         <div class="empty-actions">
           <el-button type="primary" @click="showCreateDialog = true">新建项目</el-button>
-          <el-button :icon="Link" @click="openGitHubImport()">从 GitHub 导入</el-button>
+          <el-button :icon="GithubIcon" @click="openGitHubImport()">从 GitHub 导入</el-button>
         </div>
       </el-empty>
 
@@ -144,7 +144,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Check, Link, MagicStick, Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { Check, MagicStick, Refresh, Search } from '@element-plus/icons-vue'
 import { securityAPI } from '@/api'
 import GitHubImportDialog from '@/components/security/import/GitHubImportDialog.vue'
 import ProjectCard from '@/components/security/project/ProjectCard.vue'
@@ -153,6 +153,7 @@ import RecentScanList from '@/components/security/project/RecentScanList.vue'
 import WorkbenchOverviewCards from '@/components/security/project/WorkbenchOverviewCards.vue'
 import { useProjectImport } from '@/composables/security/useProjectImport'
 import { securityApiErrorMessage } from '@/features/security/presentation'
+import { GithubIcon } from '@/components/icons'
 
 const router = useRouter()
 const route = useRoute()

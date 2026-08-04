@@ -25,14 +25,14 @@
 
     <div class="pc-bottom">
       <div class="pc-meta">
-        <span>上次扫描 {{ lastScanText }}</span>
-        <span>{{ project.files ?? 0 }} 个文件</span>
-        <span>共 {{ project.scan_count ?? 0 }} 次扫描</span>
+        <span><CalendarIcon />上次扫描 {{ lastScanText }}</span>
+        <span><FileIcon />{{ project.files ?? 0 }} 个文件</span>
+        <span><ScanIcon />共 {{ project.scan_count ?? 0 }} 次扫描</span>
       </div>
       <div class="pc-ops" @click.stop>
         <el-button size="small" @click="$emit('view')">查看任务</el-button>
-        <el-button size="small" :icon="Link" @click="$emit('github')">GitHub 导入</el-button>
-        <el-button size="small" type="primary" :icon="Upload" @click="$emit('upload')">上传 ZIP 扫描</el-button>
+        <el-button size="small" :icon="GithubIcon" @click="$emit('github')">GitHub 导入</el-button>
+        <el-button size="small" type="primary" :icon="UploadIcon" @click="$emit('upload')">上传 ZIP 扫描</el-button>
       </div>
     </div>
   </article>
@@ -40,8 +40,8 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Link, Upload } from '@element-plus/icons-vue'
 import { languageMeta } from '@/features/security/languageMeta'
+import { CalendarIcon, FileIcon, GithubIcon, ScanIcon, UploadIcon } from '@/components/icons'
 
 const props = defineProps({
   project: { type: Object, required: true },
@@ -224,7 +224,14 @@ const lastScanText = computed(() => {
   font-size: 12.5px;
 
   span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     white-space: nowrap;
+  }
+
+  svg {
+    flex-shrink: 0;
   }
 }
 

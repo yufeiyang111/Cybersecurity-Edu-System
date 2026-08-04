@@ -5,7 +5,7 @@
     </div>
 
     <div v-for="p in providers" :key="p.key" class="oauth-card__item">
-      <ProviderIcon :provider="p.key" :size="18" />
+      <component :is="p.icon" :size="18" />
       <span class="oauth-card__name">{{ p.label }}</span>
       <el-tag v-if="isBound(p.key)" type="success" effect="plain">已绑定</el-tag>
       <el-tag v-else type="info" effect="plain">未绑定</el-tag>
@@ -39,15 +39,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { authAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import ProviderIcon from '@/components/ProviderIcon.vue'
+import { GithubIcon, GoogleIcon } from '@/components/icons'
 
 const userStore = useUserStore()
 const route = useRoute()
 const router = useRouter()
 
 const providers = [
-  { key: 'github', label: 'GitHub' },
-  { key: 'google', label: 'Google' }
+  { key: 'github', label: 'GitHub', icon: GithubIcon },
+  { key: 'google', label: 'Google', icon: GoogleIcon }
 ]
 const bindingKey = ref('')
 const unbindingKey = ref('')
