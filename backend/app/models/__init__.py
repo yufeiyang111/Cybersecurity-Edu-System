@@ -28,6 +28,22 @@ from app.models.security import (
     WorkspaceMemberRole,
     VulnerabilityAdvisoryCache,
 )
+from app.models.agent_runtime import (
+    AgentArtifact,
+    AgentCheckpoint,
+    AgentMessage,
+    AgentPlan,
+    AgentPlanEdge,
+    AgentPlanNode,
+    AgentPlanNodeStatus,
+    AgentPlanNodeType,
+    AgentRun,
+    AgentRunMode,
+    AgentRunStatus,
+    AgentStepExecution,
+    AgentToolCall,
+)
+from app.models.agent_events import AgentEvent
 
 __all__ = [
     "User", "Role", "LoginLog",
@@ -41,4 +57,8 @@ __all__ = [
     "SecurityKnowledgeSource", "SecurityKnowledgeDocument",
     "RemediationSuggestion", "RemediationReviewState",
     "FindingStatus", "FindingCategory", "FindingEvidence", "EvidenceType", "AuditEvent",
+    "AgentRun", "AgentRunMode", "AgentRunStatus",
+    "AgentMessage", "AgentPlan", "AgentPlanNode", "AgentPlanNodeStatus", "AgentPlanNodeType",
+    "AgentPlanEdge", "AgentStepExecution", "AgentToolCall",
+    "AgentArtifact", "AgentCheckpoint", "AgentEvent",
 ]

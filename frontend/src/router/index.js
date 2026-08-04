@@ -63,6 +63,18 @@ const routes = [
         meta: { title: '项目详情' }
       },
       {
+        path: 'projects/:id/agent',
+        name: 'SecurityProjectAgent',
+        component: () => import('@/views/security/AgentWorkbench.vue'),
+        meta: { title: 'Agent 工作台' }
+      },
+      {
+        path: 'agent-runs/:runId',
+        name: 'SecurityAgentRun',
+        component: () => import('@/views/security/AgentWorkbench.vue'),
+        meta: { title: 'Agent 任务' }
+      },
+      {
         path: 'knowledge',
         name: 'SecurityKnowledge',
         component: () => import('@/views/security/Knowledge.vue'),

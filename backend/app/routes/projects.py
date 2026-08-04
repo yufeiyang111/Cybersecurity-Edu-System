@@ -8,5 +8,6 @@ from app.routes.security import exclusions as _exclusion_routes
 from app.routes.security import snapshots as _snapshot_routes
 from app.routes.security import tasks as _task_routes
 from app.routes.security import workbench as _workbench_routes
+from app.routes.security import agent as _agent_routes
 
 __all__ = ["projects_bp"]

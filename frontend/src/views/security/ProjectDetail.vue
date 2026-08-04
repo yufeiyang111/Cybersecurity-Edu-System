@@ -3,6 +3,7 @@
     <header class="topbar">
       <el-button text :icon="ArrowLeft" @click="router.push('/security/projects')">返回项目中心</el-button>
       <div class="actions">
+        <el-button plain :icon="Promotion" @click="router.push(`/security/projects/${route.params.id}/agent`)">Agent 工作台</el-button>
         <el-button plain @click="router.push('/security/knowledge')">安全知识库</el-button>
         <el-button type="primary" :icon="Refresh" :loading="rescanLoading" @click="handleRescan">重新扫描</el-button>
         <el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
@@ -203,7 +204,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, Promotion, Refresh } from '@element-plus/icons-vue'
 import DependencyInventoryTable from '@/components/security/dependencies/DependencyInventoryTable.vue'
 import ScaFindingList from '@/components/security/dependencies/ScaFindingList.vue'
 import ScaScanStatusCard from '@/components/security/dependencies/ScaScanStatusCard.vue'

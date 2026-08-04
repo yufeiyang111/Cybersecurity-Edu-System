@@ -45,6 +45,7 @@ def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
 
     for module_name, blueprint_name in {
         "app.routes.auth": "auth_bp",
+        "app.routes.auth_preferences": "auth_preferences_bp",
         "app.routes.oauth": "oauth_bp",
         "app.routes.knowledge": "knowledge_bp",
         "app.routes.qa": "qa_bp",
@@ -59,6 +60,70 @@ def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         if module_name == "app.routes.oauth":
             setattr(module, "init_oauth", lambda app: None)
         monkeypatch.setitem(sys.modules, module_name, module)
+
+
+def _install_legacy_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub only legacy route modules; real security routes stay loaded.
+
+    The synthetic ``app.routes`` package keeps the real filesystem path so
+    ``app.routes.projects`` (security facade) loads from disk, but skips the
+    heavy ``app/routes/__init__.py`` imports.
+    """
+    routes_dir = Path(__file__).resolve().parents[1] / "app" / "routes"
+    routes_package = types.ModuleType("app.routes")
+    routes_package.__path__ = [str(routes_dir)]
+    monkeypatch.setitem(sys.modules, "app.routes", routes_package)
+
+    for module_name, blueprint_name in {
+        "app.routes.auth": "auth_bp",
+        "app.routes.auth_preferences": "auth_preferences_bp",
+        "app.routes.oauth": "oauth_bp",
+        "app.routes.knowledge": "knowledge_bp",
+        "app.routes.qa": "qa_bp",
+        "app.routes.admin": "admin_bp",
+        "app.routes.llm_health": "llm_health_bp",
+        "app.routes.policies": "policies_bp",
+    }.items():
+        module = types.ModuleType(module_name)
+        blueprint = Blueprint(blueprint_name, module_name)
+        setattr(module, blueprint_name, blueprint)
+        if module_name == "app.routes.oauth":
+            setattr(module, "init_oauth", lambda app: None)
+        monkeypatch.setitem(sys.modules, module_name, module)
+
+
+@pytest.fixture
+def agent_api_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """API fixture with real security routes and a file-backed sqlite database.
+
+    The agent executor runs synchronously (AGENT_RUN_EXECUTOR=synchronous)
+    so create responses are deterministic without background threads.
+    """
+    from app import create_app, db
+
+    import app.models
+
+    _install_legacy_route_stubs(monkeypatch)
+    config = type(
+        "AgentApiTestConfig",
+        (TestConfig,),
+        {
+            "SECURITY_WORKSPACE_ROOT": str(tmp_path / "security-workspaces"),
+            "UPLOAD_FOLDER": str(tmp_path / "uploads"),
+            "LOG_FILE": str(tmp_path / "logs" / "test.log"),
+            "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'agent_api.db'}",
+            "AGENT_RUN_EXECUTOR": "synchronous",
+            "AGENT_MIN_STEP_INTERVAL_SECONDS": 0,
+            "RQ_ASYNC": False,
+        },
+    )
+    application = create_app(config)
+
+    with application.app_context():
+        db.create_all()
+        yield application
+        db.session.remove()
+        db.drop_all()
 
 
 @pytest.fixture

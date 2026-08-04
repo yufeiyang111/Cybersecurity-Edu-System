@@ -249,7 +249,89 @@ export const securityAPI = {
   reviewRemediationSuggestion: (suggestionId, data) => api.post(`/security/suggestions/${suggestionId}/review`, data)
 }
 
-export const adminAPI = {  getOverviewStats: () => api.get('/admin/stats/overview'),
+// Agent 工作台：持久化 Run、暂停/恢复/取消、可重放 SSE 事件流
+function parseAgentSSE(raw, onEvent) {
+  let frame = { event: 'message', id: null, data: null }
+  let dataText = ''
+  let hasContent = false
+  for (const line of raw.split('\n')) {
+    if (line.startsWith('event:')) {
+      frame.event = line.slice(6).trim()
+      hasContent = true
+    } else if (line.startsWith('id:')) {
+      frame.id = Number(line.slice(3).trim())
+      hasContent = true
+    } else if (line.startsWith('data:')) {
+      dataText += line.slice(5).trim()
+      hasContent = true
+    }
+  }
+  if (!hasContent) return
+  if (dataText) {
+    try {
+      frame.data = JSON.parse(dataText)
+    } catch (e) {
+      console.error('Agent SSE 数据解析失败', e)
+      return
+    }
+  }
+  onEvent(frame)
+}
+
+export const agentAPI = {
+  createRun: (projectId, data) => api.post(`/security/projects/${projectId}/agent-runs`, data),
+  getRun: (runId) => api.get(`/security/agent-runs/${runId}`),
+  pauseRun: (runId) => api.post(`/security/agent-runs/${runId}/pause`),
+  resumeRun: (runId) => api.post(`/security/agent-runs/${runId}/resume`),
+  cancelRun: (runId) => api.post(`/security/agent-runs/${runId}/cancel`),
+  getEvents: (runId, params) => api.get(`/security/agent-runs/${runId}/events`, { params }),
+
+  // 可重放 SSE：Last-Event-ID 只通过请求头传递，JWT 不进入 URL。
+  // resolve：'ended'（服务端正常关闭）| 'aborted'（主动取消）；异常 throw。
+  streamAgentEvents: async (runId, { lastEventId = 0, signal, onEvent } = {}) => {
+    const token = localStorage.getItem('token')
+    const headers = token ? { Authorization: `Bearer ${token}` } : {}
+    headers['Last-Event-ID'] = String(lastEventId || 0)
+    let response
+    try {
+      response = await fetch(`/api/security/agent-runs/${runId}/events/stream`, { headers, signal })
+    } catch (error) {
+      if (error?.name === 'AbortError') return 'aborted'
+      throw error
+    }
+    if (!response.ok) {
+      let message = '事件流请求失败'
+      try {
+        const body = await response.json()
+        if (body?.error) message = body.error
+      } catch (e) { /* ignore */ }
+      const error = new Error(message)
+      error.response = { status: response.status, data: { error: message } }
+      throw error
+    }
+    if (!response.body) return 'ended'
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let separator
+      while ((separator = buffer.indexOf('\n\n')) !== -1) {
+        const raw = buffer.slice(0, separator)
+        buffer = buffer.slice(separator + 2)
+        parseAgentSSE(raw, onEvent)
+      }
+    }
+    if (buffer.trim()) parseAgentSSE(buffer, onEvent)
+    return 'ended'
+  }
+}
+
+export const adminAPI = {
+  getOverviewStats: () => api.get('/admin/stats/overview'),
   getQAStats: () => api.get('/admin/stats/qa'),
 
   getUsers: (params) => api.get('/admin/users', { params }),

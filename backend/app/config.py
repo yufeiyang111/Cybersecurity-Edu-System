@@ -54,6 +54,13 @@ def _env_int(name: str, default: int) -> int:
     return int(raw.strip())
 
 
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return float(raw.strip())
+
+
 def _env_list(name: str, default: tuple[str, ...]) -> list[str]:
     raw = os.getenv(name)
     if raw is None or raw.strip() == "":
@@ -197,6 +204,12 @@ class Config:
     RQ_ASYNC = _env_bool("RQ_ASYNC", False)
     SCAN_TASK_MAX_RETRIES = _env_int("SCAN_TASK_MAX_RETRIES", DEFAULT_SCAN_TASK_MAX_RETRIES)
     SECURITY_RATE_LIMIT_PER_MINUTE = _env_int("SECURITY_RATE_LIMIT_PER_MINUTE", DEFAULT_SECURITY_RATE_LIMIT_PER_MINUTE)
+
+    AGENT_RUN_EXECUTOR = os.getenv("AGENT_RUN_EXECUTOR", "background").strip().lower()
+    AGENT_MIN_STEP_INTERVAL_SECONDS = _env_float("AGENT_MIN_STEP_INTERVAL_SECONDS", 0.8)
+    AGENT_SSE_HEARTBEAT_SECONDS = _env_int("AGENT_SSE_HEARTBEAT_SECONDS", 15)
+    AGENT_SSE_POLL_SECONDS = _env_float("AGENT_SSE_POLL_SECONDS", 0.5)
+    AGENT_GOAL_MAX_CHARS = 4000
     SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE = _env_int("SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE", DEFAULT_SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE)
 
     GITHUB_API_TIMEOUT_SECONDS = _env_int(
