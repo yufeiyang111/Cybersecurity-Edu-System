@@ -56,9 +56,11 @@ class PythonScanner(BaseLanguageScanner):
             findings.extend(self._find_flask_debug(relative_path, text))
         return sorted(findings, key=lambda item: (item.file_path, item.start_line, item.rule_id))
 
-    @staticmethod
-    def _python_files(snapshot_root: Path) -> list[Path]:
-        return sorted(path for path in snapshot_root.rglob("*.py") if path.is_file())
+    def _python_files(self, snapshot_root: Path) -> list[Path]:
+        return self._filter_excluded(
+            sorted(path for path in snapshot_root.rglob("*.py") if path.is_file()),
+            snapshot_root,
+        )
 
     @staticmethod
     def _parse_source(text: str) -> ast.AST | None:

@@ -15,6 +15,7 @@ from werkzeug.datastructures import FileStorage
 
 from app import db
 from app.models.security import AuditEvent, ProjectSnapshot, ScanTask, SecurityProject
+from app.services.exclusion_service import matcher_for_project, patterns_for_project
 from app.services.github_source import GitHubSourceError, download_public_github_archive
 from app.services.source_intake import (
     ArchiveSafetyPolicy,
@@ -96,7 +97,12 @@ def create_uploaded_snapshot(
         archive.save(archive_path)
         stage = "extract_archive"
         snapshot_root = workspace_root / "snapshots" / str(project.workspace_id) / str(project.id) / scan_token
-        manifest = validate_and_extract_zip(archive_path, snapshot_root, archive_policy_from_settings(settings))
+        manifest = validate_and_extract_zip(
+            archive_path,
+            snapshot_root,
+            archive_policy_from_settings(settings),
+            exclusion_matcher=matcher_for_project(project.id),
+        )
         rmtree(staging_root, ignore_errors=True)
         staging_root = None
 
@@ -110,6 +116,7 @@ def create_uploaded_snapshot(
             commit_sha=None,
             action="scan.uploaded",
             policy_version="python-baseline-v1",
+            exclusion_rules=patterns_for_project(project.id),
             settings=settings,
             dispatcher=dispatcher,
         )
@@ -151,7 +158,12 @@ def create_github_snapshot(
         )
         stage = "extract_archive"
         snapshot_root = workspace_root / "snapshots" / str(project.workspace_id) / str(project.id) / scan_token
-        manifest = validate_and_extract_zip(archive_path, snapshot_root, github_archive_policy(settings))
+        manifest = validate_and_extract_zip(
+            archive_path,
+            snapshot_root,
+            github_archive_policy(settings),
+            exclusion_matcher=matcher_for_project(project.id),
+        )
         rmtree(staging_root, ignore_errors=True)
         staging_root = None
 
@@ -165,6 +177,7 @@ def create_github_snapshot(
             commit_sha=github_archive.commit_sha,
             action="scan.github_imported",
             policy_version="baseline-rules-v2",
+            exclusion_rules=patterns_for_project(project.id),
             settings=settings,
             dispatcher=dispatcher,
         )
@@ -217,6 +230,7 @@ def create_rescan_task(
         actor_id=actor_id,
         action="scan.rescanned",
         policy_version=policy_version,
+        exclusion_rules=patterns_for_project(project.id),
         audit_metadata={
             "source_type": "zip",
             "snapshot_id": snapshot.id,
@@ -238,6 +252,7 @@ def _persist_and_dispatch(
     commit_sha: str | None,
     action: str,
     policy_version: str,
+    exclusion_rules: list[str] | None,
     settings: Mapping[str, Any],
     dispatcher: ScanTaskDispatcher | None,
 ) -> SnapshotTaskResult:
@@ -290,6 +305,7 @@ def _persist_and_dispatch(
         actor_id=actor_id,
         action="scan.snapshot_reused" if existing_snapshot is not None else action,
         policy_version=policy_version,
+        exclusion_rules=exclusion_rules,
         audit_metadata=audit_metadata,
         settings=settings,
         dispatcher=dispatcher,
@@ -308,6 +324,7 @@ def _create_and_dispatch_task(
     actor_id: int,
     action: str,
     policy_version: str,
+    exclusion_rules: list[str] | None,
     audit_metadata: Mapping[str, Any],
     settings: Mapping[str, Any],
     dispatcher: ScanTaskDispatcher | None,
@@ -318,6 +335,7 @@ def _create_and_dispatch_task(
         status="created",
         progress=0,
         policy_version=policy_version,
+        exclusion_rules=exclusion_rules,
         dispatch_key=new_dispatch_key(),
         retry_count=0,
     )

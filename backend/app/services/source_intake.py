@@ -197,12 +197,15 @@ def validate_and_extract_zip(
     archive_path: Path,
     destination: Path,
     policy: ArchiveSafetyPolicy,
+    exclusion_matcher: object | None = None,
 ) -> SnapshotManifest:
     """Validate and extract an archive into an immutable static-analysis snapshot.
 
     All ZIP entries are validated before ``destination`` is created or any member
     content is written.  Only allowlisted text files are extracted; binary files
     and other regular files are represented as skipped manifest entries.
+    ``exclusion_matcher`` 提供 ``is_excluded(relative_path)`` 接口（gitignore 风格），
+    命中的文件即使属于白名单也不会写入快照。
     """
 
     archive_path = Path(archive_path)
@@ -213,7 +216,7 @@ def validate_and_extract_zip(
         with zipfile.ZipFile(archive_path, "r") as archive:
             entries = tuple(archive.infolist())
             _validate_archive_entries(entries, destination, policy)
-            return _extract_validated_entries(archive, entries, destination, policy)
+            return _extract_validated_entries(archive, entries, destination, policy, exclusion_matcher)
     except ArchiveValidationError:
         raise
     except (OSError, zipfile.BadZipFile, RuntimeError) as exc:
@@ -317,6 +320,7 @@ def _extract_validated_entries(
     entries: tuple[zipfile.ZipInfo, ...],
     destination: Path,
     policy: ArchiveSafetyPolicy,
+    exclusion_matcher: object | None,
 ) -> SnapshotManifest:
     destination_existed = destination.exists()
     if destination_existed and (not destination.is_dir() or any(destination.iterdir())):
@@ -337,6 +341,11 @@ def _extract_validated_entries(
             if not _is_analysis_relevant(relative_path, policy):
                 extracted_bytes = _consume_member(archive, info, policy, extracted_bytes)
                 skipped_files.append(SkippedSnapshotFile(relative_path, "not_analysis_relevant"))
+                continue
+
+            if exclusion_matcher is not None and exclusion_matcher.is_excluded(relative_path):
+                extracted_bytes = _consume_member(archive, info, policy, extracted_bytes)
+                skipped_files.append(SkippedSnapshotFile(relative_path, "user_excluded"))
                 continue
 
             target_path = destination_root / Path(*PurePosixPath(relative_path).parts)

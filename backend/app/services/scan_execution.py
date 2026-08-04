@@ -13,6 +13,7 @@ from app import db
 from app.models.security import FindingEvidence, ScanTask, SecurityFinding, SnapshotDependency
 from app.services.dependency_scanner import DependencyCoordinate, dependency_coordinate_hash, discover_dependencies
 from app.services.osv_client import OSVVulnerabilityProvider
+from app.services.scan_exclusion import GitignoreMatcher
 from app.services.scanners import get_scanners
 from app.services.scanners.base import BaseLanguageScanner, RawFinding
 from app.services.scanners.contracts import NormalizedFinding, ScannerDescriptor
@@ -46,11 +47,13 @@ def execute_scan_stages(
     completed_scanners = 0
 
     active_scanners = list(scanners if scanners is not None else get_scanners())
+    exclusion_matcher = _task_exclusion_matcher(task)
     for scanner in active_scanners:
         if not scanner.can_handle(snapshot_root):
             continue
         descriptor = descriptor_for(scanner)
         try:
+            scanner.configure_exclusions(exclusion_matcher)
             scanner.detect_project(snapshot_root)
             for finding in _all_findings(scanner, snapshot_root):
                 persist_finding(task, normalize_finding(finding, descriptor))
@@ -225,6 +228,14 @@ def persist_sca_findings(
             persist_finding(task, normalize_finding(finding, _SCA_DESCRIPTOR))
             persisted_count += 1
     return persisted_count
+
+
+def _task_exclusion_matcher(task: ScanTask) -> GitignoreMatcher | None:
+    """从任务快照的排除规则构建匹配器；无规则返回 None。"""
+    patterns = task.exclusion_rules or []
+    if not patterns:
+        return None
+    return GitignoreMatcher.from_patterns(patterns)
 
 
 def _all_findings(scanner: BaseLanguageScanner, snapshot_root: Path) -> Iterable[RawFinding]:

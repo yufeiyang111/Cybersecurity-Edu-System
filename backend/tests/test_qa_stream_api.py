@@ -9,7 +9,7 @@ from app import db, jwt
 
 
 class _FakeStreamEngine:
-    def ask_stream(self, query, conversation_history):
+    def ask_stream(self, query, conversation_history, user_preferences=None):
         yield {"type": "delta", "content": "\u4f60\u597d"}
         yield {"type": "reasoning", "delta": "\u601d\u8003\u4e2d"}
         yield {
@@ -26,7 +26,7 @@ class _FakeStreamEngine:
 
 
 class _BoomEngine:
-    def ask_stream(self, query, conversation_history):
+    def ask_stream(self, query, conversation_history, user_preferences=None):
         raise RuntimeError("secret internal detail must not leak")
 
 

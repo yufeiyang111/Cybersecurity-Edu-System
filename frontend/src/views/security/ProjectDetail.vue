@@ -11,7 +11,9 @@
 
     <el-alert v-if="errorMessage" :title="errorMessage" type="error" :closable="false" show-icon class="alert" />
 
-    <div class="head-card">
+    <div class="detail-layout">
+      <div class="detail-main">
+        <div class="head-card">
       <div class="head-title">
         <h1>{{ project.name }}</h1>
         <span class="status" :class="`status--${scanState.kind}`">{{ scanState.label }}</span>
@@ -175,6 +177,17 @@
       </el-collapse-transition>
     </section>
 
+      <aside class="detail-side" aria-label="项目设置">
+        <ExclusionRulesPanel
+          :project-id="route.params.id"
+          :can-edit="true"
+          :rescan-loading="rescanLoading"
+          @rescan="handleRescan"
+        />
+      </aside>
+      </div>
+    </div>
+
     <p class="foot-note">所有修复建议均须人工审核；系统不会自动执行、应用、提交或推送任何代码。</p>
 
     <RemediationReviewDialog
@@ -194,6 +207,7 @@ import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import DependencyInventoryTable from '@/components/security/dependencies/DependencyInventoryTable.vue'
 import ScaFindingList from '@/components/security/dependencies/ScaFindingList.vue'
 import ScaScanStatusCard from '@/components/security/dependencies/ScaScanStatusCard.vue'
+import ExclusionRulesPanel from '@/components/security/project/ExclusionRulesPanel.vue'
 import FindingDetailPanel from '@/components/security/project/FindingDetailPanel.vue'
 import FindingListItem from '@/components/security/project/FindingListItem.vue'
 import RemediationReviewDialog from '@/components/security/project/RemediationReviewDialog.vue'
@@ -397,6 +411,11 @@ onBeforeUnmount(stopPolling)
 .actions { display: flex; gap: 8px; align-items: center; }
 .alert { margin-bottom: 8px; }
 
+/* 主内容 + 右侧设置栏 */
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 8px; align-items: start; }
+.detail-main { min-width: 0; }
+.detail-side { position: sticky; top: 56px; min-width: 0; }
+
 /* 项目信息头卡 */
 .head-card { background: #fff; border: 1px solid #e2e7ee; border-radius: 8px; padding: 14px 16px; }
 .head-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -465,6 +484,8 @@ onBeforeUnmount(stopPolling)
 @media (max-width: 960px) {
   .workbench, .dep-layout { grid-template-columns: 1fr; }
   .finding-list { max-height: 40vh; }
+  .detail-layout { grid-template-columns: 1fr; }
+  .detail-side { position: static; }
 }
 @media (max-width: 760px) {
   .detail-page { padding: 10px 10px 24px; }

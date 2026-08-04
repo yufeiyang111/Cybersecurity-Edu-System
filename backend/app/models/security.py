@@ -177,6 +177,12 @@ class SecurityProject(db.Model):
     snapshots = db.relationship(
         "ProjectSnapshot", back_populates="project", cascade="all, delete-orphan"
     )
+    exclusion_rules = db.relationship(
+        "ProjectExclusionRule",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="ProjectExclusionRule.position",
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -188,6 +194,36 @@ class SecurityProject(db.Model):
             "created_by": self.created_by,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class ProjectExclusionRule(db.Model):
+    """项目级 gitignore 风格扫描排除规则，按 position 顺序逐条匹配。"""
+
+    __tablename__ = "project_exclusion_rules"
+    __table_args__ = (
+        db.UniqueConstraint("project_id", "position", name="uq_exclusion_rules_position"),
+        db.Index("ix_exclusion_rules_project_id", "project_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("security_projects.id", ondelete="CASCADE"), nullable=False
+    )
+    pattern = db.Column(db.String(500), nullable=False)
+    position = db.Column(db.Integer, nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    project = db.relationship("SecurityProject", back_populates="exclusion_rules")
+    creator = db.relationship("User", foreign_keys=[created_by])
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "pattern": self.pattern,
+            "position": self.position,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 
@@ -348,6 +384,7 @@ class ScanTask(db.Model):
     )
     progress = db.Column(db.Integer, nullable=False, default=0)
     policy_version = db.Column(db.String(100))
+    exclusion_rules = db.Column(db.JSON)
     worker_id = db.Column(db.String(255))
     dispatch_key = db.Column(db.String(64), nullable=True)
     retry_count = db.Column(db.Integer, nullable=False, default=0)

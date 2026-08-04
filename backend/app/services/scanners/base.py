@@ -93,6 +93,19 @@ class BaseLanguageScanner(ABC):
     supported_languages: tuple[str, ...] = ()
     categories: tuple[str, ...] = ("sast",)
 
+    def __init__(self) -> None:
+        self._exclusion_matcher: Any | None = None
+
+    def configure_exclusions(self, matcher: Any | None) -> None:
+        """注入项目级排除匹配器（gitignore 风格），命中文件不参与任何分析。"""
+        self._exclusion_matcher = matcher
+
+    def _is_excluded(self, path: Path, snapshot_root: Path) -> bool:
+        if self._exclusion_matcher is None:
+            return False
+        relative_path = path.relative_to(snapshot_root).as_posix()
+        return self._exclusion_matcher.is_excluded(relative_path)
+
     @abstractmethod
     def can_handle(self, snapshot_root: Path) -> bool:
         """判断当前 Scanner 是否识别该项目。"""
@@ -108,7 +121,7 @@ class BaseLanguageScanner(ABC):
     def run_secret_scan(self, snapshot_root: Path) -> list[RawFinding]:
         """跨语言通用硬编码密钥扫描；证据已脱敏。"""
         findings: list[RawFinding] = []
-        for source_file in self._secret_candidate_files(snapshot_root):
+        for source_file in self._filter_excluded(self._secret_candidate_files(snapshot_root), snapshot_root):
             text = self.read_text_detected(source_file)
             if text is None:
                 continue
@@ -155,6 +168,16 @@ class BaseLanguageScanner(ABC):
                 or path.name.lower() in _SECRET_CANDIDATE_FILENAMES
             )
         )
+
+    def _filter_excluded(self, paths: list[Path], snapshot_root: Path) -> list[Path]:
+        """移除命中项目排除规则的文件；无规则时原样返回。"""
+        if self._exclusion_matcher is None:
+            return paths
+        return [
+            path
+            for path in paths
+            if not self._is_excluded(path, snapshot_root)
+        ]
 
 
 def _mask_secret(secret: str) -> str:

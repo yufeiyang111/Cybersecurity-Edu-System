@@ -17,6 +17,8 @@ MIGRATION_IDS = (
     "006_oauth_login",
     "007_multi_oauth_bindings",
     "008_qa_rag_warnings",
+    "009_user_preferences",
+    "010_scan_exclusion_rules",
 )
 
 

@@ -29,7 +29,7 @@ class _FakeRagProvider:
 def _engine_with_provider(provider):
     engine = EnhancedRAGEngine.__new__(EnhancedRAGEngine)
     engine._get_llm_provider = lambda: provider
-    engine.build_prompt = lambda query, context, history: [
+    engine.build_prompt = lambda query, context, history, user_preferences=None: [
         {"role": "system", "content": "system"},
         {"role": "user", "content": query},
     ]

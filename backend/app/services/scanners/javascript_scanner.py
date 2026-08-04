@@ -107,11 +107,14 @@ class JavaScriptTypeScriptScanner(BaseLanguageScanner):
                     ))
         return sorted(findings, key=lambda item: (item.file_path, item.start_line, item.rule_id))
 
-    @staticmethod
-    def _source_files(snapshot_root: Path) -> list[Path]:
-        return sorted(
-            path for path in snapshot_root.rglob("*")
-            if path.is_file() and path.suffix.lower() in JAVASCRIPT_SUFFIXES
+    def _source_files(self, snapshot_root: Path) -> list[Path]:
+        return self._filter_excluded(
+            sorted(
+                path
+                for path in snapshot_root.rglob("*")
+                if path.is_file() and path.suffix.lower() in JAVASCRIPT_SUFFIXES
+            ),
+            snapshot_root,
         )
 
     @staticmethod

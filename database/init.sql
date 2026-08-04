@@ -341,6 +341,7 @@ CREATE TABLE IF NOT EXISTS scan_tasks (
     status ENUM('created', 'validating', 'snapshotting', 'scanning', 'completed', 'completed_with_warnings', 'failed', 'canceled') NOT NULL DEFAULT 'created',
     progress INT NOT NULL DEFAULT 0,
     policy_version VARCHAR(100) NULL,
+    exclusion_rules JSON NULL,
     worker_id VARCHAR(255) NULL,
     dispatch_key VARCHAR(64) NULL,
     retry_count INT NOT NULL DEFAULT 0,
@@ -400,6 +401,19 @@ CREATE TABLE IF NOT EXISTS finding_evidences (
     CONSTRAINT fk_finding_evidences_finding FOREIGN KEY (finding_id) REFERENCES security_findings(id) ON DELETE CASCADE,
     INDEX ix_finding_evidences_finding_id (finding_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='脱敏漏洞证据';
+
+CREATE TABLE IF NOT EXISTS project_exclusion_rules (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    pattern VARCHAR(500) NOT NULL,
+    position INT NOT NULL,
+    created_by INT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_exclusion_rules_project FOREIGN KEY (project_id) REFERENCES security_projects(id) ON DELETE CASCADE,
+    CONSTRAINT fk_exclusion_rules_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT uq_exclusion_rules_position UNIQUE (project_id, position),
+    INDEX ix_exclusion_rules_project_id (project_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目级扫描排除规则';
 
 CREATE TABLE IF NOT EXISTS audit_events (
     id INT AUTO_INCREMENT PRIMARY KEY,

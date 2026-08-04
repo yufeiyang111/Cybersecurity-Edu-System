@@ -90,9 +90,11 @@ class JavaScanner(BaseLanguageScanner):
                     ))
         return sorted(findings, key=lambda item: (item.file_path, item.start_line, item.rule_id))
 
-    @staticmethod
-    def _source_files(snapshot_root: Path) -> list[Path]:
-        return sorted(path for path in snapshot_root.rglob("*.java") if path.is_file())
+    def _source_files(self, snapshot_root: Path) -> list[Path]:
+        return self._filter_excluded(
+            sorted(path for path in snapshot_root.rglob("*.java") if path.is_file()),
+            snapshot_root,
+        )
 
     @staticmethod
     def _mask_comments_and_literals(
