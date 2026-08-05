@@ -15,6 +15,7 @@ class LLMRequest:
     temperature: float = 0.7
     max_tokens: int = 2048
     timeout_seconds: float | None = None
+    prompt_cache_key: str | None = None
 
 
 @dataclass(frozen=True)
