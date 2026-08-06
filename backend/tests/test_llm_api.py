@@ -178,6 +178,39 @@ def test_logs_are_paginated_and_analytics_are_scoped_to_current_user(llm_api_app
     assert all(item["model"] == "qwen" for item in analytics.json["models"])
 
 
+def test_analytics_report_cache_hit_rate(llm_api_app):
+    user_id = _make_user(llm_api_app, "llm-cache-user")
+    with llm_api_app.app_context():
+        db.session.add(
+            LLMCallLog(
+                user_id=user_id,
+                provider_name="private",
+                model="qwen",
+                operation="qa",
+                status="success",
+                input_tokens=100,
+                cached_input_tokens=60,
+                output_tokens=5,
+                total_tokens=105,
+                latency_ms=50,
+            )
+        )
+        db.session.commit()
+
+    client = llm_api_app.test_client()
+    headers = _headers(llm_api_app, user_id)
+    analytics = client.get("/api/llm/analytics", headers=headers)
+
+    assert analytics.status_code == 200
+    summary = analytics.json["summary"]
+    assert summary["cached_input_tokens"] == 60
+    assert summary["cache_hit_rate"] == 60.0
+    model_row = analytics.json["models"][0]
+    assert model_row["tokens"] == 105
+    assert model_row["cache_hit_rate"] == 60.0
+    assert model_row["input_tokens"] == 100
+
+
 def test_provider_delete_is_user_scoped(llm_api_app):
     owner_id = _make_user(llm_api_app, "llm-delete-owner")
     outsider_id = _make_user(llm_api_app, "llm-delete-outsider")

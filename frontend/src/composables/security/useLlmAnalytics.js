@@ -3,7 +3,7 @@ import { llmAPI } from '@/api'
 
 export function useLlmAnalytics() {
   const analytics = ref({
-    summary: { total_calls: 0, total_cost: 0, total_tokens: 0, rpm: 0, tpm: 0 },
+    summary: { total_calls: 0, total_tokens: 0, input_tokens: 0, cached_input_tokens: 0, cache_hit_rate: 0, rpm: 0, tpm: 0 },
     models: [],
     providers: [],
     trend: []

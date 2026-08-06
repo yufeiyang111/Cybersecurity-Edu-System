@@ -1,5 +1,5 @@
 <template>
-  <main class="llm-page"><header class="page-header"><div><h1>模型调用分析</h1><p>查看模型调用量、Token 消耗和费用分布的详细统计数据。</p></div><div class="actions"><BaseButton><BaseIcon name="settings" :size="14" />偏好设置</BaseButton><BaseButton><BaseIcon name="filter" :size="14" />筛选</BaseButton></div></header><LlmAnalyticsToolbar /><div v-if="errorMessage" class="page-error"><BaseIcon name="alert-triangle" :size="16" />{{ errorMessage }}</div><LlmSummaryBand :summary="analytics.summary" /><LlmUsageChart :analytics="analytics" :loading="loading" /><LlmModelBreakdown :models="analytics.models" :summary="analytics.summary" /></main>
+  <main class="llm-page"><header class="page-header"><div><h1>模型调用分析</h1><p>查看模型调用量、Token 消耗和缓存命中情况的详细统计数据。</p></div><div class="actions"><BaseButton><BaseIcon name="settings" :size="14" />偏好设置</BaseButton><BaseButton><BaseIcon name="filter" :size="14" />筛选</BaseButton></div></header><LlmAnalyticsToolbar /><div v-if="errorMessage" class="page-error"><BaseIcon name="alert-triangle" :size="16" />{{ errorMessage }}</div><LlmSummaryBand :summary="analytics.summary" /><LlmUsageChart :analytics="analytics" :loading="loading" /><LlmModelBreakdown :models="analytics.models" :summary="analytics.summary" /></main>
 </template>
 
 <script setup>

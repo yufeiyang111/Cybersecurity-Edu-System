@@ -22,20 +22,25 @@ def list_logs(user_id: int, params: dict):
 
 def summary(user_id: int, params: dict) -> dict:
     query = _filtered_query(user_id, params)
-    calls, tokens, cost, input_tokens, output_tokens = query.with_entities(
+    calls, tokens, cost, input_tokens, output_tokens, cached_input_tokens = query.with_entities(
         func.count(LLMCallLog.id),
         func.coalesce(func.sum(LLMCallLog.total_tokens), 0),
         func.coalesce(func.sum(LLMCallLog.cost_amount), 0),
         func.coalesce(func.sum(LLMCallLog.input_tokens), 0),
         func.coalesce(func.sum(LLMCallLog.output_tokens), 0),
+        func.coalesce(func.sum(LLMCallLog.cached_input_tokens), 0),
     ).one()
     minutes = _window_minutes(params)
+    input_total = int(input_tokens or 0)
+    cached_total = int(cached_input_tokens or 0)
     return {
         "total_calls": int(calls or 0),
         "total_tokens": int(tokens or 0),
         "total_cost": float(cost or 0),
-        "input_tokens": int(input_tokens or 0),
+        "input_tokens": input_total,
         "output_tokens": int(output_tokens or 0),
+        "cached_input_tokens": cached_total,
+        "cache_hit_rate": round(cached_total / input_total * 100, 1) if input_total else 0.0,
         "rpm": round(float(calls or 0) / minutes, 2),
         "tpm": round(float(tokens or 0) / minutes, 2),
     }
@@ -49,6 +54,8 @@ def analytics(user_id: int, params: dict) -> dict:
             LLMCallLog.model,
             func.count(LLMCallLog.id).label("calls"),
             func.coalesce(func.sum(LLMCallLog.total_tokens), 0).label("tokens"),
+            func.coalesce(func.sum(LLMCallLog.input_tokens), 0).label("input_tokens"),
+            func.coalesce(func.sum(LLMCallLog.cached_input_tokens), 0).label("cached_input_tokens"),
             func.coalesce(func.sum(LLMCallLog.cost_amount), 0).label("cost"),
         )
         .group_by(LLMCallLog.model)
@@ -60,6 +67,8 @@ def analytics(user_id: int, params: dict) -> dict:
             LLMCallLog.provider_name,
             func.count(LLMCallLog.id).label("calls"),
             func.coalesce(func.sum(LLMCallLog.total_tokens), 0).label("tokens"),
+            func.coalesce(func.sum(LLMCallLog.input_tokens), 0).label("input_tokens"),
+            func.coalesce(func.sum(LLMCallLog.cached_input_tokens), 0).label("cached_input_tokens"),
             func.coalesce(func.sum(LLMCallLog.cost_amount), 0).label("cost"),
         )
         .group_by(LLMCallLog.provider_name)
@@ -156,9 +165,14 @@ def _window_minutes(params: dict) -> float:
 
 
 def _aggregate_row(row, key: str) -> dict:
+    input_total = int(row.input_tokens or 0)
+    cached_total = int(row.cached_input_tokens or 0)
     return {
         key: getattr(row, key),
         "calls": int(row.calls or 0),
         "tokens": int(row.tokens or 0),
+        "input_tokens": input_total,
+        "cached_input_tokens": cached_total,
+        "cache_hit_rate": round(cached_total / input_total * 100, 1) if input_total else 0.0,
         "cost": float(row.cost or 0),
     }
