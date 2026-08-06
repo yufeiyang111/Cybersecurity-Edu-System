@@ -20,6 +20,7 @@ from app.services.scan_task_lifecycle import (
     prepare_scan_task_retry,
 )
 from app.services.task_dispatcher import get_scan_task_dispatcher
+from app.services.project_lifecycle import ProjectLifecycleError, delete_scan_task
 
 from . import projects_bp
 from .common import (
@@ -225,3 +226,24 @@ def retry_task(task_id: int):
     except ScanTaskStateError as exc:
         db.session.rollback()
         return jsonify({"error": str(exc)}), 409
+
+
+@projects_bp.route("/tasks/<int:task_id>", methods=["DELETE"])
+@jwt_required()
+def delete_task(task_id: int):
+    """删除已结束的扫描任务及其发现项、证据、修复建议和覆盖率单据。"""
+    try:
+        task = _task_or_404(task_id, PROJECT_ROLES)
+        if task is None:
+            return jsonify({"error": "扫描任务不存在"}), 404
+        delete_scan_task(task, _current_user_id())
+        return jsonify({"deleted": True})
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except ProjectLifecycleError as exc:
+        db.session.rollback()
+        return jsonify({"error": str(exc)}), 409
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("删除扫描任务失败 (task_id=%s)", task_id)
+        return jsonify({"error": "删除扫描任务失败"}), 500

@@ -15,6 +15,7 @@ from app.models.security import (
     RemediationSuggestion,
     ScanTask,
     SecurityFinding,
+    SecurityKnowledgeDocument,
     SecurityKnowledgeSource,
     SecurityProject,
 )
@@ -92,6 +93,18 @@ def _knowledge_source_or_404(
         return None
     require_workspace_role(source.workspace_id, _current_user_id(), allowed_roles)
     return source
+
+
+def _knowledge_document_or_404(
+    source_id: int,
+    document_id: int,
+    allowed_roles: set[str] = KNOWLEDGE_ADMIN_ROLES,
+) -> SecurityKnowledgeDocument | None:
+    document = db.session.get(SecurityKnowledgeDocument, document_id)
+    if document is None or document.source_id != source_id:
+        return None
+    require_workspace_role(document.source.workspace_id, _current_user_id(), allowed_roles)
+    return document
 
 
 def _json_object() -> dict:

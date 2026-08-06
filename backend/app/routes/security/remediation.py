@@ -135,3 +135,33 @@ def review_remediation_suggestion(suggestion_id: int):
         db.session.rollback()
         current_app.logger.exception("审核修复建议失败")
         return jsonify({"error": "审核修复建议失败"}), 500
+
+
+@projects_bp.route("/suggestions/<int:suggestion_id>", methods=["DELETE"])
+@jwt_required()
+def delete_remediation_suggestion(suggestion_id: int):
+    """删除修复建议及其关联审核状态，保留 Finding 本体。"""
+    try:
+        suggestion = _suggestion_or_404(suggestion_id, PROJECT_ROLES)
+        if suggestion is None:
+            return jsonify({"error": "修复建议不存在"}), 404
+        finding_id = suggestion.finding_id
+        db.session.add(
+            AuditEvent(
+                workspace_id=suggestion.finding.task.snapshot.project.workspace_id,
+                actor_id=_current_user_id(),
+                action="remediation.deleted",
+                target_type="remediation_suggestion",
+                target_id=suggestion.id,
+                metadata_json={"finding_id": finding_id},
+            )
+        )
+        db.session.delete(suggestion)
+        db.session.commit()
+        return jsonify({"deleted": True})
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("删除修复建议失败")
+        return jsonify({"error": "删除修复建议失败"}), 500
