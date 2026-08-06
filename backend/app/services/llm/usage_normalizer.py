@@ -29,13 +29,31 @@ _CACHE_WRITE_KEYS: tuple[tuple[str, ...], ...] = (
 )
 
 
+def _has_field(usage: dict[str, Any], *path: str) -> bool:
+    """True when the field exists in the payload, regardless of its value.
+
+    Mirrors LabexAgent's hasNestedField / hasField: a present cache field with
+    value 0 still counts as cache telemetry being reported (MISS, not NOT_REPORTED).
+    """
+    current: Any = usage
+    for part in path:
+        if not isinstance(current, dict) or part not in current:
+            return False
+        current = current[part]
+    return current is not None
+
+
+def _reports_cache(usage: dict[str, Any]) -> bool:
+    return any(_has_field(usage, *keys) for keys in _CACHE_READ_KEYS + _CACHE_WRITE_KEYS)
+
+
 def normalize_usage(usage: dict[str, Any] | None) -> dict[str, Any] | None:
     """Return a stable usage dict or None when the payload is not usable."""
     if not isinstance(usage, dict) or not usage:
         return None
     cached = _first_positive(*[_nested_int(usage, *keys) for keys in _CACHE_READ_KEYS])
     cache_write = _first_positive(*[_nested_int(usage, *keys) for keys in _CACHE_WRITE_KEYS])
-    reported = cached > 0 or cache_write > 0
+    reported = _reports_cache(usage)
     prompt = _first_positive(
         _nested_int(usage, "prompt_tokens"),
         _nested_int(usage, "input_tokens"),
