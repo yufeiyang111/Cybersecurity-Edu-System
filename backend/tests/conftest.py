@@ -4,6 +4,7 @@ import types
 
 import pytest
 from flask import Blueprint
+from sqlalchemy import event
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
@@ -36,6 +37,9 @@ class TestConfig:
     ARCHIVE_MAX_DEPTH = 10
     UPLOAD_FOLDER = "uploads"
     LOG_FILE = "logs/test.log"
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "connect_args": {"check_same_thread": False},
+    }
 
 
 def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -52,6 +56,7 @@ def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         "app.routes.admin": "admin_bp",
         "app.routes.projects": "projects_bp",
         "app.routes.llm_health": "llm_health_bp",
+        "app.routes.llm": "llm_bp",
         "app.routes.policies": "policies_bp",
     }.items():
         module = types.ModuleType(module_name)
@@ -82,6 +87,7 @@ def _install_legacy_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         "app.routes.qa": "qa_bp",
         "app.routes.admin": "admin_bp",
         "app.routes.llm_health": "llm_health_bp",
+        "app.routes.llm": "llm_bp",
         "app.routes.policies": "policies_bp",
     }.items():
         module = types.ModuleType(module_name)
@@ -112,6 +118,7 @@ def agent_api_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             "UPLOAD_FOLDER": str(tmp_path / "uploads"),
             "LOG_FILE": str(tmp_path / "logs" / "test.log"),
             "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'agent_api.db'}",
+            "SQLALCHEMY_ENGINE_OPTIONS": {"connect_args": {"check_same_thread": False}},
             "AGENT_RUN_EXECUTOR": "synchronous",
             "AGENT_MIN_STEP_INTERVAL_SECONDS": 0,
             "RQ_ASYNC": False,

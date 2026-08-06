@@ -34,8 +34,8 @@ class AgentConversation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     workspace_id = db.Column(db.Integer, db.ForeignKey("workspaces.id"), nullable=False)
-    project_id = db.Column(db.Integer, db.ForeignKey("security_projects.id"), nullable=False)
-    current_snapshot_id = db.Column(db.Integer, db.ForeignKey("project_snapshots.id"))
+    project_id = db.Column(db.Integer, db.ForeignKey("security_projects.id", ondelete="CASCADE"), nullable=False)
+    current_snapshot_id = db.Column(db.Integer, db.ForeignKey("project_snapshots.id", ondelete="SET NULL"))
     title = db.Column(db.String(200), nullable=False, default="")
     status = db.Column(
         db.Enum(ConversationStatus, name="agent_conversation_status", values_callable=_enum_values),
@@ -98,7 +98,7 @@ class AgentTurn(db.Model):
         db.Integer, db.ForeignKey("agent_conversations.id", ondelete="CASCADE"), nullable=False
     )
     turn_sequence = db.Column(db.Integer, nullable=False)
-    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id"))
+    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id", ondelete="CASCADE"))
     parent_turn_id = db.Column(db.Integer, db.ForeignKey("agent_turns.id"))
     status = db.Column(
         db.Enum(TurnStatus, name="agent_turn_status", values_callable=_enum_values),

@@ -14,7 +14,7 @@ class AgentEvent(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id"), nullable=False)
+    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False)
     sequence = db.Column(db.Integer, nullable=False)
     state_version = db.Column(db.Integer, nullable=False, default=0)
     event_type = db.Column(db.String(64), nullable=False)

@@ -83,8 +83,8 @@ class AgentRun(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     workspace_id = db.Column(db.Integer, db.ForeignKey("workspaces.id"), nullable=False)
-    project_id = db.Column(db.Integer, db.ForeignKey("security_projects.id"), nullable=False)
-    snapshot_id = db.Column(db.Integer, db.ForeignKey("project_snapshots.id"), nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey("security_projects.id", ondelete="CASCADE"), nullable=False)
+    snapshot_id = db.Column(db.Integer, db.ForeignKey("project_snapshots.id", ondelete="CASCADE"), nullable=False)
     created_by = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
     goal_text = db.Column(db.String(4000), nullable=False)
     mode = db.Column(
@@ -198,7 +198,7 @@ class AgentMessage(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id"), nullable=False)
+    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False)
     role = db.Column(db.String(32), nullable=False)
     content = db.Column(db.String(8000), nullable=False)
     message_type = db.Column(db.String(64), nullable=False, default="user_goal")
@@ -225,7 +225,7 @@ class AgentPlan(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id"), nullable=False)
+    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False)
     plan_version = db.Column(db.Integer, nullable=False)
     planner_source = db.Column(db.String(64), nullable=False)
     objective = db.Column(db.String(4000))
@@ -359,7 +359,7 @@ class AgentStepExecution(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     plan_node_id = db.Column(db.Integer, db.ForeignKey("agent_plan_nodes.id"), nullable=False)
-    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id"), nullable=False)
+    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False)
     attempt_number = db.Column(db.Integer, nullable=False, default=1)
     worker_id = db.Column(db.String(255))
     status = db.Column(db.String(32), nullable=False, default="running")
@@ -402,7 +402,7 @@ class AgentToolCall(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id"), nullable=False)
+    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False)
     plan_node_id = db.Column(db.Integer, db.ForeignKey("agent_plan_nodes.id"))
     step_execution_id = db.Column(db.Integer, db.ForeignKey("agent_step_executions.id"))
     tool_name = db.Column(db.String(128), nullable=False)
@@ -453,7 +453,7 @@ class AgentArtifact(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id"), nullable=False)
+    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False)
     plan_node_id = db.Column(db.Integer, db.ForeignKey("agent_plan_nodes.id"))
     step_execution_id = db.Column(db.Integer, db.ForeignKey("agent_step_executions.id"))
     artifact_type = db.Column(db.String(64), nullable=False)
@@ -488,7 +488,7 @@ class AgentCheckpoint(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id"), nullable=False)
+    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False)
     plan_version = db.Column(db.Integer, nullable=False)
     state_json = db.Column(db.JSON, nullable=False)
     event_sequence = db.Column(db.Integer, nullable=False)
