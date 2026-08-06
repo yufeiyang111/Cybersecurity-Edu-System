@@ -222,11 +222,15 @@ function parseSSEEvent(raw, onEvent) {
 export const securityAPI = {
   createProject: (data) => api.post('/security/projects', data),
   listProjects: () => api.get('/security/projects'),
+  updateProject: (projectId, data) => api.put(`/security/projects/${projectId}`, data),
+  deleteProject: (projectId) => api.delete(`/security/projects/${projectId}`),
   uploadSnapshot: (projectId, formData) => api.post(`/security/projects/${projectId}/snapshots:upload`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   importGitHubSnapshot: (projectId, data) => api.post(`/security/projects/${projectId}/snapshots:github`, data),
   rescanProject: (projectId) => api.post(`/security/projects/${projectId}/rescan`),
+  listSnapshots: (projectId, params) => api.get(`/security/projects/${projectId}/snapshots`, { params }),
+  deleteSnapshot: (projectId, snapshotId) => api.delete(`/security/projects/${projectId}/snapshots/${snapshotId}`),
   getExclusions: (projectId) => api.get(`/security/projects/${projectId}/exclusions`),
   replaceExclusions: (projectId, patterns) => api.put(`/security/projects/${projectId}/exclusions`, { patterns }),
   addExclusion: (projectId, pattern) => api.post(`/security/projects/${projectId}/exclusions/items`, { pattern }),
@@ -237,16 +241,37 @@ export const securityAPI = {
   getFindings: (taskId, params) => api.get(`/security/tasks/${taskId}/findings`, { params }),
   cancelTask: (taskId) => api.post(`/security/tasks/${taskId}/cancel`),
   retryTask: (taskId) => api.post(`/security/tasks/${taskId}/retry`),
+  deleteTask: (taskId) => api.delete(`/security/tasks/${taskId}`),
   getDependencies: (projectId, params) => api.get(`/security/projects/${projectId}/dependencies`, { params }),
 
   listKnowledgeSources: (params) => api.get('/security/knowledge/sources', { params }),
   createKnowledgeSource: (data) => api.post('/security/knowledge/sources', data),
+  updateKnowledgeSource: (sourceId, data) => api.put(`/security/knowledge/sources/${sourceId}`, data),
+  deleteKnowledgeSource: (sourceId) => api.delete(`/security/knowledge/sources/${sourceId}`),
   listKnowledgeDocuments: (sourceId, params) => api.get(`/security/knowledge/sources/${sourceId}/documents`, { params }),
+  getKnowledgeDocument: (sourceId, documentId) => api.get(`/security/knowledge/sources/${sourceId}/documents/${documentId}`),
   createKnowledgeDocument: (sourceId, data) => api.post(`/security/knowledge/sources/${sourceId}/documents`, data),
+  updateKnowledgeDocument: (sourceId, documentId, data) => api.put(`/security/knowledge/sources/${sourceId}/documents/${documentId}`, data),
+  deleteKnowledgeDocument: (sourceId, documentId) => api.delete(`/security/knowledge/sources/${sourceId}/documents/${documentId}`),
 
   generateRemediationSuggestion: (findingId) => api.post(`/security/findings/${findingId}/suggestions`),
   listRemediationSuggestions: (findingId, params) => api.get(`/security/findings/${findingId}/suggestions`, { params }),
-  reviewRemediationSuggestion: (suggestionId, data) => api.post(`/security/suggestions/${suggestionId}/review`, data)
+  reviewRemediationSuggestion: (suggestionId, data) => api.post(`/security/suggestions/${suggestionId}/review`, data),
+  deleteRemediationSuggestion: (suggestionId) => api.delete(`/security/suggestions/${suggestionId}`)
+}
+
+export const llmAPI = {
+  listProviders: () => api.get('/llm/providers'),
+  getProvider: (id) => api.get(`/llm/providers/${id}`),
+  createProvider: (data) => api.post('/llm/providers', data),
+  updateProvider: (id, data) => api.put(`/llm/providers/${id}`, data),
+  deleteProvider: (id) => api.delete(`/llm/providers/${id}`),
+  testProvider: (id) => api.post(`/llm/providers/${id}/test`),
+  setDefaultProvider: (id) => api.post(`/llm/providers/${id}/default`),
+  toggleProvider: (id, isEnabled) => api.post(`/llm/providers/${id}/toggle`, { is_enabled: isEnabled }),
+  listLogs: (params) => api.get('/llm/logs', { params }),
+  getLogSummary: (params) => api.get('/llm/logs/summary', { params }),
+  getAnalytics: (params) => api.get('/llm/analytics', { params })
 }
 
 // Agent 工作台：持久化 Run、暂停/恢复/取消、可重放 SSE 事件流
@@ -288,6 +313,7 @@ export const agentAPI = {
   getCoverage: (runId, params) => api.get(`/security/agent-runs/${runId}/coverage`, { params }),
   sendMessage: (runId, content) => api.post(`/security/agent-runs/${runId}/messages`, { content }),
   createConversation: (projectId, data) => api.post(`/security/projects/${projectId}/agent-conversations`, data || {}),
+  listProjectConversations: (projectId, params) => api.get(`/security/projects/${projectId}/agent-conversations`, { params }),
   getConversation: (conversationId) => api.get(`/security/agent-conversations/${conversationId}`),
   getConversationMessages: (conversationId, params) => api.get(`/security/agent-conversations/${conversationId}/messages`, { params }),
   postConversationMessage: (conversationId, data) => api.post(`/security/agent-conversations/${conversationId}/messages`, data),

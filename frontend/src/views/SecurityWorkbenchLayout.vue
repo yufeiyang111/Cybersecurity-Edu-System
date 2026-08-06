@@ -1,6 +1,9 @@
 <template>
   <div class="wb-shell">
     <header class="topbar">
+      <button class="mobile-menu-btn" type="button" title="打开导航" @click="mobileSidebarOpen = true">
+        <el-icon><Menu /></el-icon>
+      </button>
       <div class="brand" @click="router.push('/')">
         <span class="brand-logo">CG</span>
         <span class="brand-name">CodeGuard</span>
@@ -37,7 +40,7 @@
     </header>
 
     <div class="wb-body">
-      <aside class="sidebar">
+      <aside class="sidebar" :class="{ 'sidebar--open': mobileSidebarOpen }">
         <div class="side-group">
           <p class="side-title">工作台</p>
           <router-link class="side-item" :class="{ 'side-item--active': route.path.startsWith('/security/projects') }" to="/security/projects">
@@ -60,6 +63,19 @@
           <span class="side-item side-item--disabled" title="即将上线">
             <el-icon><Document /></el-icon><span>扫描报告</span>
           </span>
+        </div>
+
+        <div class="side-group">
+          <p class="side-title">模型运营</p>
+          <router-link class="side-item" :class="{ 'side-item--active': route.path.startsWith('/security/llm/providers') }" to="/security/llm/providers" @click="mobileSidebarOpen = false">
+            <el-icon><Monitor /></el-icon><span>LLM 配置</span>
+          </router-link>
+          <router-link class="side-item" :class="{ 'side-item--active': route.path.startsWith('/security/llm/logs') }" to="/security/llm/logs" @click="mobileSidebarOpen = false">
+            <el-icon><List /></el-icon><span>用量日志</span>
+          </router-link>
+          <router-link class="side-item" :class="{ 'side-item--active': route.path.startsWith('/security/llm/analytics') }" to="/security/llm/analytics" @click="mobileSidebarOpen = false">
+            <el-icon><DataLine /></el-icon><span>模型调用分析</span>
+          </router-link>
         </div>
 
         <div class="side-group">
@@ -91,6 +107,7 @@
           </span>
         </div>
       </aside>
+      <button v-if="mobileSidebarOpen" class="sidebar-backdrop" type="button" aria-label="关闭导航" @click="mobileSidebarOpen = false" />
 
       <main class="wb-main">
         <router-view />
@@ -100,10 +117,10 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Box, Collection, DataLine, Document, Grid, Key, List, Monitor, Promotion, Setting, User, Warning } from '@element-plus/icons-vue'
+import { Box, Collection, DataLine, Document, Grid, Key, List, Menu, Monitor, Promotion, Setting, User, Warning } from '@element-plus/icons-vue'
 import { securityAPI } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { DocumentIcon, GithubIcon, PlusIcon } from '@/components/icons'
@@ -112,6 +129,7 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const vulnBadge = ref(0)
+const mobileSidebarOpen = ref(false)
 
 const displayName = computed(() => userStore.user?.nickname || userStore.user?.username || '用户')
 
@@ -146,6 +164,10 @@ onMounted(async () => {
   } catch (error) {
     vulnBadge.value = 0
   }
+})
+
+watch(() => route.path, () => {
+  mobileSidebarOpen.value = false
 })
 </script>
 
@@ -199,6 +221,17 @@ onMounted(async () => {
       font-size: 12px;
       color: #94a3b8;
     }
+  }
+
+  .mobile-menu-btn {
+    display: none;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    color: #475569;
   }
 
   .top-nav {
@@ -282,6 +315,7 @@ onMounted(async () => {
   padding: 16px 12px 32px;
   background: #fff;
   border-right: 1px solid #e2e8f0;
+  z-index: 120;
 
   .side-group + .side-group {
     margin-top: 24px;
@@ -346,6 +380,10 @@ onMounted(async () => {
   }
 }
 
+.sidebar-backdrop {
+  display: none;
+}
+
 .wb-main {
   flex: 1;
   min-width: 0;
@@ -360,6 +398,12 @@ onMounted(async () => {
 
 @media (max-width: 768px) {
   .topbar {
+    .mobile-menu-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     .brand-sub,
     .btn-doc,
     .btn-gh,
@@ -369,7 +413,29 @@ onMounted(async () => {
   }
 
   .sidebar {
-    display: none;
+    position: fixed;
+    top: 60px;
+    left: 0;
+    bottom: 0;
+    display: block;
+    width: min(280px, 86vw);
+    height: auto;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 12px 0 28px rgba(15, 23, 42, 0.12);
+
+    &--open {
+      transform: translateX(0);
+    }
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 60px 0 0;
+    z-index: 110;
+    display: block;
+    border: 0;
+    background: rgba(15, 23, 42, 0.3);
   }
 }
 </style>

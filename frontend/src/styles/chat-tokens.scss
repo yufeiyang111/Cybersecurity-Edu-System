@@ -14,4 +14,108 @@
   --chat-code-head: #2f2f2d;
   --chat-radius: 10px;
   --chat-link: #0b6bcb;
+  --chat-muted: #555555;
+  --chat-field: #ffffff;
+  --chat-accent: #0d0d0d;
+  --chat-content-width: 768px;
+  --chat-space-scale: 1;
+  --chat-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+:root[data-chat-theme="dark"] {
+  --chat-sidebar: #202123;
+  --chat-canvas: #343541;
+  --chat-ink: #f7f7f8;
+  --chat-hollow: #b7b7b8;
+  --chat-hairline: rgba(255, 255, 255, 0.12);
+  --chat-hairline-strong: rgba(255, 255, 255, 0.2);
+  --chat-hover: rgba(255, 255, 255, 0.08);
+  --chat-bubble: #444654;
+  --chat-code-bg: #111827;
+  --chat-code-head: #1f2937;
+  --chat-link: #7ab8ff;
+  --chat-muted: #c2c2c4;
+  --chat-field: #343541;
+  --chat-accent: #10a37f;
+  --chat-content-width: 768px;
+}
+
+:root[data-chat-theme="system"] { color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root[data-chat-theme="system"] {
+    --chat-sidebar: #202123;
+    --chat-canvas: #343541;
+    --chat-ink: #f7f7f8;
+    --chat-hollow: #b7b7b8;
+    --chat-hairline: rgba(255, 255, 255, 0.12);
+    --chat-hover: rgba(255, 255, 255, 0.08);
+    --chat-bubble: #444654;
+  }
+}
+
+:root[data-chat-theme="dark"] { --chat-ink: #f7f7f8; --chat-link: #7ab8ff; --chat-hover: rgba(255, 255, 255, 0.08); --chat-accent: #10a37f; }
+@media (prefers-color-scheme: dark) {
+  :root[data-chat-theme="system"] { --chat-ink: #f7f7f8; --chat-link: #7ab8ff; --chat-hover: rgba(255, 255, 255, 0.08); --chat-accent: #10a37f; }
+}
+:root[data-chat-font="sans"] { --chat-font-family: Arial, Helvetica, sans-serif; }
+:root[data-chat-font="serif"] { --chat-font-family: Georgia, "Times New Roman", serif; }
+:root[data-chat-radius="0"] { --chat-radius: 0; }
+:root[data-chat-radius="0.3"] { --chat-radius: 3px; }
+:root[data-chat-radius="0.5"] { --chat-radius: 5px; }
+:root[data-chat-radius="0.75"] { --chat-radius: 8px; }
+:root[data-chat-radius="1.0"] { --chat-radius: 12px; }
+:root[data-chat-width="narrow"] { --chat-content-width: 640px; }
+:root[data-chat-width="wide"] { --chat-content-width: 960px; }
+:root[data-chat-density="compact"] { --chat-space-scale: 0.8; }
+:root[data-chat-density="comfortable"] { --chat-space-scale: 1.2; }
+:root:not([data-chat-density]) { --chat-space-scale: 1; }
+
+// Presets are declared after theme defaults so the selected preset wins in both light and dark modes.
+:root[data-chat-preset="anthropic"] { --chat-accent: #c2410c; --chat-link: #c2410c; --chat-hover: rgba(194, 65, 12, 0.08); }
+:root[data-chat-preset="simple"] { --chat-accent: #111827; --chat-link: #111827; --chat-hover: rgba(17, 24, 39, 0.08); }
+:root[data-chat-preset="night"] { --chat-accent: #8b6d8a; --chat-link: #b993b7; --chat-hover: rgba(139, 109, 138, 0.16); }
+:root[data-chat-preset="rose"] { --chat-accent: #d94675; --chat-link: #be185d; --chat-hover: rgba(217, 70, 117, 0.1); }
+:root[data-chat-preset="lake"] { --chat-accent: #0f766e; --chat-link: #0f766e; --chat-hover: rgba(15, 118, 110, 0.08); }
+:root[data-chat-preset="sunset"] { --chat-accent: #ea580c; --chat-link: #c2410c; --chat-hover: rgba(234, 88, 12, 0.1); }
+:root[data-chat-preset="forest"] { --chat-accent: #15803d; --chat-link: #15803d; --chat-hover: rgba(21, 128, 61, 0.1); }
+:root[data-chat-preset="sea"] { --chat-accent: #405de6; --chat-link: #405de6; --chat-hover: rgba(64, 93, 230, 0.1); }
+:root[data-chat-preset="lavender"] { --chat-accent: #7652b5; --chat-link: #7652b5; --chat-hover: rgba(118, 82, 181, 0.12); }
+
+:root[data-chat-theme="dark"] .settings-section h2,
+:root[data-chat-theme="dark"] .settings-section h3,
+:root[data-chat-theme="dark"] .settings-section label,
+:root[data-chat-theme="dark"] .section-help,
+:root[data-chat-theme="dark"] .section-note,
+:root[data-chat-theme="dark"] .switch-row,
+:root[data-chat-theme="dark"] .choice-card,
+:root[data-chat-theme="dark"] .color-choice,
+:root[data-chat-theme="dark"] .font-choice,
+:root[data-chat-theme="dark"] .radius-choice {
+  color: var(--chat-ink) !important;
+}
+
+.chat-settings-dialog { font-family: var(--chat-font-family); }
+.settings-section .choice-card.selected,
+.settings-section .color-choice.selected,
+.settings-section .font-choice.selected,
+.settings-section .radius-choice.selected {
+  border-color: var(--chat-accent) !important;
+  box-shadow: 0 0 0 1px var(--chat-accent) !important;
+}
+:root[data-chat-theme="dark"] .settings-nav button {
+  color: var(--chat-ink) !important;
+}
+:root[data-chat-theme="dark"] .settings-nav button.active {
+  background: var(--chat-hover) !important;
+}
+
+:root[data-chat-theme="dark"] .settings-section .choice-card,
+:root[data-chat-theme="dark"] .settings-section .color-choice,
+:root[data-chat-theme="dark"] .settings-section .font-choice,
+:root[data-chat-theme="dark"] .settings-section .radius-choice,
+:root[data-chat-theme="dark"] .settings-section textarea,
+:root[data-chat-theme="dark"] .settings-section select {
+  background: var(--chat-field) !important;
+  border-color: var(--chat-hairline-strong) !important;
+  color: var(--chat-ink) !important;
 }

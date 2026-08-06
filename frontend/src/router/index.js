@@ -91,6 +91,24 @@ const routes = [
         name: 'SecurityKnowledge',
         component: () => import('@/views/security/Knowledge.vue'),
         meta: { title: '安全知识治理' }
+      },
+      {
+        path: 'llm/providers',
+        name: 'SecurityLlmProviders',
+        component: () => import('@/views/security/LlmProviders.vue'),
+        meta: { title: 'LLM 配置' }
+      },
+      {
+        path: 'llm/logs',
+        name: 'SecurityLlmLogs',
+        component: () => import('@/views/security/LlmCallLogs.vue'),
+        meta: { title: '用量日志' }
+      },
+      {
+        path: 'llm/analytics',
+        name: 'SecurityLlmAnalytics',
+        component: () => import('@/views/security/LlmAnalytics.vue'),
+        meta: { title: '模型调用分析' }
       }
     ]
   },
