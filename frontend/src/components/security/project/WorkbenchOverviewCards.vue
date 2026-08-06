@@ -62,6 +62,13 @@ defineProps({
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 16px;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+
+  &:hover {
+    transform: translateY(-3px);
+    border-color: #bfdbfe;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.09);
+  }
 
   .s-head {
     display: flex;
@@ -130,6 +137,16 @@ defineProps({
 @media (max-width: 560px) {
   .stats {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-card {
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+
+    &:hover {
+      transform: none;
+    }
   }
 }
 </style>

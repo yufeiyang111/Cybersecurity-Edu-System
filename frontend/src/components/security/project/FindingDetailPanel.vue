@@ -63,8 +63,10 @@
                 v-for="suggestion in suggestions"
                 :key="suggestion.id"
                 :suggestion="suggestion"
+                :deleting="deletingSuggestionId === suggestion.id"
                 @copy-patch="emit('copy-patch', $event)"
                 @review="emit('review', $event)"
+                @remove="emit('remove', $event)"
               />
               <button
                 v-if="suggestionsHasMore"
@@ -99,10 +101,11 @@ const props = defineProps({
   suggestionsHasMore: { type: Boolean, default: false },
   suggestionsLoadingMore: { type: Boolean, default: false },
   loading: { type: Boolean, default: false },
-  errorMessage: { type: String, default: '' }
+  errorMessage: { type: String, default: '' },
+  deletingSuggestionId: { type: [Number, String], default: null }
 })
 
-const emit = defineEmits(['generate', 'load-suggestions', 'load-more-suggestions', 'copy-patch', 'review'])
+const emit = defineEmits(['generate', 'load-suggestions', 'load-more-suggestions', 'copy-patch', 'review', 'remove'])
 const factorsVisible = ref(false)
 const suggestionsExpanded = ref(false)
 const factorLabel = riskFactorLabel

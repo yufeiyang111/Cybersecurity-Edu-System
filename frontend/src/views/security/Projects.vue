@@ -2,15 +2,6 @@
   <main class="security-page">
     <div class="page-title">
       <h1>代码漏洞扫描工作台</h1>
-      <p>以项目快照为边界统一管理受控代码导入、静态扫描和人工审核；系统不会安装、构建或执行你的项目代码。</p>
-    </div>
-
-    <div class="banner">
-      <span class="check"><el-icon><Check /></el-icon></span>
-      <div>
-        <div class="b-title">受控分析边界已启用</div>
-        <div class="b-desc">仅支持 ZIP 上传与公开 GitHub 仓库快照导入，扫描过程只做确定性静态分析，不克隆、不安装依赖、不运行任何导入代码。</div>
-      </div>
     </div>
 
     <el-alert v-if="pageError" :title="pageError" type="error" show-icon :closable="false" class="page-alert" />
@@ -66,6 +57,8 @@
             @view="openProject(project.id)"
             @github="openGitHubImport(project)"
             @upload="openUpload(project)"
+            @rename="openRename(project)"
+            @remove="confirmRemove(project)"
           />
           <ProjectVulnPanel
             v-if="expandedProjectId === project.id"
@@ -107,6 +100,18 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="showRenameDialog" title="重命名项目" width="min(440px, calc(100vw - 32px))" destroy-on-close>
+      <el-form label-position="top" @submit.prevent="renameProject">
+        <el-form-item label="项目名称" required>
+          <el-input v-model.trim="renameName" maxlength="200" show-word-limit placeholder="例如 payment-service" @keyup.enter="renameProject" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showRenameDialog = false">取消</el-button>
+        <el-button type="primary" :loading="renaming" :disabled="!renameName || renameName === renameTarget?.name" @click="renameProject">保存</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="showUploadDialog" title="上传 ZIP 项目包" width="min(560px, calc(100vw - 32px))" destroy-on-close @closed="resetUpload">
       <el-alert type="warning" :closable="false" show-icon>
         <template #title>系统不会执行压缩包内的代码</template>
@@ -143,8 +148,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { Check, MagicStick, Refresh, Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from '@/features/security/feedback'
+import { MagicStick, Refresh, Search } from '@element-plus/icons-vue'
 import { securityAPI } from '@/api'
 import GitHubImportDialog from '@/components/security/import/GitHubImportDialog.vue'
 import ProjectCard from '@/components/security/project/ProjectCard.vue'
@@ -166,6 +171,10 @@ const projects = ref([])
 const overview = ref({ totals: { critical: 0, high: 0, medium: 0 }, totalProjects: 0, totalScans: 0, recentScans: [] })
 const projectName = ref('')
 const showCreateDialog = ref(false)
+const showRenameDialog = ref(false)
+const renameTarget = ref(null)
+const renameName = ref('')
+const renaming = ref(false)
 const showUploadDialog = ref(false)
 const showGitHubImportDialog = ref(false)
 const selectedProject = ref(null)
@@ -276,6 +285,53 @@ const togglePanel = async (project) => {
 
 const openProject = (projectId) => router.push(`/security/projects/${projectId}`)
 
+const openRename = (project) => {
+  renameTarget.value = project
+  renameName.value = project.name
+  showRenameDialog.value = true
+}
+
+const renameProject = async () => {
+  if (!renameTarget.value || !renameName.value || renaming.value) return
+  renaming.value = true
+  try {
+    const response = await securityAPI.updateProject(renameTarget.value.id, { name: renameName.value })
+    const updated = response.data?.project || response.project
+    const index = projects.value.findIndex((project) => project.id === updated.id)
+    if (index !== -1) projects.value.splice(index, 1, { ...projects.value[index], ...updated })
+    showRenameDialog.value = false
+    ElMessage.success('项目已重命名')
+  } catch (error) {
+    ElMessage.error(securityApiErrorMessage(error, '重命名项目失败'))
+  } finally {
+    renaming.value = false
+  }
+}
+
+const confirmRemove = async (project) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除项目「${project.name}」吗？其全部快照、扫描任务和风险发现将被一并删除，且无法恢复。`,
+      '删除项目',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+  try {
+    await securityAPI.deleteProject(project.id)
+    projects.value = projects.value.filter((item) => item.id !== project.id)
+    if (expandedProjectId.value === project.id) expandedProjectId.value = null
+    ElMessage.success('项目已删除')
+  } catch (error) {
+    ElMessage.error(securityApiErrorMessage(error, '删除项目失败'))
+  }
+}
+
 const openScan = (scan) => router.push(`/security/projects/${scan.project_id}`)
 
 const openUpload = (project) => {
@@ -365,55 +421,6 @@ onMounted(async () => {
     font-size: 24px;
     font-weight: 700;
     color: #0f172a;
-  }
-
-  p {
-    margin-top: 6px;
-    font-size: 13.5px;
-    color: #475569;
-    max-width: 720px;
-    line-height: 1.6;
-  }
-}
-
-.banner {
-  margin-top: 18px;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 8px;
-  padding: 14px 16px;
-
-  .check {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: #16a34a;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 1px;
-
-    .el-icon {
-      font-size: 12px;
-    }
-  }
-
-  .b-title {
-    font-size: 13.5px;
-    font-weight: 600;
-    color: #166534;
-  }
-
-  .b-desc {
-    margin-top: 3px;
-    font-size: 12.5px;
-    color: #4d7c0f;
-    line-height: 1.6;
   }
 }
 

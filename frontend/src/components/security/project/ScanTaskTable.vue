@@ -47,6 +47,16 @@
                   @click="emit('retry-task', row)"
                 />
               </el-tooltip>
+              <el-tooltip v-if="canDelete(row)" content="删除已结束的任务及其风险发现" placement="top">
+                <el-button
+                  text
+                  type="danger"
+                  :icon="Delete"
+                  :loading="loadingFor(row, 'delete')"
+                  :aria-label="`删除任务 ${row.id}`"
+                  @click="emit('delete-task', row)"
+                />
+              </el-tooltip>
             </div>
           </template>
         </el-table-column>
@@ -56,7 +66,7 @@
 </template>
 
 <script setup>
-import { Close, Refresh } from '@element-plus/icons-vue'
+import { Close, Delete, Refresh } from '@element-plus/icons-vue'
 import ScanStatusTag from '@/components/security/ScanStatusTag.vue'
 import { formatSecurityDate } from '@/features/security/presentation'
 
@@ -67,7 +77,7 @@ const props = defineProps({
   actionLoading: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['select-task', 'cancel-task', 'retry-task'])
+const emit = defineEmits(['select-task', 'cancel-task', 'retry-task', 'delete-task'])
 
 const terminalStatuses = new Set(['completed', 'completed_with_warnings', 'failed', 'canceled'])
 const languagesFor = (task) => {
@@ -76,6 +86,7 @@ const languagesFor = (task) => {
 }
 const canCancel = (task) => task?.can_cancel ?? !terminalStatuses.has(task?.status)
 const canRetry = (task) => task?.can_retry ?? ['failed', 'canceled'].includes(task?.status)
+const canDelete = (task) => terminalStatuses.has(task?.status)
 const loadingFor = (task, action) => Boolean(props.actionLoading[`${action}:${task.id}`])
 const rowClassName = ({ row }) => row.id === props.selectedTaskId ? 'task-table__selected-row' : ''
 </script>

@@ -48,6 +48,26 @@
           </div>
         </div>
         <span class="doc-time">{{ formatDate(doc.updated_at) }}</span>
+        <div class="doc-ops" @click.stop>
+          <button
+            type="button"
+            class="doc-op-btn"
+            title="编辑文档"
+            aria-label="编辑文档"
+            @click="emit('edit-document', doc)"
+          >
+            <BaseIcon name="edit" :size="13" />
+          </button>
+          <button
+            type="button"
+            class="doc-op-btn doc-op-btn--danger"
+            title="删除文档"
+            aria-label="删除文档"
+            @click="emit('delete-document', doc)"
+          >
+            <BaseIcon name="trash" :size="13" />
+          </button>
+        </div>
       </button>
     </div>
   </BasePanel>
@@ -72,7 +92,7 @@ defineProps({
   loading: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['create-document'])
+const emit = defineEmits(['create-document', 'edit-document', 'delete-document'])
 
 const selectedDocId = ref(null)
 const selectedDoc = ref(null)
@@ -209,6 +229,44 @@ function formatDate(val) {
   font-size: 12px;
   color: #94a3b8;
   flex-shrink: 0;
+}
+
+.doc-ops {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.doc-item:hover .doc-ops {
+  opacity: 1;
+}
+
+.doc-op-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.doc-op-btn:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.doc-op-btn--danger:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
 }
 
 .slide-enter-active, .slide-leave-active { transition: all 0.2s ease; }

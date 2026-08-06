@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <main class="knowledge-page">
     <header class="knowledge-header">
       <div class="header-left">
@@ -9,7 +9,7 @@
         <p class="page-eyebrow">GOVERNED SECURITY KNOWLEDGE</p>
         <h1 class="page-title">安全知识治理</h1>
         <p class="page-desc">
-          维护工作区级、版本化的安全知识库。文档默认只以脱敏摘要参与 RAG 检索，按建议必须附带可追溯引用。
+          工作区内的安全知识库，文档以脱敏摘要参与 RAG 检索，引用均可溯源。
         </p>
       </div>
       <div class="header-actions">
@@ -46,6 +46,8 @@
           :selected-source="selectedSource"
           :loading="loading"
           @select-source="selectSource"
+          @edit-source="openEditSource"
+          @delete-source="confirmDeleteSource"
         />
       </div>
       <div v-loading="documentsLoading">
@@ -54,6 +56,8 @@
           :documents="documents"
           :loading="documentsLoading"
           @create-document="openDocumentDialog"
+          @edit-document="openEditDocument"
+          @delete-document="confirmDeleteDocument"
         />
       </div>
     </section>
@@ -69,15 +73,25 @@
       </button>
     </div>
 
-    <KnowledgeSourceDialog v-model="sourceDialogVisible" :submitting="sourceSubmitting" @submit="handleCreateSource" />
-    <KnowledgeDocumentDialog v-model="documentDialogVisible" :submitting="documentSubmitting" @submit="handleCreateDocument" />
+    <KnowledgeSourceDialog
+      v-model="sourceDialogVisible"
+      :submitting="sourceSubmitting"
+      :source="editingSource"
+      @submit="handleSubmitSource"
+    />
+    <KnowledgeDocumentDialog
+      v-model="documentDialogVisible"
+      :submitting="documentSubmitting"
+      :document="editingDocument"
+      @submit="handleSubmitDocument"
+    />
   </main>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from '@/features/security/feedback'
 import { BaseIcon, BaseButton } from '@/components/ui'
 import KnowledgeDocumentDialog from '@/components/security/knowledge/KnowledgeDocumentDialog.vue'
 import KnowledgeDocumentTable from '@/components/security/knowledge/KnowledgeDocumentTable.vue'
@@ -92,6 +106,8 @@ const sourceDialogVisible = ref(false)
 const documentDialogVisible = ref(false)
 const sourceSubmitting = ref(false)
 const documentSubmitting = ref(false)
+const editingSource = ref(null)
+const editingDocument = ref(null)
 
 const {
   loading,
@@ -104,6 +120,11 @@ const {
   selectSource,
   createSource,
   createDocument,
+  fetchDocument,
+  updateSource,
+  deleteSource,
+  updateDocument,
+  deleteDocument
 } = useSecurityKnowledge()
 
 const aiMessage = ref('检测到 1 条知识更新建议：OWASP Top 10 2025 已发布，建议更新相关知识库文档。')
@@ -112,31 +133,94 @@ const openDocumentDialog = () => {
   if (selectedSource.value) documentDialogVisible.value = true
 }
 
-const handleCreateSource = async (payload) => {
+const openEditSource = (source) => {
+  editingSource.value = source
+  sourceDialogVisible.value = true
+}
+
+const handleSubmitSource = async (payload) => {
   if (sourceSubmitting.value) return
   sourceSubmitting.value = true
   try {
-    await createSource(payload)
+    if (editingSource.value) {
+      await updateSource(editingSource.value.id, payload)
+      ElMessage.success('安全知识源已更新')
+    } else {
+      await createSource(payload)
+      ElMessage.success('安全知识源已创建')
+    }
     sourceDialogVisible.value = false
-    ElMessage.success('安全知识源已创建')
   } catch (error) {
-    ElMessage.error(securityApiErrorMessage(error, '创建安全知识源失败'))
+    ElMessage.error(securityApiErrorMessage(error, editingSource.value ? '更新安全知识源失败' : '创建安全知识源失败'))
   } finally {
     sourceSubmitting.value = false
   }
 }
 
-const handleCreateDocument = async (payload) => {
+const confirmDeleteSource = async (source) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除知识源「${source.name}」吗？其全部文档版本将一并删除，且无法恢复。`,
+      '删除安全知识源',
+      { type: 'warning', confirmButtonText: '删除' }
+    )
+  } catch {
+    return
+  }
+  try {
+    await deleteSource(source.id)
+    ElMessage.success('安全知识源已删除')
+  } catch (error) {
+    ElMessage.error(securityApiErrorMessage(error, '删除安全知识源失败'))
+  }
+}
+
+const openEditDocument = async (document) => {
+  if (!selectedSource.value) return
+  try {
+    const full = await fetchDocument(selectedSource.value.id, document.id)
+    editingDocument.value = full
+    documentDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error(securityApiErrorMessage(error, '加载知识文档详情失败'))
+  }
+}
+
+const handleSubmitDocument = async (payload) => {
   if (documentSubmitting.value) return
   documentSubmitting.value = true
   try {
-    await createDocument(payload)
+    if (editingDocument.value) {
+      await updateDocument(selectedSource.value.id, editingDocument.value.id, payload)
+      ElMessage.success('版本化安全知识文档已更新')
+    } else {
+      await createDocument(payload)
+      ElMessage.success('版本化安全知识文档已创建')
+    }
     documentDialogVisible.value = false
-    ElMessage.success('版本化安全知识文档已创建')
   } catch (error) {
-    ElMessage.error(securityApiErrorMessage(error, '创建安全知识文档失败'))
+    ElMessage.error(securityApiErrorMessage(error, editingDocument.value ? '更新安全知识文档失败' : '创建安全知识文档失败'))
   } finally {
     documentSubmitting.value = false
+  }
+}
+
+const confirmDeleteDocument = async (document) => {
+  if (!selectedSource.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确定删除文档「${document.title}」（版本 ${document.document_version}）吗？删除后无法恢复。`,
+      '删除安全知识文档',
+      { type: 'warning', confirmButtonText: '删除' }
+    )
+  } catch {
+    return
+  }
+  try {
+    await deleteDocument(selectedSource.value.id, document.id)
+    ElMessage.success('安全知识文档已删除')
+  } catch (error) {
+    ElMessage.error(securityApiErrorMessage(error, '删除安全知识文档失败'))
   }
 }
 

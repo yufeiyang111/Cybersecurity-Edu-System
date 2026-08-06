@@ -65,7 +65,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '@/features/security/feedback'
 import { securityAPI } from '@/api'
 import { securityApiErrorMessage } from '@/features/security/presentation'
 

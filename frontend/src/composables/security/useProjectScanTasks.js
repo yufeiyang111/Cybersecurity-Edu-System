@@ -131,6 +131,8 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
     try {
       if (action === 'cancel') {
         await securityAPI.cancelTask(taskId)
+      } else if (action === 'delete') {
+        await securityAPI.deleteTask(taskId)
       } else {
         await securityAPI.retryTask(taskId)
       }
@@ -139,7 +141,9 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
     } catch (error) {
       errorMessage.value = securityApiErrorMessage(
         error,
-        action === 'cancel' ? '取消扫描任务失败。' : '重新派发扫描任务失败。'
+        action === 'cancel' ? '取消扫描任务失败。'
+          : action === 'delete' ? '删除扫描任务失败。'
+            : '重新派发扫描任务失败。'
       )
       return false
     } finally {
@@ -189,6 +193,7 @@ export function useProjectScanTasks(projectId, { onFindingsChanged = async () =>
     setFindingsSort,
     cancelTask: (taskId) => runTaskAction(taskId, 'cancel'),
     retryTask: (taskId) => runTaskAction(taskId, 'retry'),
+    deleteTask: (taskId) => runTaskAction(taskId, 'delete'),
     rescan,
     rescanLoading,
     stopPolling

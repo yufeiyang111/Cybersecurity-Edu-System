@@ -74,6 +74,44 @@ export function useSecurityKnowledge() {
     return response.document
   }
 
+  const fetchDocument = async (sourceId, documentId) => {
+    const response = await securityAPI.getKnowledgeDocument(sourceId, documentId)
+    return response.document
+  }
+
+  const updateSource = async (sourceId, payload) => {
+    const response = await securityAPI.updateKnowledgeSource(sourceId, payload)
+    sources.value = sources.value.map((source) => (
+      source.id === response.source.id ? response.source : source
+    ))
+    if (selectedSource.value?.id === response.source.id) {
+      selectedSource.value = response.source
+    }
+    return response.source
+  }
+
+  const deleteSource = async (sourceId) => {
+    await securityAPI.deleteKnowledgeSource(sourceId)
+    sources.value = sources.value.filter((source) => source.id !== sourceId)
+    if (selectedSource.value?.id === sourceId) {
+      selectedSource.value = null
+      documents.value = []
+    }
+  }
+
+  const updateDocument = async (sourceId, documentId, payload) => {
+    const response = await securityAPI.updateKnowledgeDocument(sourceId, documentId, payload)
+    documents.value = documents.value.map((document) => (
+      document.id === response.document.id ? response.document : document
+    ))
+    return response.document
+  }
+
+  const deleteDocument = async (sourceId, documentId) => {
+    await securityAPI.deleteKnowledgeDocument(sourceId, documentId)
+    documents.value = documents.value.filter((document) => document.id !== documentId)
+  }
+
   return {
     loading,
     documentsLoading,
@@ -84,6 +122,11 @@ export function useSecurityKnowledge() {
     loadSources,
     selectSource,
     createSource,
-    createDocument
+    createDocument,
+    fetchDocument,
+    updateSource,
+    deleteSource,
+    updateDocument,
+    deleteDocument
   }
 }

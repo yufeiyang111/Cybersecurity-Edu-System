@@ -16,7 +16,10 @@
 
     <div class="suggestion-footer">
       <span>建议仅供人工审阅，系统不会自动应用、执行、提交或推送补丁。</span>
-      <el-button size="small" @click="emit('review', suggestion)">人工审核</el-button>
+      <div class="suggestion-ops">
+        <el-button size="small" :icon="ReviewIcon" @click="emit('review', suggestion)">人工审核</el-button>
+        <el-button size="small" type="danger" plain :icon="DeleteIcon" :loading="deleting" @click="emit('remove', suggestion)">删除</el-button>
+      </div>
     </div>
   </article>
 </template>
@@ -25,13 +28,15 @@
 import AiSecurityInsight from './AiSecurityInsight.vue'
 import CitationList from './CitationList.vue'
 import PatchDiffViewer from './PatchDiffViewer.vue'
+import { Check as ReviewIcon, Delete as DeleteIcon } from '@element-plus/icons-vue'
 import { formatSecurityDate, reviewStateLabel, reviewStateTagType } from '@/features/security/presentation'
 
 defineProps({
-  suggestion: { type: Object, required: true }
+  suggestion: { type: Object, required: true },
+  deleting: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['copy-patch', 'review'])
+const emit = defineEmits(['copy-patch', 'review', 'remove'])
 </script>
 
 <style scoped lang="scss">
@@ -43,5 +48,6 @@ const emit = defineEmits(['copy-patch', 'review'])
 .steps { margin: 8px 0 0; padding-left: 22px; color: #52627a; font-size: 13px; line-height: 1.6; }
 .steps li + li { margin-top: 4px; }
 .suggestion-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e7ee; }
+.suggestion-ops { display: flex; gap: 8px; }
 @media (max-width: 760px) { .suggestion-header, .suggestion-footer { align-items: flex-start; flex-direction: column; } }
 </style>

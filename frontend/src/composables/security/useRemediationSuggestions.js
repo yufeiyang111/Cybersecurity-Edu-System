@@ -108,6 +108,20 @@ export function useRemediationSuggestions() {
     return updated
   }
 
+  const removeSuggestion = async (suggestion) => {
+    await securityAPI.deleteRemediationSuggestion(suggestion.id)
+    const current = suggestionsFor(suggestion.finding_id)
+    setSuggestionState(
+      suggestionsByFinding,
+      suggestion.finding_id,
+      current.filter((item) => item.id !== suggestion.id)
+    )
+    const total = suggestionsTotal.value[suggestion.finding_id]
+    if (typeof total === 'number') {
+      setSuggestionState(suggestionsTotal, suggestion.finding_id, Math.max(0, total - 1))
+    }
+  }
+
   return {
     suggestionsLoaded,
     suggestionLoading,
@@ -118,6 +132,7 @@ export function useRemediationSuggestions() {
     loadSuggestions,
     loadMoreSuggestions,
     generateSuggestion,
-    reviewSuggestion
+    reviewSuggestion,
+    removeSuggestion
   }
 }

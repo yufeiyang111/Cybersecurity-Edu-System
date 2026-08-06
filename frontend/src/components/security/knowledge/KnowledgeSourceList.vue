@@ -52,6 +52,26 @@
             {{ sourceSyncLabel(source) }}
           </BaseBadge>
         </div>
+        <div class="source-ops" @click.stop>
+          <button
+            type="button"
+            class="source-op-btn"
+            title="编辑知识源"
+            aria-label="编辑知识源"
+            @click="emit('edit-source', source)"
+          >
+            <BaseIcon name="edit" :size="14" />
+          </button>
+          <button
+            type="button"
+            class="source-op-btn source-op-btn--danger"
+            title="删除知识源"
+            aria-label="删除知识源"
+            @click="emit('delete-source', source)"
+          >
+            <BaseIcon name="trash" :size="14" />
+          </button>
+        </div>
       </button>
     </div>
   </BasePanel>
@@ -67,7 +87,7 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['select-source'])
+const emit = defineEmits(['select-source', 'edit-source', 'delete-source'])
 
 const sourcesTitle = computed(() =>
   props.selectedSource ? `${props.selectedSource.name} 的文档` : '版本化文档'
@@ -212,4 +232,42 @@ function sourceSyncLabel(source) {
 }
 
 .source-status { flex-shrink: 0; }
+
+.source-ops {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.source-item:hover .source-ops {
+  opacity: 1;
+}
+
+.source-op-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.source-op-btn:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.source-op-btn--danger:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
 </style>

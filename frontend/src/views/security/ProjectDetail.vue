@@ -63,6 +63,14 @@
       @select-task="loadFindings"
       @cancel-task="handleCancelTask"
       @retry-task="handleRetryTask"
+      @delete-task="handleDeleteTask"
+    />
+
+    <SnapshotPanel
+      :snapshots="snapshots"
+      :loading="snapshotsLoading"
+      :action-loading="snapshotActionLoading"
+      @delete-snapshot="handleDeleteSnapshot"
     />
 
     <section class="card">
@@ -127,11 +135,13 @@
             :suggestions-loading-more="Boolean(suggestionsLoadingMore[selectedFinding?.id])"
             :loading="Boolean(suggestionLoading[selectedFinding?.id])"
             :error-message="suggestionErrors[selectedFinding?.id]"
+            :deleting-suggestion-id="deletingSuggestionId"
             @generate="handleGenerateSuggestion"
             @load-suggestions="loadSuggestions"
             @load-more-suggestions="loadMoreSuggestions"
             @copy-patch="copyPatch"
             @review="openReviewDialog"
+            @remove="handleRemoveSuggestion"
           />
         </div>
       </div>
@@ -203,7 +213,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '@/features/security/feedback'
 import { ArrowLeft, Promotion, Refresh } from '@element-plus/icons-vue'
 import DependencyInventoryTable from '@/components/security/dependencies/DependencyInventoryTable.vue'
 import ScaFindingList from '@/components/security/dependencies/ScaFindingList.vue'
@@ -213,8 +223,10 @@ import FindingDetailPanel from '@/components/security/project/FindingDetailPanel
 import FindingListItem from '@/components/security/project/FindingListItem.vue'
 import RemediationReviewDialog from '@/components/security/project/RemediationReviewDialog.vue'
 import ScanTaskTable from '@/components/security/project/ScanTaskTable.vue'
+import SnapshotPanel from '@/components/security/project/SnapshotPanel.vue'
 import { useProjectDependencies } from '@/composables/security/useProjectDependencies'
 import { useProjectScanTasks } from '@/composables/security/useProjectScanTasks'
+import { useProjectSnapshots } from '@/composables/security/useProjectSnapshots'
 import { useRemediationSuggestions } from '@/composables/security/useRemediationSuggestions'
 import { formatSecurityDate, securityApiErrorMessage } from '@/features/security/presentation'
 
@@ -225,6 +237,7 @@ const reviewDialogVisible = ref(false)
 const reviewSubmitting = ref(false)
 const selectedSuggestion = ref(null)
 const selectedFindingId = ref(null)
+const deletingSuggestionId = ref(null)
 const findingListElement = ref(null)
 const dependenciesExpanded = ref(false)
 const selectedFinding = computed(
@@ -240,7 +253,8 @@ const {
   loadSuggestions,
   loadMoreSuggestions,
   generateSuggestion,
-  reviewSuggestion
+  reviewSuggestion,
+  removeSuggestion
 } = useRemediationSuggestions()
 const {
   loading,
@@ -266,10 +280,18 @@ const {
   setFindingsSort,
   cancelTask,
   retryTask,
+  deleteTask,
   rescan,
   rescanLoading,
   stopPolling
 } = useProjectScanTasks(() => route.params.id)
+const {
+  loading: snapshotsLoading,
+  snapshots,
+  actionLoading: snapshotActionLoading,
+  load: loadSnapshots,
+  remove: removeSnapshot
+} = useProjectSnapshots(() => route.params.id)
 const {
   dependencies,
   dependenciesLoading,
@@ -338,6 +360,35 @@ const handleRetryTask = async (task) => {
   }
 
 }
+const handleDeleteTask = async (task) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除任务 #${task.id} 吗？其风险发现、证据与修复建议将一并删除，且无法恢复。`,
+      '删除扫描任务',
+      { type: 'warning', confirmButtonText: '删除' }
+    )
+    if (await deleteTask(task.id)) ElMessage.success('扫描任务已删除')
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(securityApiErrorMessage(error, '删除扫描任务失败'))
+    }
+  }
+}
+
+const handleDeleteSnapshot = async (snapshot) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除快照 #${snapshot.id} 吗？其全部扫描任务、风险发现与磁盘代码目录将一并删除，且无法恢复。`,
+      '删除项目快照',
+      { type: 'warning', confirmButtonText: '删除' }
+    )
+    if (await removeSnapshot(snapshot)) ElMessage.success('项目快照已删除')
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(securityApiErrorMessage(error, '删除项目快照失败'))
+    }
+  }
+}
 const handleRescan = async () => {
   try {
     await ElMessageBox.confirm(
@@ -354,6 +405,25 @@ const handleRescan = async () => {
 const handleGenerateSuggestion = async (finding) => {
   const suggestion = await generateSuggestion(finding)
   if (suggestion) ElMessage.success('修复建议已生成，等待人工审核')
+}
+
+const handleRemoveSuggestion = async (suggestion) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除建议 #${suggestion.id} 吗？删除后无法恢复。`,
+      '删除修复建议',
+      { type: 'warning', confirmButtonText: '删除' }
+    )
+    deletingSuggestionId.value = suggestion.id
+    await removeSuggestion(suggestion)
+    ElMessage.success('修复建议已删除')
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(securityApiErrorMessage(error, '删除修复建议失败'))
+    }
+  } finally {
+    deletingSuggestionId.value = null
+  }
 }
 
 const copyPatch = async (patchDiff) => {
@@ -394,7 +464,10 @@ const submitReview = async ({ reviewState, comment }) => {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadSnapshots()
+})
 onBeforeUnmount(stopPolling)
 </script>
 

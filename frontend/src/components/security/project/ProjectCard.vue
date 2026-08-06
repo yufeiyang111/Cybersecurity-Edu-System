@@ -30,9 +30,11 @@
         <span><ScanIcon />共 {{ project.scan_count ?? 0 }} 次扫描</span>
       </div>
       <div class="pc-ops" @click.stop>
-        <el-button size="small" @click="$emit('view')">查看任务</el-button>
+        <el-button size="small" :icon="ViewIcon" @click="$emit('view')">查看任务</el-button>
+        <el-button size="small" :icon="EditIcon" @click="$emit('rename')">重命名</el-button>
         <el-button size="small" :icon="GithubIcon" @click="$emit('github')">GitHub 导入</el-button>
         <el-button size="small" type="primary" :icon="UploadIcon" @click="$emit('upload')">上传 ZIP 扫描</el-button>
+        <el-button size="small" type="danger" plain :icon="DeleteIcon" @click="$emit('remove')">删除</el-button>
       </div>
     </div>
   </article>
@@ -40,6 +42,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { Delete as DeleteIcon, Edit as EditIcon, View as ViewIcon } from '@element-plus/icons-vue'
 import { languageMeta } from '@/features/security/languageMeta'
 import { CalendarIcon, FileIcon, GithubIcon, ScanIcon, UploadIcon } from '@/components/icons'
 
@@ -48,7 +51,7 @@ const props = defineProps({
   expanded: { type: Boolean, default: false }
 })
 
-defineEmits(['toggle', 'view', 'github', 'upload'])
+defineEmits(['toggle', 'view', 'github', 'upload', 'rename', 'remove'])
 
 const RUNNING_STATUSES = new Set(['created', 'validating', 'snapshotting', 'scanning'])
 
