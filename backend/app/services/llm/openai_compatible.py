@@ -135,7 +135,6 @@ class OpenAICompatibleProvider:
                 return
 
             seen_bytes = 0
-            completed = False
             usage = {}
             for raw_line in iterator(decode_unicode=True):
                 line = raw_line.decode("utf-8", errors="replace") if isinstance(raw_line, bytes) else str(raw_line)
@@ -149,7 +148,6 @@ class OpenAICompatibleProvider:
                 if not data:
                     continue
                 if data == "[DONE]":
-                    completed = True
                     yield LLMStreamChunk(finished=True, usage=usage)
                     return
                 try:
@@ -166,17 +164,13 @@ class OpenAICompatibleProvider:
                 choice = _first_choice(body)
                 delta = choice.get("delta") if isinstance(choice, dict) else {}
                 delta = delta if isinstance(delta, dict) else {}
-                finish_reason = choice.get("finish_reason") if isinstance(choice, dict) else None
                 if delta.get("content") or delta.get("reasoning_content"):
                     yield LLMStreamChunk(
                         delta=str(delta.get("content") or ""),
                         reasoning_delta=str(delta.get("reasoning_content") or ""),
                         usage=usage,
                     )
-                if finish_reason:
-                    completed = True
-            if not completed:
-                yield LLMStreamChunk(finished=True, usage=usage)
+            yield LLMStreamChunk(finished=True, usage=usage)
         except requests.Timeout:
             yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_TIMEOUT")
         except requests.RequestException:
