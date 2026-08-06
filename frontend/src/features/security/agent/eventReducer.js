@@ -18,12 +18,16 @@ export function createAgentRunState() {
     stateVersion: 0,
     reasoningStream: '',
     reasoningLive: false,
+    llmAnalysis: null,
     connectionState: 'connecting',
     gapDetected: false
   }
 }
 
 export function hydrateAgentRunState(snapshot) {
+  const agentAnalysis = (snapshot.messages || []).find(
+    (message) => message.role === 'agent' && message.message_type === 'llm_analysis'
+  )
   return {
     run: snapshot.run || null,
     plan: snapshot.plan || null,
@@ -36,6 +40,7 @@ export function hydrateAgentRunState(snapshot) {
     stateVersion: snapshot.state_version || 0,
     reasoningStream: '',
     reasoningLive: false,
+    llmAnalysis: agentAnalysis?.content || null,
     connectionState: 'connected',
     gapDetected: false
   }
@@ -140,6 +145,16 @@ export function reduceAgentEvent(state, event) {
         run.warning_codes = [...new Set([...(run.warning_codes || []), ...payload.warning_codes])]
         next.run = run
       }
+      break
+    }
+    case 'llm.completed': {
+      const payload = event.payload || {}
+      if (payload.analysis) next.llmAnalysis = payload.analysis
+      next.reasoningLive = false
+      break
+    }
+    case 'llm.failed': {
+      next.reasoningLive = false
       break
     }
     default:

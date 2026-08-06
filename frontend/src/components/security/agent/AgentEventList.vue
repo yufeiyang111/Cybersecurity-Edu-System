@@ -57,6 +57,7 @@ const EVENT_META = {
   'llm.started': { icon: 'zap', tone: 'blue', label: 'LLM 调用开始' },
   'llm.usage': { icon: 'coins', tone: 'gray', label: 'LLM 用量' },
   'llm.completed': { icon: 'check', tone: 'green', label: 'LLM 调用完成' },
+  'llm.failed': { icon: 'alert-triangle', tone: 'red', label: 'LLM 分析失败' },
   'llm.reasoning_delta': { icon: 'activity', tone: 'gray', label: '思维链增量' },
   'strategy.switched': { icon: 'sliders', tone: 'yellow', label: '策略切换' },
   'decision.recorded': { icon: 'check', tone: 'blue', label: '决策记录' },
@@ -89,6 +90,12 @@ function summaryOf(event) {
       return payload.tool_name
     case 'llm.usage':
       return payload.tokens ? `${payload.tokens} tokens` : ''
+    case 'llm.started':
+      return payload.provider ? `${payload.provider}${payload.model ? ' · ' + payload.model : ''}` : ''
+    case 'llm.completed':
+      return payload.degraded ? '已降级为确定性摘要' : (payload.usage?.tokens ? `${payload.usage.tokens} tokens` : '分析完成')
+    case 'llm.failed':
+      return payload.agent_warning_code || payload.warning_code || ''
     case 'warning.raised':
       return (payload.warning_codes || []).join('、')
     case 'run.completed':

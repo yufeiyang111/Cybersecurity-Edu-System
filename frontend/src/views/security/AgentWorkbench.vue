@@ -74,7 +74,7 @@
               <span class="tip-item__icon tip-item__icon--yellow">
                 <BaseIcon name="zap" :size="14" />
               </span>
-              <span>多轮对话的 LLM 分析将在接入 Provider 后启用。</span>
+              <span>多轮对话由 LLM 驱动：模型基于扫描证据实时推理并给出分析结论。</span>
             </li>
           </ul>
         </div>
@@ -127,6 +127,13 @@
                   <span v-if="message.turnSeq" class="conv-bubble__time">Turn {{ message.turnSeq }}</span>
                 </div>
                 <p class="conv-bubble__text">{{ message.text }}</p>
+                <div v-if="message.llmAnalysis" class="conv-bubble__analysis">
+                  <div class="analysis-head">
+                    <BaseIcon name="zap" :size="13" />
+                    <span>LLM 分析</span>
+                  </div>
+                  <p class="analysis-text">{{ message.llmAnalysis }}</p>
+                </div>
                 <div v-if="message.detail && message.detail.length" class="conv-bubble__detail">
                   <div v-for="(line, index) in message.detail" :key="index" class="detail-line">
                     <template v-if="line.kind === 'severity'">
@@ -173,7 +180,7 @@
             :placeholder="composerPlaceholder"
             @send="handleSendMessage"
           />
-          <p class="conv-legal">每条消息创建一个新 Turn 并复用当前快照；多轮对话的 LLM 分析将在接入 Provider 后启用。</p>
+          <p class="conv-legal">每条消息创建一个新 Turn 并复用当前快照；Agent 会基于扫描证据执行 LLM 分析并给出结论。</p>
         </main>
 
         <!-- 右侧信息面板 -->
@@ -322,7 +329,7 @@ const baselineMetrics = computed(() => {
 const composerPlaceholder = computed(() => {
   if (mode.value === 'project') return '输入第一条安全审计目标'
   if (!store.run && !conversationMeta.value) return '输入安全审计目标'
-  if (store.isTerminal || !store.run) return '继续输入目标，创建新 Turn（LLM 分析接入后回复）'
+  if (store.isTerminal || !store.run) return '继续输入目标，创建新 Turn，Agent 将执行 LLM 分析并回复'
   return 'Agent 执行中…可输入补充指令'
 })
 
@@ -359,6 +366,7 @@ const conversation = computed(() => {
       text: agentReplyText(),
       time: store.run.finished_at ? formatSecurityDate(store.run.finished_at) : '',
       detail: agentReplyDetail(),
+      llmAnalysis: store.llmAnalysis || null,
       expandable: store.steps.length > 0 || store.toolCalls.length > 0,
       expanded: false
     })
@@ -654,6 +662,30 @@ onMounted(() => {
 .conv-message--user .conv-bubble__role { color: #1d4ed8; }
 .conv-bubble__time { color: #94a3b8; font-size: 11.5px; }
 .conv-bubble__text { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.conv-bubble__analysis {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  background: #f5f9ff;
+}
+.analysis-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.analysis-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #1f2d3d;
+}
 .conv-bubble__detail {
   margin-top: 6px;
   display: flex;

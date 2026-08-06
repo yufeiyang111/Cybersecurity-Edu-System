@@ -37,6 +37,7 @@ from app.services.security_agent.contracts import (
     PLANNER_RULE_BASED,
 )
 from app.services.security_agent.event_service import EventService
+from app.services.security_agent.llm_analysis import AgentLlmAnalysisService
 from app.services.security_agent.state_machine import (
     AgentStateError,
     AgentStateMachine,
@@ -62,6 +63,7 @@ class InlinePlanRunner:
         self._artifacts = artifacts
         self._checkpoints = checkpoints
         self._tools = ToolExecutor(get_tool_registry(), events)
+        self._llm = AgentLlmAnalysisService(events)
 
     def run(self, run_id: int, trace_id: str, app) -> None:
         with app.app_context():
@@ -112,6 +114,7 @@ class InlinePlanRunner:
                     return
 
                 self._run_plan_nodes(run, plan, trace_id)
+                self._run_llm_analysis(run_id, trace_id)
                 self._finish_run(run_id, trace_id)
             except Exception:
                 db.session.rollback()
@@ -344,6 +347,32 @@ class InlinePlanRunner:
             actor_id=run.created_by,
             trace_id=trace_id,
         )
+
+    def _run_llm_analysis(self, run_id: int, trace_id: str) -> None:
+        """在确定性工具证据就绪后执行 LLM 分析（暂停/取消/终态直接跳过）。"""
+        run = db.session.get(AgentRun, run_id)
+        if run is None:
+            return
+        status = self._status_value(run.status)
+        if status in {AgentRunStatus.PAUSED.value, AgentRunStatus.CANCELED.value}:
+            return
+        if self._is_terminal(run):
+            return
+        if status == AgentRunStatus.EXECUTING_TOOLS.value:
+            try:
+                self._state.transition(
+                    run,
+                    AgentRunStatus.EVALUATING_EVIDENCE,
+                    actor_id=run.created_by,
+                    reason="开始 LLM 证据分析",
+                    trace_id=trace_id,
+                )
+            except AgentStateError:
+                reloaded = db.session.get(AgentRun, run_id)
+                if reloaded is None or self._is_terminal(reloaded) or self._is_canceled(reloaded):
+                    return
+                run = reloaded
+        self._llm.analyze(run, trace_id=trace_id)
 
     def _finish_run(self, run_id: int, trace_id: str) -> None:
         run = db.session.get(AgentRun, run_id)

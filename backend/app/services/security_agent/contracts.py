@@ -21,10 +21,13 @@ EVENT_TOOL_FAILED = "tool.failed"
 EVENT_LLM_STARTED = "llm.started"
 EVENT_LLM_USAGE = "llm.usage"
 EVENT_LLM_COMPLETED = "llm.completed"
+EVENT_LLM_FAILED = "llm.failed"
 EVENT_LLM_REASONING_DELTA = "llm.reasoning_delta"
 
-# llm.reasoning_delta is a PASS-THROUGH event: it is streamed to connected
-# clients in real time but never persisted to agent_events, logs or audit.
+# llm.reasoning_delta is a PASS-THROUGH event for clients: it is emitted in
+# real time and persisted (events.emit writes every event so SSE replay stays
+# gapless), but client reducers only accumulate the delta and never show it in
+# the event history list; it is never written to call logs or audit.
 PASS_THROUGH_EVENT_TYPES = frozenset({EVENT_LLM_REASONING_DELTA})
 EVENT_STRATEGY_SWITCHED = "strategy.switched"
 EVENT_DECISION_RECORDED = "decision.recorded"
@@ -55,6 +58,7 @@ AGENT_EVENT_TYPES = frozenset(
         EVENT_LLM_STARTED,
         EVENT_LLM_USAGE,
         EVENT_LLM_COMPLETED,
+        EVENT_LLM_FAILED,
         EVENT_LLM_REASONING_DELTA,
         EVENT_STRATEGY_SWITCHED,
         EVENT_DECISION_RECORDED,

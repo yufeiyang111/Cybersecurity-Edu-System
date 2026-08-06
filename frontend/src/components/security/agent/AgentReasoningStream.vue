@@ -6,7 +6,7 @@
       <el-tag v-else size="small" type="info">未运行</el-tag>
     </div>
     <p class="reasoning-card__note">
-      实时展示模型正在做什么（reasoning delta）。思维链不持久化：刷新页面后仅保留 Token 计数。
+      实时展示模型正在做什么（reasoning delta）。思维链不持久化：刷新页面后仅保留用量统计与分析结论。
     </p>
     <el-collapse v-model="active" class="reasoning-card__collapse">
       <el-collapse-item name="stream" title="实时思维链内容">
