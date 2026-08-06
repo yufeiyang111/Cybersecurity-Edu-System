@@ -14,8 +14,8 @@ export function formatDuration(value) {
 }
 
 export function formatRelativeTime(value) {
-  if (!value) return '未记录'
-  const date = new Date(value)
+  const date = parseUtcDate(value)
+  if (!date) return '未记录'
   const diff = Math.max(0, Date.now() - date.getTime())
   const minutes = Math.floor(diff / 60000)
   if (minutes < 60) return `${minutes || 1} 分钟前`
@@ -25,8 +25,28 @@ export function formatRelativeTime(value) {
 }
 
 export function formatLogDate(value) {
-  if (!value) return '-'
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+  const date = parseUtcDate(value)
+  if (!date) return '-'
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date)
+}
+
+function parseUtcDate(value) {
+  if (!value) return null
+  const text = String(value).trim()
+  if (!text) return null
+  const hasTimezone = /[zZ]$/.test(text) || /[+-]\d{2}:\d{2}$/.test(text)
+  const normalized = hasTimezone ? text : `${text}Z`
+  const date = new Date(normalized)
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
 export function providerStatus(provider) {
