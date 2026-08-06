@@ -4,7 +4,7 @@ import { llmAPI } from '@/api'
 export function useLlmLogs() {
   const logs = ref([])
   const summary = ref({ total_calls: 0, total_cost: 0, rpm: 0, tpm: 0 })
-  const pagination = reactive({ page: 1, perPage: 100, total: 0, pages: 0 })
+  const pagination = reactive({ page: 1, perPage: 10, total: 0, pages: 0 })
   const loading = ref(false)
   const errorMessage = ref('')
   const filters = reactive({ start: '', end: '', model: '', operation: '', status: '' })
@@ -55,5 +55,17 @@ export function useLlmLogs() {
     return load()
   }
 
-  return { logs, summary, pagination, filters, loading, errorMessage, load, search, reset, changePage, changePerPage }
+  return {
+    logs,
+    summary,
+    pagination,
+    filters,
+    loading,
+    errorMessage,
+    load,
+    search,
+    reset,
+    changePage,
+    changePerPage
+  }
 }

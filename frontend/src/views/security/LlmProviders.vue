@@ -10,7 +10,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '@/features/security/feedback'
 import { BaseButton, BaseIcon, BasePanel } from '@/components/ui'
 import LlmProviderFormDialog from '@/components/security/llm/LlmProviderFormDialog.vue'
 import LlmProviderTable from '@/components/security/llm/LlmProviderTable.vue'
@@ -41,6 +41,11 @@ onMounted(load)
 </script>
 
 <style scoped lang="scss">
-.llm-page { min-height: 100vh; padding: 28px 32px 70px; background: #f8fafc; color: #0f172a; }
+.llm-page {
+  min-height: 100vh;
+  padding: 28px 32px 70px;
+  background: #ffffff;
+  color: #0f172a;
+}
 .filter-row { display:flex;align-items:center;gap:9px;flex-wrap:wrap }.filter-input,.filter-select{height:34px;width:180px;padding:0 10px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#0f172a;font-size:12px;outline:none}.filter-input:focus,.filter-select:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}.filter-spacer{flex:1}.page-error{display:flex;align-items:center;gap:8px;padding:11px 14px;margin-bottom:14px;border:1px solid #fecaca;border-radius:7px;background:#fef2f2;color:#dc2626;font-size:13px}.table-panel :deep(.ui-panel__body){padding:0}.table-footer{display:flex;align-items:center;justify-content:space-between;color:#475569;font-size:12px}.table-footer>div{display:flex;align-items:center;gap:6px}.page-size select{height:30px;margin-left:5px;border:1px solid #e2e8f0;border-radius:6px}.page-button{width:30px;height:30px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#475569}.page-button.active{border-color:#2563eb;background:#2563eb;color:#fff}.page-button:disabled{color:#cbd5e1}@media(max-width:900px){.llm-page{padding:22px 20px 60px}}@media(max-width:640px){.llm-page{padding:18px 12px 50px}.filter-input,.filter-select{width:100%}.filter-spacer{display:none}.filter-row :deep(.ui-btn){width:auto}}
 </style>

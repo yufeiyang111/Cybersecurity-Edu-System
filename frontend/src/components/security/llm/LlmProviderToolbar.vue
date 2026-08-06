@@ -2,7 +2,7 @@
   <header class="llm-toolbar">
     <div>
       <h1>LLM 配置</h1>
-      <p>管理多个 LLM 服务配置，自由切换不同模型提供商和 API 端点。</p>
+      <p>配置 LLM 服务，切换不同的模型提供商和 API 端点。</p>
     </div>
     <div class="llm-toolbar__actions">
       <BaseButton :disabled="loading" @click="$emit('test-all')">
