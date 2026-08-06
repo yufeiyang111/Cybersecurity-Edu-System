@@ -40,6 +40,7 @@ class User(db.Model):
     favorites = db.relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
     conversations = db.relationship("QAConversation", back_populates="user", cascade="all, delete-orphan")
     workspace_memberships = db.relationship("WorkspaceMember", back_populates="user", cascade="all, delete-orphan")
+    preferences = db.relationship("UserPreference", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -95,5 +96,47 @@ class LoginLog(db.Model):
     user_agent = db.Column(db.String(255))
     login_time = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.Enum("success", "failed"), default="success")
+
+
+class UserPreference(db.Model):
+    """Per-user chat and interface preferences."""
+    __tablename__ = "user_preferences"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    theme = db.Column(db.String(20), nullable=False, default="system")
+    color_preset = db.Column(db.String(40), nullable=False, default="default")
+    font_family = db.Column(db.String(20), nullable=False, default="auto")
+    border_radius = db.Column(db.String(20), nullable=False, default="auto")
+    content_density = db.Column(db.String(20), nullable=False, default="standard")
+    content_width = db.Column(db.String(20), nullable=False, default="standard")
+    language = db.Column(db.String(20), nullable=False, default="zh-CN")
+    about_user = db.Column(db.String(1000), nullable=False, default="")
+    response_preferences = db.Column(db.String(2000), nullable=False, default="")
+    custom_prompt = db.Column(db.String(4000), nullable=False, default="")
+    response_style = db.Column(db.String(20), nullable=False, default="professional")
+    show_citations = db.Column(db.Boolean, nullable=False, default=True)
+    show_security_warnings = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship("User", back_populates="preferences")
+
+    def to_dict(self):
+        return {
+            "theme": self.theme,
+            "color_preset": self.color_preset,
+            "font_family": self.font_family,
+            "border_radius": self.border_radius,
+            "content_density": self.content_density,
+            "content_width": self.content_width,
+            "language": self.language,
+            "about_user": self.about_user,
+            "response_preferences": self.response_preferences,
+            "custom_prompt": self.custom_prompt,
+            "response_style": self.response_style,
+            "show_citations": self.show_citations,
+            "show_security_warnings": self.show_security_warnings,
+        }
 
 

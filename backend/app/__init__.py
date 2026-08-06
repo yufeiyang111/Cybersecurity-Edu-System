@@ -58,22 +58,26 @@ def create_app(config_object: type | None = None) -> Flask:
         app.logger.warning("Swagger setup skipped because flasgger is not installed")
 
     from app.routes.auth import auth_bp
+    from app.routes.auth_preferences import auth_preferences_bp
     from app.routes.oauth import oauth_bp, init_oauth
     from app.routes.knowledge import knowledge_bp
     from app.routes.qa import qa_bp
     from app.routes.admin import admin_bp
     from app.routes.projects import projects_bp
     from app.routes.llm_health import llm_health_bp
+    from app.routes.llm import llm_bp
     from app.routes.policies import policies_bp
 
     init_oauth(app)
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(auth_preferences_bp, url_prefix="/api/auth")
     app.register_blueprint(oauth_bp, url_prefix="/api/auth")
     app.register_blueprint(knowledge_bp, url_prefix="/api/knowledge")
     app.register_blueprint(qa_bp, url_prefix="/api/qa")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(projects_bp, url_prefix="/api/security")
     app.register_blueprint(llm_health_bp, url_prefix="/api/health")
+    app.register_blueprint(llm_bp, url_prefix="/api/llm")
     app.register_blueprint(policies_bp, url_prefix="/api")
 
     @app.errorhandler(404)

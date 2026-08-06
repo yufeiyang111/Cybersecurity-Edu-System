@@ -56,6 +56,7 @@ from app.models.conversation import (
     ConversationStatus,
     TurnStatus,
 )
+from app.models.llm import LLMCallLog, LLMProviderConfig
 
 __all__ = [
     "User", "Role", "LoginLog",
@@ -76,4 +77,5 @@ __all__ = [
     "CoverageKind", "ProjectSnapshotFile", "ScanFileReceipt",
     "AgentConversation", "AgentConversationMessage", "AgentTurn",
     "ConversationStatus", "TurnStatus",
+    "LLMProviderConfig", "LLMCallLog",
 ]
