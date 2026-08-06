@@ -61,6 +61,42 @@ def test_create_conversation_and_first_message_creates_run(agent_api_app, tmp_pa
         assert conversation.title == "先清点项目文件"
 
 
+def test_project_conversations_are_listed_newest_first(agent_api_app, tmp_path):
+    user_id, workspace_id = make_user(agent_api_app, "conv-list", "conv-list@example.test")
+    project_id, _ = make_project_and_snapshot(agent_api_app, tmp_path, user_id, workspace_id)
+    client = agent_api_app.test_client()
+    headers = auth_headers(agent_api_app, user_id)
+
+    older = client.post(
+        f"/api/security/projects/{project_id}/agent-conversations",
+        json={"title": "旧会话"},
+        headers=headers,
+    )
+    newer = client.post(
+        f"/api/security/projects/{project_id}/agent-conversations",
+        json={"title": "新会话"},
+        headers=headers,
+    )
+    assert older.status_code == 201
+    assert newer.status_code == 201
+
+    response = client.get(
+        f"/api/security/projects/{project_id}/agent-conversations?page=1&page_size=1",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    body = response.json
+    assert body["pagination"] == {"total": 2, "page": 1, "page_size": 1}
+    assert body["items"][0]["id"] == newer.json["conversation"]["id"]
+
+    outsider_id = make_user(agent_api_app, "conv-list-outsider", "conv-list-outsider@example.test")[0]
+    denied = client.get(
+        f"/api/security/projects/{project_id}/agent-conversations",
+        headers=auth_headers(agent_api_app, outsider_id),
+    )
+    assert denied.status_code == 403
+
+
 def test_second_turn_reuses_snapshot_without_reupload(agent_api_app, tmp_path):
     user_id, workspace_id = make_user(agent_api_app, "conv2", "conv2@example.test")
     project_id, snapshot_id = make_project_and_snapshot(agent_api_app, tmp_path, user_id, workspace_id)

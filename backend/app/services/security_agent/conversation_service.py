@@ -59,6 +59,22 @@ class ConversationService:
         db.session.commit()
         return conversation
 
+    def list_conversations(
+        self,
+        project_id: int,
+        *,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[AgentConversation], int]:
+        """Return the project's conversations newest first for the workbench."""
+        query = AgentConversation.query.filter_by(project_id=project_id).order_by(
+            AgentConversation.updated_at.desc(), AgentConversation.id.desc()
+        )
+        total = query.count()
+        offset = max(0, page - 1) * page_size
+        rows = query.offset(offset).limit(page_size).all()
+        return rows, total
+
     # ------------------------------------------------------------------ messages
 
     def append_user_message(
@@ -67,6 +83,7 @@ class ConversationService:
         *,
         content: str,
         client_message_id: str,
+        mode: str = AgentRunMode.BASELINE.value,
     ) -> tuple[AgentConversationMessage, AgentTurn, AgentRun, bool]:
         """Append one user message, then create a turn + run reusing the snapshot.
 
@@ -81,6 +98,8 @@ class ConversationService:
             raise ConversationError(f"消息长度不能超过 {MAX_MESSAGE_CHARS} 个字符")
         if not CLIENT_MESSAGE_ID_PATTERN.match(client_message_id):
             raise ConversationError("client_message_id 必须是 8-64 位字母数字或 -_ 字符")
+        if mode not in {item.value for item in AgentRunMode}:
+            raise ConversationError("不支持的 Agent 运行模式")
 
         existing = AgentConversationMessage.query.filter_by(
             client_message_id=client_message_id
@@ -113,7 +132,7 @@ class ConversationService:
             snapshot=snapshot,
             user_id=conversation.created_by,
             goal_text=normalized,
-            mode=AgentRunMode.BASELINE.value,
+            mode=mode,
         )
         turn.run_id = run.id
         message.turn_id = turn.id

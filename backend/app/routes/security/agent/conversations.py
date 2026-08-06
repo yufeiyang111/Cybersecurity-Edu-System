@@ -62,6 +62,35 @@ def create_agent_conversation(project_id: int):
         return jsonify({"error": str(exc)}), 400
 
 
+@projects_bp.route("/projects/<int:project_id>/agent-conversations", methods=["GET"])
+@jwt_required()
+def list_project_agent_conversations(project_id: int):
+    try:
+        project = db.session.get(SecurityProject, project_id)
+        if project is None:
+            return jsonify({"error": "项目不存在"}), 404
+        require_workspace_role(project.workspace_id, _current_user_id(), READ_ROLES)
+
+        page = request.args.get("page", 1, type=int)
+        page_size = request.args.get("page_size", 20, type=int)
+        if page < 1 or not 1 <= page_size <= 100:
+            return jsonify({"error": "page 不能小于 1，page_size 必须在 1 至 100 之间"}), 400
+
+        conversations, total = _service.list_conversations(
+            project_id, page=page, page_size=page_size
+        )
+        return jsonify(
+            {
+                "items": [conversation.to_dict() for conversation in conversations],
+                "pagination": {"total": total, "page": page, "page_size": page_size},
+            }
+        )
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
 @projects_bp.route("/agent-conversations/<int:conversation_id>", methods=["GET"])
 @jwt_required()
 def get_agent_conversation(conversation_id: int):
@@ -117,15 +146,19 @@ def post_agent_conversation_message(conversation_id: int):
         data = _json_object()
         content = data.get("content")
         client_message_id = data.get("client_message_id")
+        mode = data.get("mode", "baseline")
         if not isinstance(content, str) or not content.strip():
             return jsonify({"error": "消息内容不能为空"}), 400
         if not isinstance(client_message_id, str) or not client_message_id.strip():
             return jsonify({"error": "缺少 client_message_id（用于防重复提交）"}), 400
+        if not isinstance(mode, str):
+            return jsonify({"error": "mode 必须是字符串"}), 400
 
         message, turn, run, replayed = _service.append_user_message(
             conversation,
             content=content,
             client_message_id=client_message_id.strip(),
+            mode=mode,
         )
         return jsonify(
             {
