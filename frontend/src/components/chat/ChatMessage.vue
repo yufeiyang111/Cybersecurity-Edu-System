@@ -85,11 +85,11 @@ defineEmits(['copy', 'favorite', 'feedback'])
 </script>
 
 <style lang="scss" scoped>
-.chat-msg { display: flex; gap: 14px; padding: 20px 0; }
+.chat-msg { display: flex; gap: 14px; padding: calc(20px * var(--chat-space-scale)) 0; }
 
 .cm-logo {
   width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-  background: var(--chat-ink);
+  background: var(--chat-accent);
   display: flex; align-items: center; justify-content: center;
   margin-top: 2px;
   svg { width: 16px; height: 16px; }
@@ -101,7 +101,7 @@ defineEmits(['copy', 'favorite', 'feedback'])
   max-width: 68%;
   background: var(--chat-bubble);
   border-radius: var(--chat-radius);
-  padding: 12px 16px;
+  padding: calc(12px * var(--chat-space-scale)) calc(16px * var(--chat-space-scale));
   font-size: 15px;
   line-height: 1.6;
   .cm-text { white-space: pre-wrap; word-break: break-word; }
@@ -126,7 +126,7 @@ defineEmits(['copy', 'favorite', 'feedback'])
   display: flex; align-items: center; gap: 6px;
   border: 1px solid var(--chat-hairline);
   background: var(--chat-canvas);
-  border-radius: 8px;
+   border-radius: var(--chat-radius);
   padding: 4px 8px;
   max-width: 200px;
   img {

@@ -9,13 +9,14 @@
       @rename="renameConversation"
       @delete="deleteConversation"
       @toggle-collapse="sidebarCollapsed = !sidebarCollapsed"
+      @open-settings="settingsOpen = true"
     />
 
     <main class="qa-main">
       <div class="qa-topbar">
         <div class="qa-model-picker" @click="notifyModel">
           <span class="qa-model-dot"></span>
-          <span>网安助手 · 全部</span>
+           <span>AI 安全助手 · 全部</span>
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 9l6 6 6-6" /></svg>
         </div>
       </div>
@@ -35,13 +36,15 @@
       </div>
 
       <ChatComposer :disabled="loading" @send="handleSend" />
-      <div class="qa-legal">网安助手可能会犯错。请核查重要信息。</div>
+      <div class="qa-legal">AI 安全助手可能会犯错。请核查重要信息。</div>
     </main>
+
+    <ChatSettingsDialog v-if="settingsOpen" v-model="settingsOpen" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
@@ -50,12 +53,17 @@ import ChatWelcome from '@/components/chat/ChatWelcome.vue'
 import ChatMessage from '@/components/chat/ChatMessage.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import { useChat } from '@/composables/chat/useChat'
+import { useChatPreferences } from '@/composables/chat/useChatPreferences'
+
+const ChatSettingsDialog = defineAsyncComponent(() => import('@/components/chat/ChatSettingsDialog.vue'))
 
 const route = useRoute()
 const userStore = useUserStore()
 
 const threadRef = ref(null)
 const sidebarCollapsed = ref(false)
+const settingsOpen = ref(false)
+const { load: loadPreferences } = useChatPreferences()
 
 const {
   messages,
@@ -93,6 +101,7 @@ onMounted(async () => {
   if (!userStore.isLoggedIn) {
     ElMessage.info('登录后可保存问答历史')
   }
+  void loadPreferences()
   await loadConversations()
   const conversationId = Number(route.query.conversation_id)
   if (conversationId) {
@@ -107,6 +116,7 @@ onMounted(async () => {
   display: flex;
   overflow: hidden;
   background: var(--chat-canvas);
+  font-family: var(--chat-font-family);
 }
 
 .qa-main {
@@ -134,7 +144,7 @@ onMounted(async () => {
   svg { width: 14px; height: 14px; stroke: var(--chat-hollow); }
   .qa-model-dot {
     width: 8px; height: 8px; border-radius: 50%;
-    background: var(--chat-ink);
+   background: var(--chat-accent);
   }
 }
 
@@ -146,10 +156,10 @@ onMounted(async () => {
 }
 
 .qa-thread-inner {
-  max-width: 768px;
+  max-width: var(--chat-content-width);
   width: 100%;
   margin: 0 auto;
-  padding: 24px 20px 8px;
+   padding: calc(24px * var(--chat-space-scale)) 20px calc(8px * var(--chat-space-scale));
 }
 
 .qa-legal {

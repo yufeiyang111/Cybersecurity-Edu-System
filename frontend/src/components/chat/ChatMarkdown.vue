@@ -79,7 +79,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClick))
 .chat-markdown {
   font-size: 16px;
   line-height: 1.6;
-  color: #0d0d0d;
+  color: var(--chat-ink);
   word-break: break-word;
 
   p { margin: 12px 0; }
@@ -88,7 +88,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClick))
 
   h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
-    color: #0d0d0d;
+    color: var(--chat-ink);
     margin: 20px 0 10px;
     line-height: 1.4;
   }
@@ -96,7 +96,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClick))
   h2 { font-size: 1.35em; }
   h3 { font-size: 1.15em; }
   h4 { font-size: 1.05em; }
-  h5, h6 { font-size: 1em; color: #555; }
+  h5, h6 { font-size: 1em; color: var(--chat-muted); }
 
   ul, ol { padding-left: 24px; margin: 12px 0; }
   li { margin: 6px 0; }
@@ -105,7 +105,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClick))
   em { font-style: italic; }
 
   a {
-    color: #0b6bcb;
+    color: var(--chat-link);
     text-decoration: underline;
     text-underline-offset: 3px;
     &:hover { opacity: 0.85; }
@@ -115,7 +115,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClick))
     margin: 12px 0;
     padding: 2px 0 2px 14px;
     border-left: 3px solid rgba(0, 0, 0, 0.15);
-    color: #555;
+    color: var(--chat-muted);
     p { margin: 6px 0; }
   }
 
@@ -125,7 +125,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClick))
     border-radius: 4px;
     font-family: ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace;
     font-size: 0.88em;
-    color: #0d0d0d;
+    color: var(--chat-ink);
   }
 
   table {
@@ -141,12 +141,12 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClick))
     tr:nth-child(even) td { background: rgba(0, 0, 0, 0.015); }
   }
 
-  img { max-width: 100%; border-radius: 10px; }
+  img { max-width: 100%; border-radius: var(--chat-radius); }
   hr { border: none; border-top: 1px solid rgba(0, 0, 0, 0.1); margin: 20px 0; }
 
   .chat-code {
     margin: 14px 0;
-    border-radius: 10px;
+     border-radius: var(--chat-radius);
     overflow: hidden;
     background: #262624;
   }

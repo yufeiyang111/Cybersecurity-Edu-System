@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { qaAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { titleFromQuestion } from '@/features/chat/conversationTitle'
 
 let keySeed = 0
 
@@ -178,6 +179,12 @@ export function useChat(threadRef) {
     scrollToBottom()
 
     loading.value = true
+    const activeConversation = conversations.value.find((conversation) => conversation.id === currentConversationId.value)
+    if (activeConversation && (!activeConversation.title || activeConversation.title === '新会话')) {
+      const generatedTitle = titleFromQuestion(text)
+      activeConversation.title = generatedTitle
+      qaAPI.updateConversation(activeConversation.id, { title: generatedTitle }).catch(() => {})
+    }
     const formData = new FormData()
     formData.append('question', text)
     if (currentConversationId.value) {
@@ -244,7 +251,6 @@ export function useChat(threadRef) {
             }
             if (currentConversationId.value) {
               const conv = conversations.value.find(c => c.id === currentConversationId.value)
-              if (conv) conv.title = conv.title || text.slice(0, 30)
               loadConversations()
             }
             scrollToBottom()

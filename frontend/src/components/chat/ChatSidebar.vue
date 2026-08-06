@@ -7,7 +7,7 @@
           <path d="M9.5 12l2 2 3.5-4" />
         </svg>
       </div>
-      <span class="cs-brand-name">网安助手</span>
+      <span class="cs-brand-name">AI 安全助手</span>
       <span class="cs-spacer"></span>
       <button class="cs-icon-btn" title="收起侧边栏" @click="$emit('toggle-collapse')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M15 6l-6 6 6 6" /></svg>
@@ -30,14 +30,16 @@
 
     <div class="cs-list">
       <div v-for="group in visibleGroups" :key="group.key" class="cs-group">
-        <div class="cs-group-title">
+        <button class="cs-group-title" :aria-expanded="!collapsedGroups[group.key]" @click="toggleGroup(group.key)">
+          <svg class="cs-group-toggle-icon" :class="{ collapsed: collapsedGroups[group.key] }" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 9l6 6 6-6" /></svg>
           {{ group.label }}
           <span class="cs-count">{{ group.items.length }}</span>
-        </div>
-        <div
+        </button>
+        <template v-if="!collapsedGroups[group.key]"><div
           v-for="conv in group.items"
           :key="conv.id"
           class="cs-item"
+          v-memo="[conv.id, conv.title, conv.updated_at, conv.id === activeId]"
           :class="{ active: conv.id === activeId }"
           @click="$emit('select', conv.id)"
         >
@@ -47,13 +49,13 @@
           <span class="cs-item-title">{{ conv.title || '新会话' }}</span>
           <span class="cs-item-ops">
             <button title="重命名" @click.stop="$emit('rename', conv)">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M9 7V5h6v2m-8 0l1 13h8l1-13" /></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 20h4L19 9l-4-4L4 16v4z" /><path d="M13.5 6.5l4 4" /></svg>
             </button>
             <button title="删除" @click.stop="$emit('delete', conv)">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><circle cx="12" cy="5" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="19" r="1.6" /></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M9 7V5h6v2m-8 0l1 13h8l1-13" /></svg>
             </button>
           </span>
-        </div>
+        </div></template>
       </div>
       <div v-if="!conversations.length" class="cs-empty">暂无会话记录</div>
     </div>
@@ -64,8 +66,9 @@
         <span class="cs-kb-text">{{ kbText }}</span>
         <span v-if="kbCount !== null" class="cs-kb-count">{{ kbCount }} 篇文档</span>
       </div>
-      <div class="cs-account" @click="toggleMenu">
-        <div class="cs-avatar">{{ userInitial }}</div>
+      <div class="cs-account" @click.stop="toggleMenu">
+        <img v-if="userStore.user?.avatar_url" class="cs-avatar cs-avatar-image" :src="userStore.user.avatar_url" alt="">
+        <div v-else class="cs-avatar">{{ userInitial }}</div>
         <div class="cs-account-meta">
           <div class="cs-name">{{ displayName }}</div>
           <div class="cs-email">{{ email }}</div>
@@ -80,7 +83,7 @@
 
     <div v-if="menuOpen" class="cs-menu-pop" @click.stop>
       <div class="cs-menu-item" @click="goProfile">个人资料</div>
-      <div class="cs-menu-item" @click="goSettings">设置</div>
+       <div class="cs-menu-item" @click="goSettings">设置</div>
       <div class="cs-menu-item" @click="goHelp">帮助与文档</div>
       <div class="cs-menu-sep"></div>
       <div class="cs-menu-item danger" @click="logout">退出登录</div>
@@ -89,7 +92,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { knowledgeAPI } from '@/api'
@@ -101,13 +104,14 @@ const props = defineProps({
   collapsed: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['new-chat', 'select', 'rename', 'delete', 'toggle-collapse'])
+const emit = defineEmits(['new-chat', 'select', 'rename', 'delete', 'toggle-collapse', 'open-settings'])
 
 const router = useRouter()
 const userStore = useUserStore()
 const keyword = ref('')
 const menuOpen = ref(false)
 const kbCount = ref(null)
+const collapsedGroups = reactive({ earlier: true })
 
 const displayName = computed(() => userStore.user?.nickname || userStore.user?.username || '安全管理员')
 const email = computed(() => userStore.user?.email || '')
@@ -143,6 +147,10 @@ const visibleGroups = computed(() => {
   return labels.filter(g => g.items.length > 0)
 })
 
+const toggleGroup = (groupKey) => {
+  collapsedGroups[groupKey] = !collapsedGroups[groupKey]
+}
+
 const loadKbCount = async () => {
   try {
     const res = await knowledgeAPI.getKnowledgeList({ per_page: 1 })
@@ -154,8 +162,8 @@ const loadKbCount = async () => {
 
 const closeMenu = () => { menuOpen.value = false }
 const toggleMenu = () => { menuOpen.value = !menuOpen.value }
-const goProfile = () => { closeMenu(); router.push('/profile') }
-const goSettings = () => { closeMenu(); ElMessage.info('设置功能开发中') }
+const goProfile = () => { closeMenu(); router.push('/user/profile') }
+const goSettings = () => { closeMenu(); emit('open-settings') }
 const goHelp = () => { closeMenu(); router.push('/policy') }
 const logout = async () => {
   closeMenu()
@@ -169,7 +177,8 @@ const logout = async () => {
 
 onMounted(() => {
   document.addEventListener('click', closeMenu)
-  loadKbCount()
+  const schedule = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 300))
+  schedule(loadKbCount)
 })
 onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 </script>
@@ -184,6 +193,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
   flex-direction: column;
   transition: width .18s ease, min-width .18s ease;
   position: relative;
+  color: var(--chat-ink);
 
   &.collapsed {
     width: 64px;
@@ -191,6 +201,9 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 
     .cs-brand-name, .cs-new-label, .cs-search input, .cs-group-title,
     .cs-item-title, .cs-item-ops, .cs-kb-status, .cs-account-meta, .cs-menu-btn { display: none; }
+    .cs-brand { justify-content: center; padding: 14px 4px 10px; }
+    .cs-spacer { display: none; }
+    .cs-icon-btn { flex-shrink: 0; }
     .cs-new-btn { padding: 0; justify-content: center; }
     .cs-search { justify-content: center; padding: 0; }
     .cs-item { justify-content: center; padding: 8px; }
@@ -202,12 +215,12 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 .cs-brand { display: flex; align-items: center; gap: 10px; padding: 14px 12px 10px; }
 .cs-brand-mark {
   width: 30px; height: 30px; border-radius: 8px;
-  background: var(--chat-ink);
+  background: var(--chat-accent);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   svg { width: 16px; height: 16px; }
 }
-.cs-brand-name { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.cs-brand-name { font-size: 15px; font-weight: 600; color: var(--chat-ink); white-space: nowrap; }
 .cs-spacer { flex: 1; }
 
 .cs-icon-btn {
@@ -257,10 +270,13 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 .cs-list { flex: 1; overflow-y: auto; padding: 2px 8px 8px; }
 .cs-group { margin-bottom: 4px; }
 .cs-group-title {
+  width: 100%; border: 0; background: transparent; cursor: pointer;
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; color: var(--chat-hollow);
   padding: 10px 10px 4px;
   white-space: nowrap;
+  .cs-group-toggle-icon { width: 13px; height: 13px; stroke: var(--chat-hollow); transition: transform .15s ease; flex-shrink: 0; }
+  .cs-group-toggle-icon.collapsed { transform: rotate(-90deg); }
 }
 .cs-count {
   font-size: 11px; color: var(--chat-hollow);
@@ -278,7 +294,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
   &.active { background: var(--chat-hover); font-weight: 500; }
   .cs-item-icon { width: 15px; height: 15px; stroke: var(--chat-hollow); flex-shrink: 0; }
   &.active .cs-item-icon { stroke: var(--chat-ink); }
-  .cs-item-title { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+   .cs-item-title { flex: 1; overflow: hidden; color: var(--chat-ink); text-overflow: ellipsis; }
 }
 .cs-item-ops { display: none; gap: 2px; flex-shrink: 0; }
 .cs-item:hover .cs-item-ops { display: flex; }
@@ -319,10 +335,11 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 .cs-avatar {
   width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
   background: #e2e2e0; display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 600; color: #555;
+   font-size: 13px; font-weight: 600; color: var(--chat-ink);
 }
+.cs-avatar-image { object-fit: cover; }
 .cs-account-meta { flex: 1; min-width: 0; }
-.cs-name { font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.cs-name { font-size: 13.5px; font-weight: 500; color: var(--chat-ink); overflow: hidden; text-overflow: ellipsis; }
 .cs-email { font-size: 12px; color: var(--chat-hollow); overflow: hidden; text-overflow: ellipsis; }
 .cs-menu-btn {
   width: 26px; height: 26px; border: none; background: transparent;
@@ -345,7 +362,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 .cs-menu-item {
   display: flex; align-items: center;
   padding: 8px 10px; border-radius: 7px;
-  font-size: 13.5px; cursor: pointer;
+   font-size: 13.5px; color: var(--chat-ink); cursor: pointer;
   &:hover { background: var(--chat-hover); }
   &.danger { color: var(--chat-ink); }
 }

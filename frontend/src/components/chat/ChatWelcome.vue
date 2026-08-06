@@ -31,8 +31,8 @@ defineEmits(['select'])
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 32px 20px 40px;
-  max-width: 640px;
+   padding: calc(32px * var(--chat-space-scale)) 20px calc(40px * var(--chat-space-scale));
+   max-width: var(--chat-content-width);
   width: 100%;
   margin: 0 auto;
 }

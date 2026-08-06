@@ -78,7 +78,7 @@ let uidSeed = 0
 
 const canSend = computed(() => text.value.trim().length > 0 || attachments.value.length > 0)
 const hintText = computed(() =>
-  attachments.value.length ? `${attachments.value.length} 个附件已就绪` : '网安助手 · 全部模式：自动选择检索策略'
+  attachments.value.length ? `${attachments.value.length} 个附件已就绪` : 'AI 安全助手 · 全部模式：自动选择检索策略'
 )
 
 const resize = () => {
@@ -179,8 +179,8 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-.chat-composer { padding: 12px 20px 8px; position: relative; }
-.cc-inner { max-width: 768px; margin: 0 auto; }
+.chat-composer { padding: calc(12px * var(--chat-space-scale)) 20px 8px; position: relative; }
+.cc-inner { max-width: var(--chat-content-width); margin: 0 auto; }
 
 .cc-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .cc-chip {
@@ -210,10 +210,10 @@ onBeforeUnmount(() => {
 .cc-box {
   background: var(--chat-canvas);
   border: 1px solid var(--chat-hairline);
-  border-radius: 12px;
+  border-radius: var(--chat-radius);
   display: flex; align-items: flex-end; gap: 4px;
   padding: 8px 8px 8px 10px;
-  &:focus-within { border-color: rgba(0, 0, 0, 0.35); }
+  &:focus-within { border-color: var(--chat-accent); }
 }
 .cc-plus {
   width: 34px; height: 34px; border-radius: 50%;
@@ -236,7 +236,7 @@ textarea {
   background: var(--chat-bubble);
   display: flex; align-items: center; justify-content: center;
   &:disabled { cursor: default; }
-  &.active { background: var(--chat-ink); }
+   &.active { background: var(--chat-accent); }
   svg { width: 16px; height: 16px; stroke: var(--chat-hollow); }
   &.active svg { stroke: var(--chat-canvas); }
 }
@@ -262,7 +262,7 @@ textarea {
 }
 .cc-drag-box {
   border: 1.5px dashed rgba(0, 0, 0, 0.35);
-  border-radius: 12px; padding: 20px 32px;
+   border-radius: var(--chat-radius); padding: 20px 32px;
   background: var(--chat-canvas);
   font-size: 14px;
   color: var(--chat-ink);
