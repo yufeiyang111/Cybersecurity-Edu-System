@@ -89,6 +89,8 @@ class LLMCallLog(db.Model):
     input_tokens = db.Column(db.Integer, nullable=False, default=0)
     output_tokens = db.Column(db.Integer, nullable=False, default=0)
     cached_input_tokens = db.Column(db.Integer, nullable=False, default=0)
+    cache_status = db.Column(db.String(16))
+    cache_write_input_tokens = db.Column(db.Integer, nullable=False, default=0)
     reasoning_tokens = db.Column(db.Integer, nullable=False, default=0)
     total_tokens = db.Column(db.Integer, nullable=False, default=0)
     cost_amount = db.Column(db.Numeric(12, 6))
@@ -115,6 +117,8 @@ class LLMCallLog(db.Model):
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
             "cached_input_tokens": self.cached_input_tokens,
+            "cache_status": self.cache_status,
+            "cache_write_input_tokens": self.cache_write_input_tokens,
             "reasoning_tokens": self.reasoning_tokens,
             "total_tokens": self.total_tokens,
             "cost_amount": float(self.cost_amount) if self.cost_amount is not None else None,

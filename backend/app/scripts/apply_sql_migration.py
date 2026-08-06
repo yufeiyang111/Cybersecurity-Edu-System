@@ -22,6 +22,8 @@ MIGRATION_IDS = (
     "011_agent_runtime_events",
     "012_scan_coverage_receipts",
     "013_agent_conversations",
+    "014_llm_operations",
+    "015_llm_cache_telemetry",
 )
 
 

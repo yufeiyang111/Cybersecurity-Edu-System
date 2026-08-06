@@ -1064,3 +1064,59 @@ CREATE TABLE IF NOT EXISTS agent_conversation_messages (
 ALTER TABLE agent_turns
     ADD CONSTRAINT fk_agent_turns_input_message
     FOREIGN KEY (input_message_id) REFERENCES agent_conversation_messages(id);
+
+-- =========================================
+-- User-managed LLM providers and safe call metadata
+-- =========================================
+CREATE TABLE IF NOT EXISTS llm_provider_configs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    provider_type VARCHAR(32) NOT NULL DEFAULT 'openai_compatible',
+    base_url VARCHAR(500) NOT NULL,
+    model VARCHAR(200) NOT NULL,
+    api_key_ciphertext TEXT NOT NULL,
+    api_key_hint VARCHAR(64) NOT NULL,
+    is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    last_check_status VARCHAR(32),
+    last_checked_at DATETIME NULL,
+    last_latency_ms INT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_llm_provider_configs_user_name UNIQUE (user_id, name),
+    CONSTRAINT fk_llm_provider_configs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX ix_llm_provider_configs_user_default (user_id, is_default),
+    INDEX ix_llm_provider_configs_user_enabled (user_id, is_enabled)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User-managed OpenAI-compatible LLM providers';
+
+CREATE TABLE IF NOT EXISTS llm_call_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    provider_config_id INT NULL,
+    provider_name VARCHAR(128) NOT NULL,
+    model VARCHAR(200),
+    operation VARCHAR(64) NOT NULL DEFAULT 'unknown',
+    status VARCHAR(32) NOT NULL,
+    warning_code VARCHAR(100),
+    request_id VARCHAR(64),
+    streaming BOOLEAN NOT NULL DEFAULT FALSE,
+    input_tokens INT NOT NULL DEFAULT 0,
+    output_tokens INT NOT NULL DEFAULT 0,
+    cached_input_tokens INT NOT NULL DEFAULT 0,
+    cache_status VARCHAR(16) NULL,
+    cache_write_input_tokens INT NOT NULL DEFAULT 0,
+    reasoning_tokens INT NOT NULL DEFAULT 0,
+    total_tokens INT NOT NULL DEFAULT 0,
+    cost_amount DECIMAL(12, 6) NULL,
+    currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+    latency_ms INT NULL,
+    first_token_latency_ms INT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_llm_call_logs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_llm_call_logs_provider FOREIGN KEY (provider_config_id) REFERENCES llm_provider_configs(id) ON DELETE SET NULL,
+    INDEX ix_llm_call_logs_user_created (user_id, created_at),
+    INDEX ix_llm_call_logs_user_model_created (user_id, model, created_at),
+    INDEX ix_llm_call_logs_user_provider_created (user_id, provider_config_id, created_at),
+    INDEX ix_llm_call_logs_user_status_created (user_id, status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Non-sensitive LLM call metadata';

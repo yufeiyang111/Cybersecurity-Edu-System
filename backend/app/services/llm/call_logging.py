@@ -13,6 +13,7 @@ from app.models.llm import LLMCallLog
 from app.services.observability import get_request_id
 
 from .contracts import LLMRequest, LLMResponse, LLMStreamChunk
+from .usage_normalizer import cache_status, normalize_usage
 
 logger = logging.getLogger(__name__)
 
@@ -135,13 +136,20 @@ def _write_log(
 ) -> None:
     if provider.user_id is None or not has_app_context():
         return
-    usage = response.usage if response and isinstance(response.usage, dict) else (usage or {})
-    input_tokens = _usage_int(usage, "input_tokens", "prompt_tokens")
-    response_output_tokens = _usage_int(usage, "output_tokens", "completion_tokens")
-    output_tokens = response_output_tokens or output_tokens
-    cached_input_tokens = _usage_int(usage, "cached_input_tokens", "prompt_tokens_details.cached_tokens")
-    reasoning_tokens = _usage_int(usage, "reasoning_tokens", "completion_tokens_details.reasoning_tokens")
-    total_tokens = _usage_int(usage, "total_tokens") or input_tokens + output_tokens
+    raw_usage = response.usage if response and isinstance(response.usage, dict) else (usage or {})
+    normalized = normalize_usage(raw_usage) or {}
+    input_tokens = int(normalized.get("prompt_tokens") or 0)
+    output_tokens = int(normalized.get("completion_tokens") or 0) or output_tokens
+    cached_input_tokens = int(normalized.get("cached_tokens") or 0)
+    cache_write_input_tokens = int(normalized.get("cache_write_tokens") or 0)
+    reported = bool(normalized.get("cache_usage_reported"))
+    status_value = cache_status(
+        reported,
+        cached_tokens=cached_input_tokens,
+        cache_write_tokens=cache_write_input_tokens,
+    )
+    reasoning_tokens = _usage_int(raw_usage, "reasoning_tokens", "completion_tokens_details.reasoning_tokens")
+    total_tokens = int(normalized.get("total_tokens") or 0) or input_tokens + output_tokens
     try:
         db.session.add(
             LLMCallLog(
@@ -157,6 +165,8 @@ def _write_log(
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 cached_input_tokens=cached_input_tokens,
+                cache_status=status_value,
+                cache_write_input_tokens=cache_write_input_tokens,
                 reasoning_tokens=reasoning_tokens,
                 total_tokens=total_tokens,
                 latency_ms=_elapsed_ms(started),

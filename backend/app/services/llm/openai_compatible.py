@@ -10,6 +10,7 @@ from flask import current_app, has_app_context
 
 from .contracts import LLMRequest, LLMResponse, LLMStreamChunk
 from .internal_reasoning_boundary import project
+from .usage_normalizer import normalize_usage
 
 
 def _log(method, msg, *args, **kwargs) -> None:
@@ -107,6 +108,21 @@ class OpenAICompatibleProvider:
                 allow_redirects=False,
                 stream=True,
             )
+            if (
+                getattr(response, "status_code", None) is not None
+                and 400 <= getattr(response, "status_code") < 500
+                and _body_mentions_stream_options(response)
+            ):
+                degraded = dict(payload)
+                degraded.pop("stream_options", None)
+                response = self._http_client.post(
+                    self.base_url,
+                    headers=self._headers(stream=True),
+                    json=degraded,
+                    timeout=_timeout(),
+                    allow_redirects=False,
+                    stream=True,
+                )
             if getattr(response, "status_code", None) != 200:
                 yield LLMStreamChunk(
                     finished=True,
@@ -144,7 +160,9 @@ class OpenAICompatibleProvider:
                     yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_NON_SUCCESS")
                     return
                 if isinstance(body.get("usage"), dict):
-                    usage = body["usage"]
+                    normalized_usage = normalize_usage(body["usage"])
+                    if normalized_usage:
+                        usage = normalized_usage
                 choice = _first_choice(body)
                 delta = choice.get("delta") if isinstance(choice, dict) else {}
                 delta = delta if isinstance(delta, dict) else {}
@@ -191,6 +209,8 @@ def _payload(request: LLMRequest, model: str, *, stream: bool) -> dict[str, Any]
         "max_tokens": request.max_tokens,
         "stream": stream,
     }
+    if stream:
+        body["stream_options"] = {"include_usage": True}
     if request.prompt_cache_key:
         body["prompt_cache_key"] = request.prompt_cache_key
     return body
@@ -233,7 +253,8 @@ def _success_response(provider: OpenAICompatibleProvider, body: object, started:
             choice, message, repr(raw_content), repr(reasoning),
         )
         return _failure(provider, "LLM_OUTPUT_INVALID", started, status_code=200)
-    usage = body.get("usage") if isinstance(body.get("usage"), dict) else {}
+    raw_usage = body.get("usage") if isinstance(body.get("usage"), dict) else {}
+    usage = normalize_usage(raw_usage) or {}
     return LLMResponse(
         text=visible,
         provider_name=provider.provider_name,
@@ -296,6 +317,23 @@ def _max_response_bytes() -> int:
 def _response_too_large(response: object) -> bool:
     content = getattr(response, "content", b"")
     return isinstance(content, (bytes, bytearray)) and len(content) > _max_response_bytes()
+
+
+def _body_mentions_stream_options(response: object) -> bool:
+    """True when a 4xx body complains about stream_options / include_usage."""
+    raw = getattr(response, "text", None)
+    if raw is None:
+        raw = getattr(response, "content", b"")
+        raw = raw.decode("utf-8", errors="replace") if isinstance(raw, (bytes, bytearray)) else ""
+    lower = str(raw or "").lower()
+    return (
+        "stream_options" in lower
+        or "include_usage" in lower
+        or "unknown field" in lower
+        or "unrecognized" in lower
+        or "unsupported parameter" in lower
+        or "extra inputs are not permitted" in lower
+    )
 
 
 def _status_code(response: object) -> int | None:
