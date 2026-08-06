@@ -57,6 +57,8 @@ from app.models.conversation import (
     TurnStatus,
 )
 from app.models.llm import LLMCallLog, LLMProviderConfig
+from app.models.agent_llm import LLMInvocation, LLMPriceCatalog
+from app.models.memory import UserMemory
 
 __all__ = [
     "User", "Role", "LoginLog",
@@ -78,4 +80,5 @@ __all__ = [
     "AgentConversation", "AgentConversationMessage", "AgentTurn",
     "ConversationStatus", "TurnStatus",
     "LLMProviderConfig", "LLMCallLog",
+    "LLMInvocation", "LLMPriceCatalog",
 ]

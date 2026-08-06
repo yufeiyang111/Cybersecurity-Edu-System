@@ -311,6 +311,7 @@ export const agentAPI = {
   cancelRun: (runId) => api.post(`/security/agent-runs/${runId}/cancel`),
   getEvents: (runId, params) => api.get(`/security/agent-runs/${runId}/events`, { params }),
   getCoverage: (runId, params) => api.get(`/security/agent-runs/${runId}/coverage`, { params }),
+  getRunCosts: (runId) => api.get(`/security/agent-runs/${runId}/costs`),
   sendMessage: (runId, content) => api.post(`/security/agent-runs/${runId}/messages`, { content }),
   createConversation: (projectId, data) => api.post(`/security/projects/${projectId}/agent-conversations`, data || {}),
   listProjectConversations: (projectId, params) => api.get(`/security/projects/${projectId}/agent-conversations`, { params }),
@@ -402,6 +403,12 @@ export const policyAPI = {
   list: () => api.get('/policies'),
   get: (slug) => api.get(`/policies/${slug}`),
   update: (slug, data) => api.put(`/policies/${slug}`, data)
+}
+
+// 持久记忆相关
+export const memoryAPI = {
+  list: (params) => api.get('/memories', { params }),
+  remove: (memoryId) => api.delete(`/memories/${memoryId}`)
 }
 
 export default api

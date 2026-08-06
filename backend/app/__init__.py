@@ -67,6 +67,7 @@ def create_app(config_object: type | None = None) -> Flask:
     from app.routes.llm_health import llm_health_bp
     from app.routes.llm import llm_bp
     from app.routes.policies import policies_bp
+    from app.routes.memories import memories_bp
 
     init_oauth(app)
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
@@ -79,6 +80,7 @@ def create_app(config_object: type | None = None) -> Flask:
     app.register_blueprint(llm_health_bp, url_prefix="/api/health")
     app.register_blueprint(llm_bp, url_prefix="/api/llm")
     app.register_blueprint(policies_bp, url_prefix="/api")
+    app.register_blueprint(memories_bp, url_prefix="/api")
 
     @app.errorhandler(404)
     def api_not_found(error):

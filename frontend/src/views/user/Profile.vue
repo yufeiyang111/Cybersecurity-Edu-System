@@ -17,6 +17,8 @@
       </div>
       <OAuthBindingCard />
     </section>
+
+    <MemorySettingsCard />
   </div>
 </template>
 
@@ -26,6 +28,7 @@ import ProfileTabs from '@/components/user/ProfileTabs.vue'
 import ContributionHeatmap from '@/components/user/ContributionHeatmap.vue'
 import RecentActivityList from '@/components/user/RecentActivityList.vue'
 import OAuthBindingCard from '@/components/user/OAuthBindingCard.vue'
+import MemorySettingsCard from '@/components/user/MemorySettingsCard.vue'
 import { useProfileStats } from '@/composables/user/useProfileStats'
 
 const { questions, favorites, load } = useProfileStats()

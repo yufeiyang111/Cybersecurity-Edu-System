@@ -10,6 +10,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models.qa import QAConversation, QARecord, Favorite, FeedbackLog
 from app.models.user import UserPreference
+from app.services.memory import service as memory_service
 from app.services.rag_engine import get_rag_engine
 from app.services.document_parser import parse_document
 
@@ -138,6 +139,17 @@ def _engine_call(method, *args, user_id: int, **kwargs):
     return method(*args, **kwargs)
 
 
+def _retrieve_memories(user_id: int, query: str, conversation_id: int | None) -> list:
+    """SEARCH phase: load the user's relevant persistent memories for injection."""
+    if not memory_service.memory_enabled(user_id):
+        return []
+    return memory_service.retrieve_for_query(
+        user_id=user_id,
+        query=query,
+        conversation_id=conversation_id,
+    )
+
+
 @qa_bp.route("/ask", methods=["POST"])
 @jwt_required()
 def ask_question():
@@ -151,12 +163,14 @@ def ask_question():
     # 调用RAG引擎获取答案
     try:
         rag_engine = get_rag_engine()
+        memories = _retrieve_memories(int(user_id), engine_query, conversation_id)
         result = _engine_call(
             rag_engine.ask,
             engine_query,
             conversation_history,
             user_preferences=preferences,
             user_id=int(user_id),
+            memories=memories,
         )
     except Exception as e:
         return jsonify({
@@ -165,6 +179,17 @@ def ask_question():
 
     # 保存问答记录
     record = _save_qa_record(user_id, conversation_id, question, result, attachments)
+    # ADD phase: 提取并保存持久记忆（开关开启时）
+    try:
+        memory_service.capture_interaction(
+            user_id=int(user_id),
+            conversation_id=conversation_id,
+            record_id=record.id,
+            question=question,
+            answer=result.get("answer") or "",
+        )
+    except Exception:
+        pass
 
     return jsonify({
         "id": record.id,
@@ -191,6 +216,7 @@ def ask_question_stream():
         return jsonify({"error": "问题不能为空"}), 400
 
     rag_engine = get_rag_engine()
+    memories = _retrieve_memories(int(user_id), engine_query, conversation_id)
 
     def generate():
         try:
@@ -200,11 +226,22 @@ def ask_question_stream():
                 conversation_history,
                 user_preferences=preferences,
                 user_id=int(user_id),
+                memories=memories,
             ):
                 if event["type"] in ("delta", "reasoning"):
                     yield _sse_event(event["type"], {"delta": event.get("content") or event.get("delta") or ""})
                 elif event["type"] == "done":
                     record = _save_qa_record(user_id, conversation_id, question, event, attachments)
+                    try:
+                        memory_service.capture_interaction(
+                            user_id=int(user_id),
+                            conversation_id=conversation_id,
+                            record_id=record.id,
+                            question=question,
+                            answer=event.get("answer") or "",
+                        )
+                    except Exception:
+                        pass
                     yield _sse_event("done", {
                         "id": record.id,
                         "answer": event.get("answer"),

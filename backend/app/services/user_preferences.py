@@ -16,6 +16,7 @@ DEFAULTS = {
     "response_style": "professional",
     "show_citations": True,
     "show_security_warnings": True,
+    "persistent_memory_enabled": False,
 }
 OPTIONS = {
     "theme": {"system", "light", "dark"},
@@ -28,7 +29,7 @@ OPTIONS = {
     "response_style": {"professional", "concise", "teaching", "analytical"},
 }
 TEXT_LIMITS = {"about_user": 1000, "response_preferences": 2000, "custom_prompt": 4000}
-BOOLEAN_FIELDS = ("show_citations", "show_security_warnings")
+BOOLEAN_FIELDS = ("show_citations", "show_security_warnings", "persistent_memory_enabled")
 
 
 def get_or_create(user_id):

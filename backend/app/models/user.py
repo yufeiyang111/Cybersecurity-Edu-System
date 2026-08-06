@@ -117,6 +117,7 @@ class UserPreference(db.Model):
     response_style = db.Column(db.String(20), nullable=False, default="professional")
     show_citations = db.Column(db.Boolean, nullable=False, default=True)
     show_security_warnings = db.Column(db.Boolean, nullable=False, default=True)
+    persistent_memory_enabled = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -137,6 +138,7 @@ class UserPreference(db.Model):
             "response_style": self.response_style,
             "show_citations": self.show_citations,
             "show_security_warnings": self.show_security_warnings,
+            "persistent_memory_enabled": bool(self.persistent_memory_enabled),
         }
 
 

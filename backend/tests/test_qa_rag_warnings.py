@@ -11,7 +11,7 @@ from app import db, jwt
 
 
 class _FakeStreamEngine:
-    def ask_stream(self, query, conversation_history, user_preferences=None):
+    def ask_stream(self, query, conversation_history, user_preferences=None, memories=None):
         yield {
             "type": "done",
             "answer": "\u4f60\u597d\uff0c\u4e16\u754c",

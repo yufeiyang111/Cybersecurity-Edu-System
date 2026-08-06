@@ -9,6 +9,9 @@
       我的收藏
       <el-badge v-if="favorites > 0" :value="favorites" class="tab-badge" />
     </router-link>
+    <router-link to="/user/memories" class="tab" active-class="is-active">
+      我的记忆
+    </router-link>
     <a class="tab tab--anchor" :class="{ 'is-active': securityActive }" @click="handleSecurity">
       安全设置
     </a>

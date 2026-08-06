@@ -156,6 +156,12 @@ const routes = [
         name: 'UserFavorites',
         component: () => import('@/views/user/Favorites.vue'),
         meta: { title: '我的收藏' }
+      },
+      {
+        path: 'memories',
+        name: 'UserMemories',
+        component: () => import('@/views/user/Memories.vue'),
+        meta: { title: '我的记忆' }
       }
     ]
   },

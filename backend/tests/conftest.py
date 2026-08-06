@@ -58,6 +58,7 @@ def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         "app.routes.llm_health": "llm_health_bp",
         "app.routes.llm": "llm_bp",
         "app.routes.policies": "policies_bp",
+        "app.routes.memories": "memories_bp",
     }.items():
         module = types.ModuleType(module_name)
         blueprint = Blueprint(blueprint_name, module_name)
@@ -89,6 +90,7 @@ def _install_legacy_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         "app.routes.llm_health": "llm_health_bp",
         "app.routes.llm": "llm_bp",
         "app.routes.policies": "policies_bp",
+        "app.routes.memories": "memories_bp",
     }.items():
         module = types.ModuleType(module_name)
         blueprint = Blueprint(blueprint_name, module_name)

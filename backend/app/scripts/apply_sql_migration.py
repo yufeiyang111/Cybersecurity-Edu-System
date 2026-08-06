@@ -24,6 +24,8 @@ MIGRATION_IDS = (
     "013_agent_conversations",
     "014_llm_operations",
     "015_llm_cache_telemetry",
+    "016_user_memories",
+    "017_agent_llm_invocations_cost",
 )
 
 
