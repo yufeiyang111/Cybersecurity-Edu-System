@@ -58,6 +58,7 @@ class LLMStreamChunk:
     reasoning_delta: str = ""
     finished: bool = False
     warning_code: str | None = None
+    usage: dict[str, Any] = field(default_factory=dict)
 
 
 class StreamingLLMProvider(LLMProvider, Protocol):

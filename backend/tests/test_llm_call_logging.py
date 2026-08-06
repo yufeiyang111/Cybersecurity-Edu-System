@@ -23,7 +23,15 @@ class _Provider:
 class _StreamProvider(_Provider):
     def generate_stream(self, request):
         yield LLMStreamChunk(delta="safe answer")
-        yield LLMStreamChunk(finished=True)
+        yield LLMStreamChunk(
+            finished=True,
+            usage={
+                "prompt_tokens": 22,
+                "completion_tokens": 4,
+                "total_tokens": 26,
+                "prompt_tokens_details": {"cached_tokens": 14},
+            },
+        )
 
 
 def _user():
@@ -51,10 +59,10 @@ def test_observed_non_stream_call_records_only_usage_metadata(app):
         assert "prompt must not be stored" not in repr(log.to_dict())
 
 
-def test_observed_stream_call_records_success_with_estimated_output(app):
+def test_observed_stream_call_records_usage_and_cached_tokens(app):
     with app.app_context():
         user = _user()
-        observed = observe_provider(_StreamProvider(), user_id=user.id, operation="suggestion")
+        observed = observe_provider(_StreamProvider(), user_id=user.id, operation="qa")
 
         chunks = list(observed.generate_stream(LLMRequest(prompt="safe prompt")))
 
@@ -62,4 +70,7 @@ def test_observed_stream_call_records_success_with_estimated_output(app):
         log = LLMCallLog.query.filter_by(user_id=user.id).one()
         assert log.status == "success"
         assert log.streaming is True
-        assert log.output_tokens > 0
+        assert log.input_tokens == 22
+        assert log.cached_input_tokens == 14
+        assert log.output_tokens == 4
+        assert log.total_tokens == 26

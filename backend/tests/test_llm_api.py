@@ -211,6 +211,33 @@ def test_analytics_report_cache_hit_rate(llm_api_app):
     assert model_row["input_tokens"] == 100
 
 
+def test_analytics_cache_hit_rate_is_null_when_no_input_tokens(llm_api_app):
+    user_id = _make_user(llm_api_app, "llm-no-usage-user")
+    with llm_api_app.app_context():
+        db.session.add(
+            LLMCallLog(
+                user_id=user_id,
+                provider_name="private",
+                model="qwen",
+                operation="qa",
+                status="success",
+                input_tokens=0,
+                cached_input_tokens=0,
+                output_tokens=10,
+                total_tokens=10,
+            )
+        )
+        db.session.commit()
+
+    client = llm_api_app.test_client()
+    headers = _headers(llm_api_app, user_id)
+    analytics = client.get("/api/llm/analytics", headers=headers)
+
+    assert analytics.status_code == 200
+    assert analytics.json["summary"]["cache_hit_rate"] is None
+    assert analytics.json["models"][0]["cache_hit_rate"] is None
+
+
 def test_provider_delete_is_user_scoped(llm_api_app):
     owner_id = _make_user(llm_api_app, "llm-delete-owner")
     outsider_id = _make_user(llm_api_app, "llm-delete-outsider")

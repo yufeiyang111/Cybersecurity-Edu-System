@@ -8,7 +8,9 @@ import { BaseIcon } from '@/components/ui'
 import { formatInteger } from '@/features/security/llm/format'
 
 const props = defineProps({ summary: { type: Object, default: () => ({}) } })
-const items = computed(() => [{ icon: 'chart', label: '总数', value: formatInteger(props.summary.total_calls), note: '统计计数' }, { icon: 'layers', label: '缓存命中率', value: `${Number(props.summary.cache_hit_rate || 0).toFixed(1)}%`, note: '缓存 Token ÷ 输入 Token' }, { icon: 'coins', label: '总 TOKEN 数', value: formatInteger(props.summary.total_tokens), note: '统计 Token 数' }, { icon: 'activity', label: '平均 RPM', value: Number(props.summary.rpm || 0).toFixed(2), note: '每分钟请求数' }, { icon: 'zap', label: '平均 TPM', value: formatInteger(props.summary.tpm), note: '每分钟 Token 数' }])
+const hasRate = computed(() => props.summary.cache_hit_rate !== null && props.summary.cache_hit_rate !== undefined)
+const rateValue = computed(() => hasRate.value ? `${Number(props.summary.cache_hit_rate).toFixed(1)}%` : '—')
+const items = computed(() => [{ icon: 'chart', label: '总数', value: formatInteger(props.summary.total_calls), note: '统计计数' }, { icon: 'layers', label: '缓存命中率', value: rateValue.value, note: hasRate.value ? '缓存 Token ÷ 输入 Token' : 'Provider 未报告缓存信息' }, { icon: 'coins', label: '总 TOKEN 数', value: formatInteger(props.summary.total_tokens), note: '统计 Token 数' }, { icon: 'activity', label: '平均 RPM', value: Number(props.summary.rpm || 0).toFixed(2), note: '每分钟请求数' }, { icon: 'zap', label: '平均 TPM', value: formatInteger(props.summary.tpm), note: '每分钟 Token 数' }])
 </script>
 
 <style scoped lang="scss">

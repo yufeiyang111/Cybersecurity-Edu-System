@@ -120,6 +120,7 @@ class OpenAICompatibleProvider:
 
             seen_bytes = 0
             completed = False
+            usage = {}
             for raw_line in iterator(decode_unicode=True):
                 line = raw_line.decode("utf-8", errors="replace") if isinstance(raw_line, bytes) else str(raw_line)
                 seen_bytes += len(line.encode("utf-8"))
@@ -133,7 +134,7 @@ class OpenAICompatibleProvider:
                     continue
                 if data == "[DONE]":
                     completed = True
-                    yield LLMStreamChunk(finished=True)
+                    yield LLMStreamChunk(finished=True, usage=usage)
                     return
                 try:
                     body = json.loads(data)
@@ -142,6 +143,8 @@ class OpenAICompatibleProvider:
                 if body.get("error"):
                     yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_NON_SUCCESS")
                     return
+                if isinstance(body.get("usage"), dict):
+                    usage = body["usage"]
                 choice = _first_choice(body)
                 delta = choice.get("delta") if isinstance(choice, dict) else {}
                 delta = delta if isinstance(delta, dict) else {}
@@ -150,14 +153,12 @@ class OpenAICompatibleProvider:
                     yield LLMStreamChunk(
                         delta=str(delta.get("content") or ""),
                         reasoning_delta=str(delta.get("reasoning_content") or ""),
-                        finished=bool(finish_reason),
+                        usage=usage,
                     )
                 if finish_reason:
                     completed = True
-                    yield LLMStreamChunk(finished=True)
-                    return
             if not completed:
-                yield LLMStreamChunk(finished=True)
+                yield LLMStreamChunk(finished=True, usage=usage)
         except requests.Timeout:
             yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_TIMEOUT")
         except requests.RequestException:

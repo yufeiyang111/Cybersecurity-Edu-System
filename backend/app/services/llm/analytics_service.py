@@ -40,7 +40,7 @@ def summary(user_id: int, params: dict) -> dict:
         "input_tokens": input_total,
         "output_tokens": int(output_tokens or 0),
         "cached_input_tokens": cached_total,
-        "cache_hit_rate": round(cached_total / input_total * 100, 1) if input_total else 0.0,
+        "cache_hit_rate": round(cached_total / input_total * 100, 1) if input_total else None,
         "rpm": round(float(calls or 0) / minutes, 2),
         "tpm": round(float(tokens or 0) / minutes, 2),
     }
@@ -173,6 +173,6 @@ def _aggregate_row(row, key: str) -> dict:
         "tokens": int(row.tokens or 0),
         "input_tokens": input_total,
         "cached_input_tokens": cached_total,
-        "cache_hit_rate": round(cached_total / input_total * 100, 1) if input_total else 0.0,
+        "cache_hit_rate": round(cached_total / input_total * 100, 1) if input_total else None,
         "cost": float(row.cost or 0),
     }

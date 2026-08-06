@@ -9,7 +9,7 @@ import { formatInteger } from '@/features/security/llm/format'
 const props = defineProps({ models: { type: Array, default: () => [] }, summary: { type: Object, default: () => ({}) } })
 const totalCalls = computed(() => props.summary.total_calls || props.models.reduce((sum, item) => sum + Number(item.calls || 0), 0))
 const percent = (value) => totalCalls.value ? `${((Number(value || 0) / totalCalls.value) * 100).toFixed(1)}%` : '0%'
-const hitRate = (value) => `${Number(value || 0).toFixed(1)}%`
+const hitRate = (value) => (value === null || value === undefined ? '—' : `${Number(value).toFixed(1)}%`)
 </script>
 
 <style scoped lang="scss">

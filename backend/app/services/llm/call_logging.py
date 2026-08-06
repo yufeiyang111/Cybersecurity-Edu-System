@@ -82,6 +82,7 @@ class LoggedLLMProvider:
         warning_code = None
         first_token_latency_ms = None
         output_tokens = 0
+        usage = {}
         try:
             stream = self._provider.generate_stream(request)
             for chunk in stream:
@@ -95,6 +96,8 @@ class LoggedLLMProvider:
                     output_tokens += _estimate_tokens(chunk.delta)
                 if chunk.warning_code:
                     warning_code = chunk.warning_code
+                if isinstance(chunk.usage, dict) and chunk.usage:
+                    usage = chunk.usage
                 yield chunk
                 if chunk.finished:
                     break
@@ -110,6 +113,7 @@ class LoggedLLMProvider:
                 streaming=True,
                 first_token_latency_ms=first_token_latency_ms,
                 output_tokens=output_tokens,
+                usage=usage,
             )
 
 
@@ -127,10 +131,11 @@ def _write_log(
     response: LLMResponse | None = None,
     first_token_latency_ms: int | None = None,
     output_tokens: int = 0,
+    usage: dict | None = None,
 ) -> None:
     if provider.user_id is None or not has_app_context():
         return
-    usage = response.usage if response and isinstance(response.usage, dict) else {}
+    usage = response.usage if response and isinstance(response.usage, dict) else (usage or {})
     input_tokens = _usage_int(usage, "input_tokens", "prompt_tokens")
     response_output_tokens = _usage_int(usage, "output_tokens", "completion_tokens")
     output_tokens = response_output_tokens or output_tokens
