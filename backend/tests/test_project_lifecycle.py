@@ -12,7 +12,19 @@ from flask import Blueprint
 from flask_jwt_extended import create_access_token
 
 from app import create_app, db
-from app.models.agent_runtime import AgentRun
+from app.models.agent_events import AgentEvent
+from app.models.agent_runtime import (
+    AgentArtifact,
+    AgentCheckpoint,
+    AgentMessage,
+    AgentPlan,
+    AgentPlanEdge,
+    AgentPlanNode,
+    AgentRun,
+    AgentStepExecution,
+    AgentToolCall,
+)
+from app.models.conversation import AgentConversation, AgentConversationMessage, AgentTurn
 from app.models.security import (
     AuditEvent,
     ProjectSnapshot,
@@ -125,6 +137,90 @@ def _add_agent_run(application, workspace_id: int, project_id: int, snapshot_id:
             goal_text="audit",
         )
         db.session.add(run)
+        db.session.commit()
+        return run.id
+
+
+def _add_agent_conversation_chain(application, workspace_id: int, project_id: int) -> None:
+    """Create conversation -> turn <-> message circular rows like the workbench does."""
+    with application.app_context():
+        conversation = AgentConversation(
+            workspace_id=workspace_id,
+            project_id=project_id,
+            title="delete-me",
+        )
+        db.session.add(conversation)
+        db.session.flush()
+        turn = AgentTurn(conversation_id=conversation.id, turn_sequence=1)
+        db.session.add(turn)
+        db.session.flush()
+        message = AgentConversationMessage(
+            conversation_id=conversation.id,
+            turn_id=turn.id,
+            client_message_id="delete-me-msg-1",
+            message_sequence=1,
+            role="user",
+            message_type="user_goal",
+            content_redacted="redacted",
+            content_digest="sha256-redacted",
+        )
+        db.session.add(message)
+        db.session.flush()
+        turn.input_message_id = message.id
+        db.session.commit()
+
+
+def _add_agent_run_subtree(application, workspace_id: int, project_id: int, snapshot_id: int) -> int:
+    """Create an AgentRun with every referencing child table populated."""
+    with application.app_context():
+        run = AgentRun(
+            workspace_id=workspace_id,
+            project_id=project_id,
+            snapshot_id=snapshot_id,
+            goal_text="audit",
+        )
+        db.session.add(run)
+        db.session.flush()
+        db.session.add(AgentEvent(run_id=run.id, sequence=1, event_type="run.created"))
+        db.session.add(AgentMessage(run_id=run.id, role="user", content="audit"))
+        plan = AgentPlan(run_id=run.id, plan_version=1, planner_source="rule")
+        db.session.add(plan)
+        db.session.flush()
+        node = AgentPlanNode(
+            plan_id=plan.id,
+            node_key="n1",
+            node_type="baseline_scan",
+            title="baseline",
+        )
+        db.session.add(node)
+        db.session.flush()
+        db.session.add(
+            AgentPlanEdge(plan_id=plan.id, from_node="n1", to_node="n1", edge_type="success")
+        )
+        step = AgentStepExecution(plan_node_id=node.id, run_id=run.id, attempt_number=1)
+        db.session.add(step)
+        db.session.flush()
+        db.session.add(
+            AgentToolCall(
+                run_id=run.id,
+                plan_node_id=node.id,
+                step_execution_id=step.id,
+                tool_name="scanner",
+                idempotency_key="delete-me-idem-1",
+            )
+        )
+        db.session.add(
+            AgentArtifact(
+                run_id=run.id,
+                plan_node_id=node.id,
+                step_execution_id=step.id,
+                artifact_type="report",
+                summary="summary",
+            )
+        )
+        db.session.add(
+            AgentCheckpoint(run_id=run.id, plan_version=1, state_json={}, event_sequence=0)
+        )
         db.session.commit()
         return run.id
 
@@ -264,6 +360,48 @@ class TestProjectDelete:
         with api_app.app_context():
             assert db.session.get(SecurityProject, project["id"]) is None
             assert db.session.get(AgentRun, run_id) is None
+
+    def test_delete_project_cleans_conversation_turn_message_cycle(self, api_app):
+        owner = _user_id(api_app, "owner")
+        client = api_app.test_client()
+        headers = _headers(api_app, owner)
+        project = _create_project(client, headers, "conv-cycle")
+        upload = _upload_project(client, headers, project["id"], {"app.py": "print('x')\n"})
+        _add_agent_conversation_chain(api_app, project["workspace_id"], project["id"])
+
+        response = client.delete(f"/api/security/projects/{project['id']}", headers=headers)
+
+        assert response.status_code == 200
+        with api_app.app_context():
+            assert AgentConversation.query.filter_by(project_id=project["id"]).count() == 0
+            assert AgentTurn.query.count() == 0
+            assert AgentConversationMessage.query.count() == 0
+
+    def test_delete_project_cleans_agent_run_full_subtree(self, api_app):
+        owner = _user_id(api_app, "owner")
+        client = api_app.test_client()
+        headers = _headers(api_app, owner)
+        project = _create_project(client, headers, "run-subtree")
+        upload = _upload_project(client, headers, project["id"], {"app.py": "print('x')\n"})
+        run_id = _add_agent_run_subtree(
+            api_app, project["workspace_id"], project["id"], upload["snapshot"]["id"]
+        )
+
+        response = client.delete(f"/api/security/projects/{project['id']}", headers=headers)
+
+        assert response.status_code == 200
+        assert response.json == {"deleted": True}
+        with api_app.app_context():
+            assert db.session.get(AgentRun, run_id) is None
+            assert AgentEvent.query.count() == 0
+            assert AgentMessage.query.count() == 0
+            assert AgentPlan.query.count() == 0
+            assert AgentPlanNode.query.count() == 0
+            assert AgentPlanEdge.query.count() == 0
+            assert AgentStepExecution.query.count() == 0
+            assert AgentToolCall.query.count() == 0
+            assert AgentArtifact.query.count() == 0
+            assert AgentCheckpoint.query.count() == 0
 
 
 class TestTaskDelete:

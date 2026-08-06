@@ -13,8 +13,19 @@ from typing import Any, Iterable
 from sqlalchemy import update
 
 from app import db
-from app.models.agent_runtime import AgentRun
-from app.models.conversation import AgentConversation
+from app.models.agent_events import AgentEvent
+from app.models.agent_runtime import (
+    AgentArtifact,
+    AgentCheckpoint,
+    AgentMessage,
+    AgentPlan,
+    AgentPlanEdge,
+    AgentPlanNode,
+    AgentRun,
+    AgentStepExecution,
+    AgentToolCall,
+)
+from app.models.conversation import AgentConversation, AgentConversationMessage, AgentTurn
 from app.models.security import AuditEvent, ProjectSnapshot, ScanTask, SecurityProject
 
 
@@ -94,10 +105,7 @@ def delete_project(project: SecurityProject, actor_id: int, workspace_root: str)
     conversation_count = AgentConversation.query.filter_by(project_id=project.id).count()
     run_count = AgentRun.query.filter_by(project_id=project.id).count()
 
-    for conversation in AgentConversation.query.filter_by(project_id=project.id).all():
-        db.session.delete(conversation)
-    for run in AgentRun.query.filter_by(project_id=project.id).all():
-        db.session.delete(run)
+    _delete_agent_records(project.id)
 
     for snapshot in ProjectSnapshot.query.filter_by(project_id=project.id).all():
         _delete_snapshot_files(snapshot, workspace_root)
@@ -116,6 +124,84 @@ def delete_project(project: SecurityProject, actor_id: int, workspace_root: str)
     )
     db.session.delete(project)
     db.session.commit()
+
+
+def _delete_agent_records(project_id: int) -> None:
+    """按外键依赖顺序清理项目下的 Agent 会话与运行记录。
+
+    agent_conversation_messages 与 agent_turns 互相引用（turn_id / input_message_id），
+    agent_runs 下有 7 张引用表，且历史迁移未声明 ON DELETE CASCADE，
+    因此必须显式按依赖顺序删除，避免外键约束失败。
+    """
+    conversation_ids = [
+        row[0]
+        for row in db.session.query(AgentConversation.id)
+        .filter_by(project_id=project_id)
+        .all()
+    ]
+    run_ids = [
+        row[0]
+        for row in db.session.query(AgentRun.id).filter_by(project_id=project_id).all()
+    ]
+    if conversation_ids:
+        db.session.execute(
+            update(AgentTurn)
+            .where(AgentTurn.conversation_id.in_(conversation_ids))
+            .values(input_message_id=None, parent_turn_id=None)
+        )
+        db.session.execute(
+            AgentConversationMessage.__table__.delete().where(
+                AgentConversationMessage.conversation_id.in_(conversation_ids)
+            )
+        )
+        db.session.execute(
+            AgentTurn.__table__.delete().where(
+                AgentTurn.conversation_id.in_(conversation_ids)
+            )
+        )
+        db.session.execute(
+            AgentConversation.__table__.delete().where(
+                AgentConversation.id.in_(conversation_ids)
+            )
+        )
+    if run_ids:
+        db.session.execute(
+            AgentToolCall.__table__.delete().where(AgentToolCall.run_id.in_(run_ids))
+        )
+        db.session.execute(
+            AgentArtifact.__table__.delete().where(AgentArtifact.run_id.in_(run_ids))
+        )
+        db.session.execute(
+            AgentStepExecution.__table__.delete().where(
+                AgentStepExecution.run_id.in_(run_ids)
+            )
+        )
+        plan_ids = [
+            row[0]
+            for row in db.session.query(AgentPlan.id).filter(AgentPlan.run_id.in_(run_ids)).all()
+        ]
+        if plan_ids:
+            db.session.execute(
+                AgentPlanEdge.__table__.delete().where(AgentPlanEdge.plan_id.in_(plan_ids))
+            )
+            db.session.execute(
+                AgentPlanNode.__table__.delete().where(AgentPlanNode.plan_id.in_(plan_ids))
+            )
+            db.session.execute(
+                AgentPlan.__table__.delete().where(AgentPlan.id.in_(plan_ids))
+            )
+        db.session.execute(
+            AgentMessage.__table__.delete().where(AgentMessage.run_id.in_(run_ids))
+        )
+        db.session.execute(
+            AgentCheckpoint.__table__.delete().where(AgentCheckpoint.run_id.in_(run_ids))
+        )
+        db.session.execute(
+            AgentEvent.__table__.delete().where(AgentEvent.run_id.in_(run_ids))
+        )
+        db.session.execute(
+            AgentRun.__table__.delete().where(AgentRun.id.in_(run_ids))
+        )
 
 
 def _snapshot_count(project_id: int) -> int:
