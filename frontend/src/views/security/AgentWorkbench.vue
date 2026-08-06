@@ -2,27 +2,49 @@
   <div class="agent-page">
     <!-- ============ 项目选择入口（/security/agent） ============ -->
     <section v-if="mode === 'home'" class="agent-home">
-      <header class="home-head">
-        <h1>Agent 工作台</h1>
-        <p class="home-sub">选择一个项目，用自然语言描述安全审计目标；Agent 将转化为结构化计划并真实执行确定性扫描工具。</p>
-      </header>
+      <AgentWorkbenchHeader
+        :total-projects="projects.length"
+        :running-count="runningProjectCount"
+        :attention-count="attentionProjectCount"
+        :loading="projectsLoading"
+        @refresh="loadProjects"
+        @create="focusSelectedProject"
+      />
       <div v-if="projectsLoading" class="home-skeleton">
         <el-skeleton v-for="index in 3" :key="index" :rows="2" animated />
       </div>
       <el-empty v-else-if="projects.length === 0" description="还没有安全项目，请先创建项目并上传快照">
         <el-button type="primary" @click="router.push('/security/projects')">去创建项目</el-button>
       </el-empty>
-      <div v-else class="project-grid">
-        <button
-          v-for="project in projects"
-          :key="project.id"
-          class="project-card"
-          @click="startConversation(project)"
-        >
-          <span class="project-card__name">{{ project.name }}</span>
-          <span class="project-card__meta">项目 #{{ project.id }} · 开始对话</span>
-        </button>
-      </div>
+      <template v-else>
+        <AgentProjectFilters
+          v-model:filter="projectFilter"
+          v-model:search="projectSearch"
+          v-model:language="projectLanguage"
+          v-model:sort="projectSort"
+          :projects="projects"
+        />
+        <div class="home-layout">
+          <AgentProjectTable
+            :projects="filteredProjects"
+            :selected-project-id="selectedProject?.id"
+            :loading="projectsLoading"
+            @select="selectProject"
+            @start="startAudit"
+            @view="openProject"
+          />
+          <AgentProjectInspector
+            ref="inspectorRef"
+            :project="selectedProject"
+            :submitting="creating"
+            :conversations="conversations"
+            :conversations-loading="conversationsLoading"
+            @start="startAudit"
+            @view="openProject"
+            @open-conversation="openConversation"
+          />
+        </div>
+      </template>
     </section>
 
     <!-- ============ 项目入口（/security/projects/:id/agent） ============ -->
@@ -35,10 +57,25 @@
         <AgentGoalForm :submitting="creating" @create="handleCreate" />
         <div class="tip-card">
           <h3>运行说明</h3>
-          <ul>
-            <li>每条消息都会创建一个新的 Turn，并复用项目快照执行（无需重复上传）。</li>
-            <li>Agent 将真实执行：快照清点 → 基线扫描 → 覆盖分析 → 风险排序。</li>
-            <li>多轮对话的 LLM 分析将在接入 Provider 后启用。</li>
+          <ul class="tip-list">
+            <li class="tip-item">
+              <span class="tip-item__icon tip-item__icon--blue">
+                <BaseIcon name="refresh" :size="14" />
+              </span>
+              <span>每条消息都会创建一个新的 Turn，并复用项目快照执行（无需重复上传）。</span>
+            </li>
+            <li class="tip-item">
+              <span class="tip-item__icon tip-item__icon--green">
+                <BaseIcon name="activity" :size="14" />
+              </span>
+              <span>Agent 将真实执行：快照清点 → 基线扫描 → 覆盖分析 → 风险排序。</span>
+            </li>
+            <li class="tip-item">
+              <span class="tip-item__icon tip-item__icon--yellow">
+                <BaseIcon name="zap" :size="14" />
+              </span>
+              <span>多轮对话的 LLM 分析将在接入 Provider 后启用。</span>
+            </li>
           </ul>
         </div>
       </div>
@@ -91,7 +128,30 @@
                 </div>
                 <p class="conv-bubble__text">{{ message.text }}</p>
                 <div v-if="message.detail && message.detail.length" class="conv-bubble__detail">
-                  <div v-for="(line, index) in message.detail" :key="index" class="detail-line">{{ line }}</div>
+                  <div v-for="(line, index) in message.detail" :key="index" class="detail-line">
+                    <template v-if="line.kind === 'severity'">
+                      <BaseBadge v-if="line.counts.critical" type="red">严重 {{ line.counts.critical }}</BaseBadge>
+                      <BaseBadge v-if="line.counts.high" type="orange">高危 {{ line.counts.high }}</BaseBadge>
+                      <BaseBadge v-if="line.counts.medium" type="yellow">中危 {{ line.counts.medium }}</BaseBadge>
+                      <BaseBadge v-if="line.counts.low" type="blue">低危 {{ line.counts.low }}</BaseBadge>
+                      <BaseBadge v-if="line.counts.info" type="gray">信息 {{ line.counts.info }}</BaseBadge>
+                    </template>
+                    <template v-else-if="line.kind === 'coverage'">
+                      <span class="detail-label">覆盖</span>
+                      <span class="detail-value">{{ line.text }}</span>
+                    </template>
+                    <template v-else-if="line.kind === 'task'">
+                      <span class="detail-label">任务</span>
+                      <span class="detail-value">#{{ line.text }}</span>
+                    </template>
+                    <template v-else-if="line.kind === 'languages'">
+                      <span class="detail-label">语言</span>
+                      <span class="detail-value">{{ line.text }}</span>
+                    </template>
+                    <template v-else>
+                      {{ line }}
+                    </template>
+                  </div>
                 </div>
                 <button
                   v-if="message.expandable && message.role === 'agent'"
@@ -144,19 +204,7 @@
             :loading="loading"
           />
           <AgentReasoningStream :text="store.reasoningStream" :live="store.reasoningLive" />
-          <section class="events-card">
-            <div class="card-head">
-              <h2>事件流</h2>
-              <span class="note">{{ store.events.length }} 条（最近）</span>
-            </div>
-            <div v-if="store.events.length === 0" class="events-empty">暂无事件</div>
-            <ul v-else class="events-list">
-              <li v-for="event in store.events" :key="event.sequence">
-                <span class="events-seq">#{{ event.sequence }}</span>
-                <span class="events-type">{{ event.event_type }}</span>
-              </li>
-            </ul>
-          </section>
+          <AgentEventList :events="store.events" />
         </aside>
       </div>
     </section>
@@ -166,27 +214,36 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '@/features/security/feedback'
 import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import AgentConnectionStatus from '@/components/security/agent/AgentConnectionStatus.vue'
 import AgentCoverageFileTable from '@/components/security/agent/AgentCoverageFileTable.vue'
 import AgentCoverageOverview from '@/components/security/agent/AgentCoverageOverview.vue'
+import AgentEventList from '@/components/security/agent/AgentEventList.vue'
 import AgentFindingSummary from '@/components/security/agent/AgentFindingSummary.vue'
 import AgentGoalForm from '@/components/security/agent/AgentGoalForm.vue'
 import AgentPlanGraph from '@/components/security/agent/AgentPlanGraph.vue'
 import AgentReasoningStream from '@/components/security/agent/AgentReasoningStream.vue'
 import AgentStatusTimeline from '@/components/security/agent/AgentStatusTimeline.vue'
 import AgentToolCallList from '@/components/security/agent/AgentToolCallList.vue'
+import AgentWorkbenchHeader from '@/components/security/agent/home/AgentWorkbenchHeader.vue'
+import AgentProjectFilters from '@/components/security/agent/home/AgentProjectFilters.vue'
+import AgentProjectInspector from '@/components/security/agent/home/AgentProjectInspector.vue'
+import AgentProjectTable from '@/components/security/agent/home/AgentProjectTable.vue'
+import { BaseBadge, BaseIcon } from '@/components/ui'
 import { agentAPI, securityAPI } from '@/api'
 import { useAgentCoverage } from '@/composables/security/useAgentCoverage'
+import { useAgentConversations } from '@/composables/security/useAgentConversations'
 import { useAgentRun } from '@/composables/security/useAgentRun'
 import { agentStatusMeta } from '@/features/security/agent/statusMeta'
+import { languageMeta } from '@/features/security/languageMeta'
 import { formatSecurityDate, securityApiErrorMessage } from '@/features/security/presentation'
 
 const route = useRoute()
 const router = useRouter()
-const { store, loading, errorMessage, actionLoading, loadRun, createRun, pauseRun, resumeRun, cancelRun } = useAgentRun()
+const { store, loading, errorMessage, actionLoading, loadRun, pauseRun, resumeRun, cancelRun } = useAgentRun()
+const selectedProject = ref(null)
 const {
   loading: coverageLoading,
   summary: coverageSummary,
@@ -197,6 +254,10 @@ const {
   loadMore: loadMoreCoverage,
   hasMore: coverageHasMore
 } = useAgentCoverage(() => currentRunId.value)
+const {
+  conversations,
+  loading: conversationsLoading
+} = useAgentConversations(() => selectedProject.value?.id)
 const creating = ref(false)
 const sendingMessage = ref(false)
 const threadRef = ref(null)
@@ -207,6 +268,11 @@ const conversationMessages = ref([])
 const conversationTotal = ref(0)
 const turns = ref([])
 const currentRunId = ref(null)
+const projectFilter = ref('all')
+const projectSearch = ref('')
+const projectLanguage = ref('all')
+const projectSort = ref('recent')
+const inspectorRef = ref(null)
 
 const runId = computed(() => Number(route.params.runId))
 const projectId = computed(() => Number(route.params.id))
@@ -216,6 +282,31 @@ const mode = computed(() =>
 )
 
 const statusMeta = computed(() => agentStatusMeta(store.run?.status))
+
+const runningProjectCount = computed(() => projects.value.filter((project) => project.is_running).length)
+const attentionProjectCount = computed(() => projects.value.filter((project) => riskTotal(project) > 0).length)
+
+const filteredProjects = computed(() => {
+  const keyword = projectSearch.value.trim().toLowerCase()
+  let items = projects.value.filter((project) => {
+    if (projectFilter.value === 'running' && !project.is_running) return false
+    if (projectFilter.value === 'attention' && riskTotal(project) === 0) return false
+    if (projectFilter.value === 'unscanned' && project.last_scan_at) return false
+    if (projectLanguage.value !== 'all' && languageMeta(project.language).key !== projectLanguage.value) return false
+    if (!keyword) return true
+    return `${project.name} ${project.description || ''}`.toLowerCase().includes(keyword)
+  })
+
+  return [...items].sort((left, right) => {
+    if (projectSort.value === 'name') return String(left.name).localeCompare(String(right.name))
+    if (projectSort.value === 'risk') return riskTotal(right) - riskTotal(left)
+    return new Date(right.last_scan_at || 0).getTime() - new Date(left.last_scan_at || 0).getTime()
+  })
+})
+
+function riskTotal(project) {
+  return ['critical', 'high', 'medium', 'low', 'info'].reduce((total, level) => total + Number(project?.vulns?.[level] || 0), 0)
+}
 
 const conversationTitle = computed(() => {
   if (!conversationMeta.value) return `Agent 会话 #${conversationId.value}`
@@ -286,15 +377,15 @@ function agentReplyText() {
 }
 
 function agentReplyDetail() {
-  const lines = []
+  const items = []
   const scanSummary = store.scanSummary || baselineMetrics.value
   if (scanSummary) {
-    lines.push(`扫描任务 #${scanSummary.task_id}：${scanSummary.findings_count} 个发现`)
+    items.push({ kind: 'task', text: scanSummary.task_id })
     const counts = scanSummary.severity_counts || {}
-    lines.push(`严重 ${counts.critical ?? 0} · 高危 ${counts.high ?? 0} · 中危 ${counts.medium ?? 0} · 低危 ${counts.low ?? 0}`)
-    if (scanSummary.languages?.length) lines.push(`识别语言：${scanSummary.languages.join(', ')}`)
+    items.push({ kind: 'severity', counts })
+    if (scanSummary.languages?.length) items.push({ kind: 'languages', text: scanSummary.languages.join(', ') })
   }
-  return lines
+  return items
 }
 
 function toggleExpand(message) {
@@ -367,16 +458,54 @@ function jumpToTurn(turn) {
   loadCoverage('')
 }
 
-async function startConversation(project) {
+function selectProject(project) {
+  selectedProject.value = project
+}
+
+async function focusSelectedProject() {
+  selectedProject.value = selectedProject.value || filteredProjects.value[0] || projects.value[0] || null
+  await nextTick()
+  inspectorRef.value?.focusGoal()
+}
+
+function openProject(project) {
+  if (project?.id) router.push(`/security/projects/${project.id}`)
+}
+
+async function startAudit(payload) {
+  const project = payload?.project || payload
+  const goal = payload?.goal || '检查项目安全风险'
+  const auditMode = payload?.mode || 'baseline'
+  if (!project || creating.value) return
+  if (!project.latest_snapshot_id) {
+    ElMessage.warning('项目暂无可用快照，请先上传 ZIP 或导入 GitHub 项目')
+    return
+  }
   creating.value = true
   try {
-    const response = await agentAPI.createConversation(project.id, { title: `${project.name} 安全审计` })
-    ElMessage.success('会话已创建')
-    router.push(`/security/agent-conversations/${response.conversation.id}`)
-  } catch (error) {
-    ElMessage.error(securityApiErrorMessage(error, '创建会话失败'))
+    const conversation = await createConversationTurn(project.id, goal, auditMode)
+    if (conversation) {
+      ElMessage.success('会话已创建')
+      router.push(`/security/agent-conversations/${conversation.id}`)
+    }
   } finally {
     creating.value = false
+  }
+}
+
+async function createConversationTurn(projectIdValue, goal, auditMode) {
+  try {
+    const created = await agentAPI.createConversation(projectIdValue, { title: goal.slice(0, 200) })
+    const conversationIdValue = created.conversation.id
+    await agentAPI.postConversationMessage(conversationIdValue, {
+      content: goal,
+      mode: auditMode,
+      client_message_id: generateClientMessageId()
+    })
+    return { id: conversationIdValue }
+  } catch (error) {
+    ElMessage.error(securityApiErrorMessage(error, '创建会话失败'))
+    return null
   }
 }
 
@@ -391,10 +520,10 @@ async function handleCreate({ goal, mode }) {
   if (creating.value) return
   creating.value = true
   try {
-    const run = await createRun(projectId.value, goal, mode)
-    if (run) {
-      ElMessage.success(`Agent 任务 #${run.id} 已创建`)
-      router.push(`/security/agent-runs/${run.id}`)
+    const conversation = await createConversationTurn(projectId.value, goal, mode)
+    if (conversation) {
+      ElMessage.success('会话已创建')
+      router.push(`/security/agent-conversations/${conversation.id}`)
     }
   } finally {
     creating.value = false
@@ -432,6 +561,9 @@ async function loadProjects() {
   try {
     const response = await securityAPI.listProjects()
     projects.value = response.items || []
+    if (!selectedProject.value || !projects.value.some((project) => project.id === selectedProject.value.id)) {
+      selectedProject.value = projects.value[0] || null
+    }
   } catch (error) {
     ElMessage.error(securityApiErrorMessage(error, '加载项目失败'))
   } finally {
@@ -471,23 +603,12 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.agent-page { min-height: 100vh; background: #f4f6f9; color: #1f2d3d; }
+.agent-page { height: calc(100vh - 60px); overflow: hidden; background: #ffffff; color: #172033; }
 
 /* ===== 首页（项目选择） ===== */
-.agent-home { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
-.home-head h1 { margin: 0 0 6px; font-size: 24px; }
-.home-sub { margin: 0 0 24px; color: #6a7890; font-size: 14px; line-height: 1.7; }
+.agent-home { height: 100%; display: flex; flex-direction: column; padding: 24px 28px 28px; }
+.home-layout { display: grid; grid-template-columns: minmax(0, 1fr) 346px; flex: 1 1 auto; min-height: 0; gap: 16px; align-items: stretch; }
 .home-skeleton { display: flex; flex-direction: column; gap: 10px; }
-.project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-.project-card {
-  display: flex; flex-direction: column; gap: 4px;
-  background: #fff; border: 1px solid #e2e7ee; border-radius: 10px;
-  padding: 14px 16px; cursor: pointer; text-align: left;
-  transition: border-color .15s ease, box-shadow .15s ease;
-}
-.project-card:hover { border-color: #2563eb; box-shadow: 0 2px 8px rgba(37, 99, 235, .08); }
-.project-card__name { font-size: 14px; font-weight: 600; }
-.project-card__meta { color: #8494a8; font-size: 12px; }
 
 /* ===== 项目入口 ===== */
 .agent-project { padding: 12px 16px 32px; }
@@ -495,8 +616,13 @@ onMounted(() => {
 .project-head__title { font-size: 15px; font-weight: 600; }
 .project-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 10px; align-items: start; }
 .tip-card { background: #fff; border: 1px solid #e2e7ee; border-radius: 8px; padding: 14px 16px; }
-.tip-card h3 { margin: 0 0 8px; font-size: 14px; }
-.tip-card ul { margin: 0; padding-left: 18px; color: #52627a; font-size: 12.5px; line-height: 1.8; }
+.tip-card h3 { margin: 0 0 10px; font-size: 14px; }
+.tip-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.tip-item { display: flex; align-items: flex-start; gap: 10px; color: #52627a; font-size: 12.5px; line-height: 1.6; }
+.tip-item__icon { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; flex: none; margin-top: 1px; }
+.tip-item__icon--blue { background: #eff6ff; color: #2563eb; }
+.tip-item__icon--green { background: #dcfce7; color: #16a34a; }
+.tip-item__icon--yellow { background: #fef9c3; color: #ca8a04; }
 
 /* ===== 对话视图 ===== */
 .agent-conversation { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -528,8 +654,34 @@ onMounted(() => {
 .conv-message--user .conv-bubble__role { color: #1d4ed8; }
 .conv-bubble__time { color: #94a3b8; font-size: 11.5px; }
 .conv-bubble__text { margin: 0; white-space: pre-wrap; word-break: break-word; }
-.conv-bubble__detail { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; color: #52627a; font-size: 12.5px; }
-.detail-line { padding-left: 10px; border-left: 2px solid #dbeafe; }
+.conv-bubble__detail {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-left: 10px;
+  border-left: 2px solid #dbeafe;
+}
+
+.detail-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #6a7890;
+  flex: none;
+}
+
+.detail-value {
+  font-size: 12.5px;
+  color: #1f2d3d;
+  font-variant-numeric: tabular-nums;
+}
 .conv-expand {
   margin-top: 8px; border: 0; background: none; color: #0b7fd1; font-size: 12.5px; cursor: pointer; padding: 0;
 }
@@ -555,19 +707,16 @@ onMounted(() => {
   display: flex; flex-direction: column; gap: 10px; padding: 10px 10px 24px;
   overflow-y: auto; background: #f4f6f9; border-left: 1px solid #e2e7ee;
 }
-.events-card { background: #fff; border: 1px solid #e2e7ee; border-radius: 8px; padding: 14px 16px; }
-.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.card-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
-.card-head .note { color: #6a7890; font-size: 12.5px; }
-.events-empty { color: #8494a8; font-size: 12.5px; }
-.events-list { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; }
-.events-list li { display: flex; gap: 10px; padding: 4px 0; font-size: 12.5px; border-bottom: 1px solid #f4f6f9; }
-.events-seq { color: #8494a8; font-variant-numeric: tabular-nums; }
-.events-type { color: #1f2d3d; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 
 @media (max-width: 960px) {
   .conv-layout { grid-template-columns: 1fr; }
   .conv-side { border-left: 0; border-top: 1px solid #e2e7ee; }
   .project-layout { grid-template-columns: 1fr; }
+  .home-layout { grid-template-columns: 1fr; overflow-y: auto; }
+  .agent-home { height: auto; min-height: calc(100vh - 60px); overflow: visible; }
+}
+
+@media (max-width: 720px) {
+  .agent-home { padding: 20px 16px 24px; }
 }
 </style>

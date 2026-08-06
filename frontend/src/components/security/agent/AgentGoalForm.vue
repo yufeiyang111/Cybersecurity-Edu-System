@@ -2,7 +2,7 @@
   <section class="goal-form">
     <div class="goal-form__head">
       <h2>创建 Agent 任务</h2>
-      <span class="goal-form__note">输入自然语言安全审计目标，Agent 将转化为结构化计划并真实执行确定性工具。</span>
+      <span class="goal-form__note">填写审计目标并选择运行模式，任务会保留执行过程与结果。</span>
     </div>
     <el-form label-position="top" @submit.prevent="submit">
       <el-form-item label="审计目标">
