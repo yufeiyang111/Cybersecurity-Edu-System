@@ -191,6 +191,12 @@
             :state-version="store.stateVersion"
             :reasoning-live="store.reasoningLive"
           />
+          <AgentProviderBadge :provider="store.lastProvider" />
+          <AgentPlannerPanel
+            :plan="store.plan"
+            :fallback-reason="planFallbackReason"
+            :loading="loading"
+          />
           <AgentPlanGraph :plan="store.plan" :loading="loading" />
           <AgentCoverageOverview
             :summary="coverageSummary"
@@ -211,6 +217,8 @@
             :loading="loading"
           />
           <AgentReasoningStream :text="store.reasoningStream" :live="store.reasoningLive" />
+          <AgentCostSummary :summary="costSummary" :loading="costsLoading" />
+          <AgentInvocationTable :invocations="invocations" :loading="costsLoading" />
           <AgentEventList :events="store.events" />
         </aside>
       </div>
@@ -225,12 +233,16 @@ import { ElMessage, ElMessageBox } from '@/features/security/feedback'
 import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import AgentConnectionStatus from '@/components/security/agent/AgentConnectionStatus.vue'
+import AgentCostSummary from '@/components/security/agent/AgentCostSummary.vue'
 import AgentCoverageFileTable from '@/components/security/agent/AgentCoverageFileTable.vue'
 import AgentCoverageOverview from '@/components/security/agent/AgentCoverageOverview.vue'
 import AgentEventList from '@/components/security/agent/AgentEventList.vue'
 import AgentFindingSummary from '@/components/security/agent/AgentFindingSummary.vue'
 import AgentGoalForm from '@/components/security/agent/AgentGoalForm.vue'
+import AgentInvocationTable from '@/components/security/agent/AgentInvocationTable.vue'
 import AgentPlanGraph from '@/components/security/agent/AgentPlanGraph.vue'
+import AgentPlannerPanel from '@/components/security/agent/AgentPlannerPanel.vue'
+import AgentProviderBadge from '@/components/security/agent/AgentProviderBadge.vue'
 import AgentReasoningStream from '@/components/security/agent/AgentReasoningStream.vue'
 import AgentStatusTimeline from '@/components/security/agent/AgentStatusTimeline.vue'
 import AgentToolCallList from '@/components/security/agent/AgentToolCallList.vue'
@@ -240,6 +252,7 @@ import AgentProjectInspector from '@/components/security/agent/home/AgentProject
 import AgentProjectTable from '@/components/security/agent/home/AgentProjectTable.vue'
 import { BaseBadge, BaseIcon } from '@/components/ui'
 import { agentAPI, securityAPI } from '@/api'
+import { useAgentCosts } from '@/composables/security/useAgentCosts'
 import { useAgentCoverage } from '@/composables/security/useAgentCoverage'
 import { useAgentConversations } from '@/composables/security/useAgentConversations'
 import { useAgentRun } from '@/composables/security/useAgentRun'
@@ -265,6 +278,12 @@ const {
   conversations,
   loading: conversationsLoading
 } = useAgentConversations(() => selectedProject.value?.id)
+const {
+  loading: costsLoading,
+  summary: costSummary,
+  invocations,
+  loadCosts
+} = useAgentCosts(() => currentRunId.value)
 const creating = ref(false)
 const sendingMessage = ref(false)
 const threadRef = ref(null)
@@ -324,6 +343,13 @@ const baselineMetrics = computed(() => {
   if (store.scanSummary) return store.scanSummary
   const call = store.toolCalls.find((item) => item.tool_name === 'run_baseline_scan')
   return call?.metrics || null
+})
+
+const planFallbackReason = computed(() => {
+  const latest = [...store.events]
+    .reverse()
+    .find((event) => event.event_type === 'plan.created')
+  return latest?.payload?.fallback_reason || ''
 })
 
 const composerPlaceholder = computed(() => {
@@ -501,13 +527,14 @@ async function startAudit(payload) {
   }
 }
 
-async function createConversationTurn(projectIdValue, goal, auditMode) {
+async function createConversationTurn(projectIdValue, goal, auditMode, budget) {
   try {
     const created = await agentAPI.createConversation(projectIdValue, { title: goal.slice(0, 200) })
     const conversationIdValue = created.conversation.id
     await agentAPI.postConversationMessage(conversationIdValue, {
       content: goal,
       mode: auditMode,
+      budget: budget || {},
       client_message_id: generateClientMessageId()
     })
     return { id: conversationIdValue }
@@ -524,11 +551,11 @@ async function nextTickScroll() {
 
 // ------------------------------------------------------------------ run actions
 
-async function handleCreate({ goal, mode }) {
+async function handleCreate({ goal, mode, budget }) {
   if (creating.value) return
   creating.value = true
   try {
-    const conversation = await createConversationTurn(projectId.value, goal, mode)
+    const conversation = await createConversationTurn(projectId.value, goal, mode, budget)
     if (conversation) {
       ElMessage.success('会话已创建')
       router.push(`/security/agent-conversations/${conversation.id}`)
@@ -598,6 +625,7 @@ watch(
   (terminal) => {
     if (terminal && currentRunId.value) {
       loadCoverage('')
+      loadCosts()
       nextTickScroll()
     }
   }

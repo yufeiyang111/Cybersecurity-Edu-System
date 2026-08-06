@@ -28,6 +28,7 @@
           </el-option>
         </el-select>
       </el-form-item>
+      <AgentBudgetEditor v-model:budget="budget" />
       <el-button type="primary" :loading="submitting" :disabled="!goal.trim()" native-type="submit">
         创建任务
       </el-button>
@@ -37,6 +38,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import AgentBudgetEditor from '@/components/security/agent/AgentBudgetEditor.vue'
 import { agentRunModeMeta } from '@/features/security/agent/statusMeta'
 
 const props = defineProps({
@@ -46,10 +48,11 @@ const emit = defineEmits(['create'])
 
 const goal = ref('')
 const mode = ref('baseline')
+const budget = ref({})
 
 function submit() {
   if (!goal.value.trim() || props.submitting) return
-  emit('create', { goal: goal.value.trim(), mode: mode.value })
+  emit('create', { goal: goal.value.trim(), mode: mode.value, budget: budget.value })
 }
 </script>
 

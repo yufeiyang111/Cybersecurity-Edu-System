@@ -104,3 +104,4 @@ AGENT_RUN_MODES = frozenset({"baseline", "hybrid", "deep_audit"})
 
 # Stable planner source labels; rule-based policy plans must never masquerade as LLM output.
 PLANNER_RULE_BASED = "rule_based_policy"
+PLANNER_LLM_LIVE = "llm_live"

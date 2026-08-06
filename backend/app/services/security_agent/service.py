@@ -64,9 +64,11 @@ class AgentRunService:
         user_id: int,
         goal_text: str,
         mode: str,
+        budget: dict | None = None,
     ) -> AgentRun:
         mode_value = mode if mode in {item.value for item in AgentRunMode} else AgentRunMode.BASELINE.value
         trace_id = uuid.uuid4().hex
+        budget_values = _parse_budget(budget or {})
         run = AgentRun(
             workspace_id=project.workspace_id,
             project_id=project.id,
@@ -74,6 +76,7 @@ class AgentRunService:
             created_by=user_id,
             goal_text=goal_text,
             mode=mode_value,
+            **budget_values,
         )
         db.session.add(run)
         db.session.flush()
@@ -215,6 +218,39 @@ class AgentRunService:
 
 
 SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+
+_BUDGET_FIELDS = (
+    "max_llm_calls",
+    "max_tool_calls",
+    "max_total_tokens",
+    "max_wall_clock_seconds",
+)
+
+
+def _parse_budget(budget: dict) -> dict:
+    """Validate optional run budget fields; unknown/absent fields are ignored."""
+    if not isinstance(budget, dict):
+        raise ValueError("budget 必须是对象")
+    values: dict = {}
+    for field in _BUDGET_FIELDS:
+        if field not in budget or budget[field] is None:
+            continue
+        try:
+            value = int(budget[field])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{field} 必须是正整数") from exc
+        if value < 1:
+            raise ValueError(f"{field} 必须是正整数")
+        values[field] = value
+    if "max_estimated_cost" in budget and budget["max_estimated_cost"] is not None:
+        try:
+            cost = float(budget["max_estimated_cost"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("max_estimated_cost 必须是正数") from exc
+        if cost <= 0:
+            raise ValueError("max_estimated_cost 必须是正数")
+        values["max_estimated_cost"] = cost
+    return values
 
 
 def _scan_summary(snapshot_id: int) -> dict | None:

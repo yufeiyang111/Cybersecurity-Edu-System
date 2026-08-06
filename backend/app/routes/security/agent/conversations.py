@@ -147,18 +147,22 @@ def post_agent_conversation_message(conversation_id: int):
         content = data.get("content")
         client_message_id = data.get("client_message_id")
         mode = data.get("mode", "baseline")
+        budget = data.get("budget")
         if not isinstance(content, str) or not content.strip():
             return jsonify({"error": "消息内容不能为空"}), 400
         if not isinstance(client_message_id, str) or not client_message_id.strip():
             return jsonify({"error": "缺少 client_message_id（用于防重复提交）"}), 400
         if not isinstance(mode, str):
             return jsonify({"error": "mode 必须是字符串"}), 400
+        if budget is not None and not isinstance(budget, dict):
+            return jsonify({"error": "budget 必须是对象"}), 400
 
         message, turn, run, replayed = _service.append_user_message(
             conversation,
             content=content,
             client_message_id=client_message_id.strip(),
             mode=mode,
+            budget=budget or {},
         )
         return jsonify(
             {

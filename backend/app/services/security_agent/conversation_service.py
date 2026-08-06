@@ -84,6 +84,7 @@ class ConversationService:
         content: str,
         client_message_id: str,
         mode: str = AgentRunMode.BASELINE.value,
+        budget: dict | None = None,
     ) -> tuple[AgentConversationMessage, AgentTurn, AgentRun, bool]:
         """Append one user message, then create a turn + run reusing the snapshot.
 
@@ -133,6 +134,7 @@ class ConversationService:
             user_id=conversation.created_by,
             goal_text=normalized,
             mode=mode,
+            budget=budget or {},
         )
         turn.run_id = run.id
         message.turn_id = turn.id

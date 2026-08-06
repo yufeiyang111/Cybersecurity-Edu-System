@@ -1,9 +1,9 @@
-"""Inline plan runner: walks the rule-based policy plan DAG and drives tools.
+"""Inline plan runner: walks the policy plan DAG and drives tools.
 
 This is the A1 worker loop.  It executes plans with planner_source =
-rule_based_policy inside a background thread (or synchronously when
-AGENT_RUN_EXECUTOR=synchronous, used by tests).  RQ workers replace this
-dispatcher in batch A10.
+rule_based_policy or llm_live (A3 planner) inside a background thread (or
+synchronously when AGENT_RUN_EXECUTOR=synchronous, used by tests).  RQ workers
+replace this dispatcher in batch A10.
 """
 from __future__ import annotations
 
@@ -16,28 +16,26 @@ from app import db
 from app.models.agent_runtime import (
     AgentArtifact,
     AgentPlan,
-    AgentPlanEdge,
-    AgentPlanEdgeType,
     AgentPlanNode,
     AgentPlanNodeStatus,
-    AgentPlanNodeType,
     AgentRun,
     AgentRunStatus,
     AgentStepExecution,
 )
 from app.services.security_agent.artifact_service import ArtifactService
+from app.services.security_agent.budget import budget_status
 from app.services.security_agent.checkpoint_service import CheckpointService
 from app.services.security_agent.contracts import (
-    EVENT_PLAN_CREATED,
+    EVENT_BUDGET_UPDATED,
     EVENT_RUN_COMPLETED,
     EVENT_STEP_COMPLETED,
     EVENT_STEP_FAILED,
     EVENT_STEP_STARTED,
     EVENT_WARNING_RAISED,
-    PLANNER_RULE_BASED,
 )
 from app.services.security_agent.event_service import EventService
 from app.services.security_agent.llm_analysis import AgentLlmAnalysisService
+from app.services.security_agent.planner import PlanPlanner
 from app.services.security_agent.state_machine import (
     AgentStateError,
     AgentStateMachine,
@@ -64,6 +62,7 @@ class InlinePlanRunner:
         self._checkpoints = checkpoints
         self._tools = ToolExecutor(get_tool_registry(), events)
         self._llm = AgentLlmAnalysisService(events)
+        self._planner = PlanPlanner(events)
 
     def run(self, run_id: int, trace_id: str, app) -> None:
         with app.app_context():
@@ -136,94 +135,8 @@ class InlinePlanRunner:
                     db.session.commit()
 
     def _build_plan(self, run: AgentRun, trace_id: str) -> AgentPlan:
-        plan = AgentPlan(
-            run_id=run.id,
-            plan_version=run.plan_version + 1,
-            planner_source=PLANNER_RULE_BASED,
-            objective=run.goal_text,
-            decision_summary="本地策略基线：清点快照 → 确定性基线扫描 → 覆盖分析 → 风险排序 → 运行摘要。",
-            completion_criteria_json=["inventory 完成", "baseline_scan 完成", "coverage 完成", "risk 完成", "report 完成"],
-        )
-        db.session.add(plan)
-        db.session.flush()
-
-        nodes = [
-            AgentPlanNode(
-                plan_id=plan.id,
-                node_key="inventory",
-                node_type=AgentPlanNodeType.INVENTORY.value,
-                status=AgentPlanNodeStatus.READY.value,
-                title="清点快照文件",
-                description="读取快照文件元数据：文件数、字节数、扩展名与语言分布。",
-                tool_name="inventory_snapshot",
-            ),
-            AgentPlanNode(
-                plan_id=plan.id,
-                node_key="baseline_scan",
-                node_type=AgentPlanNodeType.BASELINE_SCAN.value,
-                status=AgentPlanNodeStatus.PENDING.value,
-                title="执行基线扫描",
-                description="复用确定性扫描管线执行 SAST、SCA 与通用 Secret 扫描，持久化发现项。",
-                tool_name="run_baseline_scan",
-                depends_on_json=["inventory"],
-            ),
-            AgentPlanNode(
-                plan_id=plan.id,
-                node_key="coverage_analysis",
-                node_type=AgentPlanNodeType.COVERAGE_ANALYSIS.value,
-                status=AgentPlanNodeStatus.PENDING.value,
-                title="分析扫描覆盖",
-                description="生成文件级覆盖报告：基线覆盖、专用 SAST、通用扫描、排除与发现分布。",
-                tool_name="get_scan_coverage",
-                depends_on_json=["baseline_scan"],
-            ),
-            AgentPlanNode(
-                plan_id=plan.id,
-                node_key="risk_ranking",
-                node_type=AgentPlanNodeType.RISK_RANKING.value,
-                status=AgentPlanNodeStatus.PENDING.value,
-                title="风险排序",
-                description="复用可解释风险评分对发现项排序，输出严重/高危统计与 Top 列表。",
-                tool_name="rank_findings",
-                depends_on_json=["baseline_scan"],
-            ),
-            AgentPlanNode(
-                plan_id=plan.id,
-                node_key="report",
-                node_type=AgentPlanNodeType.REPORT_GENERATION.value,
-                status=AgentPlanNodeStatus.PENDING.value,
-                title="生成运行摘要",
-                description="汇总已完成的确定性证据，生成运行摘要 Artifact。",
-                tool_name="finalize_agent_report",
-                depends_on_json=["coverage_analysis", "risk_ranking"],
-            ),
-        ]
-        db.session.add_all(nodes)
-        db.session.flush()
-        edges = [
-            AgentPlanEdge(plan_id=plan.id, from_node="inventory", to_node="baseline_scan", edge_type=AgentPlanEdgeType.SUCCESS.value),
-            AgentPlanEdge(plan_id=plan.id, from_node="baseline_scan", to_node="coverage_analysis", edge_type=AgentPlanEdgeType.SUCCESS.value),
-            AgentPlanEdge(plan_id=plan.id, from_node="baseline_scan", to_node="risk_ranking", edge_type=AgentPlanEdgeType.SUCCESS.value),
-            AgentPlanEdge(plan_id=plan.id, from_node="coverage_analysis", to_node="report", edge_type=AgentPlanEdgeType.SUCCESS.value),
-            AgentPlanEdge(plan_id=plan.id, from_node="risk_ranking", to_node="report", edge_type=AgentPlanEdgeType.SUCCESS.value),
-        ]
-        db.session.add_all(edges)
-
-        run.plan_version = plan.plan_version
-        run.planner_source = plan.planner_source
-        self._events.emit(
-            run,
-            EVENT_PLAN_CREATED,
-            {
-                "plan_id": plan.id,
-                "plan_version": plan.plan_version,
-                "planner_source": plan.planner_source,
-                "nodes": ["inventory", "baseline_scan", "coverage_analysis", "risk_ranking", "report"],
-            },
-            trace_id=trace_id,
-        )
-        db.session.commit()
-        return plan
+        """Delegate plan construction to the planner (LLM plan or honest fallback)."""
+        return self._planner.generate_plan(run, trace_id=trace_id)
 
     def _run_plan_nodes(self, run: AgentRun, plan: AgentPlan, trace_id: str) -> None:
         restored = self._checkpoints.restore(run.id)
@@ -349,7 +262,7 @@ class InlinePlanRunner:
         )
 
     def _run_llm_analysis(self, run_id: int, trace_id: str) -> None:
-        """在确定性工具证据就绪后执行 LLM 分析（暂停/取消/终态直接跳过）。"""
+        """在确定性工具证据就绪后执行 LLM 分析（暂停/取消/终态/预算耗尽跳过）。"""
         run = db.session.get(AgentRun, run_id)
         if run is None:
             return
@@ -357,6 +270,10 @@ class InlinePlanRunner:
         if status in {AgentRunStatus.PAUSED.value, AgentRunStatus.CANCELED.value}:
             return
         if self._is_terminal(run):
+            return
+        budget = budget_status(run)
+        if budget["exhausted"]:
+            self._emit_budget_events(run, budget, trace_id)
             return
         if status == AgentRunStatus.EXECUTING_TOOLS.value:
             try:
@@ -373,6 +290,27 @@ class InlinePlanRunner:
                     return
                 run = reloaded
         self._llm.analyze(run, trace_id=trace_id)
+
+    def _emit_budget_events(self, run: AgentRun, budget: dict, trace_id: str) -> None:
+        """预算硬限：只记录并告警，不阻断确定性执行，也不伪装成功。"""
+        self._events.emit(
+            run,
+            EVENT_BUDGET_UPDATED,
+            {
+                "soft": budget["soft"],
+                "exhausted": budget["exhausted"],
+                "reached_codes": budget["reached_codes"],
+                "ratios": budget["ratios"],
+            },
+            trace_id=trace_id,
+        )
+        if budget["reached_codes"]:
+            self._events.emit(
+                run,
+                EVENT_WARNING_RAISED,
+                {"warning_codes": budget["reached_codes"]},
+                trace_id=trace_id,
+            )
 
     def _finish_run(self, run_id: int, trace_id: str) -> None:
         run = db.session.get(AgentRun, run_id)

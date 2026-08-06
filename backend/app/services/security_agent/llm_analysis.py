@@ -23,6 +23,7 @@ from app.models.agent_runtime import AgentArtifact, AgentMessage, AgentRun, Agen
 from app.models.conversation import AgentConversationMessage, AgentTurn
 from app.services.llm.contracts import LLMRequest
 from app.services.llm.provider_selector import select_provider
+from app.services.llm.redactor import redact_reasoning
 from app.services.llm.usage_normalizer import normalize_usage
 from app.services.security_agent.contracts import (
     EVENT_LLM_COMPLETED,
@@ -33,6 +34,12 @@ from app.services.security_agent.contracts import (
     EVENT_WARNING_RAISED,
 )
 from app.services.security_agent.event_service import EventService
+from app.services.security_agent.llm_invocation import (
+    USAGE_SOURCE_ESTIMATED,
+    USAGE_SOURCE_PROVIDER_REPORTED,
+    record_invocation,
+)
+from app.services.security_agent.prompt_templates.planner_v1 import prompt_digest
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +105,7 @@ class AgentLlmAnalysisService:
             trace_id=trace_id,
         )
         request = self._build_request(goal, evidence)
+        self._last_prompt = request.prompt
         try:
             return self._consume_stream(run, provider, request, evidence, trace_id)
         except Exception as exc:
@@ -107,7 +115,13 @@ class AgentLlmAnalysisService:
                 run.id,
                 type(exc).__name__,
             )
-            return self._degrade(run, "AGENT_PROVIDER_UNHEALTHY", evidence, trace_id)
+            return self._degrade(
+                run,
+                "AGENT_PROVIDER_UNHEALTHY",
+                evidence,
+                trace_id,
+                provider=provider,
+            )
 
     # ------------------------------------------------------------------ stream
 
@@ -127,12 +141,15 @@ class AgentLlmAnalysisService:
         for chunk in provider.generate_stream(request):
             chunk_index += 1
             if chunk.reasoning_delta:
-                self._events.emit(
-                    run,
-                    EVENT_LLM_REASONING_DELTA,
-                    {"delta": chunk.reasoning_delta},
-                    trace_id=trace_id,
-                )
+                # 思维链直通前必须脱敏；无法安全脱敏的增量直接丢弃
+                safe_delta = redact_reasoning(chunk.reasoning_delta)
+                if safe_delta:
+                    self._events.emit(
+                        run,
+                        EVENT_LLM_REASONING_DELTA,
+                        {"delta": safe_delta},
+                        trace_id=trace_id,
+                    )
             if chunk.delta:
                 analysis_parts.append(chunk.delta)
             if isinstance(chunk.usage, dict) and chunk.usage:
@@ -155,6 +172,7 @@ class AgentLlmAnalysisService:
                 trace_id,
                 warning_code=warning_code,
                 usage=usage,
+                provider=provider,
             )
 
         analysis = "".join(analysis_parts).strip()
@@ -166,10 +184,32 @@ class AgentLlmAnalysisService:
                 trace_id,
                 warning_code="LLM_PROVIDER_RESPONSE_INVALID",
                 usage=usage,
+                provider=provider,
             )
 
         normalized = normalize_usage(usage) or {}
-        self._record_usage(run, normalized, usage)
+        input_tokens = int(normalized.get("prompt_tokens") or 0)
+        output_tokens = int(normalized.get("completion_tokens") or 0)
+        if not normalized:
+            output_tokens = max(0, len(analysis) // 4)
+        record_invocation(
+            run,
+            provider=provider,
+            operation="agent_analysis",
+            status="success",
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cached_input_tokens=int(normalized.get("cached_tokens") or 0),
+            cache_creation_tokens=int(normalized.get("cache_write_tokens") or 0),
+            reasoning_tokens=_nested_usage_int(
+                usage, "reasoning_tokens", "completion_tokens_details.reasoning_tokens"
+            ),
+            total_tokens=int(normalized.get("total_tokens") or 0) or input_tokens + output_tokens,
+            usage_source=USAGE_SOURCE_PROVIDER_REPORTED if normalized else USAGE_SOURCE_ESTIMATED,
+            input_digest=prompt_digest(request.prompt),
+            output_digest=prompt_digest(analysis),
+            prompt_template_version="analysis-v1",
+        )
         summary = analysis[:MAX_ANALYSIS_CHARS]
         db.session.add(
             AgentMessage(
@@ -212,6 +252,7 @@ class AgentLlmAnalysisService:
         *,
         warning_code: str | None = None,
         usage: dict | None = None,
+        provider: object | None = None,
     ) -> dict:
         """显式降级：确定性摘要 + llm.failed + warning.raised，不伪装成功。"""
         analysis = _deterministic_summary(agent_warning_code, evidence)
@@ -233,7 +274,23 @@ class AgentLlmAnalysisService:
         )
         if usage:
             normalized = normalize_usage(usage) or {}
-            self._record_usage(run, normalized, usage)
+            record_invocation(
+                run,
+                provider=provider or _UnavailableProvider(),
+                operation="agent_analysis",
+                status="failed",
+                warning_code=warning_code or agent_warning_code,
+                input_tokens=int(normalized.get("prompt_tokens") or 0),
+                output_tokens=int(normalized.get("completion_tokens") or 0),
+                cached_input_tokens=int(normalized.get("cached_tokens") or 0),
+                reasoning_tokens=_nested_usage_int(
+                    usage, "reasoning_tokens", "completion_tokens_details.reasoning_tokens"
+                ),
+                total_tokens=int(normalized.get("total_tokens") or 0),
+                usage_source=USAGE_SOURCE_PROVIDER_REPORTED,
+                input_digest=prompt_digest(self._last_prompt) if self._last_prompt else None,
+                prompt_template_version="analysis-v1",
+            )
         else:
             normalized = {}
         db.session.add(
@@ -297,21 +354,6 @@ class AgentLlmAnalysisService:
             evidence[artifact.artifact_type] = _bounded_metrics(metrics)
         return evidence
 
-    def _record_usage(self, run: AgentRun, normalized: dict, raw_usage: dict) -> None:
-        input_tokens = int(normalized.get("prompt_tokens") or 0)
-        output_tokens = int(normalized.get("completion_tokens") or 0)
-        cached_tokens = int(normalized.get("cached_tokens") or 0)
-        total_tokens = int(normalized.get("total_tokens") or 0) or input_tokens + output_tokens
-        reasoning_tokens = _nested_usage_int(
-            raw_usage, "reasoning_tokens", "completion_tokens_details.reasoning_tokens"
-        )
-        run.llm_call_count += 1
-        run.input_tokens += input_tokens
-        run.output_tokens += output_tokens
-        run.cached_input_tokens += cached_tokens
-        run.reasoning_tokens += reasoning_tokens
-        run.total_tokens += total_tokens
-
     def _has_analysis(self, run_id: int) -> bool:
         return (
             AgentMessage.query.filter_by(run_id=run_id, message_type=ANALYSIS_MESSAGE_TYPE)
@@ -328,6 +370,15 @@ class AgentLlmAnalysisService:
 
 
 # ------------------------------------------------------------------ module helpers
+
+
+class _UnavailableProvider:
+    """占位 Provider：仅在无 Provider 但又有 usage 需要记账时使用。"""
+
+    provider_name = "unavailable"
+    model = None
+    model_version = None
+    provider_config_id = None
 
 
 def _deterministic_summary(warning_code: str, evidence: dict | None) -> str:

@@ -8,6 +8,7 @@ from app import db
 from app.models.agent_runtime import AgentRun
 from app.models.security import ProjectSnapshot, SecurityProject
 from app.services.security_agent.contracts import AGENT_RUN_MODES
+from app.services.security_agent.cost_service import run_costs
 from app.services.security_agent.service import AgentRunService
 from app.services.security_agent.state_machine import AgentStateError
 
@@ -56,6 +57,10 @@ def create_agent_run(project_id: int):
         if mode not in AGENT_RUN_MODES:
             return jsonify({"error": "mode 必须是 baseline、hybrid 或 deep_audit"}), 400
 
+        budget = data.get("budget")
+        if budget is not None and not isinstance(budget, dict):
+            return jsonify({"error": "budget 必须是对象"}), 400
+
         snapshot = (
             ProjectSnapshot.query.filter_by(project_id=project.id)
             .order_by(ProjectSnapshot.id.desc())
@@ -70,6 +75,7 @@ def create_agent_run(project_id: int):
             user_id=user_id,
             goal_text=goal_text,
             mode=mode,
+            budget=budget or {},
         )
         return jsonify({"run": run.to_dict()}), 201
     except AuthorizationError as exc:
@@ -157,3 +163,16 @@ def list_agent_run_events(run_id: int):
         return jsonify({"error": str(exc)}), 403
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+
+
+@projects_bp.route("/agent-runs/<int:run_id>/costs", methods=["GET"])
+@jwt_required()
+def get_agent_run_costs(run_id: int):
+    """Per-run LLM invocation list and cost summary (provider_reported/estimated/unknown)."""
+    try:
+        run = _agent_run_or_404(run_id)
+        if run is None:
+            return jsonify({"error": "Agent 任务不存在"}), 404
+        return jsonify(run_costs(run))
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
