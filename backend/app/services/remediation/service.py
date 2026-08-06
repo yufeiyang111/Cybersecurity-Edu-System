@@ -63,7 +63,7 @@ class RemediationService:
         ]
         if len(safe_citation_payloads) != len(citation_payloads):
             warning_codes.append("CITATION_INJECTION_FILTERED")
-        provider = configured_provider(self.provider)
+        provider = configured_provider(self.provider, user_id=actor_id)
         if provider is None:
             warning_codes.append(
                 "LLM_PROVIDER_UNAVAILABLE" if _config_bool("REMEDIATION_LLM_ENABLED") else "LLM_DISABLED"

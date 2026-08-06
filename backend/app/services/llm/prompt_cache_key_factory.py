@@ -39,7 +39,7 @@ def for_stable_prefix(
     ):
         b = value.encode("utf-8")
         digest.update(str(len(b)).encode("utf-8"))
-        digest.update(b":".encode("utf-8"))
+        digest.update(b":")
         digest.update(b)
         digest.update(b"\x00")
     key_bytes = digest.digest()[:16]

@@ -13,16 +13,16 @@ from .patch_validator import validate_unified_patch
 from .settings import _config_bool
 from .types import _CodeContext, _ProviderCallResult
 
-def configured_provider(explicit_provider: object | None) -> object | None:
+def configured_provider(explicit_provider: object | None, *, user_id: int | None = None) -> object | None:
     """在显式启用时返回注入的或配置好的远程 Provider。"""
     if not _config_bool("REMEDIATION_LLM_ENABLED"):
         return None
     if explicit_provider is not None:
         return explicit_provider
 
-    from .providers import select_configured_provider
+    from app.services.llm.provider_selector import select_provider
 
-    return select_configured_provider()
+    return select_provider(user_id=user_id, operation="remediation")
 
 def _call_provider(
     provider: object,

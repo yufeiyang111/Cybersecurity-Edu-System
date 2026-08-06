@@ -2,12 +2,14 @@
 问答相关路由
 """
 import json
+import inspect
 import os
 import uuid
 from flask import Blueprint, request, jsonify, current_app, Response, stream_with_context
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models.qa import QAConversation, QARecord, Favorite, FeedbackLog
+from app.models.user import UserPreference
 from app.services.rag_engine import get_rag_engine
 from app.services.document_parser import parse_document
 
@@ -103,7 +105,8 @@ def _prepare_ask_inputs(user_id: int):
                         "content": record.answer
                     })
 
-    return question, conversation_id, engine_query, conversation_history, attachments
+    preferences = UserPreference.query.filter_by(user_id=user_id).first()
+    return question, conversation_id, engine_query, conversation_history, attachments, (preferences.to_dict() if preferences else None)
 
 
 def _save_qa_record(user_id: int, conversation_id: int, question: str, result: dict, attachments: list) -> QARecord:
@@ -124,12 +127,23 @@ def _save_qa_record(user_id: int, conversation_id: int, question: str, result: d
     return record
 
 
+def _engine_call(method, *args, user_id: int, **kwargs):
+    """Pass user context to current engines while keeping legacy adapters usable."""
+    try:
+        supports_user_id = "user_id" in inspect.signature(method).parameters
+    except (TypeError, ValueError):
+        supports_user_id = True
+    if supports_user_id:
+        kwargs["user_id"] = user_id
+    return method(*args, **kwargs)
+
+
 @qa_bp.route("/ask", methods=["POST"])
 @jwt_required()
 def ask_question():
     """提交问题并获取答案"""
     user_id = get_jwt_identity()
-    question, conversation_id, engine_query, conversation_history, attachments = _prepare_ask_inputs(user_id)
+    question, conversation_id, engine_query, conversation_history, attachments, preferences = _prepare_ask_inputs(user_id)
 
     if not question:
         return jsonify({"error": "问题不能为空"}), 400
@@ -137,7 +151,13 @@ def ask_question():
     # 调用RAG引擎获取答案
     try:
         rag_engine = get_rag_engine()
-        result = rag_engine.ask(engine_query, conversation_history)
+        result = _engine_call(
+            rag_engine.ask,
+            engine_query,
+            conversation_history,
+            user_preferences=preferences,
+            user_id=int(user_id),
+        )
     except Exception as e:
         return jsonify({
             "error": f"生成答案失败: {str(e)}"
@@ -165,7 +185,7 @@ def ask_question():
 def ask_question_stream():
     """流式提交问题并获取答案（SSE，ChatGPT 风格打字机输出）"""
     user_id = get_jwt_identity()
-    question, conversation_id, engine_query, conversation_history, attachments = _prepare_ask_inputs(user_id)
+    question, conversation_id, engine_query, conversation_history, attachments, preferences = _prepare_ask_inputs(user_id)
 
     if not question:
         return jsonify({"error": "问题不能为空"}), 400
@@ -174,7 +194,13 @@ def ask_question_stream():
 
     def generate():
         try:
-            for event in rag_engine.ask_stream(engine_query, conversation_history):
+            for event in _engine_call(
+                rag_engine.ask_stream,
+                engine_query,
+                conversation_history,
+                user_preferences=preferences,
+                user_id=int(user_id),
+            ):
                 if event["type"] in ("delta", "reasoning"):
                     yield _sse_event(event["type"], {"delta": event.get("content") or event.get("delta") or ""})
                 elif event["type"] == "done":
