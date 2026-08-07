@@ -310,6 +310,50 @@ def test_merge_denies_non_admin(graph_api_app, graph_stub):
     assert graph_stub._nx_graph.has_node("a")
 
 
+def test_deduplicate_merges_same_name_entities(graph_api_app, graph_stub):
+    user_id = make_user(graph_api_app, "dedup1", "dedup1@example.test")
+    client = graph_api_app.test_client()
+
+    # 添加两组同名实体
+    graph_stub._nx_graph.add_node("9_签名", type="concept", title="签名", category="")
+    graph_stub._nx_graph.add_node("11_签名", type="concept", title="签名", category="")
+    graph_stub._nx_graph.add_node("9_防火墙", type="concept", title="防火墙", category="")
+    graph_stub._nx_graph.add_node("13_防火墙", type="concept", title="防火墙", category="")
+    graph_stub._nx_graph.add_edge("9_签名", "b", relation="related_to", weight=1.0)
+    graph_stub._nx_graph.add_edge("11_签名", "d", relation="related_to", weight=1.0)
+    graph_stub._nx_graph.add_edge("9_防火墙", "e", relation="related_to", weight=1.0)
+    graph_stub._nx_graph.add_edge("13_防火墙", "d", relation="related_to", weight=1.0)
+
+    response = client.post(
+        "/api/admin/graph/deduplicate",
+        headers=auth_headers(graph_api_app, user_id, role="admin"),
+    )
+    assert response.status_code == 200
+    body = response.json
+    assert body["groups"] == 2
+    assert body["removed_nodes"] == 2
+
+    graph_data = graph_stub._nx_graph
+    sign_nodes = [
+        node_id for node_id, data in graph_data.nodes(data=True)
+        if data.get("title") == "签名"
+    ]
+    assert len(sign_nodes) == 1
+    assert graph_data.has_node("a") and graph_data.has_node("b")
+    assert graph_data.has_edge(sign_nodes[0], "b") or graph_data.has_edge(sign_nodes[0], "d")
+
+
+def test_deduplicate_requires_admin(graph_api_app, graph_stub):
+    user_id = make_user(graph_api_app, "dedup2", "dedup2@example.test")
+    client = graph_api_app.test_client()
+
+    response = client.post(
+        "/api/admin/graph/deduplicate",
+        headers=auth_headers(graph_api_app, user_id, role="user"),
+    )
+    assert response.status_code == 403
+
+
 # ==================== 中心性 ====================
 
 def test_centrality_pagerank_covers_all_nodes(graph_api_app, graph_stub):

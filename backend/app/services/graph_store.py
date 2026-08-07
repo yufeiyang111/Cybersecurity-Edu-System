@@ -427,16 +427,23 @@ class KnowledgeGraph:
             })
         return {"path": path_ids, "edges": edges}
 
-    def merge_nodes(self, source_id: str, target_id: str) -> Optional[int]:
+    def merge_nodes(self, source_id: str, target_id: str, invalidate: bool = True) -> Optional[int]:
         """把 source 节点的所有边重定向到 target 后删除 source，返回迁移边数；失败返回 None"""
         if self.use_neo4j and self._neo4j_graph:
             moved = self._neo4j_graph.merge_entities(
                 source_id=source_id,
                 target_id=target_id
             )
-            if moved is not None:
+            if moved is not None and invalidate:
                 self._invalidate_sync()
             return moved
+        moved = self._merge_nodes_local(source_id, target_id)
+        if moved is not None and invalidate:
+            self._save_nx_graph()
+        return moved
+
+    def _merge_nodes_local(self, source_id: str, target_id: str) -> Optional[int]:
+        """NetworkX 实现：边迁移 + 删除源节点（不写盘）"""
         graph_data = self._nx_graph
         if not graph_data.has_node(source_id) or not graph_data.has_node(target_id):
             return None
@@ -460,8 +467,54 @@ class KnowledgeGraph:
                 graph_data.add_edge(predecessor, target_id, **edge_data)
             moved += 1
         graph_data.remove_node(source_id)
-        self._save_nx_graph()
         return moved
+
+    def deduplicate_entities(self) -> Dict[str, Any]:
+        """合并同名同类型实体（每个分组保留关联最多的节点），返回合并统计"""
+        graph_data = self.graph
+        by_key: Dict[Tuple[str, str], List[str]] = {}
+        for node_id, data in graph_data.nodes(data=True):
+            if data.get("type") == "knowledge":
+                continue
+            key = (data.get("type", ""), data.get("title", node_id))
+            by_key.setdefault(key, []).append(node_id)
+
+        pairs = []
+        groups = 0
+        for key, node_ids in by_key.items():
+            if len(node_ids) < 2:
+                continue
+            groups += 1
+            target_id = max(node_ids, key=lambda node_id: graph_data.degree(node_id))
+            for source_id in node_ids:
+                if source_id != target_id:
+                    pairs.append((source_id, target_id))
+
+        merged_edges = 0
+        removed_nodes = 0
+        if self.use_neo4j and self._neo4j_graph:
+            for source_id, target_id in pairs:
+                moved = self._neo4j_graph.merge_entities(
+                    source_id=source_id,
+                    target_id=target_id
+                )
+                if moved is not None:
+                    merged_edges += moved
+                    removed_nodes += 1
+            self._invalidate_sync()
+        else:
+            for source_id, target_id in pairs:
+                moved = self._merge_nodes_local(source_id, target_id)
+                if moved is not None:
+                    merged_edges += moved
+                    removed_nodes += 1
+            self._save_nx_graph()
+
+        return {
+            "groups": groups,
+            "removed_nodes": removed_nodes,
+            "merged_edges": merged_edges
+        }
 
     def centrality(self, metric: str = "pagerank") -> Dict[str, float]:
         """计算节点中心性分数（pagerank / degree），基于同步后的 NetworkX 图"""

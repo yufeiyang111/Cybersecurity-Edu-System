@@ -122,6 +122,30 @@
             <span class="legend-text">高</span>
           </div>
         </div>
+
+        <div v-if="userStore.isAdmin" class="sidebar-section">
+          <h3>数据维护</h3>
+          <p class="dedup-hint">
+            合并同名同类型实体（如多个条目的「签名」），关系边迁移到保留节点，可减少重复节点
+          </p>
+          <el-popconfirm
+            title="确认合并所有同名实体？此操作不可撤销"
+            confirm-button-text="合并"
+            cancel-button-text="取消"
+            @confirm="runDeduplicate"
+          >
+            <template #reference>
+              <el-button
+                type="warning"
+                size="small"
+                :loading="deduplicating"
+                block
+              >
+                合并同名实体
+              </el-button>
+            </template>
+          </el-popconfirm>
+        </div>
       </aside>
 
       <main class="graph-main">
@@ -192,7 +216,12 @@
             <h3>{{ selectedNode.name }}</h3>
             <div class="detail-info">
               <p><strong>类型：</strong>{{ getNodeTypeText(selectedNode.nodeType) }}</p>
-              <p><strong>分类：</strong>{{ selectedNode.category || '未分类' }}</p>
+              <p>
+                <strong>分类：</strong>{{ selectedNodeCategory }}
+                <span v-if="selectedNodeCategorySource" class="category-source">
+                  （来源条目 #{{ selectedNodeCategorySource }}）
+                </span>
+              </p>
               <p><strong>关联数量：</strong>{{ selectedNode.degree || 0 }}</p>
             </div>
             <el-divider />
@@ -311,7 +340,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { adminAPI, knowledgeAPI } from '@/api'
@@ -357,6 +386,7 @@ const pathLoading = ref(false)
 // 实体归并
 const mergeTargetId = ref(null)
 const mergeLoading = ref(false)
+const deduplicating = ref(false)
 
 // 中心性着色
 const centralityEnabled = ref(false)
@@ -364,6 +394,32 @@ const centralityMetric = ref('pagerank')
 const centralityScores = ref(null)
 const centralityRange = ref({ min: 0, max: 1 })
 const renderTick = ref(0)
+
+// 详情面板分类：实体节点显示其来源知识条目的分类
+const selectedNodeCategory = computed(() => {
+  const node = selectedNode.value
+  if (!node) return '未分类'
+  if (node.category) return node.category
+  if (node.nodeType === 'knowledge') return '未分类'
+  return selectedNodeCategorySource.value
+    ? nodeSourceCategory.value || '未分类'
+    : '实体节点（无知识分类）'
+})
+
+const selectedNodeCategorySource = computed(() => {
+  const node = selectedNode.value
+  if (!node || node.nodeType === 'knowledge') return ''
+  return String(node.id).split('_')[0]
+})
+
+const nodeSourceCategory = computed(() => {
+  const sourceItemId = selectedNodeCategorySource.value
+  if (!sourceItemId) return ''
+  const sourceItem = allNodes.value.find(
+    node => String(node.id) === sourceItemId && node.nodeType === 'knowledge'
+  )
+  return sourceItem?.category || ''
+})
 
 const relationColors = {
   'is_a': '#67c23a',
@@ -669,6 +725,22 @@ const runMerge = async () => {
     console.error('合并失败', error)
   } finally {
     mergeLoading.value = false
+  }
+}
+
+const runDeduplicate = async () => {
+  deduplicating.value = true
+  try {
+    const res = await adminAPI.deduplicateGraph()
+    ElMessage.success(
+      `合并完成：${res.groups} 组同名实体，移除 ${res.removed_nodes} 个重复节点，迁移 ${res.merged_edges} 条关系`
+    )
+    isSubgraphView.value = false
+    await loadGraphData()
+  } catch (error) {
+    console.error('合并同名实体失败', error)
+  } finally {
+    deduplicating.value = false
   }
 }
 
@@ -1421,6 +1493,18 @@ onMounted(() => {
     line-height: 1.6;
     color: #8c959f;
   }
+}
+
+.category-source {
+  font-size: 12px;
+  color: #8c959f;
+}
+
+.dedup-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #8c959f;
 }
 
 .centrality-control {

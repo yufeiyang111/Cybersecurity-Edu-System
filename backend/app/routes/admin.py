@@ -543,6 +543,26 @@ def merge_graph_nodes():
         return jsonify({"error": str(e)}), 500
 
 
+@admin_bp.route("/graph/deduplicate", methods=["POST"])
+@jwt_required()
+def deduplicate_graph():
+    """合并同名同类型实体（管理员）：每个分组保留关联最多的节点，其余合并"""
+    if not require_admin():
+        return jsonify({"error": "权限不足"}), 403
+
+    try:
+        graph = get_knowledge_graph()
+        result = graph.deduplicate_entities()
+        return jsonify({
+            "message": "同名实体合并完成",
+            "groups": result["groups"],
+            "removed_nodes": result["removed_nodes"],
+            "merged_edges": result["merged_edges"]
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @admin_bp.route("/graph/centrality", methods=["GET"])
 @jwt_required()
 def get_graph_centrality():

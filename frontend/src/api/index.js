@@ -383,6 +383,7 @@ export const adminAPI = {
   getGraphPath: (params) => api.get('/admin/graph/path', { params }),
   getGraphCentrality: (params) => api.get('/admin/graph/centrality', { params }),
   mergeGraphNodes: (data) => api.post('/admin/graph/merge', data),
+  deduplicateGraph: () => api.post('/admin/graph/deduplicate'),
 
   rebuildVectorIndex: () => api.post('/admin/vector/rebuild'),
   rebuildAllIndex: () => api.post('/admin/data/rebuild-index'),

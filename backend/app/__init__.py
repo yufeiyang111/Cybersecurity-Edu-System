@@ -85,6 +85,25 @@ def create_app(config_object: type | None = None) -> Flask:
     app.register_blueprint(policies_bp, url_prefix="/api")
     app.register_blueprint(memories_bp, url_prefix="/api")
 
+    # 后台预热 RAG 引擎：加载 embedding 模型耗时长（约 10s），
+    # 避免发生在首个用户请求（如知识详情页的相关推荐）里
+    if app.config.get("APP_ENV") != "testing":
+        import threading
+
+        def _warmup_rag_engine() -> None:
+            try:
+                from app.services.rag_engine import get_rag_engine
+
+                get_rag_engine()
+            except Exception:
+                app.logger.exception("RAG 引擎后台预热失败")
+
+        threading.Thread(
+            target=_warmup_rag_engine,
+            name="rag-engine-warmup",
+            daemon=True
+        ).start()
+
     @app.errorhandler(404)
     def api_not_found(error):
         if request.path.startswith("/api/"):
