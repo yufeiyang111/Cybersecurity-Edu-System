@@ -380,6 +380,9 @@ export const adminAPI = {
   getGraphNodes: (params) => api.get('/admin/graph/nodes', { params }),
   getGraphEdges: (params) => api.get('/admin/graph/edges', { params }),
   getRelatedNodes: (id, params) => api.get(`/admin/graph/related/${id}`, { params }),
+  getGraphPath: (params) => api.get('/admin/graph/path', { params }),
+  getGraphCentrality: (params) => api.get('/admin/graph/centrality', { params }),
+  mergeGraphNodes: (data) => api.post('/admin/graph/merge', data),
 
   rebuildVectorIndex: () => api.post('/admin/vector/rebuild'),
   rebuildAllIndex: () => api.post('/admin/data/rebuild-index'),

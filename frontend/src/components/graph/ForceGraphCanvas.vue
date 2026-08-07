@@ -85,6 +85,10 @@ const props = defineProps({
   minimapHeight: {
     type: Number,
     default: 100
+  },
+  renderTick: {
+    type: Number,
+    default: 0
   }
 })
 
@@ -118,6 +122,10 @@ let simAlpha = 1
 let fitted = false
 let hoveredNodeId = null
 let highlightedNodeId = null
+let pathNodeIds = new Set()
+let pathEdgeSet = new Set()
+let pathPulseStart = 0
+let pathPulseRaf = 0
 let pulseStart = 0
 let pressedNode = null
 let dragNode = null
@@ -173,17 +181,21 @@ const buildAdjacency = (focusId) => {
 const drawEdges = () => {
   const focusId = hoveredNodeId || highlightedNodeId
   const focusSet = focusId ? buildAdjacency(focusId) : null
-  ctx.lineWidth = 1.5
+  const pathActive = pathNodeIds.size > 0
   for (const edge of simEdges) {
     const a = simNodes[edge.sourceIdx]
     const b = simNodes[edge.targetIdx]
     if (!isFinite(a.x) || !isFinite(a.y) || !isFinite(b.x) || !isFinite(b.y)) continue
+    const inPath = pathEdgeSet.has(edge)
     let alpha = 0.4
-    if (focusSet) {
+    if (pathActive) {
+      alpha = inPath ? 0.95 : 0.08
+    } else if (focusSet) {
       alpha = focusSet.has(a.id) && focusSet.has(b.id) ? 0.85 : 0.08
     }
-    ctx.strokeStyle = props.edgeColor(edge.raw)
+    ctx.strokeStyle = inPath ? '#f97316' : props.edgeColor(edge.raw)
     ctx.globalAlpha = alpha
+    ctx.lineWidth = inPath ? 3 : 1.5
     ctx.beginPath()
     ctx.moveTo(a.x, a.y)
     ctx.lineTo(b.x, b.y)
@@ -195,24 +207,28 @@ const drawEdges = () => {
 const drawNodes = () => {
   const focusId = hoveredNodeId || highlightedNodeId
   const focusSet = focusId ? buildAdjacency(focusId) : null
+  const pathActive = pathNodeIds.size > 0
   const showLabels = simNodes.length <= 40 || view.scale > 0.8
   const labelFontSize = 13 / view.scale
 
   for (const node of simNodes) {
     if (!isFinite(node.x) || !isFinite(node.y)) continue
-    const inFocus = !focusSet || node.id === focusId || focusSet.has(node.id)
+    const inPath = pathNodeIds.has(node.id)
+    const inFocus = pathActive
+      ? inPath
+      : !focusSet || node.id === focusId || focusSet.has(node.id)
     ctx.globalAlpha = inFocus ? 1 : 0.15
-    ctx.fillStyle = props.nodeColor(node.raw)
+    ctx.fillStyle = inPath ? '#f97316' : props.nodeColor(node.raw)
     ctx.beginPath()
     ctx.arc(node.x, node.y, node.size / 2, 0, Math.PI * 2)
     ctx.fill()
-    ctx.lineWidth = 2
-    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = inPath ? 3 : 2
+    ctx.strokeStyle = inPath ? '#ffffff' : '#ffffff'
     ctx.stroke()
 
-    if (showLabels || node.id === focusId) {
+    if (showLabels || node.id === focusId || inPath) {
       ctx.globalAlpha = inFocus ? 0.95 : 0.15
-      ctx.fillStyle = node.id === focusId ? '#2c974b' : '#24292f'
+      ctx.fillStyle = node.id === focusId ? '#2c974b' : inPath ? '#ea580c' : '#24292f'
       ctx.font = `600 ${labelFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
@@ -220,6 +236,23 @@ const drawNodes = () => {
     }
   }
   ctx.globalAlpha = 1
+
+  // 路径脉冲光环
+  if (pathNodeIds.size) {
+    const elapsed = performance.now() - pathPulseStart
+    if (elapsed < 2000) {
+      const t = Math.min(elapsed / 2000, 1)
+      ctx.strokeStyle = 'rgba(249, 115, 22, 0.55)'
+      ctx.lineWidth = 2
+      for (const node of simNodes) {
+        if (!pathNodeIds.has(node.id) || !isFinite(node.x) || !isFinite(node.y)) continue
+        ctx.beginPath()
+        ctx.arc(node.x, node.y, node.size / 2 + 6 + t * 18, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      pathPulseRaf = requestAnimationFrame(draw)
+    }
+  }
 
   if (highlightedNodeId) {
     const pulseNode = simNodes.find(node => node.id === highlightedNodeId)
@@ -432,6 +465,9 @@ const resetSim = () => {
   stillTicks = 0
   userInteracted = false
   hoveredNodeId = null
+  cancelAnimationFrame(pathPulseRaf)
+  pathNodeIds = new Set()
+  pathEdgeSet = new Set()
   tooltipVisible.value = false
   if (firstDataLoad && props.nodes.length > 0) {
     firstDataLoad = false
@@ -572,6 +608,26 @@ const highlightNode = (id) => {
   pulseStart = performance.now()
   draw()
 }
+const highlightPath = (ids) => {
+  cancelAnimationFrame(pathPulseRaf)
+  pathNodeIds = new Set(ids)
+  pathEdgeSet = new Set()
+  for (const edge of simEdges) {
+    const a = simNodes[edge.sourceIdx]
+    const b = simNodes[edge.targetIdx]
+    if (pathNodeIds.has(a.id) && pathNodeIds.has(b.id)) {
+      pathEdgeSet.add(edge)
+    }
+  }
+  pathPulseStart = performance.now()
+  draw()
+}
+const clearPathHighlight = () => {
+  cancelAnimationFrame(pathPulseRaf)
+  pathNodeIds = new Set()
+  pathEdgeSet = new Set()
+  draw()
+}
 const focusNode = (id) => {
   const node = simNodes.find(item => item.id === id)
   if (!node) return
@@ -592,12 +648,17 @@ defineExpose({
   zoomOut,
   resetZoom,
   highlightNode,
+  highlightPath,
+  clearPathHighlight,
   focusNode,
   exportPng
 })
 
 watch(() => props.nodes, resetSim)
 watch(() => props.edges, resetSim)
+watch(() => props.renderTick, () => {
+  if (simNodes.length) draw()
+})
 
 onMounted(() => {
   resizeObserver = new ResizeObserver(resize)
@@ -610,6 +671,7 @@ onUnmounted(() => {
   resizeObserver?.disconnect()
   cancelAnimationFrame(rafId)
   cancelAnimationFrame(viewTweenRaf)
+  cancelAnimationFrame(pathPulseRaf)
 })
 </script>
 

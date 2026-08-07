@@ -390,6 +390,77 @@ class KnowledgeGraph:
         else:
             return self._nx_graph.subgraph(node_ids).copy()
 
+    def shortest_path(self, source_id: str, target_id: str) -> Optional[Dict[str, Any]]:
+        """计算两点间最短路径（无向遍历，路径节点不存在时返回 None）"""
+        graph_data = self.graph
+        if not graph_data.has_node(source_id) or not graph_data.has_node(target_id):
+            return None
+        try:
+            path_ids = nx.shortest_path(graph_data.to_undirected(), source_id, target_id)
+        except nx.NetworkXNoPath:
+            return {"path": [], "edges": []}
+        edges = []
+        for index in range(len(path_ids) - 1):
+            u = path_ids[index]
+            v = path_ids[index + 1]
+            edge_data = graph_data.get_edge_data(u, v) or graph_data.get_edge_data(v, u) or {}
+            edges.append({
+                "source": u,
+                "target": v,
+                "relation": edge_data.get("relation", "related_to"),
+                "weight": edge_data.get("weight", 1.0)
+            })
+        return {"path": path_ids, "edges": edges}
+
+    def merge_nodes(self, source_id: str, target_id: str) -> Optional[int]:
+        """把 source 节点的所有边重定向到 target 后删除 source，返回迁移边数；失败返回 None"""
+        if self.use_neo4j and self._neo4j_graph:
+            moved = self._neo4j_graph.merge_entities(
+                source_id=source_id,
+                target_id=target_id
+            )
+            if moved is not None:
+                self._invalidate_sync()
+            return moved
+        graph_data = self._nx_graph
+        if not graph_data.has_node(source_id) or not graph_data.has_node(target_id):
+            return None
+        moved = 0
+        for neighbor in list(graph_data.successors(source_id)):
+            if neighbor == target_id:
+                graph_data.remove_edge(source_id, neighbor)
+                moved += 1
+                continue
+            edge_data = graph_data.get_edge_data(source_id, neighbor)
+            if not graph_data.has_edge(target_id, neighbor):
+                graph_data.add_edge(target_id, neighbor, **edge_data)
+            moved += 1
+        for predecessor in list(graph_data.predecessors(source_id)):
+            if predecessor == target_id:
+                graph_data.remove_edge(predecessor, source_id)
+                moved += 1
+                continue
+            edge_data = graph_data.get_edge_data(predecessor, source_id)
+            if not graph_data.has_edge(predecessor, target_id):
+                graph_data.add_edge(predecessor, target_id, **edge_data)
+            moved += 1
+        graph_data.remove_node(source_id)
+        self._save_nx_graph()
+        return moved
+
+    def centrality(self, metric: str = "pagerank") -> Dict[str, float]:
+        """计算节点中心性分数（pagerank / degree），基于同步后的 NetworkX 图"""
+        graph_data = self.graph
+        if metric == "degree":
+            return {
+                node_id: float(graph_data.degree(node_id))
+                for node_id in graph_data.nodes()
+            }
+        try:
+            return nx.pagerank(graph_data, alpha=0.85)
+        except Exception:
+            return {}
+
     def compute_pagerank(self, damping: float = 0.85) -> Dict[str, float]:
         """计算PageRank"""
         if self.use_neo4j and self._neo4j_graph:

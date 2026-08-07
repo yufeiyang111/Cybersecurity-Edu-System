@@ -336,6 +336,58 @@ class Neo4jKnowledgeGraph:
             print(f"查询邻居失败: {e}")
             return []
 
+    def merge_entities(self, source_id: str, target_id: str) -> Optional[int]:
+        """
+        合并实体：把 source 的所有关系迁移到 target 并删除 source
+
+        Args:
+            source_id: 被合并的源实体ID
+            target_id: 保留的目标实体ID
+
+        Returns:
+            迁移的关系数，失败返回 None
+        """
+        if self.driver is None:
+            return None
+
+        moved = 0
+        params = {"source_id": source_id, "target_id": target_id}
+        # 出边重定向：source -[r]-> x 变为 target -[r]-> x（跳过指向 target 自身的边）
+        out_cql = """
+        MATCH (s {id: $source_id})
+        MATCH (t {id: $target_id})
+        MATCH (s)-[r:RELATES]->(x)
+        WHERE x.id <> $target_id
+        MERGE (t)-[nr:RELATES]->(x)
+        SET nr.type = r.type, nr.weight = r.weight
+        DELETE r
+        """
+        # 入边重定向：x -[r]-> source 变为 x -[r]-> target（跳过 source 自身的入边）
+        in_cql = """
+        MATCH (s {id: $source_id})
+        MATCH (t {id: $target_id})
+        MATCH (x)-[r:RELATES]->(s)
+        WHERE x.id <> $target_id
+        MERGE (x)-[nr:RELATES]->(t)
+        SET nr.type = r.type, nr.weight = r.weight
+        DELETE r
+        """
+        try:
+            with self.driver.session() as session:
+                summary = session.run(out_cql, params).consume()
+                moved += summary.counters.relationships_deleted
+                summary = session.run(in_cql, params).consume()
+                moved += summary.counters.relationships_deleted
+                # 删除源节点及其残留边（含 source-target 之间的边）
+                session.run(
+                    "MATCH (s {id: $source_id}) DETACH DELETE s",
+                    {"source_id": source_id}
+                ).consume()
+            return moved
+        except Exception as e:
+            print(f"合并实体失败: {e}")
+            return None
+
     def find_paths(
         self,
         source_id: str,

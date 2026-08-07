@@ -101,6 +101,27 @@
             <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
           </el-select>
         </div>
+
+        <div class="sidebar-section">
+          <h3>中心性着色</h3>
+          <div class="centrality-control">
+            <el-switch v-model="centralityEnabled" @change="handleCentralityToggle" />
+            <el-select
+              v-model="centralityMetric"
+              size="small"
+              :disabled="!centralityEnabled"
+              @change="loadCentralityScores"
+            >
+              <el-option label="PageRank 热度" value="pagerank" />
+              <el-option label="连接数量" value="degree" />
+            </el-select>
+          </div>
+          <div v-if="centralityEnabled && centralityScores" class="centrality-legend">
+            <span class="legend-text">低</span>
+            <div class="legend-gradient"></div>
+            <span class="legend-text">高</span>
+          </div>
+        </div>
       </aside>
 
       <main class="graph-main">
@@ -160,6 +181,7 @@
             :node-size="nodeSizeOf"
             :tooltip-title="tooltipTitleOf"
             :tooltip-fields="tooltipFieldsOf"
+            :render-tick="renderTick"
             @node-click="handleNodeClick"
           />
         </div>
@@ -187,6 +209,96 @@
               </div>
               <el-empty v-if="!neighbors.length && !loadingNeighbors" description="暂无关联节点" />
             </div>
+
+            <el-divider />
+            <h4>路径分析</h4>
+            <div class="path-analyzer">
+              <el-select
+                v-model="pathTargetId"
+                filterable
+                placeholder="选择目标节点"
+                size="small"
+                class="path-target-select"
+              >
+                <el-option
+                  v-for="node in allNodes"
+                  :key="node.id"
+                  :label="node.name"
+                  :value="node.id"
+                />
+              </el-select>
+              <el-button
+                type="primary"
+                size="small"
+                :disabled="!pathTargetId"
+                :loading="pathLoading"
+                @click="runPathAnalysis"
+              >
+                查询路径
+              </el-button>
+            </div>
+            <div v-if="pathNodes.length" class="path-result">
+              <div class="path-meta">
+                最短路径：{{ pathNodes.length }} 个节点 / {{ pathDistance }} 跳
+                <el-button size="small" text type="primary" @click="clearPath">
+                  清除
+                </el-button>
+              </div>
+              <div class="path-list">
+                <div
+                  v-for="(node, index) in pathNodes"
+                  :key="node.id"
+                  class="path-item"
+                  @click="focusNode(node.id)"
+                >
+                  <span class="path-index">{{ index + 1 }}</span>
+                  <span class="path-name">{{ node.name }}</span>
+                  <span class="path-type">{{ getNodeTypeText(node.type) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="userStore.isAdmin" class="merge-section">
+              <el-divider />
+              <h4>实体归并</h4>
+              <p class="merge-hint">
+                将当前节点合并到目标节点：关系边全部迁移，当前节点被删除（不可撤销）
+              </p>
+              <div class="merge-control">
+                <el-select
+                  v-model="mergeTargetId"
+                  filterable
+                  placeholder="选择目标节点"
+                  size="small"
+                  class="path-target-select"
+                >
+                  <el-option
+                    v-for="node in allNodes"
+                    :key="node.id"
+                    :label="node.name"
+                    :value="node.id"
+                  />
+                </el-select>
+                <el-popconfirm
+                  title="确认合并该节点？此操作不可撤销"
+                  confirm-button-text="合并"
+                  cancel-button-text="取消"
+                  @confirm="runMerge"
+                >
+                  <template #reference>
+                    <el-button
+                      type="danger"
+                      size="small"
+                      :disabled="!mergeTargetId"
+                      :loading="mergeLoading"
+                    >
+                      合并
+                    </el-button>
+                  </template>
+                </el-popconfirm>
+              </div>
+            </div>
+
             <div class="detail-actions">
               <el-button type="primary" @click="viewKnowledge">查看详情</el-button>
               <el-button @click="startFromNode">以此节点开始</el-button>
@@ -199,7 +311,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { adminAPI, knowledgeAPI } from '@/api'
@@ -235,6 +347,23 @@ const searchQuery = ref('')
 const searchResults = ref([])
 const allNodes = ref([])
 const isSubgraphView = ref(false)
+
+// 路径分析
+const pathTargetId = ref(null)
+const pathNodes = ref([])
+const pathDistance = ref(0)
+const pathLoading = ref(false)
+
+// 实体归并
+const mergeTargetId = ref(null)
+const mergeLoading = ref(false)
+
+// 中心性着色
+const centralityEnabled = ref(false)
+const centralityMetric = ref('pagerank')
+const centralityScores = ref(null)
+const centralityRange = ref({ min: 0, max: 1 })
+const renderTick = ref(0)
 
 const relationColors = {
   'is_a': '#67c23a',
@@ -292,7 +421,28 @@ const getRelationText = (rel) => {
   return texts[rel] || rel
 }
 
-const nodeColorOf = (node) => nodeTypeColors[node.nodeType] || '#10b981'
+const nodeColorOf = (node) => {
+  if (centralityEnabled.value) {
+    return centralityColorOf(node)
+  }
+  return nodeTypeColors[node.nodeType] || '#10b981'
+}
+
+const centralityColorOf = (node) => {
+  if (!centralityScores.value) return nodeTypeColors[node.nodeType] || '#10b981'
+  const score = centralityScores.value[node.id]
+  if (score === undefined || score === null) {
+    return nodeTypeColors[node.nodeType] || '#10b981'
+  }
+  const { min, max } = centralityRange.value
+  const normalized = max > min ? (score - min) / (max - min) : 1
+  const from = [209, 250, 229]
+  const to = [6, 95, 70]
+  const r = Math.round(from[0] + (to[0] - from[0]) * normalized)
+  const g = Math.round(from[1] + (to[1] - from[1]) * normalized)
+  const b = Math.round(from[2] + (to[2] - from[2]) * normalized)
+  return `rgb(${r}, ${g}, ${b})`
+}
 
 const edgeColorOf = (edge) => relationColors[edge.relation] || '#909399'
 
@@ -392,7 +542,10 @@ const showNodeDetail = async (nodeData) => {
   selectedNode.value = nodeData
   nodeDialogVisible.value = true
   loadingNeighbors.value = true
-  
+  pathTargetId.value = null
+  mergeTargetId.value = null
+  clearPath()
+
   if (userStore.isAdmin) {
     try {
       const res = await adminAPI.getRelatedNodes(nodeData.id, { depth: 1 })
@@ -414,6 +567,120 @@ const showNodeDetail = async (nodeData) => {
 
 const focusNode = (nodeId) => {
   graphRef.value?.highlightNode(nodeId)
+}
+
+const runPathAnalysis = async () => {
+  if (!selectedNode.value || !pathTargetId.value) return
+  pathLoading.value = true
+  try {
+    const res = await adminAPI.getGraphPath({
+      source: selectedNode.value.id,
+      target: pathTargetId.value
+    })
+    const path = res.nodes || []
+    if (!path.length) {
+      ElMessage.warning('两个节点之间没有可达路径')
+      pathNodes.value = []
+      pathDistance.value = 0
+      graphRef.value?.clearPathHighlight()
+      return
+    }
+
+    // 路径可能包含当前视图未加载的节点/边，补充进视图保证完整显示
+    const renderedIds = new Set(graphNodes.value.map(node => node.id))
+    const missingNodes = path.filter(node => !renderedIds.has(node.id))
+    if (missingNodes.length) {
+      graphNodes.value = [
+        ...graphNodes.value,
+        ...missingNodes.map(node => ({
+          id: node.id,
+          name: node.name,
+          category: node.category || '未分类',
+          nodeType: node.type,
+          degree: 1,
+          value: 1
+        }))
+      ]
+      const edgeKeys = new Set(graphEdges.value.map(edge => `${edge.source}-${edge.target}`))
+      const missingEdges = (res.edges || []).filter(
+        edge => !edgeKeys.has(`${edge.source}-${edge.target}`)
+      ).map(edge => ({
+        source: edge.source,
+        target: edge.target,
+        name: edge.relation || '相关',
+        lineStyle: { color: relationColors[edge.relation] || '#909399' }
+      }))
+      if (missingEdges.length) {
+        graphEdges.value = [...graphEdges.value, ...missingEdges]
+      }
+    }
+
+    pathNodes.value = path
+    pathDistance.value = res.distance || 0
+    await nextTick()
+    graphRef.value?.highlightPath(path.map(node => node.id))
+    ElMessage.success(`已找到最短路径（${path.length} 个节点 / ${res.distance || 0} 跳）`)
+  } catch (error) {
+    console.error('路径分析失败', error)
+    ElMessage.error('路径分析失败，请重试')
+  } finally {
+    pathLoading.value = false
+  }
+}
+
+const clearPath = () => {
+  pathNodes.value = []
+  pathDistance.value = 0
+  graphRef.value?.clearPathHighlight()
+}
+
+const runMerge = async () => {
+  if (!selectedNode.value || !mergeTargetId.value) return
+  if (mergeTargetId.value === selectedNode.value.id) {
+    ElMessage.warning('不能合并到自身')
+    return
+  }
+  mergeLoading.value = true
+  const mergedId = mergeTargetId.value
+  try {
+    const res = await adminAPI.mergeGraphNodes({
+      source_id: selectedNode.value.id,
+      target_id: mergedId
+    })
+    ElMessage.success(`合并成功，迁移 ${res.moved_edges} 条关系`)
+    nodeDialogVisible.value = false
+    clearPath()
+    await refreshGraph()
+    await nextTick()
+    graphRef.value?.highlightNode(mergedId)
+  } catch (error) {
+    console.error('合并失败', error)
+  } finally {
+    mergeLoading.value = false
+  }
+}
+
+const handleCentralityToggle = (enabled) => {
+  if (enabled) {
+    loadCentralityScores()
+  } else {
+    renderTick.value++
+  }
+}
+
+const loadCentralityScores = async () => {
+  try {
+    const res = await adminAPI.getGraphCentrality({ metric: centralityMetric.value })
+    centralityScores.value = res.scores || {}
+    const values = Object.values(centralityScores.value)
+    centralityRange.value = {
+      min: values.length ? Math.min(...values) : 0,
+      max: values.length ? Math.max(...values) : 1
+    }
+    renderTick.value++
+  } catch (error) {
+    console.error('加载中心性分数失败', error)
+  }
 }
 
 const handleSearch = () => {
@@ -1061,6 +1328,111 @@ onMounted(() => {
     margin-top: 16px;
     display: flex;
     gap: 12px;
+  }
+}
+
+.path-analyzer,
+.merge-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .path-target-select {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.path-result {
+  margin-top: 12px;
+
+  .path-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #ea580c;
+    margin-bottom: 8px;
+  }
+
+  .path-list {
+    max-height: 180px;
+    overflow-y: auto;
+
+    .path-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+
+      &:hover {
+        background: rgba(249, 115, 22, 0.08);
+      }
+
+      .path-index {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #f97316;
+        color: #fff;
+        font-size: 11px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .path-name {
+        flex: 1;
+        font-size: 13px;
+        color: #24292f;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .path-type {
+        font-size: 12px;
+        color: #8c959f;
+      }
+    }
+  }
+}
+
+.merge-section {
+  .merge-hint {
+    margin: 0 0 10px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #8c959f;
+  }
+}
+
+.centrality-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.centrality-legend {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .legend-text {
+    font-size: 12px;
+    color: #8c959f;
+  }
+
+  .legend-gradient {
+    flex: 1;
+    height: 8px;
+    border-radius: 999px;
+    background: linear-gradient(to right, #d1fae5, #065f46);
   }
 }
 

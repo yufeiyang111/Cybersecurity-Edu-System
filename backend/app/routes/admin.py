@@ -467,6 +467,98 @@ def get_graph_edges():
         return jsonify({"error": str(e)}), 500
 
 
+@admin_bp.route("/graph/path", methods=["GET"])
+@jwt_required()
+def get_graph_path():
+    """查询两点间最短路径"""
+    source = request.args.get("source", "").strip()
+    target = request.args.get("target", "").strip()
+    if not source or not target:
+        return jsonify({"error": "缺少 source 或 target 参数"}), 400
+    try:
+        graph = get_knowledge_graph()
+        graph_data = graph.graph
+        if not graph_data.has_node(source):
+            return jsonify({"error": "起始节点不存在"}), 404
+        if not graph_data.has_node(target):
+            return jsonify({"error": "目标节点不存在"}), 404
+
+        result = graph.shortest_path(source, target)
+        if result is None:
+            return jsonify({"error": "路径计算失败"}), 500
+
+        path_nodes = []
+        for node_id in result["path"]:
+            node_data = graph_data.nodes[node_id]
+            path_nodes.append({
+                "id": node_id,
+                "name": node_data.get("title", node_id),
+                "type": node_data.get("type", "unknown"),
+                "category": node_data.get("category", "")
+            })
+
+        return jsonify({
+            "nodes": path_nodes,
+            "edges": result["edges"],
+            "distance": max(len(result["path"]) - 1, 0)
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.route("/graph/merge", methods=["POST"])
+@jwt_required()
+def merge_graph_nodes():
+    """合并实体节点（管理员）：边迁移到目标节点后删除源节点"""
+    if not require_admin():
+        return jsonify({"error": "权限不足"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    source_id = str(payload.get("source_id", "")).strip()
+    target_id = str(payload.get("target_id", "")).strip()
+    if not source_id or not target_id:
+        return jsonify({"error": "缺少 source_id 或 target_id"}), 400
+    if source_id == target_id:
+        return jsonify({"error": "不能合并到自身"}), 400
+
+    try:
+        graph = get_knowledge_graph()
+        graph_data = graph.graph
+        if not graph_data.has_node(source_id):
+            return jsonify({"error": "源节点不存在"}), 404
+        if not graph_data.has_node(target_id):
+            return jsonify({"error": "目标节点不存在"}), 404
+
+        moved = graph.merge_nodes(source_id, target_id)
+        if moved is None:
+            return jsonify({"error": "节点合并失败"}), 500
+
+        return jsonify({
+            "message": "节点合并成功",
+            "moved_edges": moved,
+            "source_id": source_id,
+            "target_id": target_id
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.route("/graph/centrality", methods=["GET"])
+@jwt_required()
+def get_graph_centrality():
+    """计算节点中心性分数"""
+    metric = request.args.get("metric", "pagerank").strip().lower()
+    allowed = ("pagerank", "degree")
+    if metric not in allowed:
+        return jsonify({"error": f"不支持的指标: {metric}，可选 {', '.join(allowed)}"}), 400
+    try:
+        graph = get_knowledge_graph()
+        scores = graph.centrality(metric)
+        return jsonify({"metric": metric, "scores": scores}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @admin_bp.route("/graph/clear", methods=["DELETE"])
 @jwt_required()
 def clear_graph():
