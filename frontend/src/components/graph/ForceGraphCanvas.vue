@@ -111,6 +111,8 @@ let view = { x: 0, y: 0, scale: 1 }
 let rafId = 0
 let viewTweenRaf = 0
 let simTicks = 0
+let stillTicks = 0
+let userInteracted = false
 let simAlpha = 1
 let fitted = false
 let hoveredNodeId = null
@@ -346,6 +348,7 @@ const animateViewTo = (targetX, targetY, targetScale, duration = 600) => {
 const runSim = () => {
   cancelAnimationFrame(rafId)
   simTicks = 0
+  stillTicks = 0
   if (!simNodes.length) {
     draw()
     return
@@ -365,10 +368,21 @@ const runSim = () => {
   }
   const loop = () => {
     simTicks++
-    stepSim(simNodes, simEdges, DEFAULT_PARAMS, simAlpha)
+    const maxMove = stepSim(simNodes, simEdges, DEFAULT_PARAMS, simAlpha)
     simAlpha *= (1 - DEFAULT_PARAMS.alphaDecay)
+    if (maxMove < 0.6) {
+      stillTicks++
+    } else {
+      stillTicks = 0
+    }
+    if (!fitted && !userInteracted) {
+      followView()
+    }
     draw()
-    if (simTicks > DEFAULT_PARAMS.maxTicks || simAlpha < DEFAULT_PARAMS.alphaMin) {
+    const settled = simTicks > DEFAULT_PARAMS.maxTicks
+      || simAlpha < DEFAULT_PARAMS.alphaMin
+      || stillTicks >= 12
+    if (settled) {
       if (!fitted) {
         fitted = true
         const target = computeFit()
@@ -381,6 +395,14 @@ const runSim = () => {
   rafId = requestAnimationFrame(loop)
 }
 
+const followView = () => {
+  const target = computeFit()
+  const ease = 0.15
+  view.x += (target.x - view.x) * ease
+  view.y += (target.y - view.y) * ease
+  view.scale += (target.scale - view.scale) * ease
+}
+
 const resetSim = () => {
   simNodes = createSimNodes(props.nodes, simNodes)
   simEdges = createSimEdges(props.edges, simNodes)
@@ -389,6 +411,8 @@ const resetSim = () => {
   }
   simAlpha = 1
   fitted = false
+  stillTicks = 0
+  userInteracted = false
   hoveredNodeId = null
   tooltipVisible.value = false
   fitView()
@@ -406,6 +430,7 @@ const zoomAt = (sx, sy, factor) => {
 }
 
 const onWheel = (event) => {
+  userInteracted = true
   const rect = canvasRef.value.getBoundingClientRect()
   const sx = event.clientX - rect.left
   const sy = event.clientY - rect.top
@@ -413,6 +438,7 @@ const onWheel = (event) => {
 }
 
 const onPointerDown = (event) => {
+  userInteracted = true
   const rect = canvasRef.value.getBoundingClientRect()
   downX = event.clientX - rect.left
   downY = event.clientY - rect.top
