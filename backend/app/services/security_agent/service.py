@@ -21,6 +21,7 @@ from app.models.agent_runtime import (
     AgentToolCall,
 )
 from app.models.security import AuditEvent
+from app.services.agent_observability import AgentLogger
 from app.services.security_agent.artifact_service import ArtifactService
 from app.services.security_agent.checkpoint_service import CheckpointService
 from app.services.security_agent.contracts import (
@@ -47,6 +48,7 @@ class AgentRunService:
         self._events = EventService()
         self._artifacts = ArtifactService()
         self._checkpoints = CheckpointService()
+        self._agent_log = AgentLogger()
         self._runner = InlinePlanRunner(
             state=self._state,
             events=self._events,
@@ -113,6 +115,7 @@ class AgentRunService:
             reason="杩愯宸插垱寤猴紝绛夊緟鎵ц",
             trace_id=trace_id,
         )
+        self._agent_log.run_event("run.created", run, trace_id=trace_id)
         self._dispatch(run, trace_id)
         db.session.refresh(run)
         return run
@@ -125,6 +128,7 @@ class AgentRunService:
             reason="鐢ㄦ埛鏆傚仠",
         )
         self._events.emit(run, EVENT_RUN_PAUSED, {"run_id": run.id})
+        self._agent_log.run_event("run.paused", run)
         db.session.commit()
         return run
 
@@ -137,6 +141,7 @@ class AgentRunService:
             reason="鐢ㄦ埛鎭㈠",
         )
         self._events.emit(run, EVENT_RUN_RESUMED, {"run_id": run.id})
+        self._agent_log.run_event("run.resumed", run, trace_id=trace_id)
         db.session.commit()
         self._dispatch(run, trace_id)
         db.session.refresh(run)
@@ -150,6 +155,7 @@ class AgentRunService:
             reason="鐢ㄦ埛鍙栨秷",
         )
         self._runner._cancel_remaining_nodes(run)
+        self._agent_log.run_event("run.canceled", run)
         db.session.commit()
         return run
 

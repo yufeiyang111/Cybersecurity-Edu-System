@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Agent LLM 分析服务：把多轮对话接入统一 LLM Provider 与事件契约。
 
 职责边界（独立于 runner / tools，避免巨型模块）：
@@ -21,6 +21,7 @@ from typing import Any
 from app import db
 from app.models.agent_runtime import AgentArtifact, AgentMessage, AgentRun, AgentRunStatus
 from app.models.conversation import AgentConversationMessage, AgentTurn
+from app.services.agent_observability import AgentLogger
 from app.services.llm.contracts import LLMRequest
 from app.services.llm.provider_selector import select_provider
 from app.services.llm.redactor import redact_reasoning
@@ -44,6 +45,7 @@ from app.services.security_agent.prompt_templates.planner_v1 import prompt_diges
 logger = logging.getLogger(__name__)
 
 AGENT_OPERATION = "agent"
+INVOCATION_OPERATION = "agent_analysis"
 ANALYSIS_MESSAGE_TYPE = "llm_analysis"
 MAX_ANALYSIS_CHARS = 6000
 MAX_EVIDENCE_CHARS = 12000
@@ -77,6 +79,7 @@ class AgentLlmAnalysisService:
 
     def __init__(self, events: EventService) -> None:
         self._events = events
+        self._agent_log = AgentLogger()
 
     # ------------------------------------------------------------------ public
 
@@ -102,6 +105,15 @@ class AgentLlmAnalysisService:
                 "model": getattr(provider, "model", None),
                 "operation": AGENT_OPERATION,
             },
+            trace_id=trace_id,
+        )
+        self._agent_log.llm_event(
+            "llm.started",
+            run,
+            operation=INVOCATION_OPERATION,
+            provider=getattr(provider, "provider_name", "unknown"),
+            model=getattr(provider, "model", None),
+            status="started",
             trace_id=trace_id,
         )
         request = self._build_request(goal, evidence)
@@ -192,10 +204,10 @@ class AgentLlmAnalysisService:
         output_tokens = int(normalized.get("completion_tokens") or 0)
         if not normalized:
             output_tokens = max(0, len(analysis) // 4)
-        record_invocation(
+        invocation = record_invocation(
             run,
             provider=provider,
-            operation="agent_analysis",
+            operation=INVOCATION_OPERATION,
             status="success",
             input_tokens=input_tokens,
             output_tokens=output_tokens,
@@ -209,6 +221,28 @@ class AgentLlmAnalysisService:
             input_digest=prompt_digest(request.prompt),
             output_digest=prompt_digest(analysis),
             prompt_template_version="analysis-v1",
+        )
+        self._agent_log.llm_event(
+            "llm.completed",
+            run,
+            operation=INVOCATION_OPERATION,
+            provider=getattr(provider, "provider_name", "unknown"),
+            model=getattr(provider, "model", None),
+            status="success",
+            input_tokens=invocation.input_tokens,
+            output_tokens=invocation.output_tokens,
+            cached_input_tokens=invocation.cached_input_tokens,
+            reasoning_tokens=invocation.reasoning_tokens,
+            total_tokens=invocation.total_tokens,
+            usage_source=invocation.usage_source,
+            cost=float(invocation.total_cost or 0),
+            currency=invocation.currency,
+            latency_ms=invocation.latency_ms,
+            first_token_latency_ms=invocation.first_token_latency_ms,
+            input_digest=invocation.input_digest,
+            output_digest=invocation.output_digest,
+            prompt_template_version="analysis-v1",
+            trace_id=trace_id,
         )
         summary = analysis[:MAX_ANALYSIS_CHARS]
         db.session.add(
@@ -274,10 +308,10 @@ class AgentLlmAnalysisService:
         )
         if usage:
             normalized = normalize_usage(usage) or {}
-            record_invocation(
+            invocation = record_invocation(
                 run,
                 provider=provider or _UnavailableProvider(),
-                operation="agent_analysis",
+                operation=INVOCATION_OPERATION,
                 status="failed",
                 warning_code=warning_code or agent_warning_code,
                 input_tokens=int(normalized.get("prompt_tokens") or 0),
@@ -291,8 +325,33 @@ class AgentLlmAnalysisService:
                 input_digest=prompt_digest(self._last_prompt) if self._last_prompt else None,
                 prompt_template_version="analysis-v1",
             )
+            self._agent_log.llm_event(
+                "llm.failed",
+                run,
+                operation=INVOCATION_OPERATION,
+                provider=getattr(provider or _UnavailableProvider(), "provider_name", "unavailable"),
+                model=getattr(provider or _UnavailableProvider(), "model", None),
+                status="failed",
+                warning_code=warning_code or agent_warning_code,
+                input_tokens=invocation.input_tokens,
+                output_tokens=invocation.output_tokens,
+                total_tokens=invocation.total_tokens,
+                usage_source=invocation.usage_source,
+                cost=float(invocation.total_cost or 0),
+                latency_ms=invocation.latency_ms,
+                trace_id=trace_id,
+            )
         else:
             normalized = {}
+            self._agent_log.llm_event(
+                "llm.failed",
+                run,
+                operation=INVOCATION_OPERATION,
+                provider=getattr(provider or _UnavailableProvider(), "provider_name", "unavailable"),
+                status="failed",
+                warning_code=warning_code or agent_warning_code,
+                trace_id=trace_id,
+            )
         db.session.add(
             AgentMessage(
                 run_id=run.id,

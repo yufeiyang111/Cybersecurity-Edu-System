@@ -119,6 +119,7 @@ def agent_api_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             "SECURITY_WORKSPACE_ROOT": str(tmp_path / "security-workspaces"),
             "UPLOAD_FOLDER": str(tmp_path / "uploads"),
             "LOG_FILE": str(tmp_path / "logs" / "test.log"),
+            "AGENT_LOG_FILE": str(tmp_path / "logs" / "agent.log"),
             "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'agent_api.db'}",
             "SQLALCHEMY_ENGINE_OPTIONS": {"connect_args": {"check_same_thread": False}},
             "AGENT_RUN_EXECUTOR": "synchronous",
@@ -148,6 +149,7 @@ def app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             "SECURITY_WORKSPACE_ROOT": str(tmp_path / "security-workspaces"),
             "UPLOAD_FOLDER": str(tmp_path / "uploads"),
             "LOG_FILE": str(tmp_path / "logs" / "test.log"),
+            "AGENT_LOG_FILE": str(tmp_path / "logs" / "agent.log"),
         },
     )
     application = create_app(config)

@@ -22,6 +22,7 @@ from app.models.agent_runtime import (
     AgentPlanNodeType,
     AgentRun,
 )
+from app.services.agent_observability import AgentLogger
 from app.services.llm.contracts import LLMRequest, LLMResponse
 from app.services.llm.provider_selector import select_provider
 from app.services.security_agent.budget import budget_status
@@ -58,6 +59,7 @@ class PlanPlanner:
 
     def __init__(self, events: EventService) -> None:
         self._events = events
+        self._agent_log = AgentLogger()
 
     # ------------------------------------------------------------------ public
 
@@ -142,6 +144,12 @@ class PlanPlanner:
                     attempt,
                     type(exc).__name__,
                 )
+                self._agent_log.plan_repair_failed(
+                    run,
+                    attempt=attempt,
+                    reason=str(exc),
+                    trace_id=trace_id,
+                )
         self._raise_warning(run, "AGENT_PLAN_REPAIR_EXHAUSTED", trace_id)
         return None
 
@@ -176,6 +184,19 @@ class PlanPlanner:
                 prompt_template_version=PROMPT_TEMPLATE_VERSION,
             )
             db.session.commit()
+            self._agent_log.llm_event(
+                "llm.failed",
+                run,
+                operation=PLANNER_OPERATION,
+                provider=getattr(provider, "provider_name", "unknown"),
+                model=getattr(provider, "model", None),
+                status="failed",
+                warning_code="LLM_PROVIDER_REQUEST_FAILED",
+                usage_source=USAGE_SOURCE_PROVIDER_REPORTED,
+                input_digest=prompt_digest(prompt),
+                prompt_template_version=PROMPT_TEMPLATE_VERSION,
+                trace_id=trace_id,
+            )
             return None
         record_invocation(
             run,
@@ -198,6 +219,26 @@ class PlanPlanner:
             prompt_template_version=PROMPT_TEMPLATE_VERSION,
         )
         db.session.commit()
+        self._agent_log.llm_event(
+            "llm.completed" if response.is_success else "llm.failed",
+            run,
+            operation=PLANNER_OPERATION,
+            provider=getattr(provider, "provider_name", "unknown"),
+            model=getattr(provider, "model", None),
+            status="success" if response.is_success else "failed",
+            warning_code=response.warning_code,
+            input_tokens=int((response.usage or {}).get("prompt_tokens") or 0),
+            output_tokens=int((response.usage or {}).get("completion_tokens") or 0),
+            cached_input_tokens=int((response.usage or {}).get("cached_tokens") or 0),
+            reasoning_tokens=int((response.usage or {}).get("reasoning_tokens") or 0),
+            total_tokens=int((response.usage or {}).get("total_tokens") or 0),
+            usage_source=USAGE_SOURCE_PROVIDER_REPORTED if response.usage else "estimated",
+            latency_ms=response.latency_ms,
+            input_digest=prompt_digest(prompt),
+            output_digest=prompt_digest(response.text) if response.text else None,
+            prompt_template_version=PROMPT_TEMPLATE_VERSION,
+            trace_id=trace_id,
+        )
         return response
 
     # ------------------------------------------------------------------ build
@@ -243,6 +284,15 @@ class PlanPlanner:
         if fallback_reason:
             payload["fallback_reason"] = fallback_reason
         self._events.emit(run, EVENT_PLAN_CREATED, payload, trace_id=trace_id)
+        self._agent_log.plan_created(
+            run,
+            planner_source=planner_source,
+            plan_version=plan.plan_version,
+            node_count=len(nodes),
+            fallback_reason=fallback_reason,
+            decision_summary=plan.decision_summary,
+            trace_id=trace_id,
+        )
         db.session.commit()
         return plan
 

@@ -37,6 +37,9 @@ def create_app(config_object: type | None = None) -> Flask:
     _ensure_directory(DATA_DIR)
     _ensure_directory(app.config["UPLOAD_FOLDER"])
     _ensure_directory(Path(app.config["LOG_FILE"]).parent)
+    from app.services.agent_observability import configure_agent_logger
+
+    configure_agent_logger(app)
     workspace_root = Path(app.config["SECURITY_WORKSPACE_ROOT"]).expanduser()
     if not workspace_root.is_absolute():
         workspace_root = (DATA_DIR.parent / workspace_root).resolve()

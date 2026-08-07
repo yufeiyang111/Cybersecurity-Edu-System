@@ -23,6 +23,7 @@ from app.models.agent_runtime import (
     AgentStepExecution,
 )
 from app.services.security_agent.artifact_service import ArtifactService
+from app.services.agent_observability import AgentLogger
 from app.services.security_agent.budget import budget_status
 from app.services.security_agent.checkpoint_service import CheckpointService
 from app.services.security_agent.contracts import (
@@ -63,6 +64,7 @@ class InlinePlanRunner:
         self._tools = ToolExecutor(get_tool_registry(), events)
         self._llm = AgentLlmAnalysisService(events)
         self._planner = PlanPlanner(events)
+        self._agent_log = AgentLogger()
 
     def run(self, run_id: int, trace_id: str, app) -> None:
         with app.app_context():
@@ -132,6 +134,7 @@ class InlinePlanRunner:
                         run.error_code = "AGENT_WORKER_CRASH"
                     except AgentStateError:
                         db.session.rollback()
+                    self._agent_log.worker_crash(run, trace_id=trace_id)
                     db.session.commit()
 
     def _build_plan(self, run: AgentRun, trace_id: str) -> AgentPlan:
@@ -212,6 +215,19 @@ class InlinePlanRunner:
                     },
                     trace_id=trace_id,
                 )
+                self._agent_log.tool_event(
+                    "tool.completed",
+                    current,
+                    node_key=node.node_key,
+                    tool_name=node.tool_name,
+                    status="succeeded",
+                    latency_ms=_elapsed_ms(step.started_at, step.finished_at),
+                    step_execution_id=step.id,
+                    summary=result.summary,
+                    metrics=result.metrics,
+                    artifact_refs=[ref.get("artifact_type") for ref in result.artifact_refs],
+                    trace_id=trace_id,
+                )
             else:
                 node.status = AgentPlanNodeStatus.FAILED.value
                 step.status = "failed"
@@ -226,6 +242,20 @@ class InlinePlanRunner:
                         "error_code": result.error_code,
                         "summary": result.summary,
                     },
+                    trace_id=trace_id,
+                )
+                self._agent_log.tool_event(
+                    "tool.failed",
+                    current,
+                    node_key=node.node_key,
+                    tool_name=node.tool_name,
+                    status="failed",
+                    latency_ms=_elapsed_ms(step.started_at, step.finished_at),
+                    step_execution_id=step.id,
+                    summary=result.summary,
+                    metrics=result.metrics,
+                    warning_codes=result.warning_codes,
+                    error_code=result.error_code,
                     trace_id=trace_id,
                 )
                 if result.warning_codes:
@@ -311,6 +341,12 @@ class InlinePlanRunner:
                 {"warning_codes": budget["reached_codes"]},
                 trace_id=trace_id,
             )
+        self._agent_log.budget_blocked(
+            run,
+            reached_codes=budget["reached_codes"],
+            ratios=budget["ratios"],
+            trace_id=trace_id,
+        )
 
     def _finish_run(self, run_id: int, trace_id: str) -> None:
         run = db.session.get(AgentRun, run_id)
@@ -345,6 +381,7 @@ class InlinePlanRunner:
                 {"warning_codes": ["AGENT_PARTIAL_RESULT"]},
                 trace_id=trace_id,
             )
+            self._agent_log.run_event("run.partial", run, trace_id=trace_id, warning_codes=["AGENT_PARTIAL_RESULT"])
         else:
             self._state.transition(
                 run,
@@ -362,6 +399,17 @@ class InlinePlanRunner:
                     "warning_codes": run.warning_codes or [],
                 },
                 trace_id=trace_id,
+            )
+            self._agent_log.run_event(
+                "run.completed",
+                run,
+                trace_id=trace_id,
+                plan_version=run.plan_version,
+                tool_call_count=run.tool_call_count,
+                llm_call_count=run.llm_call_count,
+                total_tokens=run.total_tokens,
+                total_cost=float(run.total_cost or 0),
+                warning_codes=run.warning_codes or [],
             )
         db.session.commit()
 
@@ -426,3 +474,10 @@ class InlinePlanRunner:
     @staticmethod
     def _enum_value(value) -> str:
         return value.value if hasattr(value, "value") else str(value)
+
+
+def _elapsed_ms(started_at, finished_at) -> int | None:
+    """Step 级耗时毫秒；时间缺失时返回 None。"""
+    if started_at is None or finished_at is None:
+        return None
+    return max(0, int((finished_at - started_at).total_seconds() * 1000))
