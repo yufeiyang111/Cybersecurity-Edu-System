@@ -65,14 +65,16 @@ class KnowledgeGraph:
             return self._nx_graph
         return self._nx_graph
 
+    SYNC_TTL = 300
+
     def _ensure_networkx_synced(self):
-        """确保 NetworkX 图与 Neo4j 数据同步（带 30 秒缓存与并发锁）"""
+        """确保 NetworkX 图与 Neo4j 数据同步（带 5 分钟缓存与并发锁）"""
         if self._nx_graph is None:
             self._init_networkx()
-        if self._synced_at and time.time() - self._synced_at < 30:
+        if self._synced_at and time.time() - self._synced_at < self.SYNC_TTL:
             return
         with self._sync_lock:
-            if self._synced_at and time.time() - self._synced_at < 30:
+            if self._synced_at and time.time() - self._synced_at < self.SYNC_TTL:
                 return
             self._sync_from_neo4j()
 
@@ -259,6 +261,8 @@ class KnowledgeGraph:
                     tags=item.get("tags", [])
                 ):
                     count += 1
+            if count > 0:
+                self._invalidate_sync()
             return count
         else:
             count = 0
