@@ -386,21 +386,23 @@ def delete_knowledge(item_id):
 @jwt_required()
 def get_graph_stats():
     """获取知识图谱统计"""
+    include_ranking = request.args.get("ranking", 0, type=int)
     try:
         graph = get_knowledge_graph()
         stats = graph.get_statistics()
-        
-        # 获取PageRank最高的节点
-        pagerank = graph.compute_pagerank()
-        top_nodes = sorted(pagerank.items(), key=lambda x: x[1], reverse=True)[:10]
-        
-        return jsonify({
-            "stats": stats,
-            "top_nodes": [{
+
+        payload = {"stats": stats}
+
+        # PageRank 计算开销大，仅在显式请求时计算
+        if include_ranking:
+            pagerank = graph.compute_pagerank()
+            top_nodes = sorted(pagerank.items(), key=lambda x: x[1], reverse=True)[:10]
+            payload["top_nodes"] = [{
                 "node_id": node_id,
                 "score": round(score, 4)
             } for node_id, score in top_nodes]
-        }), 200
+
+        return jsonify(payload), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

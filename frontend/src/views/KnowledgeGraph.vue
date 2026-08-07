@@ -312,13 +312,10 @@ const handleNodeClick = (node) => {
 
 const loadGraphData = async () => {
   try {
-    const [nodesRes, edgesRes, statsRes] = await Promise.all([
+    const [nodesRes, edgesRes] = await Promise.all([
       adminAPI.getGraphNodes({ limit: 100 }),
-      adminAPI.getGraphEdges({ limit: 400 }),
-      adminAPI.getGraphStats()
+      adminAPI.getGraphEdges({ limit: 400 })
     ])
-
-    graphStats.value = statsRes.stats || { node_count: 0, edge_count: 0, relation_types: {} }
 
     const nodes = (nodesRes.nodes || []).map(node => ({
       id: node.id,
@@ -349,9 +346,20 @@ const loadGraphData = async () => {
 
     graphNodes.value = nodes
     graphEdges.value = edges
+
+    loadGraphStats()
   } catch (error) {
     console.error('加载图谱数据失败', error)
     ElMessage.error('加载知识图谱失败，请刷新重试')
+  }
+}
+
+const loadGraphStats = async () => {
+  try {
+    const res = await adminAPI.getGraphStats()
+    graphStats.value = res.stats || { node_count: 0, edge_count: 0, relation_types: {} }
+  } catch (error) {
+    console.error('加载图谱统计失败')
   }
 }
 

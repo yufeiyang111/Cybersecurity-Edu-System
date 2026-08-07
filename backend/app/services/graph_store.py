@@ -15,6 +15,7 @@ except ImportError:
 import networkx as nx
 import json
 import os
+import time
 from app.config import Config, DATA_DIR
 
 
@@ -39,6 +40,7 @@ class KnowledgeGraph:
         self.use_neo4j = HAS_NEO4J
         self._neo4j_graph = None
         self._nx_graph = None
+        self._synced_at = 0.0
 
         if self.use_neo4j:
             try:
@@ -62,9 +64,11 @@ class KnowledgeGraph:
         return self._nx_graph
 
     def _ensure_networkx_synced(self):
-        """确保 NetworkX 图与 Neo4j 数据同步"""
+        """确保 NetworkX 图与 Neo4j 数据同步（带 30 秒缓存，避免重复全量拉取）"""
         if self._nx_graph is None:
             self._init_networkx()
+        if self._synced_at and time.time() - self._synced_at < 30:
+            return
         # 从 Neo4j 拉取所有节点和边来构建 NetworkX 图
         try:
             self._nx_graph = nx.DiGraph()
@@ -95,12 +99,17 @@ class KnowledgeGraph:
                         relation=record.get("relation") or "related_to",
                         weight=record.get("weight") or 1.0
                     )
+            self._synced_at = time.time()
         except Exception as e:
             print(f"Neo4j 同步到 NetworkX 失败: {e}")
             import traceback
             traceback.print_exc()
             if self._nx_graph is None:
                 self._nx_graph = nx.DiGraph()
+
+    def _invalidate_sync(self):
+        """图谱发生写入后失效缓存，下次访问重新同步"""
+        self._synced_at = 0.0
 
     def _init_networkx(self):
         """初始化 NetworkX 作为备用"""
@@ -135,12 +144,15 @@ class KnowledgeGraph:
         """添加节点"""
         if self.use_neo4j and self._neo4j_graph:
             # Neo4j 使用不同的接口
-            return self._neo4j_graph.add_entity(
+            ok = self._neo4j_graph.add_entity(
                 entity_id=node_id,
                 name=properties.get("name", node_id),
                 entity_type=node_type,
                 properties=properties
             )
+            if ok:
+                self._invalidate_sync()
+            return ok
         else:
             # NetworkX 实现
             try:
@@ -153,12 +165,15 @@ class KnowledgeGraph:
     def add_edge(self, source_id: str, target_id: str, relation_type: str, weight: float = 1.0) -> bool:
         """添加边"""
         if self.use_neo4j and self._neo4j_graph:
-            return self._neo4j_graph.add_relation(
+            ok = self._neo4j_graph.add_relation(
                 source_id=source_id,
                 target_id=target_id,
                 relation_type=relation_type,
                 weight=weight
             )
+            if ok:
+                self._invalidate_sync()
+            return ok
         else:
             try:
                 self._nx_graph.add_edge(source_id, target_id, relation=relation_type, weight=weight)
@@ -174,7 +189,7 @@ class KnowledgeGraph:
     def add_knowledge_node(self, knowledge_id: str, title: str, content: str = "", category: str = "", tags: List[str] = None, properties: Dict[str, Any] = None) -> bool:
         """添加知识条目节点"""
         if self.use_neo4j and self._neo4j_graph:
-            return self._neo4j_graph.add_knowledge_node(
+            ok = self._neo4j_graph.add_knowledge_node(
                 knowledge_id=knowledge_id,
                 title=title,
                 content=content,
@@ -182,6 +197,9 @@ class KnowledgeGraph:
                 tags=tags,
                 properties=properties
             )
+            if ok:
+                self._invalidate_sync()
+            return ok
         else:
             try:
                 self._nx_graph.add_node(knowledge_id, type="knowledge", title=title, category=category, tags=",".join(tags or []))
@@ -193,12 +211,15 @@ class KnowledgeGraph:
     def add_entity(self, entity_id: str, name: str, entity_type: str, properties: Dict[str, Any] = None) -> bool:
         """添加实体节点"""
         if self.use_neo4j and self._neo4j_graph:
-            return self._neo4j_graph.add_entity(
+            ok = self._neo4j_graph.add_entity(
                 entity_id=entity_id,
                 name=name,
                 entity_type=entity_type,
                 properties=properties
             )
+            if ok:
+                self._invalidate_sync()
+            return ok
         else:
             try:
                 self._nx_graph.add_node(entity_id, type=entity_type, title=name, **(properties or {}))
@@ -359,17 +380,25 @@ class KnowledgeGraph:
         if self.use_neo4j and self._neo4j_graph:
             return self._neo4j_graph.get_statistics()
         else:
+            relation_counts = {rel: 0 for rel in self.RELATION_TYPES.keys()}
+            for _, _, data in self._nx_graph.edges(data=True):
+                rel = data.get("relation")
+                if rel in relation_counts:
+                    relation_counts[rel] += 1
             return {
                 "node_count": self._nx_graph.number_of_nodes(),
                 "edge_count": self._nx_graph.number_of_edges(),
                 "density": nx.density(self._nx_graph),
-                "relation_types": {rel: len(self.search_by_relation(rel)) for rel in self.RELATION_TYPES.keys()}
+                "relation_types": relation_counts
             }
 
     def delete_all(self) -> bool:
         """清空图谱"""
         if self.use_neo4j and self._neo4j_graph:
-            return self._neo4j_graph.delete_all()
+            ok = self._neo4j_graph.delete_all()
+            if ok:
+                self._invalidate_sync()
+            return ok
         else:
             self._nx_graph = nx.DiGraph()
             self._save_nx_graph()
