@@ -113,6 +113,7 @@ let viewTweenRaf = 0
 let simTicks = 0
 let stillTicks = 0
 let userInteracted = false
+let firstDataLoad = true
 let simAlpha = 1
 let fitted = false
 let hoveredNodeId = null
@@ -403,6 +404,23 @@ const followView = () => {
   view.scale += (target.scale - view.scale) * ease
 }
 
+// 首次加载：同步计算布局并直接渲染最终视图，避免数秒的飞入动画
+const runSimSync = () => {
+  cancelAnimationFrame(rafId)
+  if (!simNodes.length) {
+    draw()
+    return
+  }
+  for (let i = 0; i < DEFAULT_PARAMS.maxTicks; i++) {
+    stepSim(simNodes, simEdges, DEFAULT_PARAMS, simAlpha)
+    simAlpha *= (1 - DEFAULT_PARAMS.alphaDecay)
+    if (simAlpha < DEFAULT_PARAMS.alphaMin) break
+  }
+  fitted = true
+  fitView()
+  draw()
+}
+
 const resetSim = () => {
   simNodes = createSimNodes(props.nodes, simNodes)
   simEdges = createSimEdges(props.edges, simNodes)
@@ -415,8 +433,13 @@ const resetSim = () => {
   userInteracted = false
   hoveredNodeId = null
   tooltipVisible.value = false
-  fitView()
-  runSim()
+  if (firstDataLoad && props.nodes.length > 0) {
+    firstDataLoad = false
+    runSimSync()
+  } else {
+    fitView()
+    runSim()
+  }
 }
 
 const zoomAt = (sx, sy, factor) => {
