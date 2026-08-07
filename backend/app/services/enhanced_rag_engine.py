@@ -203,7 +203,11 @@ class EnhancedRAGEngine:
         max_length: int = None,
         injected_out: List = None,
     ) -> str:
-        """构建检索上下文；检测到注入模式的文档会被剔除并记录到 injected_out。"""
+        """构建检索上下文；检测到注入模式的文档会被剔除并记录到 injected_out。
+
+        检索/合成解耦：检索命中的是小块（行号精确），喂给 LLM 的是父块
+        （所属段落全文，上下文完整）。
+        """
         max_length = max_length or Config.MAX_CONTEXT_LENGTH
         context_parts = []
         injected_out = [] if injected_out is None else injected_out
@@ -213,7 +217,7 @@ class EnhancedRAGEngine:
             metadata = doc.get("metadata", {})
             source = metadata.get("source", "未知来源")
             title = metadata.get("title", "")
-            content = doc["text"]
+            content = metadata.get("parent_text") or doc["text"]
 
             flags = detect_prompt_injection(f"{title}\n{content}")
             if flags:
@@ -225,7 +229,13 @@ class EnhancedRAGEngine:
             if total_length + part_length > max_length:
                 break
 
-            part = f"""【参考资料 {i}】
+            start_line = metadata.get("start_line")
+            end_line = metadata.get("end_line")
+            line_info = ""
+            if start_line and end_line:
+                line_info = f"（对应原文第 {start_line}-{end_line} 行）"
+
+            part = f"""【参考资料 {i}】{line_info}
 标题：{title}
 来源：{source}
 内容：{content}"""
@@ -795,6 +805,7 @@ class EnhancedRAGEngine:
                             "category": item.get("category_name", ""),
                             "source": item.get("source", ""),
                             "difficulty": item.get("difficulty", "medium"),
+                            "parent_text": chunk.get("metadata", {}).get("parent_text", ""),
                         }
                         for index, chunk in enumerate(chunks)
                     ],

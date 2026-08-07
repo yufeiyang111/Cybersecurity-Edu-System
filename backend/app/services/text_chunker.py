@@ -650,11 +650,16 @@ class HybridChunker:
                     char_offset=chunk.get("start_char", 0),
                     line_starts=line_starts,
                 )
+                for sub in sub_chunks:
+                    # 父块 = 所属段落全文（检索小块、合成大块）
+                    sub.metadata["parent_text"] = chunk["text"]
                 final_chunks.extend(
                     self.sentence_chunker._chunk_to_dict(sub, doc_id, metadata)
                     for sub in sub_chunks
                 )
             else:
+                # 段落块自身就是父块
+                chunk["metadata"]["parent_text"] = chunk["text"]
                 final_chunks.append(chunk)
 
         return final_chunks
