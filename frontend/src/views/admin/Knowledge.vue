@@ -49,11 +49,16 @@
         <el-input
           v-model="keyword"
           placeholder="搜索标题..."
-          prefix-icon="Search"
           clearable
           @keyup.enter="handleSearch"
           style="width: 300px;"
-        />
+        >
+          <template #prefix>
+            <el-icon>
+              <Search />
+            </el-icon>
+          </template>
+        </el-input>
         <el-select v-model="filterStatus" placeholder="筛选状态" clearable @change="handleSearch">
           <el-option label="已发布" value="published" />
           <el-option label="草稿" value="draft" />

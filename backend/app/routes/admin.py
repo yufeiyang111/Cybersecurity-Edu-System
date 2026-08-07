@@ -440,6 +440,7 @@ def get_graph_nodes():
 @jwt_required()
 def get_graph_edges():
     """获取图谱边（用于可视化）"""
+    limit = request.args.get("limit", 500, type=int)
     try:
         graph = get_knowledge_graph()
         edges = []
@@ -449,7 +450,7 @@ def get_graph_edges():
         graph_data = graph.graph
         print(f"[DEBUG] graph_data type: {type(graph_data)}, edges count: {len(graph_data.edges())}")
 
-        for u, v, data in graph_data.edges(data=True):
+        for u, v, data in list(graph_data.edges(data=True))[:limit]:
             edges.append({
                 "source": u,
                 "target": v,

@@ -11,11 +11,16 @@
         <el-input
           v-model="keyword"
           placeholder="搜索问题..."
-          prefix-icon="Search"
           clearable
           @keyup.enter="handleSearch"
           style="width: 300px;"
-        />
+        >
+          <template #prefix>
+            <el-icon>
+              <Search />
+            </el-icon>
+          </template>
+        </el-input>
       </div>
 
       <el-table :data="records" v-loading="loading" stripe>

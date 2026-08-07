@@ -378,7 +378,7 @@ export const adminAPI = {
 
   getGraphStats: () => api.get('/admin/graph/stats'),
   getGraphNodes: (params) => api.get('/admin/graph/nodes', { params }),
-  getGraphEdges: () => api.get('/admin/graph/edges'),
+  getGraphEdges: (params) => api.get('/admin/graph/edges', { params }),
   getRelatedNodes: (id, params) => api.get(`/admin/graph/related/${id}`, { params }),
 
   rebuildVectorIndex: () => api.post('/admin/vector/rebuild'),

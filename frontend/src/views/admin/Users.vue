@@ -7,11 +7,16 @@
         <el-input
           v-model="keyword"
           placeholder="搜索用户名、邮箱..."
-          prefix-icon="Search"
           clearable
           @keyup.enter="handleSearch"
           style="width: 300px;"
-        />
+        >
+          <template #prefix>
+            <el-icon>
+              <Search />
+            </el-icon>
+          </template>
+        </el-input>
         <el-select v-model="filterRole" placeholder="筛选角色" clearable @change="handleSearch">
           <el-option label="管理员" value="admin" />
           <el-option label="教师" value="teacher" />

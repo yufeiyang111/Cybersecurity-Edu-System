@@ -1,12 +1,28 @@
 <template>
   <div class="graph-page">
     <header class="page-header">
-      <div class="header-content">
-        <h1>
-          <el-icon><Connection /></el-icon>
-          网络安全知识图谱
-        </h1>
-        <p>可视化展示知识点间的关联关系，探索网络安全知识体系</p>
+      <div class="header-orb"></div>
+      <div class="header-grid"></div>
+      <div class="header-inner">
+        <button type="button" class="back-btn" @click="goBack">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5" />
+            <path d="M12 19l-7-7 7-7" />
+          </svg>
+          返回
+        </button>
+        <div class="header-content">
+          <div class="header-left">
+            <div class="header-badge">
+              <span class="badge-dot"></span>
+              知识图谱
+            </div>
+            <h1 class="header-title">
+              网络安全知识图谱
+            </h1>
+            <p class="header-desc">可视化展示知识点之间的关联关系，支持节点搜索、关系筛选与分类过滤</p>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -94,7 +110,7 @@
               v-model="searchQuery"
               placeholder="搜索节点..."
               size="small"
-              style="width: 200px;"
+              class="toolbar-search"
               clearable
               @input="handleSearch"
               @clear="clearSearch"
@@ -131,18 +147,27 @@
         </div>
 
         <div class="graph-chart-wrapper">
-          <div ref="chartRef" class="graph-chart"></div>
-          <div ref="minimapRef" class="graph-minimap"></div>
+          <ForceGraphCanvas
+            ref="graphRef"
+            :nodes="graphNodes"
+            :edges="graphEdges"
+            :node-color="nodeColorOf"
+            :edge-color="edgeColorOf"
+            :node-size="nodeSizeOf"
+            :tooltip-title="tooltipTitleOf"
+            :tooltip-fields="tooltipFieldsOf"
+            @node-click="handleNodeClick"
+          />
         </div>
 
         <!-- 节点详情弹窗 -->
         <el-dialog v-model="nodeDialogVisible" title="节点详情" width="500px">
           <div v-if="selectedNode" class="node-detail">
-            <h3>{{ selectedNode.title }}</h3>
+            <h3>{{ selectedNode.name }}</h3>
             <div class="detail-info">
-              <p><strong>类型：</strong>{{ selectedNode.type }}</p>
-              <p><strong>分类：</strong>{{ selectedNode.category }}</p>
-              <p><strong>关联数量：</strong>{{ selectedNode.degree }}</p>
+              <p><strong>类型：</strong>{{ getNodeTypeText(selectedNode.nodeType) }}</p>
+              <p><strong>分类：</strong>{{ selectedNode.category || '未分类' }}</p>
+              <p><strong>关联数量：</strong>{{ selectedNode.degree || 0 }}</p>
             </div>
             <el-divider />
             <h4>关联节点</h4>
@@ -170,21 +195,28 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { adminAPI, knowledgeAPI } from '@/api'
 import { ElMessage } from 'element-plus'
-import { Connection, Search, Plus, Minus, Refresh, Aim, Back } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
+import { Search, Plus, Minus, Refresh, Aim, Back } from '@element-plus/icons-vue'
+import ForceGraphCanvas from '@/components/graph/ForceGraphCanvas.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 
-const chartRef = ref(null)
-const minimapRef = ref(null)
-const chart = ref(null)
-const minimap = ref(null)
+const goBack = () => {
+  if (router.options.history.state.back) {
+    router.back()
+  } else {
+    router.push('/')
+  }
+}
+
+const graphRef = ref(null)
+const graphNodes = ref([])
+const graphEdges = ref([])
 const graphStats = ref({ node_count: 0, edge_count: 0, relation_types: {} })
 const categories = ref([])
 const selectedCategory = ref(null)
@@ -255,43 +287,34 @@ const getRelationText = (rel) => {
   return texts[rel] || rel
 }
 
-const initChart = () => {
-  if (!chartRef.value) return
+const nodeColorOf = (node) => nodeTypeColors[node.nodeType] || '#10b981'
 
-  chart.value = echarts.init(chartRef.value)
+const edgeColorOf = (edge) => relationColors[edge.relation] || '#909399'
 
-  // 初始化 minimap
-  if (minimapRef.value) {
-    minimap.value = echarts.init(minimapRef.value)
-  }
+const nodeSizeOf = (node) => {
+  const count = graphNodes.value.length
+  const densityFactor = count > 120 ? 0.55 : count > 60 ? 0.75 : 1
+  return Math.max(10, Math.min((30 + (node.degree || node.value || 1) * 4) * densityFactor, 64))
+}
 
-  chart.value.on('click', (params) => {
-    if (params.dataType === 'node') {
-      selectedNodeForFocus.value = params.data
-      showNodeDetail(params.data)
-    }
-  })
+const tooltipTitleOf = (node) => node.name || String(node.id)
 
-  chart.value.on('mouseover', (params) => {
-    if (params.dataType === 'node') {
-      chart.value.dispatchAction({
-        type: 'focusNodeAdjacency',
-        dataIndex: params.dataIndex
-      })
-    }
-  })
+const tooltipFieldsOf = (node) => [
+  { label: '类型', value: getNodeTypeText(node.nodeType) },
+  { label: '分类', value: node.category || '未分类' },
+  { label: '关联数量', value: `${node.degree || 0} 个` }
+]
 
-  window.addEventListener('resize', () => {
-    chart.value?.resize()
-    minimap.value?.resize()
-  })
+const handleNodeClick = (node) => {
+  selectedNodeForFocus.value = node
+  showNodeDetail(node)
 }
 
 const loadGraphData = async () => {
   try {
     const [nodesRes, edgesRes, statsRes] = await Promise.all([
       adminAPI.getGraphNodes({ limit: 100 }),
-      adminAPI.getGraphEdges(),
+      adminAPI.getGraphEdges({ limit: 400 }),
       adminAPI.getGraphStats()
     ])
 
@@ -308,7 +331,14 @@ const loadGraphData = async () => {
 
     allNodes.value = nodes
 
-    const edges = (edgesRes.edges || []).map((edge, idx) => ({
+    // 只保留两端节点都在当前视图内的边，避免无关边拖慢力导向布局
+    const nodeIds = new Set(nodes.map(n => n.id))
+    const candidateEdges = (edgesRes.edges || []).filter(
+      edge => nodeIds.has(edge.source) && nodeIds.has(edge.target)
+    )
+    const usedEdges = candidateEdges.slice(0, 400)
+
+    const edges = usedEdges.map((edge, idx) => ({
       source: edge.source,
       target: edge.target,
       name: edge.relation || '相关',
@@ -317,166 +347,11 @@ const loadGraphData = async () => {
       }
     }))
 
-    renderChart(nodes, edges)
+    graphNodes.value = nodes
+    graphEdges.value = edges
   } catch (error) {
     console.error('加载图谱数据失败', error)
     ElMessage.error('加载知识图谱失败，请刷新重试')
-  }
-}
-
-const loadDemoGraph = () => {
-  const nodes = [
-    { id: '1', name: 'SQL注入', category: 'Web安全', nodeType: 'vulnerability', degree: 5, value: 5 },
-    { id: '2', name: 'XSS攻击', category: 'Web安全', nodeType: 'vulnerability', degree: 4, value: 4 },
-    { id: '3', name: 'CSRF攻击', category: 'Web安全', nodeType: 'vulnerability', degree: 3, value: 3 },
-    { id: '4', name: 'Web安全', category: '安全领域', nodeType: 'concept', degree: 6, value: 6 },
-    { id: '5', name: '网络扫描', category: '渗透测试', nodeType: 'technique', degree: 3, value: 3 },
-    { id: '6', name: '密码学', category: '安全基础', nodeType: 'concept', degree: 5, value: 5 },
-    { id: '7', name: 'AES加密', category: '密码学', nodeType: 'technique', degree: 3, value: 3 },
-    { id: '8', name: 'HTTPS', category: '网络安全', nodeType: 'protocol', degree: 4, value: 4 },
-    { id: '9', name: '防火墙', category: '系统安全', nodeType: 'tool', degree: 3, value: 3 },
-    { id: '10', name: '渗透测试', category: '安全领域', nodeType: 'concept', degree: 4, value: 4 }
-  ]
-
-  const edges = [
-    { source: '1', target: '4', name: 'part_of', lineStyle: { color: '#10b981' } },
-    { source: '2', target: '4', name: 'part_of', lineStyle: { color: '#10b981' } },
-    { source: '3', target: '4', name: 'part_of', lineStyle: { color: '#10b981' } },
-    { source: '4', target: '10', name: 'uses', lineStyle: { color: '#e6a23c' } },
-    { source: '5', target: '10', name: 'part_of', lineStyle: { color: '#10b981' } },
-    { source: '6', target: '10', name: 'related_to', lineStyle: { color: '#909399' } },
-    { source: '7', target: '6', name: 'part_of', lineStyle: { color: '#10b981' } },
-    { source: '8', target: '4', name: 'uses', lineStyle: { color: '#e6a23c' } },
-    { source: '9', target: '10', name: 'related_to', lineStyle: { color: '#909399' } },
-    { source: '1', target: '5', name: 'uses', lineStyle: { color: '#e6a23c' } }
-  ]
-
-  graphStats.value = {
-    node_count: nodes.length,
-    edge_count: edges.length,
-    relation_types: { 'part_of': 5, 'uses': 2, 'related_to': 2, 'is_a': 0, 'caused_by': 0, 'depends_on': 0, 'contrasts_with': 0 }
-  }
-
-  allNodes.value = nodes
-  renderChart(nodes, edges)
-}
-
-const renderChart = (nodes, edges) => {
-  if (!chart.value) return
-
-  const categories = [...new Set(nodes.map(n => n.category))]
-  const nodeTypes = [...new Set(nodes.map(n => n.nodeType).filter(Boolean))]
-
-  const option = {
-    tooltip: {
-      trigger: 'item',
-      formatter: (params) => {
-        if (params.dataType === 'node') {
-          return `<strong>${params.data.name}</strong><br/>类型: ${getNodeTypeText(params.data.nodeType)}<br/>分类: ${params.data.category || '未分类'}<br/>关联: ${params.data.degree || 0}个`
-        }
-        if (params.dataType === 'edge') {
-          return `关系: ${getRelationText(params.data.name) || '相关'}`
-        }
-        return ''
-      }
-    },
-    legend: [
-      {
-        data: categories,
-        top: 10,
-        left: 10,
-        textStyle: { fontSize: 11 }
-      },
-      {
-        data: nodeTypes.map(t => getNodeTypeText(t)),
-        top: 10,
-        right: 10,
-        textStyle: { fontSize: 11 }
-      }
-    ],
-    series: [{
-      type: 'graph',
-      layout: 'force',
-      force: {
-        repulsion: 1000,
-        gravity: 0.05,
-        edgeLength: [150, 400],
-        layoutAnimation: true,
-        friction: 0.9,
-        alpha: 0.1,
-        alphaDecay: 0.02
-      },
-      symbolSize: (val, params) => {
-        const base = 30
-        const degreeBonus = (params.data.degree || 1) * 4
-        return base + degreeBonus
-      },
-      roam: true,
-      draggable: true,
-      label: {
-        show: true,
-        formatter: '{b}',
-        fontSize: 12,
-        color: '#333',
-        fontWeight: 'normal'
-      },
-      lineStyle: {
-        width: 2,
-        curveness: 0.15,
-        opacity: 0.6
-      },
-      emphasis: {
-        focus: 'adjacency',
-        lineStyle: {
-          width: 4,
-          opacity: 1
-        },
-        itemStyle: {
-          borderWidth: 3,
-          borderColor: '#fff',
-          shadowBlur: 10,
-          shadowColor: 'rgba(0, 0, 0, 0.3)'
-        }
-      },
-      categories: categories.map((cat, idx) => ({
-        name: cat,
-        itemStyle: {
-          color: ['#10b981', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#9c27b0', '#00BCD4', '#FF9800'][idx % 8]
-        }
-      })),
-      nodeTypeCategories: nodeTypes.map((type, idx) => ({
-        name: getNodeTypeText(type),
-        itemStyle: {
-          color: nodeTypeColors[type] || '#909399'
-        }
-      })),
-      data: nodes.map(n => ({
-        ...n,
-        category: categories.indexOf(n.category),
-        itemStyle: {
-          color: nodeTypeColors[n.nodeType] || '#10b981'
-        }
-      })),
-      links: edges
-    }]
-  };
-
-  chart.value.setOption(option)
-
-  // 更新 minimap
-  if (minimap.value) {
-    minimap.value.setOption({
-      series: [{
-        type: 'graph',
-        layout: 'force',
-        data: nodes.map(n => ({
-          ...n,
-          itemStyle: { color: nodeTypeColors[n.nodeType] || '#10b981' }
-        })),
-        links: edges,
-        lineStyle: { opacity: 0.3 }
-      }]
-    })
   }
 }
 
@@ -505,10 +380,7 @@ const showNodeDetail = async (nodeData) => {
 }
 
 const focusNode = (nodeId) => {
-  chart.value.dispatchAction({
-    type: 'focusNodeAdjacency',
-    dataIndex: chart.value.getOption().series[0].data.findIndex(n => n.id === nodeId)
-  })
+  graphRef.value?.highlightNode(nodeId)
 }
 
 const handleSearch = () => {
@@ -531,19 +403,7 @@ const focusToNode = (node) => {
   selectedNodeForFocus.value = node
   searchResults.value = []
   searchQuery.value = ''
-
-  const option = chart.value.getOption()
-  const dataIndex = option.series[0].data.findIndex(n => n.id === node.id)
-
-  if (dataIndex >= 0) {
-    chart.value.dispatchAction({ type: 'highlight', dataIndex })
-    chart.value.dispatchAction({
-      type: 'showTip',
-      seriesIndex: 0,
-      dataIndex
-    })
-  }
-
+  graphRef.value?.highlightNode(node.id)
   ElMessage.success(`已聚焦到节点: ${node.name}`)
 }
 
@@ -638,8 +498,8 @@ const startFromNode = async () => {
       }
     }
 
-    // 渲染子图
-    renderChart(subgraphNodes, subgraphEdges)
+    graphNodes.value = subgraphNodes
+    graphEdges.value = subgraphEdges
 
     // 标记为子图视图
     isSubgraphView.value = true
@@ -667,15 +527,15 @@ const filterByRelation = (rel) => {
 }
 
 const zoomIn = () => {
-  chart.value?.dispatchAction({ type: 'zoomIn' })
+  graphRef.value?.zoomIn()
 }
 
 const zoomOut = () => {
-  chart.value?.dispatchAction({ type: 'zoomOut' })
+  graphRef.value?.zoomOut()
 }
 
 const resetZoom = () => {
-  chart.value?.dispatchAction({ type: 'resetZoom' })
+  graphRef.value?.resetZoom()
 }
 
 const refreshGraph = () => {
@@ -693,74 +553,219 @@ const loadCategories = async () => {
 }
 
 onMounted(() => {
-  initChart()
   loadCategories()
   loadGraphData()
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', () => {
-    chart.value?.resize()
-    minimap.value?.resize()
-  })
-  chart.value?.dispose()
-  minimap.value?.dispose()
 })
 </script>
 
 <style lang="scss" scoped>
 .graph-page {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #f6f8fa;
 }
 
+/* ==================== 页头 ==================== */
 .page-header {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  padding: 40px 0;
-  color: #fff;
-  
-  .header-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
-    
-    h1 {
-      margin: 0 0 8px;
-      font-size: 28px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    p {
-      margin: 0;
-      opacity: 0.9;
-    }
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+  color: #c9d1d9;
+  padding: 32px 0 52px;
+}
+
+.header-orb {
+  position: absolute;
+  width: 460px;
+  height: 460px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(46, 164, 79, 0.16), transparent 65%);
+  top: -190px;
+  right: -120px;
+  animation: kbBreathe 7s ease-in-out infinite;
+}
+
+@keyframes kbBreathe {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
   }
 }
 
+.header-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(240, 246, 252, 0.05) 1px, transparent 1px);
+  background-size: 26px 26px;
+  animation: kbDrift 36s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes kbDrift {
+  to {
+    transform: translateY(26px);
+  }
+}
+
+.header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  position: relative;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 246, 252, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: #c9d1d9;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  margin-bottom: 24px;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: kbUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transition:
+    background 0.25s,
+    border-color 0.25s,
+    color 0.25s;
+}
+
+.back-btn svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.back-btn:hover {
+  background: rgba(46, 164, 79, 0.14);
+  border-color: rgba(46, 164, 79, 0.45);
+  color: #fff;
+}
+
+.back-btn:hover svg {
+  transform: translateX(-3px);
+}
+
+.header-content {
+  position: relative;
+}
+
+.header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #7ee2a8;
+  background: rgba(46, 164, 79, 0.1);
+  border: 1px solid rgba(46, 164, 79, 0.35);
+  padding: 5px 14px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+  opacity: 0;
+  transform: translateY(18px);
+  animation: kbUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
+}
+
+.badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2ea44f;
+  animation: kbBadgePing 2.2s ease-out infinite;
+}
+
+@keyframes kbBadgePing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(46, 164, 79, 0.55);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px rgba(46, 164, 79, 0);
+  }
+}
+
+.header-title {
+  margin: 0 0 10px;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #f0f6fc;
+  letter-spacing: -0.01em;
+  opacity: 0;
+  transform: translateY(24px);
+  animation: kbUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards;
+}
+
+@keyframes kbUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.header-desc {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #8b949e;
+  max-width: 52ch;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: kbUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
+}
+
+/* ==================== 主体 ==================== */
 .graph-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 24px 20px;
+  padding: 24px 20px 48px;
   display: flex;
   gap: 24px;
 }
 
 .graph-sidebar {
   width: 280px;
+  flex-shrink: 0;
 
   .sidebar-section {
     background: #fff;
+    border: 1px solid #d8dee4;
     border-radius: 12px;
-    padding: 20px;
+    padding: 16px;
     margin-bottom: 16px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.3s;
+
+    &:hover {
+      box-shadow: 0 8px 24px rgba(22, 27, 34, 0.06);
+    }
 
     h3 {
-      margin: 0 0 16px;
-      font-size: 16px;
-      color: #303133;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 14px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #24292f;
+    }
+
+    h3::before {
+      content: '';
+      width: 4px;
+      height: 14px;
+      border-radius: 2px;
+      background: #2ea44f;
     }
 
     .stats-grid {
@@ -770,17 +775,25 @@ onUnmounted(() => {
 
       .stat-item {
         text-align: center;
+        padding: 8px 0;
+        border-radius: 8px;
+        transition: background 0.25s;
+
+        &:hover {
+          background: rgba(46, 164, 79, 0.06);
+        }
 
         .stat-value {
           display: block;
           font-size: 24px;
           font-weight: 600;
-          color: #409eff;
+          color: #2ea44f;
+          font-variant-numeric: tabular-nums;
         }
 
         .stat-label {
           font-size: 12px;
-          color: #909399;
+          color: #8c959f;
         }
       }
     }
@@ -794,18 +807,22 @@ onUnmounted(() => {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 8px;
         padding: 8px 12px;
-        border-radius: 6px;
+        border-radius: 8px;
         cursor: pointer;
         transition: background 0.2s;
 
         &:hover {
-          background: #f5f7fa;
+          background: rgba(46, 164, 79, 0.08);
         }
 
         .result-name {
           font-size: 13px;
-          color: #303133;
+          color: #24292f;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
       }
     }
@@ -816,54 +833,84 @@ onUnmounted(() => {
         align-items: center;
         gap: 8px;
         padding: 6px 0;
+        transition: transform 0.2s;
+
+        &:hover {
+          transform: translateX(3px);
+        }
 
         .legend-dot {
           width: 12px;
           height: 12px;
           border-radius: 50%;
+          transition: transform 0.2s;
+        }
+
+        &:hover .legend-dot {
+          transform: scale(1.15);
         }
 
         .legend-label {
           font-size: 13px;
-          color: #606266;
+          color: #57606a;
         }
       }
     }
 
     .relation-list {
       .relation-item {
+        position: relative;
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 10px 12px;
-        border-radius: 6px;
+        padding: 9px 12px;
+        border-radius: 8px;
         cursor: pointer;
-        transition: background 0.3s;
+        transition: background 0.25s, color 0.25s;
 
-        &:hover, &.active {
-          background: #f5f7fa;
+        &:hover {
+          background: rgba(46, 164, 79, 0.08);
         }
 
         &.active {
-          background: #ecf5ff;
+          background: rgba(46, 164, 79, 0.12);
         }
 
         .relation-dot {
           width: 10px;
           height: 10px;
           border-radius: 50%;
+          flex-shrink: 0;
+          transition: transform 0.25s;
+        }
+
+        &:hover .relation-dot,
+        &.active .relation-dot {
+          transform: scale(1.2);
         }
 
         .relation-name {
           flex: 1;
-          font-size: 14px;
-          color: #606266;
+          font-size: 13px;
+          color: #57606a;
+          transition: color 0.25s;
+        }
+
+        &:hover .relation-name,
+        &.active .relation-name {
+          color: #2c974b;
+          font-weight: 500;
         }
 
         .relation-count {
-          font-size: 14px;
-          color: #409eff;
+          font-size: 12px;
+          color: #2ea44f;
           font-weight: 600;
+          font-variant-numeric: tabular-nums;
+          background: rgba(46, 164, 79, 0.08);
+          border-radius: 999px;
+          padding: 0 8px;
+          line-height: 18px;
         }
       }
     }
@@ -872,18 +919,30 @@ onUnmounted(() => {
 
 .graph-main {
   flex: 1;
+  min-width: 0;
 
   .graph-toolbar {
     background: #fff;
-    padding: 12px 16px;
+    border: 1px solid #d8dee4;
     border-radius: 12px;
+    padding: 12px 16px;
     margin-bottom: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    gap: 12px;
+    transition: box-shadow 0.3s;
 
-    .toolbar-left, .toolbar-right {
+    &:hover {
+      box-shadow: 0 8px 24px rgba(22, 27, 34, 0.06);
+    }
+
+    .toolbar-search {
+      width: 200px;
+    }
+
+    .toolbar-left,
+    .toolbar-right {
       display: flex;
       align-items: center;
       gap: 12px;
@@ -891,31 +950,16 @@ onUnmounted(() => {
   }
 
   .graph-chart-wrapper {
+    --fgc-height: 600px;
     position: relative;
     background: #fff;
+    border: 1px solid #d8dee4;
     border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.3s;
     overflow: hidden;
-  }
-
-  .graph-chart {
-    height: 600px;
-  }
-
-  .graph-minimap {
-    position: absolute;
-    bottom: 10px;
-    right: 10px;
-    width: 150px;
-    height: 100px;
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid #e4e7ed;
-    border-radius: 8px;
-    opacity: 0.8;
-    transition: opacity 0.3s;
 
     &:hover {
-      opacity: 1;
+      box-shadow: 0 8px 24px rgba(22, 27, 34, 0.06);
     }
   }
 }
@@ -923,56 +967,106 @@ onUnmounted(() => {
 .node-detail {
   h3 {
     margin: 0 0 16px;
-    color: #303133;
+    color: #24292f;
   }
-  
+
   .detail-info {
     p {
       margin: 8px 0;
       font-size: 14px;
-      color: #606266;
+      color: #57606a;
+
+      strong {
+        color: #24292f;
+      }
     }
   }
-  
+
   h4 {
     margin: 16px 0 12px;
     font-size: 14px;
-    color: #606266;
+    color: #57606a;
   }
-  
+
   .neighbors-list {
     max-height: 200px;
     overflow-y: auto;
-    
+
     .neighbor-item {
       display: flex;
       justify-content: space-between;
       padding: 8px 12px;
-      background: #f5f7fa;
-      border-radius: 6px;
+      background: #f6f8fa;
+      border: 1px solid #e6e8eb;
+      border-radius: 8px;
       margin-bottom: 8px;
       cursor: pointer;
-      transition: background 0.3s;
-      
+      transition: background 0.25s, border-color 0.25s;
+
       &:hover {
-        background: #ecf5ff;
+        background: rgba(46, 164, 79, 0.08);
+        border-color: rgba(46, 164, 79, 0.3);
       }
-      
+
       .neighbor-id {
-        color: #409eff;
+        color: #2ea44f;
+        font-size: 13px;
       }
-      
+
       .neighbor-rel {
-        color: #909399;
+        color: #8c959f;
         font-size: 12px;
       }
     }
   }
-  
+
   .detail-actions {
     margin-top: 16px;
     display: flex;
     gap: 12px;
+  }
+}
+
+/* ==================== 响应式 ==================== */
+@media (max-width: 1024px) {
+  .graph-container {
+    gap: 16px;
+  }
+
+  .graph-sidebar {
+    width: 220px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    padding: 24px 0 36px;
+  }
+
+  .header-title {
+    font-size: 24px;
+  }
+
+  .graph-container {
+    flex-direction: column;
+    padding: 16px 12px 40px;
+  }
+
+  .graph-sidebar {
+    width: 100%;
+  }
+
+  .graph-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .toolbar-search {
+    width: 100%;
+  }
+
+  .graph-chart-wrapper {
+    --fgc-height: 420px;
   }
 }
 </style>

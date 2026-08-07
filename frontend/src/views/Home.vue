@@ -11,11 +11,10 @@
           CyberGuard
         </div>
         <nav class="nav-links">
-          <router-link to="/">首页</router-link>
-          <router-link to="/qa">智能问答</router-link>
-          <router-link to="/knowledge">知识库</router-link>
-          <router-link to="/graph">知识图谱</router-link>
-          <router-link v-if="userStore.isLoggedIn" to="/security/projects">安全工作台</router-link>
+          <router-link to="/" @mouseenter="prefetchRoute('home')">首页</router-link>
+          <router-link to="/qa" @mouseenter="prefetchRoute('qa')">智能问答</router-link>
+          <router-link to="/knowledge" @mouseenter="prefetchRoute('knowledge')">知识库</router-link>
+          <router-link to="/graph" @mouseenter="prefetchRoute('graph')">知识图谱</router-link>
         </nav>
         <div class="nav-actions">
           <template v-if="userStore.isLoggedIn">
@@ -327,6 +326,17 @@ const fetchHotKnowledge = async () => {
   } catch (error) {
     console.error('获取热门知识失败:', error)
   }
+}
+
+// 悬停导航时预加载目标页 chunk，降低点击后的首屏等待
+const prefetchRoute = (name) => {
+  const loaders = {
+    home: () => import('@/views/Home.vue'),
+    qa: () => import('@/views/QA.vue'),
+    knowledge: () => import('@/views/Knowledge.vue'),
+    graph: () => import('@/views/KnowledgeGraph.vue')
+  }
+  loaders[name]?.().catch(() => {})
 }
 
 const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
