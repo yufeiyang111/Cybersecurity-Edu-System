@@ -579,7 +579,7 @@ const runPathAnalysis = async () => {
     })
     const path = res.nodes || []
     if (!path.length) {
-      ElMessage.warning('两个节点之间没有可达路径')
+      ElMessage.warning('图中不存在连接路径：这两个节点位于图谱的不同区域')
       pathNodes.value = []
       pathDistance.value = 0
       graphRef.value?.clearPathHighlight()

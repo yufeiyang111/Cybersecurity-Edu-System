@@ -370,3 +370,66 @@ def test_centrality_invalid_metric_returns_400(graph_api_app, graph_stub):
 def test_centrality_requires_auth(graph_api_app, graph_stub):
     client = graph_api_app.test_client()
     assert client.get("/api/admin/graph/centrality").status_code == 401
+
+
+# ==================== 跨条目同名实体关联（build_knowledge_graph） ====================
+
+def test_build_knowledge_graph_links_same_name_entities_across_items():
+    from app.services.data_processor import KnowledgeGraphBuilder
+
+    graph_data = nx.DiGraph()
+
+    def stub_add_relation(self, source_id, target_id, relation_type, weight=1.0, properties=None):
+        graph_data.add_edge(source_id, target_id, relation=relation_type, weight=weight)
+        return True
+
+    builder = KnowledgeGraphBuilder()
+    builder.knowledge_graph = type(
+        "StubGraph",
+        (),
+        {
+            "add_knowledge_node": lambda self, **kw: True,
+            "add_entity": lambda self, **kw: True,
+            "add_relation": stub_add_relation,
+        },
+    )()
+
+    items = [
+        {"id": 1, "title": "网络基础", "content": "TCP 协议与防火墙相关概念介绍", "category": "网络"},
+        {"id": 2, "title": "加密技术", "content": "TCP 与加密技术的结合应用", "category": "加密"},
+    ]
+    result = builder.build_knowledge_graph(items)
+
+    assert result["cross_item_edges"] >= 1
+    assert graph_data.has_edge("1_TCP", "2_TCP")
+    assert graph_data.get_edge_data("1_TCP", "2_TCP")["relation"] == "related_to"
+
+
+def test_build_knowledge_graph_without_duplicate_entities_no_cross_edges():
+    from app.services.data_processor import KnowledgeGraphBuilder
+
+    graph_data = nx.DiGraph()
+
+    def stub_add_relation(self, source_id, target_id, relation_type, weight=1.0, properties=None):
+        graph_data.add_edge(source_id, target_id, relation=relation_type, weight=weight)
+        return True
+
+    builder = KnowledgeGraphBuilder()
+    builder.knowledge_graph = type(
+        "StubGraph",
+        (),
+        {
+            "add_knowledge_node": lambda self, **kw: True,
+            "add_entity": lambda self, **kw: True,
+            "add_relation": stub_add_relation,
+        },
+    )()
+
+    items = [
+        {"id": 1, "title": "网络基础", "content": "TCP 协议介绍", "category": "网络"},
+        {"id": 2, "title": "漏洞挖掘", "content": "缓冲区溢出与格式化字符串攻击", "category": "漏洞"},
+    ]
+    result = builder.build_knowledge_graph(items)
+
+    # 两个条目无同名实体，不应产生跨条目边
+    assert result["cross_item_edges"] == 0

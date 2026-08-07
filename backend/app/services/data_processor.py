@@ -482,6 +482,9 @@ class KnowledgeGraphBuilder:
         nodes_added = 0
         edges_added = 0
 
+        # 跨条目同名实体分组（实体消歧：同名同类型实体建立关联边）
+        entities_by_name: Dict[Tuple[str, str], List[str]] = {}
+
         for item in knowledge_items:
             item_id = str(item["id"])
             title = item.get("title", "")
@@ -492,7 +495,7 @@ class KnowledgeGraphBuilder:
                 knowledge_id=item_id,
                 title=title,
                 content=content[:500],
-                category=item.get("category", ""),
+                category=item.get("category") or item.get("category_name") or "",
                 tags=item.get("tags", [])
             )
             nodes_added += 1
@@ -528,6 +531,13 @@ class KnowledgeGraphBuilder:
                     entity_id = f"{item_id}_{entity['name']}"
                     all_entity_names.add(entity["name"])
 
+                    # 记录同名实体（跨条目时用于建立关联边）
+                    entity_key = (entity["type"], entity["name"])
+                    if entity_key not in entities_by_name:
+                        entities_by_name[entity_key] = []
+                    if entity_id not in entities_by_name[entity_key]:
+                        entities_by_name[entity_key].append(entity_id)
+
                     # 添加实体节点
                     self.knowledge_graph.add_entity(
                         entity_id=entity_id,
@@ -561,9 +571,23 @@ class KnowledgeGraphBuilder:
 
             print(f"[DEBUG] Item {item_id}: {len(all_entity_names)} unique entities")
 
+        # 跨条目同名实体关联：同名实体在不同知识条目中互相关联（related_to）
+        cross_item_edges = 0
+        for (entity_type, entity_name), entity_ids in entities_by_name.items():
+            if len(entity_ids) < 2:
+                continue
+            for index in range(len(entity_ids) - 1):
+                self.knowledge_graph.add_relation(
+                    source_id=entity_ids[index],
+                    target_id=entity_ids[index + 1],
+                    relation_type="related_to"
+                )
+                cross_item_edges += 1
+
         return {
             "nodes_added": nodes_added,
             "edges_added": edges_added,
+            "cross_item_edges": cross_item_edges,
             "items_processed": len(knowledge_items)
         }
 

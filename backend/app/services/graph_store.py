@@ -86,7 +86,10 @@ class KnowledgeGraph:
             # 直接查询所有节点（Entity 和 Knowledge 标签）
             with self._neo4j_graph.driver.session() as session:
                 # 查询所有 Entity 节点
-                entity_result = session.run("MATCH (e:Entity) RETURN e.id AS id, e.name AS name, e.type AS type, e.source_item AS source_item")
+                entity_result = session.run(
+                    "MATCH (e:Entity) RETURN e.id AS id, e.name AS name, e.type AS type, "
+                    "e.source_item AS source_item, e.category AS category"
+                )
                 for record in entity_result:
                     node_id = record["id"]
                     if node_id is None:
@@ -95,19 +98,31 @@ class KnowledgeGraph:
                         node_id,
                         type=record.get("type") or "unknown",
                         title=record.get("name") or "",
-                        source_item=record.get("source_item") or ""
+                        source_item=record.get("source_item") or "",
+                        category=record.get("category") or ""
                     )
 
                 # 查询所有 Knowledge 节点
-                knowledge_result = session.run("MATCH (k:Knowledge) RETURN k.id AS id, k.title AS title")
+                knowledge_result = session.run(
+                    "MATCH (k:Knowledge) RETURN k.id AS id, k.title AS title, k.category AS category"
+                )
                 for record in knowledge_result:
                     node_id = record["id"]
                     if node_id is None:
                         continue
-                    self._nx_graph.add_node(node_id, type="knowledge", title=record.get("title") or "")
+                    self._nx_graph.add_node(
+                        node_id,
+                        type="knowledge",
+                        title=record.get("title") or "",
+                        category=record.get("category") or ""
+                    )
 
                 # 查询所有关系边（跳过两端为空节点的悬空边）
-                edges_result = session.run("MATCH (source)-[r]->(target) RETURN source.id AS source, target.id AS target, r.type AS relation, r.weight AS weight")
+                edges_result = session.run(
+                    "MATCH (source)-[r]->(target) "
+                    "RETURN source.id AS source, target.id AS target, "
+                    "r.type AS relation, r.weight AS weight"
+                )
                 for record in edges_result:
                     source = record["source"]
                     target = record["target"]
