@@ -1,0 +1,81 @@
+// ==================== Markdown 代码块全局样式 ====================
+// 所有 markdown 渲染统一输出 .chat-code 结构（语言标签 + 复制按钮 + 高亮），
+// 本文件在 main.js 全局引入，避免组件懒加载导致的样式缺失。
+
+.chat-code {
+  margin: 14px 0;
+  border-radius: var(--chat-radius);
+  overflow: hidden;
+  background: var(--chat-code-bg);
+}
+
+.chat-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--chat-code-head);
+}
+
+.chat-code-lang {
+  font-size: 12px;
+  color: #9b9b98;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+
+.chat-code-copy {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  padding: 4px 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #b8b8b4;
+  font-size: 12px;
+  font-family: inherit;
+}
+.chat-code-copy:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.chat-code-copy svg {
+  width: 13px;
+  height: 13px;
+  stroke: #b8b8b4;
+}
+.chat-code:hover .chat-code-copy {
+  opacity: 1;
+}
+.chat-code pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.6;
+  font-family: ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace;
+  color: #e6e6e3;
+  background: transparent;
+}
+.chat-code pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+.hljs-keyword { color: #569cd6; }
+.hljs-string { color: #ce9178; }
+.hljs-number { color: #b5cea8; }
+.hljs-comment { color: #6a9955; }
+.hljs-function { color: #dcdcaa; }
+.hljs-class { color: #4ec9b0; }
+.hljs-variable { color: #9cdcfe; }
+.hljs-attr { color: #9cdcfe; }
+.hljs-built_in { color: #4fc1ff; }
+.hljs-title { color: #dcdcaa; }
+.hljs-params { color: #e6e6e3; }
+.hljs-literal { color: #b5cea8; }
+.hljs-type { color: #4ec9b0; }

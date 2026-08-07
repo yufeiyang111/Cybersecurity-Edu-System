@@ -108,8 +108,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { knowledgeAPI } from '@/api'
 import { ElMessage } from 'element-plus'
-import { marked } from 'marked'
-import hljs from 'highlight.js'
+import { renderMarkdown } from '@/features/markdown/renderMarkdown'
 
 const route = useRoute()
 const router = useRouter()
@@ -123,20 +122,8 @@ const relatedQADialogVisible = ref(false)
 const relatedQALoading = ref(false)
 const relatedQA = ref([])
 
-marked.setOptions({
-  highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(code, { language: lang }).value
-    }
-    return hljs.highlightAuto(code).value
-  },
-  breaks: true,
-  gfm: true
-})
-
 const renderContent = computed(() => {
-  if (!item.value?.content) return ''
-  return marked(item.value.content)
+  return renderMarkdown(item.value?.content)
 })
 
 const getDifficultyType = (difficulty) => {
@@ -357,21 +344,6 @@ onMounted(() => {
     font-family: 'Courier New', monospace;
     font-size: 0.9em;
     color: #e83e8c;
-  }
-
-  :deep(pre) {
-    background: #1e1e1e;
-    color: #d4d4d4;
-    padding: 16px;
-    border-radius: 8px;
-    overflow-x: auto;
-    margin: 1em 0;
-
-    :deep(code) {
-      background: transparent;
-      padding: 0;
-      color: inherit;
-    }
   }
 
   :deep(blockquote) {

@@ -4,20 +4,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { marked } from 'marked'
-import hljs from 'highlight.js'
-import DOMPurify from 'dompurify'
-
-marked.setOptions({
-  highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(code, { language: lang }).value
-    }
-    return hljs.highlightAuto(code).value
-  },
-  breaks: true,
-  gfm: true
-})
+import { renderMarkdown } from '@/features/markdown/renderMarkdown'
 
 const props = defineProps({
   content: {
@@ -31,9 +18,7 @@ const props = defineProps({
 })
 
 const renderedContent = computed(() => {
-  if (!props.content) return ''
-  const html = marked(props.content)
-  return props.sanitize ? DOMPurify.sanitize(html) : html
+  return renderMarkdown(props.content, { sanitize: props.sanitize })
 })
 </script>
 
@@ -65,21 +50,6 @@ const renderedContent = computed(() => {
     font-family: 'Courier New', monospace;
     font-size: 0.9em;
     color: #e83e8c;
-  }
-
-  pre {
-    background: #1e1e1e;
-    color: #d4d4d4;
-    padding: 16px;
-    border-radius: 8px;
-    overflow-x: auto;
-    margin: 1em 0;
-
-    code {
-      background: transparent;
-      padding: 0;
-      color: inherit;
-    }
   }
 
   blockquote {
@@ -143,16 +113,5 @@ const renderedContent = computed(() => {
     border-top: 1px solid #eee;
     margin: 2em 0;
   }
-
-  // 代码高亮主题
-  .hljs-keyword { color: #569cd6; }
-  .hljs-string { color: #ce9178; }
-  .hljs-number { color: #b5cea8; }
-  .hljs-comment { color: #6a9955; }
-  .hljs-function { color: #dcdcaa; }
-  .hljs-class { color: #4ec9b0; }
-  .hljs-variable { color: #9cdcfe; }
-  .hljs-attr { color: #9cdcfe; }
-  .hljs-built_in { color: #4fc1ff; }
 }
 </style>

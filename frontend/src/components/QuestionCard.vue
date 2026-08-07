@@ -71,8 +71,8 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { marked } from 'marked'
 import { useUserStore } from '@/stores/user'
+import { renderMarkdown } from '@/features/markdown/renderMarkdown'
 
 const userStore = useUserStore()
 
@@ -112,8 +112,7 @@ const feedbackText = computed(() => {
 })
 
 const renderedAnswer = computed(() => {
-  if (!props.question.answer) return ''
-  return marked(props.question.answer)
+  return renderMarkdown(props.question.answer)
 })
 
 const formatTime = (timeStr) => {

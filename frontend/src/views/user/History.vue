@@ -73,7 +73,7 @@
         <el-divider />
         <div class="detail-section">
           <h4>答案</h4>
-          <div class="answer-content markdown-content" v-html="renderMarkdown(currentRecord.answer)"></div>
+          <div class="answer-content markdown-content" v-html="renderMarkdownSafe(currentRecord.answer)"></div>
         </div>
         <el-divider />
         <div class="detail-meta">
@@ -93,7 +93,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { qaAPI } from '@/api'
-import { marked } from 'marked'
+import { renderMarkdown } from '@/features/markdown/renderMarkdown'
 
 const router = useRouter()
 const loading = ref(false)
@@ -125,9 +125,8 @@ const getAnswerPreview = (answer) => {
   return answer.length > 100 ? answer.substring(0, 100) + '...' : answer
 }
 
-const renderMarkdown = (content) => {
-  if (!content) return ''
-  return marked(content)
+const renderMarkdownSafe = (content) => {
+  return renderMarkdown(content)
 }
 
 const fetchHistory = async () => {

@@ -8,6 +8,8 @@ import App from './App.vue'
 import router from './router'
 import './styles/global.scss'
 import './styles/chat-tokens.scss'
+import './styles/markdown-code.scss'
+import { installCodeCopy } from './features/markdown/renderMarkdown'
 
 const app = createApp(App)
 
@@ -19,5 +21,7 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 app.use(createPinia())
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
+
+installCodeCopy()
 
 app.mount('#app')

@@ -40,7 +40,7 @@
                   {{ source.title }}
                 </el-tag>
               </div>
-              <div class="answer-content markdown-content" v-html="renderMarkdown(record.answer)"></div>
+              <div class="answer-content markdown-content" v-html="renderMarkdownSafe(record.answer)"></div>
             </div>
           </div>
         </div>
@@ -53,8 +53,7 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { qaAPI } from '@/api'
-import { marked } from 'marked'
-import hljs from 'highlight.js'
+import { renderMarkdown } from '@/features/markdown/renderMarkdown'
 
 const route = useRoute()
 const router = useRouter()
@@ -64,18 +63,8 @@ const conversation = ref(null)
 const records = ref([])
 const messageListRef = ref(null)
 
-marked.setOptions({
-  highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(code, { language: lang }).value
-    }
-    return hljs.highlightAuto(code).value
-  }
-})
-
-const renderMarkdown = (content) => {
-  if (!content) return ''
-  return marked(content)
+const renderMarkdownSafe = (content) => {
+  return renderMarkdown(content)
 }
 
 const scrollToBottom = () => {

@@ -85,7 +85,7 @@
         <el-divider />
         <div class="detail-section">
           <h4>答案</h4>
-          <div class="answer-content markdown-content" v-html="renderMarkdown(currentQARecord.qa_record?.answer)"></div>
+          <div class="answer-content markdown-content" v-html="renderMarkdownSafe(currentQARecord.qa_record?.answer)"></div>
         </div>
       </div>
       <template #footer>
@@ -101,7 +101,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { qaAPI, knowledgeAPI } from '@/api'
 import { ElMessage } from 'element-plus'
-import { marked } from 'marked'
+import { renderMarkdown } from '@/features/markdown/renderMarkdown'
 
 const router = useRouter()
 const activeTab = ref('qa')
@@ -130,9 +130,8 @@ const getSummaryPreview = (summary) => {
   return summary.length > 100 ? summary.substring(0, 100) + '...' : summary
 }
 
-const renderMarkdown = (content) => {
-  if (!content) return ''
-  return marked(content)
+const renderMarkdownSafe = (content) => {
+  return renderMarkdown(content)
 }
 
 const fetchQAFavorites = async () => {

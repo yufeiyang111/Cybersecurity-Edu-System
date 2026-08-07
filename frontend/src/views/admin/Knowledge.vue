@@ -172,21 +172,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { adminAPI, knowledgeAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { marked } from 'marked'
-import hljs from 'highlight.js'
 import { Upload, UploadFilled } from '@element-plus/icons-vue'
-
-// 配置 marked
-marked.setOptions({
-  highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(code, { language: lang }).value
-    }
-    return hljs.highlightAuto(code).value
-  },
-  breaks: true,
-  gfm: true
-})
+import { renderMarkdown } from '@/features/markdown/renderMarkdown'
 
 const loading = ref(false)
 const items = ref([])
@@ -210,8 +197,7 @@ const editLoading = ref(false)
 const editForm = ref(null)
 
 const renderContent = computed(() => {
-  if (!currentItem.value?.content) return ''
-  return marked(currentItem.value.content)
+  return renderMarkdown(currentItem.value?.content)
 })
 
 const getDifficultyType = (difficulty) => {
