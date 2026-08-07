@@ -1,8 +1,9 @@
-"""OpenAI-compatible chat completion adapter with safe response handling."""
+﻿"""OpenAI-compatible chat completion adapter with safe response handling."""
 from __future__ import annotations
 
 import json
 import re
+import time
 from time import perf_counter
 from typing import Any, Iterator
 
@@ -12,6 +13,26 @@ from flask import current_app, has_app_context
 from .contracts import LLMRequest, LLMResponse, LLMStreamChunk
 from .internal_reasoning_boundary import project
 from .usage_normalizer import normalize_usage
+
+
+def _should_retry_status(status_code: int) -> bool:
+    """可重试状态码：429 限流、5xx 服务端错误。"""
+    return status_code in (429,) or status_code >= 500
+
+
+def _max_retries() -> int:
+    if has_app_context():
+        return max(0, int(current_app.config.get("LLM_MAX_RETRIES", 2)))
+    return 2
+
+
+def _retry_delay(attempt: int) -> float:
+    """指数退避延迟（秒）：0.8, 1.6, 3.2 ..."""
+    if has_app_context():
+        base = float(current_app.config.get("LLM_RETRY_BASE_DELAY", 0.8))
+    else:
+        base = 0.8
+    return base * (2 ** attempt)
 
 
 def _log(method, msg, *args, **kwargs) -> None:
@@ -109,72 +130,140 @@ class OpenAICompatibleProvider:
         _log(current_app.logger.warning if has_app_context() else None,
              "OpenAICompatibleProvider.generate called (provider=%s, base_url=%s, model=%s)",
              self.provider_name, self.base_url, self.model)
-        try:
-            response = self._http_client.post(
-                self.base_url,
-                headers=self._headers(stream=False),
-                json=payload,
-                timeout=_timeout(),
-                allow_redirects=False,
-            )
-            raw_text = getattr(response, "text", None)
-            if raw_text is None:
-                raw_text = getattr(response, "content", b"").decode("utf-8", errors="replace")
-            _log(current_app.logger.warning if has_app_context() else None,
-                 "OpenAICompatibleProvider HTTP raw response (provider=%s, status=%s, raw=%r)",
-                 self.provider_name, getattr(response, "status_code", None), raw_text[:1500])
-            if _response_too_large(response):
-                return _failure(self, "LLM_PROVIDER_RESPONSE_TOO_LARGE", started, status_code=413)
-            if getattr(response, "status_code", None) != 200:
-                return _failure(
-                    self,
-                    "LLM_PROVIDER_NON_SUCCESS",
-                    started,
-                    status_code=_status_code(response),
-                )
+        max_retries = _max_retries()
+        for attempt in range(max_retries + 1):
             try:
-                body = response.json()
-            except (TypeError, ValueError):
-                return _failure(self, "LLM_OUTPUT_INVALID", started, status_code=200)
-            return _success_response(self, body, started)
-        except requests.Timeout:
-            return _failure(self, "LLM_PROVIDER_TIMEOUT", started)
-        except requests.RequestException:
-            return _failure(self, "LLM_PROVIDER_REQUEST_FAILED", started)
+                response = self._http_client.post(
+                    self.base_url,
+                    headers=self._headers(stream=False),
+                    json=payload,
+                    timeout=_timeout(),
+                    allow_redirects=False,
+                )
+                raw_text = getattr(response, "text", None)
+                if raw_text is None:
+                    raw_text = getattr(response, "content", b"").decode("utf-8", errors="replace")
+                _log(current_app.logger.warning if has_app_context() else None,
+                     "OpenAICompatibleProvider HTTP raw response (provider=%s, status=%s, raw=%r)",
+                     self.provider_name, getattr(response, "status_code", None), raw_text[:1500])
+                if _response_too_large(response):
+                    return _failure(self, "LLM_PROVIDER_RESPONSE_TOO_LARGE", started, status_code=413)
+                status_code = _status_code(response)
+                if status_code != 200:
+                    if _should_retry_status(status_code) and attempt < max_retries:
+                        _log(
+                            current_app.logger.warning if has_app_context() else None,
+                            "LLM retry (provider=%s, attempt=%s/%s, status=%s)",
+                            self.provider_name, attempt + 1, max_retries, status_code,
+                        )
+                        time.sleep(_retry_delay(attempt))
+                        continue
+                    return _failure(
+                        self,
+                        "LLM_PROVIDER_NON_SUCCESS",
+                        started,
+                        status_code=status_code,
+                    )
+                try:
+                    body = response.json()
+                except (TypeError, ValueError):
+                    return _failure(self, "LLM_OUTPUT_INVALID", started, status_code=200)
+                return _success_response(self, body, started)
+            except requests.Timeout:
+                if attempt < max_retries:
+                    _log(
+                        current_app.logger.warning if has_app_context() else None,
+                        "LLM retry on timeout (provider=%s, attempt=%s/%s)",
+                        self.provider_name, attempt + 1, max_retries,
+                    )
+                    time.sleep(_retry_delay(attempt))
+                    continue
+                return _failure(self, "LLM_PROVIDER_TIMEOUT", started)
+            except requests.RequestException:
+                if attempt < max_retries:
+                    _log(
+                        current_app.logger.warning if has_app_context() else None,
+                        "LLM retry on request failure (provider=%s, attempt=%s/%s)",
+                        self.provider_name, attempt + 1, max_retries,
+                    )
+                    time.sleep(_retry_delay(attempt))
+                    continue
+                return _failure(self, "LLM_PROVIDER_REQUEST_FAILED", started)
+        return _failure(self, "LLM_PROVIDER_REQUEST_FAILED", started)
 
     def generate_stream(self, request: LLMRequest) -> Iterator[LLMStreamChunk]:
         started = perf_counter()
         payload = _payload(request, self.model, stream=True)
-        try:
-            response = self._http_client.post(
-                self.base_url,
-                headers=self._headers(stream=True),
-                json=payload,
-                timeout=_timeout(),
-                allow_redirects=False,
-                stream=True,
-            )
-            if (
-                getattr(response, "status_code", None) is not None
-                and 400 <= getattr(response, "status_code") < 500
-                and _body_mentions_stream_options(response)
-            ):
-                degraded = dict(payload)
-                degraded.pop("stream_options", None)
+        max_retries = _max_retries()
+
+        # 连接阶段：429/5xx/超时 指数退避重试
+        response = None
+        for attempt in range(max_retries + 1):
+            try:
                 response = self._http_client.post(
                     self.base_url,
                     headers=self._headers(stream=True),
-                    json=degraded,
+                    json=payload,
                     timeout=_timeout(),
                     allow_redirects=False,
                     stream=True,
                 )
-            if getattr(response, "status_code", None) != 200:
-                yield LLMStreamChunk(
-                    finished=True,
-                    warning_code="LLM_PROVIDER_NON_SUCCESS",
-                )
+                if (
+                    getattr(response, "status_code", None) is not None
+                    and 400 <= getattr(response, "status_code") < 500
+                    and _body_mentions_stream_options(response)
+                ):
+                    degraded = dict(payload)
+                    degraded.pop("stream_options", None)
+                    response = self._http_client.post(
+                        self.base_url,
+                        headers=self._headers(stream=True),
+                        json=degraded,
+                        timeout=_timeout(),
+                        allow_redirects=False,
+                        stream=True,
+                    )
+                status_code = getattr(response, "status_code", None)
+                if status_code is not None and status_code != 200:
+                    if _should_retry_status(status_code) and attempt < max_retries:
+                        _log(
+                            current_app.logger.warning if has_app_context() else None,
+                            "LLM stream retry (provider=%s, attempt=%s/%s, status=%s)",
+                            self.provider_name, attempt + 1, max_retries, status_code,
+                        )
+                        time.sleep(_retry_delay(attempt))
+                        continue
+                    yield LLMStreamChunk(
+                        finished=True,
+                        warning_code="LLM_PROVIDER_NON_SUCCESS",
+                    )
+                    return
+                break
+            except requests.Timeout:
+                if attempt < max_retries:
+                    _log(
+                        current_app.logger.warning if has_app_context() else None,
+                        "LLM stream retry on timeout (provider=%s, attempt=%s/%s)",
+                        self.provider_name, attempt + 1, max_retries,
+                    )
+                    time.sleep(_retry_delay(attempt))
+                    continue
+                yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_TIMEOUT")
                 return
+            except requests.RequestException:
+                if attempt < max_retries:
+                    _log(
+                        current_app.logger.warning if has_app_context() else None,
+                        "LLM stream retry on request failure (provider=%s, attempt=%s/%s)",
+                        self.provider_name, attempt + 1, max_retries,
+                    )
+                    time.sleep(_retry_delay(attempt))
+                    continue
+                yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_REQUEST_FAILED")
+                return
+
+        # 流解析阶段：已开始产出内容后失败不再重试（避免重复内容）
+        try:
             iterator = getattr(response, "iter_lines", None)
             if not callable(iterator):
                 yield LLMStreamChunk(finished=True, warning_code="LLM_OUTPUT_INVALID")

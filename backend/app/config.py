@@ -154,6 +154,9 @@ class Config:
     LLM_PROVIDER_MAX_RESPONSE_BYTES = _env_int(
         "LLM_PROVIDER_MAX_RESPONSE_BYTES", DEFAULT_LLM_PROVIDER_MAX_RESPONSE_BYTES
     )
+    # LLM 调用自动重试：429/5xx/超时 指数退避（0.8s/1.6s）
+    LLM_MAX_RETRIES = _env_int("LLM_MAX_RETRIES", 2)
+    LLM_RETRY_BASE_DELAY = _env_float("LLM_RETRY_BASE_DELAY", 0.8)
 
     CHROMA_PERSIST_DIRECTORY = str(DATA_DIR / "chroma_db")
     VECTOR_BACKEND = os.getenv("VECTOR_BACKEND", "qdrant").strip().lower()
@@ -182,6 +185,8 @@ class Config:
     VECTOR_TOP_K = int(os.getenv("VECTOR_TOP_K", "10"))
     SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.5"))
     MAX_CONTEXT_LENGTH = int(os.getenv("MAX_CONTEXT_LENGTH", "4000"))
+    # QA 高成本 LLM 调用限流（每分钟每用户）
+    QA_RATE_LIMIT_PER_MINUTE = _env_int("QA_RATE_LIMIT_PER_MINUTE", 10)
     # 本地 bge-m3（1024 维，8192 上下文）：D 盘已有模型，无需下载
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "D:/rag-medical/models/bge-m3")
     EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1024"))

@@ -12,6 +12,7 @@ from app.models.qa import QAConversation, QARecord, Favorite, FeedbackLog
 from app.models.user import UserPreference
 from app.services.memory import service as memory_service
 from app.services.rag_engine import get_rag_engine
+from app.services.rate_limit import rate_limit
 from app.services.document_parser import parse_document
 
 qa_bp = Blueprint("qa", __name__)
@@ -152,6 +153,7 @@ def _retrieve_memories(user_id: int, query: str, conversation_id: int | None) ->
 
 @qa_bp.route("/ask", methods=["POST"])
 @jwt_required()
+@rate_limit("qa-ask", "QA_RATE_LIMIT_PER_MINUTE")
 def ask_question():
     """提交问题并获取答案"""
     user_id = get_jwt_identity()
@@ -207,6 +209,7 @@ def ask_question():
 
 @qa_bp.route("/ask/stream", methods=["POST"])
 @jwt_required()
+@rate_limit("qa-ask-stream", "QA_RATE_LIMIT_PER_MINUTE")
 def ask_question_stream():
     """流式提交问题并获取答案（SSE，ChatGPT 风格打字机输出）"""
     user_id = get_jwt_identity()
