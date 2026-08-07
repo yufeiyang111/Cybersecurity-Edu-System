@@ -126,51 +126,65 @@
                   <span v-if="message.time" class="conv-bubble__time">{{ message.time }}</span>
                   <span v-if="message.turnSeq" class="conv-bubble__time">Turn {{ message.turnSeq }}</span>
                 </div>
-                <p class="conv-bubble__text">{{ message.text }}</p>
-                <div v-if="message.llmAnalysis" class="conv-bubble__analysis">
-                  <div class="analysis-head">
-                    <BaseIcon name="zap" :size="13" />
-                    <span>LLM 分析</span>
+                <p v-if="message.role === 'user'" class="conv-bubble__text">{{ message.text }}</p>
+                <template v-else>
+                  <p class="conv-bubble__text">{{ message.text }}</p>
+                  <div v-if="message.llmAnalysis" class="conv-bubble__analysis">
+                    <div class="analysis-head">
+                      <BaseIcon name="zap" :size="13" />
+                      <span>LLM 分析</span>
+                    </div>
+                    <ChatMarkdown :content="message.llmAnalysis" />
                   </div>
-                  <p class="analysis-text">{{ message.llmAnalysis }}</p>
-                </div>
-                <div v-if="message.detail && message.detail.length" class="conv-bubble__detail">
-                  <div v-for="(line, index) in message.detail" :key="index" class="detail-line">
-                    <template v-if="line.kind === 'severity'">
-                      <BaseBadge v-if="line.counts.critical" type="red">严重 {{ line.counts.critical }}</BaseBadge>
-                      <BaseBadge v-if="line.counts.high" type="orange">高危 {{ line.counts.high }}</BaseBadge>
-                      <BaseBadge v-if="line.counts.medium" type="yellow">中危 {{ line.counts.medium }}</BaseBadge>
-                      <BaseBadge v-if="line.counts.low" type="blue">低危 {{ line.counts.low }}</BaseBadge>
-                      <BaseBadge v-if="line.counts.info" type="gray">信息 {{ line.counts.info }}</BaseBadge>
-                    </template>
-                    <template v-else-if="line.kind === 'coverage'">
-                      <span class="detail-label">覆盖</span>
-                      <span class="detail-value">{{ line.text }}</span>
-                    </template>
-                    <template v-else-if="line.kind === 'task'">
-                      <span class="detail-label">任务</span>
-                      <span class="detail-value">#{{ line.text }}</span>
-                    </template>
-                    <template v-else-if="line.kind === 'languages'">
-                      <span class="detail-label">语言</span>
-                      <span class="detail-value">{{ line.text }}</span>
-                    </template>
-                    <template v-else>
-                      {{ line }}
-                    </template>
+                  <div v-if="message.detail && message.detail.length" class="conv-bubble__detail">
+                    <div v-for="(line, index) in message.detail" :key="index" class="detail-line">
+                      <template v-if="line.kind === 'severity'">
+                        <BaseBadge v-if="line.counts.critical" type="red">严重 {{ line.counts.critical }}</BaseBadge>
+                        <BaseBadge v-if="line.counts.high" type="orange">高危 {{ line.counts.high }}</BaseBadge>
+                        <BaseBadge v-if="line.counts.medium" type="yellow">中危 {{ line.counts.medium }}</BaseBadge>
+                        <BaseBadge v-if="line.counts.low" type="blue">低危 {{ line.counts.low }}</BaseBadge>
+                        <BaseBadge v-if="line.counts.info" type="gray">信息 {{ line.counts.info }}</BaseBadge>
+                      </template>
+                      <template v-else-if="line.kind === 'coverage'">
+                        <span class="detail-label">覆盖</span>
+                        <span class="detail-value">{{ line.text }}</span>
+                      </template>
+                      <template v-else-if="line.kind === 'task'">
+                        <span class="detail-label">任务</span>
+                        <span class="detail-value">#{{ line.text }}</span>
+                      </template>
+                      <template v-else-if="line.kind === 'languages'">
+                        <span class="detail-label">语言</span>
+                        <span class="detail-value">{{ line.text }}</span>
+                      </template>
+                      <template v-else>
+                        {{ line }}
+                      </template>
+                    </div>
                   </div>
-                </div>
-                <button
-                  v-if="message.expandable && message.role === 'agent'"
-                  class="conv-expand"
-                  @click="toggleExpand(message)"
-                >
-                  {{ message.expanded ? '收起执行明细' : '展开执行明细' }}
-                </button>
-                <div v-if="message.expanded && message.role === 'agent'" class="conv-detail-panel">
-                  <AgentToolCallList :tool-calls="store.toolCalls" :loading="loading" />
-                  <AgentStatusTimeline :steps="store.steps" :loading="loading" />
-                </div>
+                  <div v-if="message.toolCalls && message.toolCalls.length" class="tool-chips">
+                    <span
+                      v-for="call in message.toolChips"
+                      :key="call.id"
+                      class="tool-chip"
+                      :class="`tool-chip--${call.status}`"
+                      :title="call.tool_name"
+                    >
+                      {{ call.label }}
+                    </span>
+                  </div>
+                  <button
+                    v-if="message.expandable"
+                    class="conv-expand"
+                    @click="toggleExpand(message)"
+                  >
+                    {{ message.expanded ? '收起执行明细' : '展开执行明细' }}
+                  </button>
+                  <div v-if="message.expanded" class="conv-detail-panel">
+                    <AgentToolCallList :tool-calls="message.toolCalls" :loading="false" />
+                    <AgentStatusTimeline :steps="message.steps" :loading="false" />
+                  </div>
+                </template>
               </div>
             </div>
           </div>
@@ -217,8 +231,7 @@
             :loading="loading"
           />
           <AgentReasoningStream :text="store.reasoningStream" :live="store.reasoningLive" />
-          <AgentCostSummary :summary="costSummary" :loading="costsLoading" />
-          <AgentInvocationTable :invocations="invocations" :loading="costsLoading" />
+          <AgentCostPanel :summary="costSummary" :invocations="invocations" :loading="costsLoading" />
           <AgentEventList :events="store.events" />
         </aside>
       </div>
@@ -232,14 +245,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from '@/features/security/feedback'
 import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
+import ChatMarkdown from '@/components/chat/ChatMarkdown.vue'
 import AgentConnectionStatus from '@/components/security/agent/AgentConnectionStatus.vue'
-import AgentCostSummary from '@/components/security/agent/AgentCostSummary.vue'
+import AgentCostPanel from '@/components/security/agent/AgentCostPanel.vue'
 import AgentCoverageFileTable from '@/components/security/agent/AgentCoverageFileTable.vue'
 import AgentCoverageOverview from '@/components/security/agent/AgentCoverageOverview.vue'
 import AgentEventList from '@/components/security/agent/AgentEventList.vue'
 import AgentFindingSummary from '@/components/security/agent/AgentFindingSummary.vue'
 import AgentGoalForm from '@/components/security/agent/AgentGoalForm.vue'
-import AgentInvocationTable from '@/components/security/agent/AgentInvocationTable.vue'
 import AgentPlanGraph from '@/components/security/agent/AgentPlanGraph.vue'
 import AgentPlannerPanel from '@/components/security/agent/AgentPlannerPanel.vue'
 import AgentProviderBadge from '@/components/security/agent/AgentProviderBadge.vue'
@@ -256,7 +269,7 @@ import { useAgentCosts } from '@/composables/security/useAgentCosts'
 import { useAgentCoverage } from '@/composables/security/useAgentCoverage'
 import { useAgentConversations } from '@/composables/security/useAgentConversations'
 import { useAgentRun } from '@/composables/security/useAgentRun'
-import { agentStatusMeta } from '@/features/security/agent/statusMeta'
+import { agentStatusMeta, toolNameLabel } from '@/features/security/agent/statusMeta'
 import { languageMeta } from '@/features/security/languageMeta'
 import { formatSecurityDate, securityApiErrorMessage } from '@/features/security/presentation'
 
@@ -264,6 +277,7 @@ const route = useRoute()
 const router = useRouter()
 const { store, loading, errorMessage, actionLoading, loadRun, pauseRun, resumeRun, cancelRun } = useAgentRun()
 const selectedProject = ref(null)
+const currentRunId = ref(null)
 const {
   loading: coverageLoading,
   summary: coverageSummary,
@@ -293,7 +307,7 @@ const conversationMeta = ref(null)
 const conversationMessages = ref([])
 const conversationTotal = ref(0)
 const turns = ref([])
-const currentRunId = ref(null)
+const turnRuns = ref({})
 const projectFilter = ref('all')
 const projectSearch = ref('')
 const projectLanguage = ref('all')
@@ -362,57 +376,99 @@ const composerPlaceholder = computed(() => {
 const conversation = computed(() => {
   const items = []
   if (mode.value === 'conversation') {
-    for (const message of conversationMessages.value) {
-      if (message.role !== 'user') continue
-      const turn = turns.value.find((item) => item.input_message_id === message.id)
-      items.push({
-        key: `conv-msg-${message.id}`,
-        role: 'user',
-        text: message.content,
-        time: formatSecurityDate(message.created_at),
-        turnSeq: turn?.turn_sequence || null
-      })
+    // 多轮：按 Turn 顺序交错展示 用户消息 + Agent 回复
+    for (const turn of turns.value) {
+      const message = conversationMessages.value.find(
+        (item) => item.id === turn.input_message_id
+      )
+      if (message) {
+        items.push({
+          key: `conv-msg-${message.id}`,
+          role: 'user',
+          text: message.content,
+          time: formatSecurityDate(message.created_at),
+          turnSeq: turn.turn_sequence
+        })
+      }
+      const payload = turnRuns.value[turn.run_id]
+      if (payload) {
+        items.push(agentMessage(payload, turn))
+      }
     }
-  } else {
-    const stored = store.messages || []
-    for (const message of stored) {
-      if (message.role !== 'user') continue
+    return items
+  }
+
+  // run 模式：按消息顺序交错，最后补充实时 LLM 分析
+  const stored = store.messages || []
+  for (const message of stored) {
+    if (message.role === 'user') {
       items.push({
         key: `msg-${message.id}`,
         role: 'user',
         text: message.content,
         time: formatSecurityDate(message.created_at)
       })
+    } else {
+      items.push(agentMessageForStore(message))
     }
   }
-  if (store.run) {
-    items.push({
-      key: 'agent-run',
-      role: 'agent',
-      text: agentReplyText(),
-      time: store.run.finished_at ? formatSecurityDate(store.run.finished_at) : '',
-      detail: agentReplyDetail(),
-      llmAnalysis: store.llmAnalysis || null,
-      expandable: store.steps.length > 0 || store.toolCalls.length > 0,
-      expanded: false
-    })
+  if (store.run && !items.some((item) => item.role === 'agent')) {
+    items.push(agentMessageForStore(null))
   }
   return items
 })
 
-function agentReplyText() {
-  if (!store.run) return ''
-  const status = statusMeta.value.label
-  if (!store.isTerminal) return `正在执行：${status}。Agent 正在调用确定性工具分析快照。`
-  const scanSummary = store.scanSummary || baselineMetrics.value
-  const findings = scanSummary?.findings_count ?? 0
-  const covered = coverageSummary.value ? `${coverageSummary.value.total_files} 个文件完成覆盖` : '覆盖报告生成中'
-  return `执行完成（${status}）：基线扫描产出 ${findings} 个发现，${covered}。`
+function agentMessage(payload, turn) {
+  const run = payload.run || {}
+  const analysis = (payload.messages || []).find(
+    (message) => message.role === 'agent' && message.message_type === 'llm_analysis'
+  )
+  return {
+    key: `agent-turn-${turn?.id || run.id}`,
+    role: 'agent',
+    text: agentReplyText(run, payload.scan_summary),
+    time: run.finished_at ? formatSecurityDate(run.finished_at) : '',
+    turnSeq: turn?.turn_sequence || null,
+    llmAnalysis: analysis?.content || null,
+    detail: agentReplyDetail(payload.scan_summary),
+    toolCalls: payload.tool_calls || [],
+    toolChips: toolChipsOf(payload.tool_calls || []),
+    steps: payload.steps || [],
+    expandable: (payload.tool_calls?.length || 0) + (payload.steps?.length || 0) > 0,
+    expanded: false
+  }
 }
 
-function agentReplyDetail() {
+function agentMessageForStore(message) {
+  const run = store.run || {}
+  const analysis = message?.content || store.llmAnalysis || null
+  const toolCalls = store.toolCalls || []
+  const steps = store.steps || []
+  return {
+    key: `agent-msg-${message?.id || 'live'}`,
+    role: 'agent',
+    text: agentReplyText(run, store.scanSummary),
+    time: run.finished_at ? formatSecurityDate(run.finished_at) : '',
+    turnSeq: null,
+    llmAnalysis: analysis,
+    detail: agentReplyDetail(store.scanSummary),
+    toolCalls,
+    toolChips: toolChipsOf(toolCalls),
+    steps,
+    expandable: toolCalls.length + steps.length > 0,
+    expanded: false
+  }
+}
+
+function agentReplyText(run, scanSummary) {
+  if (!run) return ''
+  const status = agentStatusMeta(run.status).label
+  const findings = scanSummary?.findings_count ?? 0
+  return `执行完成（${status}）：基线扫描产出 ${findings} 个发现。`
+}
+
+function agentReplyDetail(scanSummary) {
   const items = []
-  const scanSummary = store.scanSummary || baselineMetrics.value
   if (scanSummary) {
     items.push({ kind: 'task', text: scanSummary.task_id })
     const counts = scanSummary.severity_counts || {}
@@ -420,6 +476,15 @@ function agentReplyDetail() {
     if (scanSummary.languages?.length) items.push({ kind: 'languages', text: scanSummary.languages.join(', ') })
   }
   return items
+}
+
+function toolChipsOf(toolCalls) {
+  return (toolCalls || []).slice(0, 8).map((call) => ({
+    id: call.id,
+    label: toolNameLabel(call.tool_name),
+    status: call.status === 'succeeded' ? 'succeeded' : call.status === 'failed' ? 'failed' : 'running',
+    tool_name: call.tool_name
+  }))
 }
 
 function toggleExpand(message) {
@@ -439,7 +504,19 @@ async function loadConversation(conversationIdValue) {
     turns.value = metaResponse.conversation.turns || []
     conversationMessages.value = messagesResponse.items || []
     conversationTotal.value = messagesResponse.pagination?.total || 0
-    const latestRunTurn = [...turns.value].reverse().find((turn) => turn.run_id)
+
+    // 并行加载每个 Turn 的 Run 详情，保证时间线按轮次交错展示
+    const runTurns = turns.value.filter((turn) => turn.run_id)
+    const payloads = await Promise.all(
+      runTurns.map((turn) => agentAPI.getRun(turn.run_id).catch(() => null))
+    )
+    const nextRuns = {}
+    runTurns.forEach((turn, index) => {
+      if (payloads[index]) nextRuns[turn.run_id] = payloads[index]
+    })
+    turnRuns.value = nextRuns
+
+    const latestRunTurn = runTurns[runTurns.length - 1]
     if (latestRunTurn?.run_id) {
       currentRunId.value = latestRunTurn.run_id
       loadRun(latestRunTurn.run_id)
@@ -464,9 +541,7 @@ async function handleSendMessage({ text }) {
         client_message_id: clientMessageId
       })
       if (response.run) {
-        conversationMessages.value = [...conversationMessages.value, response.message]
-        currentRunId.value = response.run.id
-        await loadRun(response.run.id)
+        await loadConversation(conversationId.value)
       }
     } else if (mode.value === 'run' && runId.value) {
       const response = await agentAPI.sendMessage(runId.value, content)
@@ -624,6 +699,9 @@ watch(
   () => store.isTerminal,
   (terminal) => {
     if (terminal && currentRunId.value) {
+      if (mode.value === 'conversation') {
+        loadConversation(conversationId.value)
+      }
       loadCoverage('')
       loadCosts()
       nextTickScroll()
@@ -706,14 +784,47 @@ onMounted(() => {
   font-weight: 600;
   margin-bottom: 4px;
 }
-.analysis-text {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
+.conv-bubble__analysis :deep(.chat-markdown) {
   font-size: 13px;
   line-height: 1.65;
   color: #1f2d3d;
 }
+.conv-bubble__analysis :deep(.chat-markdown h1),
+.conv-bubble__analysis :deep(.chat-markdown h2),
+.conv-bubble__analysis :deep(.chat-markdown h3),
+.conv-bubble__analysis :deep(.chat-markdown h4) {
+  font-size: 14px;
+  margin: 10px 0 6px;
+}
+.conv-bubble__analysis :deep(.chat-markdown ul),
+.conv-bubble__analysis :deep(.chat-markdown ol) {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+.conv-bubble__analysis :deep(.chat-markdown p) { margin: 6px 0; }
+.conv-bubble__analysis :deep(.chat-markdown code) {
+  font-size: 12px;
+  padding: 1px 5px;
+}
+.tool-chips {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tool-chip {
+  font-size: 11.5px;
+  border-radius: 999px;
+  padding: 2px 10px;
+  border: 1px solid #c2ccd9;
+  color: #52627a;
+  background: #fff;
+  cursor: default;
+}
+.tool-chip--succeeded { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+.tool-chip--failed { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+.tool-chip--running { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
 .conv-bubble__detail {
   margin-top: 6px;
   display: flex;

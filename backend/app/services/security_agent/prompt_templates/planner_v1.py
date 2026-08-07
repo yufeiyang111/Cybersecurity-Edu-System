@@ -20,7 +20,8 @@ SYSTEM_PROMPT = (
     "规则：\n"
     "1. 必须包含 inventory 与 baseline_scan 两个强制基线节点，不得省略。\n"
     "2. 只能使用给出的工具与节点类型，不得发明工具。\n"
-    "3. 输出必须是合法 JSON，不要输出任何额外文字或 markdown 代码块。\n"
+    "3. 输出必须是合法 JSON 对象本身，不要用 plan_envelope 或其他键包裹，"
+    "不要输出任何额外文字或 markdown 代码块。\n"
     "4. decision_summary 用简体中文简述选择这些步骤的原因。\n"
     "JSON 结构：\n"
     '{"objective":"本轮审计目标","hypotheses":["假设1"],'
@@ -57,7 +58,11 @@ def build_user_prompt(
 
 
 def parse_plan_envelope(text: str) -> dict:
-    """Parse a PlanEnvelope from provider text; tolerate fenced JSON blocks."""
+    """Parse a PlanEnvelope from provider text; tolerate fenced JSON blocks.
+
+    Some providers wrap the envelope in an outer key ({"plan_envelope": {...}})
+    or nest it under "data"; unwrap those before returning the envelope.
+    """
     if not text:
         raise ValueError("Planner 返回为空")
     stripped = text.strip()
@@ -70,6 +75,10 @@ def parse_plan_envelope(text: str) -> dict:
         raise ValueError("Planner 返回不是合法 JSON") from exc
     if not isinstance(envelope, dict):
         raise ValueError("Planner 返回必须是 JSON 对象")
+    for wrapper_key in ("plan_envelope", "envelope", "data"):
+        nested = envelope.get(wrapper_key)
+        if isinstance(nested, dict) and wrapper_key in envelope:
+            return nested
     return envelope
 
 

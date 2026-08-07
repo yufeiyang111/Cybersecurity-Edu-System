@@ -73,3 +73,20 @@ export function plannerSourceLabel(source) {
   if (source === 'rule_based_policy') return { label: '本地策略计划', tagType: 'warning' }
   return { label: source || '未生成', tagType: 'info' }
 }
+
+const TOOL_NAME_LABELS = {
+  inventory_snapshot: '清点快照',
+  run_baseline_scan: '基线扫描',
+  get_dependency_inventory: '依赖库存',
+  get_scan_coverage: '扫描覆盖',
+  rank_findings: '风险排序',
+  get_findings: '查询发现',
+  finalize_agent_report: '生成摘要',
+  map_repository: '映射仓库',
+  search_code: '代码搜索',
+  read_code_slice: '代码切片'
+}
+
+export function toolNameLabel(toolName) {
+  return TOOL_NAME_LABELS[toolName] || toolName || '未知工具'
+}

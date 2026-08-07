@@ -190,6 +190,15 @@ def test_budget_exhausted_blocks_llm_planning(app, monkeypatch):
         assert "warning.raised" in types
 
 
+def test_parse_envelope_unwraps_wrapper_keys():
+    from app.services.security_agent.prompt_templates.planner_v1 import parse_plan_envelope
+
+    wrapped = json.dumps({"plan_envelope": VALID_ENVELOPE}, ensure_ascii=False)
+    parsed = parse_plan_envelope(f"```json\n{wrapped}\n```")
+    assert parsed["objective"] == "检查项目后门风险"
+    assert parse_plan_envelope(json.dumps({"data": VALID_ENVELOPE}))["objective"] == "检查项目后门风险"
+
+
 def test_runner_build_plan_delegates_to_llm_planner(app, monkeypatch):
     from app.services.security_agent.artifact_service import ArtifactService
     from app.services.security_agent.checkpoint_service import CheckpointService
