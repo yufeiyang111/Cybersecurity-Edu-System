@@ -16,22 +16,21 @@ from app.config import Config
 
 
 class SecBERTEmbedding:
-    """SecBERT 向量化模型"""
+    """向量化模型"""
 
-    # SecBERT 模型名称或路径
-    # 如果本地没有，可使用 "InfinityWang/secbert" 或其他中文安全领域模型
-    DEFAULT_MODEL_NAME = "shibing624/text2vec-base-chinese"  # 备用基础模型
+    # 模型名称或路径；默认 bge-m3（本地 D 盘），可通过 Config.EMBEDDING_MODEL 覆盖
+    DEFAULT_MODEL_NAME = "shibing624/text2vec-base-chinese"
     SECBERT_MODEL_NAME = "SecBERT"  # 实际项目中应替换为真实的 SecBERT 模型
 
     def __init__(
         self,
         model_name: str = None,
         device: str = None,
-        max_length: int = 512,
+        max_length: int = None,
         batch_size: int = 32
     ):
         """
-        初始化 SecBERT 向量化模型
+        初始化向量化模型
 
         Args:
             model_name: 模型名称或本地路径
@@ -40,7 +39,7 @@ class SecBERTEmbedding:
             batch_size: 批处理大小
         """
         self.model_name = model_name or self.DEFAULT_MODEL_NAME
-        self.max_length = max_length
+        self.max_length = max_length or Config.EMBEDDING_MAX_LENGTH
         self.batch_size = batch_size
 
         # 自动选择设备
@@ -149,7 +148,7 @@ class SecBERTEmbedding:
         from sklearn.feature_extraction.text import HashingVectorizer
 
         vectorizer = HashingVectorizer(
-            n_features=768,
+            n_features=Config.EMBEDDING_DIMENSION,
             norm=None,
             alternate_sign=False
         )
@@ -203,7 +202,7 @@ class SecBERTEmbedding:
         """获取向量维度"""
         if self.model is not None:
             return self.model.config.hidden_size
-        return 768  # 默认维度
+        return Config.EMBEDDING_DIMENSION
 
 
 class EmbeddingService:
@@ -230,7 +229,10 @@ class EmbeddingService:
         return self.embedding_model.encode(texts, **kwargs)
 
     def encode_query(self, query: str) -> np.ndarray:
-        """编码查询文本（与 encode 相同，但语义更明确）"""
+        """编码查询文本（BGE 系模型追加查询指令，文档编码不加）"""
+        prefix = Config.EMBEDDING_QUERY_PREFIX.strip()
+        if prefix:
+            query = f"{prefix}{query}"
         return self.encode(query)
 
     def encode_documents(self, documents: List[str], **kwargs) -> np.ndarray:

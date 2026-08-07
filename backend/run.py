@@ -48,6 +48,39 @@ def rq_worker_command() -> None:
     Worker([queue], connection=queue.connection).work()
 
 
+@app.cli.command("reindex-knowledge")
+def reindex_knowledge_command() -> None:
+    """Rebuild embedding collections (embedding model change) and reindex public knowledge."""
+    from app.models.knowledge import KnowledgeItem
+    from app.services.enhanced_rag_engine import get_rag_engine
+    from app.services.secbert_embedding import get_embedding_service
+    from app.services.vector_stores.contracts import (
+        DEFAULT_COLLECTION_NAME,
+        SECURITY_KNOWLEDGE_COLLECTION_NAME,
+    )
+    from app.services.vector_stores.factory import create_vector_backend
+
+    with app.app_context():
+        dimension = int(get_embedding_service().dimension)
+        for collection_name in (DEFAULT_COLLECTION_NAME, SECURITY_KNOWLEDGE_COLLECTION_NAME):
+            backend = create_vector_backend(collection_name=collection_name)
+            deleted = backend.delete_all()
+            print(
+                f"collection '{collection_name}' rebuilt "
+                f"(delete_all={deleted}, dim={dimension}, model={app.config['EMBEDDING_MODEL']})"
+            )
+
+        items = [
+            item.to_dict()
+            for item in KnowledgeItem.query.filter_by(status="published").all()
+        ]
+        result = get_rag_engine().index_knowledge(items)
+        print(
+            f"reindexed knowledge: {result['vector_indexed']}/{result['total']} "
+            f"vectors, graph entities: {result['graph_indexed']}"
+        )
+
+
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",

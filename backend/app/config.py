@@ -182,7 +182,14 @@ class Config:
     VECTOR_TOP_K = int(os.getenv("VECTOR_TOP_K", "10"))
     SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.5"))
     MAX_CONTEXT_LENGTH = int(os.getenv("MAX_CONTEXT_LENGTH", "4000"))
-    EMBEDDING_MODEL = "shibing624/text2vec-base-chinese"
+    # 本地 bge-m3（1024 维，8192 上下文）：D 盘已有模型，无需下载
+    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "D:/rag-medical/models/bge-m3")
+    EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1024"))
+    EMBEDDING_MAX_LENGTH = int(os.getenv("EMBEDDING_MAX_LENGTH", "4096"))
+    # BGE 系模型推荐查询指令（文档编码不加，仅查询加）
+    EMBEDDING_QUERY_PREFIX = os.getenv(
+        "EMBEDDING_QUERY_PREFIX", "为这个句子生成表示以用于检索相关文章："
+    )
 
     GRAPH_MAX_HOPS = int(os.getenv("GRAPH_MAX_HOPS", "3"))
     GRAPH_WEIGHT_DECAY = float(os.getenv("GRAPH_WEIGHT_DECAY", "0.8"))
