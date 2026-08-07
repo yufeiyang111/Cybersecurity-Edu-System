@@ -139,6 +139,10 @@
               <el-icon><Back /></el-icon>
               返回完整图谱
             </el-button>
+            <el-button size="small" @click="exportGraphImage">
+              <el-icon><Download /></el-icon>
+              导出图片
+            </el-button>
             <el-button type="primary" size="small" @click="refreshGraph">
               <el-icon><Refresh /></el-icon>
               刷新
@@ -200,7 +204,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { adminAPI, knowledgeAPI } from '@/api'
 import { ElMessage } from 'element-plus'
-import { Search, Plus, Minus, Refresh, Aim, Back } from '@element-plus/icons-vue'
+import { Search, Plus, Minus, Refresh, Aim, Back, Download } from '@element-plus/icons-vue'
 import ForceGraphCanvas from '@/components/graph/ForceGraphCanvas.vue'
 
 const router = useRouter()
@@ -217,6 +221,7 @@ const goBack = () => {
 const graphRef = ref(null)
 const graphNodes = ref([])
 const graphEdges = ref([])
+const allEdges = ref([])
 const graphStats = ref({ node_count: 0, edge_count: 0, relation_types: {} })
 const categories = ref([])
 const selectedCategory = ref(null)
@@ -344,14 +349,34 @@ const loadGraphData = async () => {
       }
     }))
 
-    graphNodes.value = nodes
-    graphEdges.value = edges
+    allEdges.value = edges
+    applyFilters()
 
     loadGraphStats()
   } catch (error) {
     console.error('加载图谱数据失败', error)
     ElMessage.error('加载知识图谱失败，请刷新重试')
   }
+}
+
+const applyFilters = () => {
+  let filteredNodes = allNodes.value
+  if (selectedCategory.value !== null && selectedCategory.value !== '') {
+    const catName = categories.value.find(
+      cat => String(cat.id) === String(selectedCategory.value)
+    )?.name
+    if (catName) {
+      filteredNodes = filteredNodes.filter(node => node.category === catName)
+    }
+  }
+
+  let filteredEdges = allEdges.value
+  if (selectedRelation.value) {
+    filteredEdges = filteredEdges.filter(edge => edge.name === selectedRelation.value)
+  }
+
+  graphNodes.value = filteredNodes
+  graphEdges.value = filteredEdges
 }
 
 const loadGraphStats = async () => {
@@ -526,12 +551,16 @@ const resetToFullGraph = () => {
 }
 
 const handleFilter = () => {
-  loadGraphData()
+  applyFilters()
 }
 
 const filterByRelation = (rel) => {
-  selectedRelation.value = rel
-  loadGraphData()
+  selectedRelation.value = selectedRelation.value === rel ? null : rel
+  applyFilters()
+}
+
+const exportGraphImage = () => {
+  graphRef.value?.exportPng()
 }
 
 const zoomIn = () => {

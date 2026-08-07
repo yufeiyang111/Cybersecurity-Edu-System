@@ -109,6 +109,7 @@ let simNodes = []
 let simEdges = []
 let view = { x: 0, y: 0, scale: 1 }
 let rafId = 0
+let viewTweenRaf = 0
 let simTicks = 0
 let simAlpha = 1
 let fitted = false
@@ -295,15 +296,13 @@ const draw = () => {
   drawMinimap()
 }
 
-const fitView = () => {
+const computeFit = () => {
   if (!simNodes.length) {
-    view = { x: width / 2, y: height / 2, scale: 1 }
-    return
+    return { x: width / 2, y: height / 2, scale: 1 }
   }
   const bbox = computeBBox(simNodes)
   if (!isFinite(bbox.w) || !isFinite(bbox.h) || bbox.w <= 0 || bbox.h <= 0) {
-    view = { x: width / 2, y: height / 2, scale: 1 }
-    return
+    return { x: width / 2, y: height / 2, scale: 1 }
   }
   const pad = 80
   const fitScale = Math.min(
@@ -311,9 +310,37 @@ const fitView = () => {
     (height - pad * 2) / bbox.h,
     1.6
   )
-  view.scale = Math.max(fitScale, 0.15)
-  view.x = width / 2 - (bbox.minX + bbox.w / 2) * view.scale
-  view.y = height / 2 - (bbox.minY + bbox.h / 2) * view.scale
+  const scale = Math.max(fitScale, 0.15)
+  return {
+    x: width / 2 - (bbox.minX + bbox.w / 2) * scale,
+    y: height / 2 - (bbox.minY + bbox.h / 2) * scale,
+    scale
+  }
+}
+
+const fitView = () => {
+  const target = computeFit()
+  view.x = target.x
+  view.y = target.y
+  view.scale = target.scale
+}
+
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
+
+const animateViewTo = (targetX, targetY, targetScale, duration = 600) => {
+  cancelAnimationFrame(viewTweenRaf)
+  const from = { x: view.x, y: view.y, scale: view.scale }
+  const start = performance.now()
+  const step = (now) => {
+    const t = Math.min((now - start) / duration, 1)
+    const e = easeOutCubic(t)
+    view.x = from.x + (targetX - from.x) * e
+    view.y = from.y + (targetY - from.y) * e
+    view.scale = from.scale + (targetScale - from.scale) * e
+    draw()
+    if (t < 1) viewTweenRaf = requestAnimationFrame(step)
+  }
+  viewTweenRaf = requestAnimationFrame(step)
 }
 
 const runSim = () => {
@@ -343,9 +370,9 @@ const runSim = () => {
     draw()
     if (simTicks > DEFAULT_PARAMS.maxTicks || simAlpha < DEFAULT_PARAMS.alphaMin) {
       if (!fitted) {
-        fitView()
         fitted = true
-        draw()
+        const target = computeFit()
+        animateViewTo(target.x, target.y, target.scale)
       }
       return
     }
@@ -364,6 +391,7 @@ const resetSim = () => {
   fitted = false
   hoveredNodeId = null
   tooltipVisible.value = false
+  fitView()
   runSim()
 }
 
@@ -487,8 +515,8 @@ const onMinimapPointerDown = (event) => {
 const zoomIn = () => zoomAt(width / 2, height / 2, 1.25)
 const zoomOut = () => zoomAt(width / 2, height / 2, 0.8)
 const resetZoom = () => {
-  fitView()
-  draw()
+  const target = computeFit()
+  animateViewTo(target.x, target.y, target.scale)
 }
 const highlightNode = (id) => {
   highlightedNodeId = id
@@ -502,13 +530,21 @@ const focusNode = (id) => {
   view.y = height / 2 - node.y * view.scale
   highlightNode(id)
 }
+const exportPng = (filename = 'knowledge-graph.png') => {
+  if (!canvasRef.value) return
+  const link = document.createElement('a')
+  link.download = filename
+  link.href = canvasRef.value.toDataURL('image/png')
+  link.click()
+}
 
 defineExpose({
   zoomIn,
   zoomOut,
   resetZoom,
   highlightNode,
-  focusNode
+  focusNode,
+  exportPng
 })
 
 watch(() => props.nodes, resetSim)
@@ -524,6 +560,7 @@ onMounted(() => {
 onUnmounted(() => {
   resizeObserver?.disconnect()
   cancelAnimationFrame(rafId)
+  cancelAnimationFrame(viewTweenRaf)
 })
 </script>
 
