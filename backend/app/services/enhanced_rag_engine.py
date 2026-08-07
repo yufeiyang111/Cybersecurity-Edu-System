@@ -132,22 +132,36 @@ class EnhancedRAGEngine:
         top_k = top_k or Config.VECTOR_TOP_K
         all_results = {}
 
-        # 1. 向量检索（分块入库后按 doc_id 去重，保留最高分块）
+        # 1. 混合检索（向量 + Qdrant 原生 BM25，RRF 融合；分块后按 doc_id 去重）
         try:
-            vector_results = self.vector_store.search(query, top_k=top_k * 2)
+            backend = self.vector_store.backend
+            query_vector = self.vector_store.embedding_service.encode_query(query)[0]
+            if hasattr(backend, "hybrid_search"):
+                vector_results = backend.hybrid_search(
+                    vector=query_vector.tolist() if hasattr(query_vector, "tolist") else list(query_vector),
+                    text=query,
+                    where=None,
+                    top_k=top_k * 2,
+                )
+            else:
+                vector_results = backend.search(
+                    vector=query_vector.tolist() if hasattr(query_vector, "tolist") else list(query_vector),
+                    where=None,
+                    top_k=top_k * 2,
+                )
             for rank, item in enumerate(vector_results):
-                metadata = item.get("metadata", {})
-                doc_id = str(metadata.get("doc_id") or item["id"])
+                metadata = dict(item.metadata)
+                doc_id = str(metadata.get("doc_id") or item.id)
                 weight = Config.VECTOR_WEIGHT * (1 / (60 + rank + 1))
                 existing = all_results.get(doc_id)
-                if existing is None or item.get("similarity", 0) > existing.get("similarity", 0):
+                if existing is None or item.similarity > existing.get("similarity", 0):
                     all_results[doc_id] = {
                         "id": doc_id,
-                        "text": item["text"],
+                        "text": item.text,
                         "metadata": metadata,
                         "score": weight,
                         "source": "vector",
-                        "similarity": item.get("similarity", 0)
+                        "similarity": item.similarity
                     }
         except Exception as e:
             print(f"向量检索失败: {e}")

@@ -11,7 +11,7 @@ cryptography==41.0.7
 
 # RAG & AI
 chromadb==0.4.22
-qdrant-client==1.9.2
+qdrant-client==1.19.0
 portalocker==2.8.2
 sentence-transformers==2.7.0
 numpy==1.26.2

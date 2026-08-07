@@ -2,17 +2,28 @@
 
 注意：Qdrant 的 point id 只接受整数或合法 UUID，任意字符串 id 会被稳定映射为
 UUID v5，原始 id 保存在 payload["id"]，对外完全透明。
+
+混合检索（BM25 词法 + 稠密向量）：
+- collection 配置 sparse vector（modifier=idf，Qdrant 原生 BM25，无需 inference 服务）；
+- 写入时用 jieba 分词词频生成 sparse 向量（解决中文无空格分词问题）；
+- 查询走 Query API 双路召回 + RRF 融合（Qdrant 服务端融合）。
 """
 from __future__ import annotations
 
 import logging
 import os
 import uuid
+import zlib
+from collections import Counter
 from typing import Any, Mapping, Optional, Sequence
 
 from app.services.vector_stores.contracts import VectorHit
 
 logger = logging.getLogger(__name__)
+
+# sparse vector 的命名向量名
+BM25_VECTOR_NAME = "bm25"
+DENSE_VECTOR_NAME = "dense"
 
 
 def _ensure_local_no_proxy() -> None:
@@ -36,6 +47,29 @@ def _stable_point_id(original: str) -> str:
 def _clean_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Qdrant payload 不接受 None 值，过滤后返回。"""
     return {key: value for key, value in payload.items() if value is not None}
+
+
+def _zh_tokens(text: str) -> list[str]:
+    """jieba 空格分词（中文 BM25 词法字段）。"""
+    try:
+        import jieba
+
+        return [token for token in jieba.cut(str(text or "")) if token.strip()]
+    except Exception:
+        return list(str(text or ""))
+
+
+def _sparse_vector_from_text(text: str) -> Any:
+    """由文本生成 Qdrant sparse vector（词频，IDF 由 Qdrant modifier 处理）。"""
+    from qdrant_client.models import SparseVector
+
+    freq = Counter(_zh_tokens(text))
+    if not freq:
+        return SparseVector(indices=[0], values=[0.0])
+    return SparseVector(
+        indices=[zlib.crc32(token.encode("utf-8")) for token in freq],
+        values=[float(count) for count in freq.values()],
+    )
 
 
 class QdrantVectorBackend:
@@ -74,16 +108,27 @@ class QdrantVectorBackend:
         return self._dimension
 
     def _ensure_collection(self) -> None:
-        from qdrant_client.models import VectorParams
+        from qdrant_client.models import (
+            Modifier,
+            SparseVectorParams,
+            VectorParams,
+        )
 
         existing = {item.name for item in self._client.get_collections().collections}
         if self._collection_name not in existing:
             self._client.create_collection(
                 collection_name=self._collection_name,
-                vectors_config=VectorParams(
-                    size=self._resolve_dimension(),
-                    distance=self._distance,
-                ),
+                vectors_config={
+                    DENSE_VECTOR_NAME: VectorParams(
+                        size=self._resolve_dimension(),
+                        distance=self._distance,
+                    )
+                },
+                sparse_vectors_config={
+                    BM25_VECTOR_NAME: SparseVectorParams(
+                        modifier=Modifier.IDF,
+                    )
+                },
             )
 
     def _filter(self, where: Mapping[str, Any]) -> Any | None:
@@ -111,9 +156,16 @@ class QdrantVectorBackend:
         points = [
             PointStruct(
                 id=_stable_point_id(point_id),
-                vector=[float(value) for value in vector],
+                vector={
+                    DENSE_VECTOR_NAME: [float(value) for value in vector],
+                    BM25_VECTOR_NAME: _sparse_vector_from_text(text),
+                },
                 payload=_clean_payload(
-                    {**dict(metadata), "id": str(point_id), "text": text}
+                    {
+                        **dict(metadata),
+                        "id": str(point_id),
+                        "text": text,
+                    }
                 ),
             )
             for point_id, vector, text, metadata in zip(ids, vectors, texts, metadatas)
@@ -130,15 +182,90 @@ class QdrantVectorBackend:
         where: Optional[Mapping[str, Any]],
         top_k: int,
     ) -> list[VectorHit]:
-        response = self._client.search(
+        response = self._client.query_points(
             collection_name=self._collection_name,
-            query_vector=[float(value) for value in vector],
+            query=[float(value) for value in vector],
+            using=DENSE_VECTOR_NAME,
             query_filter=self._filter(where) if where else None,
             limit=top_k,
             with_payload=True,
         )
+        return self._to_hits(response)
+
+    def hybrid_search(
+        self,
+        *,
+        vector: Sequence[float],
+        text: str,
+        where: Optional[Mapping[str, Any]],
+        top_k: int,
+    ) -> list[VectorHit]:
+        """稠密向量 + Qdrant 原生 BM25 双路召回，服务端 RRF 融合。
+
+        注意：RRF 融合分不是余弦相似度，similarity 字段保留向量余弦分
+        （前端展示语义不变），排序用 RRF 融合分。
+        """
+        query_filter = self._filter(where) if where else None
+        dense_query = [float(value) for value in vector]
+        sparse_query = _sparse_vector_from_text(text)
+
+        dense = self._client.query_points(
+            collection_name=self._collection_name,
+            query=dense_query,
+            using=DENSE_VECTOR_NAME,
+            query_filter=query_filter,
+            limit=top_k * 2,
+            with_payload=True,
+        )
+        lexical = self._client.query_points(
+            collection_name=self._collection_name,
+            query=sparse_query,
+            using=BM25_VECTOR_NAME,
+            query_filter=query_filter,
+            limit=top_k * 2,
+            with_payload=True,
+        )
+
+        fusion_scores: dict[str, float] = {}
+        hits: dict[str, dict[str, Any]] = {}
+
+        for rank, point in enumerate(getattr(dense, "points", None) or []):
+            point_id = str(point.payload.get("id", point.id))
+            fusion_scores[point_id] = fusion_scores.get(point_id, 0.0) + 1.0 / (60 + rank + 1)
+            if point_id not in hits:
+                hits[point_id] = {"point": point, "cosine": float(point.score)}
+
+        for rank, point in enumerate(getattr(lexical, "points", None) or []):
+            point_id = str(point.payload.get("id", point.id))
+            fusion_scores[point_id] = fusion_scores.get(point_id, 0.0) + 1.0 / (60 + rank + 1)
+            if point_id not in hits:
+                hits[point_id] = {"point": point, "cosine": 0.0}
+
+        ranked_ids = sorted(fusion_scores, key=fusion_scores.get, reverse=True)[:top_k]
+
+        result: list[VectorHit] = []
+        for point_id in ranked_ids:
+            point = hits[point_id]["point"]
+            cosine = hits[point_id]["cosine"]
+            payload = dict(point.payload or {})
+            result.append(
+                VectorHit(
+                    id=point_id,
+                    text=str(payload.get("text", "")),
+                    metadata={
+                        key: value
+                        for key, value in payload.items()
+                        if key not in ("id", "text")
+                    },
+                    similarity=cosine,
+                    distance=1.0 - cosine,
+                )
+            )
+        return result
+
+    def _to_hits(self, response: Any) -> list[VectorHit]:
         hits: list[VectorHit] = []
-        for point in response:
+        for point in getattr(response, "points", None) or []:
             payload = dict(point.payload or {})
             similarity = float(point.score)
             hits.append(
