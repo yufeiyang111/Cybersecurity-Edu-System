@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from time import perf_counter
 from typing import Any, Iterator
 
@@ -28,6 +29,51 @@ def _raw_log(provider: OpenAICompatibleProvider, response_text: str) -> None:
         provider.model,
         response_text[:2000],
     )
+
+
+class _ThinkStreamFilter:
+    """Stream-safe stripper for <think>...</think> blocks split across chunks.
+
+    MiniMax emits reasoning inline inside content with <think> tags that can
+    span multiple SSE chunks; buffering until the closing tag keeps reasoning
+    out of the visible stream (mirrors LabexAgent's thinkParser).
+    """
+
+    _OPEN_RE = re.compile(r"(?is)<\s*think(?:ing)?(?:\s[^>]*)?>")
+    _CLOSE_RE = re.compile(r"(?is)</\s*think(?:ing)?(?:\s[^>]*)?\s*>")
+
+    def __init__(self) -> None:
+        self._buffer = ""
+        self._in_think = False
+
+    def push(self, delta: str) -> str:
+        """Return visible text; reasoning content is buffered and dropped."""
+        self._buffer += delta or ""
+        visible = ""
+        while True:
+            if self._in_think:
+                match = self._CLOSE_RE.search(self._buffer)
+                if match is None:
+                    break
+                self._buffer = self._buffer[match.end():]
+                self._in_think = False
+                continue
+            match = self._OPEN_RE.search(self._buffer)
+            if match is None:
+                visible += self._buffer
+                self._buffer = ""
+                break
+            visible += self._buffer[:match.start()]
+            self._buffer = self._buffer[match.end():]
+            self._in_think = True
+        return visible
+
+    def flush(self) -> str:
+        """Visible remainder when the stream ends (unclosed thinking dropped)."""
+        visible = "" if self._in_think else self._buffer
+        self._buffer = ""
+        self._in_think = False
+        return visible
 
 
 class OpenAICompatibleProvider:
@@ -136,6 +182,7 @@ class OpenAICompatibleProvider:
 
             seen_bytes = 0
             usage = {}
+            think_filter = _ThinkStreamFilter()
             for raw_line in iterator(decode_unicode=True):
                 line = raw_line.decode("utf-8", errors="replace") if isinstance(raw_line, bytes) else str(raw_line)
                 seen_bytes += len(line.encode("utf-8"))
@@ -164,12 +211,17 @@ class OpenAICompatibleProvider:
                 choice = _first_choice(body)
                 delta = choice.get("delta") if isinstance(choice, dict) else {}
                 delta = delta if isinstance(delta, dict) else {}
-                if delta.get("content") or delta.get("reasoning_content"):
+                raw_content = str(delta.get("content") or "")
+                visible_content = think_filter.push(raw_content)
+                if visible_content or delta.get("reasoning_content"):
                     yield LLMStreamChunk(
-                        delta=str(delta.get("content") or ""),
+                        delta=visible_content,
                         reasoning_delta=str(delta.get("reasoning_content") or ""),
                         usage=usage,
                     )
+            finished_visible = think_filter.flush()
+            if finished_visible:
+                yield LLMStreamChunk(delta=finished_visible, usage=usage)
             yield LLMStreamChunk(finished=True, usage=usage)
         except requests.Timeout:
             yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_TIMEOUT")

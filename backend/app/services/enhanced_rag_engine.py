@@ -348,7 +348,7 @@ class EnhancedRAGEngine:
         request = LLMRequest(
             prompt=_render_messages_for_provider(messages),
             system_prompt=_system_prompt_from_messages(messages),
-            max_tokens=2048,
+            max_tokens=16384,
             prompt_cache_key=self._prompt_cache_key(
                 provider,
                 _system_prompt_from_messages(messages),
@@ -545,7 +545,7 @@ class EnhancedRAGEngine:
         request = LLMRequest(
             prompt=_render_messages_for_provider(messages),
             system_prompt=_system_prompt_from_messages(messages),
-            max_tokens=2048,
+            max_tokens=16384,
             prompt_cache_key=self._prompt_cache_key(
                 provider,
                 _system_prompt_from_messages(messages),
