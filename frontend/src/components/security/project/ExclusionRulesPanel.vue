@@ -5,7 +5,7 @@
       <el-tag v-if="rules.length" size="small" effect="plain">{{ rules.length }} 条</el-tag>
     </div>
     <p class="exclusion-panel__desc">
-      类似 .gitignore：匹配到的文件不进入快照、不参与扫描与 AI 分析，防止隐私信息泄漏。
+      类似 .gitignore：匹配到的文件不进入快照、不参与扫描与分析，避免敏感文件进入处理范围。
     </p>
 
     <el-alert
@@ -134,13 +134,26 @@ onMounted(load)
 
 <style scoped lang="scss">
 .exclusion-panel {
-  display: flex; flex-direction: column; gap: 10px;
-  padding: 14px 16px; min-height: 100%;
-  background: #fff; border: 1px solid #e2e7ee; border-radius: 8px;
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 10px;
+  padding: 17px 16px;
+  border: 1px solid #dfe6ef;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(21, 40, 75, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.exclusion-panel:hover {
+  border-color: #c4d3e4;
+  box-shadow: 0 10px 22px rgba(21, 40, 75, 0.08);
+  transform: translateY(-1px);
 }
 .exclusion-panel__head { display: flex; align-items: center; justify-content: space-between; }
 .exclusion-panel__head h2 { margin: 0; font-size: 15px; font-weight: 600; }
-.exclusion-panel__desc { margin: 0; color: #6a7890; font-size: 12.5px; line-height: 1.6; }
+.exclusion-panel__desc { margin: 0; color: #7e8da3; font-size: 12px; line-height: 1.6; }
 .exclusion-panel__notice { margin: 0; }
 .exclusion-panel__notice :deep(.el-alert__content) { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .exclusion-panel__error { color: #d43b3b; font-size: 12.5px; }
@@ -148,7 +161,13 @@ onMounted(load)
 .exclusion-panel__list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; max-height: 320px; overflow-y: auto; }
 .exclusion-rule {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 6px 10px; border: 1px solid #e2e7ee; border-radius: 6px; background: #f8fafc;
+  padding: 7px 10px; border: 1px solid #e2e7ee; border-radius: 7px; background: #f8fafc;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.exclusion-rule:hover {
+  border-color: #c4d3e4;
+  box-shadow: 0 5px 12px rgba(21, 40, 75, 0.06);
+  transform: translateX(2px);
 }
 .exclusion-rule__pattern { font-size: 12.5px; color: #1f2d3d; word-break: break-all; }
 .exclusion-panel__syntax { border-top: 1px dashed #e2e7ee; padding-top: 10px; }

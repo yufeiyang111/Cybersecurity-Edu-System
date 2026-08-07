@@ -75,11 +75,20 @@ const loadingFor = (snapshotId) => Boolean(props.actionLoading[snapshotId])
 
 <style scoped lang="scss">
 .content-card {
+  margin-top: 14px;
+  padding: 17px 18px;
+  overflow: hidden;
+  border: 1px solid #dfe6ef;
+  border-radius: 10px;
   background: #fff;
-  border: 1px solid #e2e7ee;
-  border-radius: 8px;
-  margin-top: 8px;
-  padding: 14px 16px;
+  box-shadow: 0 3px 12px rgba(21, 40, 75, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.content-card:hover {
+  border-color: #c4d3e4;
+  box-shadow: 0 10px 22px rgba(21, 40, 75, 0.08);
+  transform: translateY(-1px);
 }
 
 .card-head {
@@ -92,14 +101,14 @@ const loadingFor = (snapshotId) => Boolean(props.actionLoading[snapshotId])
 
 .card-head h2 {
   margin: 0;
-  color: #1f2d3d;
-  font-size: 15px;
-  font-weight: 600;
+  color: #142238;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .card-head .note {
-  color: #6a7890;
-  font-size: 12.5px;
+  color: #7e8da3;
+  font-size: 11px;
 }
 
 .table-wrap {
@@ -115,10 +124,10 @@ const loadingFor = (snapshotId) => Boolean(props.actionLoading[snapshotId])
 }
 
 .snapshot-table :deep(th.el-table__cell) {
-  background: #fafbfd;
-  color: #6a7890;
-  font-size: 12.5px;
-  font-weight: 600;
+  background: #fbfcfe;
+  color: #7e8da3;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .snapshot-table :deep(td.el-table__cell) {
@@ -138,13 +147,13 @@ const loadingFor = (snapshotId) => Boolean(props.actionLoading[snapshotId])
 }
 
 .time {
-  color: #8494a8;
-  font-size: 12.5px;
+  color: #7e8da3;
+  font-size: 11.5px;
 }
 
 @media (max-width: 760px) {
   .content-card {
-    padding: 12px;
+    padding: 13px 12px;
   }
 
   .card-head {

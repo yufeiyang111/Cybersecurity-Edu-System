@@ -46,16 +46,24 @@ const riskScoreText = computed(() => {
 <style scoped lang="scss">
 .finding-list-item {
   padding: 9px 12px;
-  border: 1px solid #e2e7ee;
-  border-radius: 6px;
+  border: 1px solid #dfe6ef;
+  border-radius: 8px;
   background: #fff;
   cursor: pointer;
-  transition: border-color .15s ease, background .15s ease;
+  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .2s ease;
   outline: none;
 }
-.finding-list-item:hover { border-color: #b9c4d4; }
+.finding-list-item:hover {
+  border-color: #aac5ef;
+  box-shadow: 0 7px 16px rgba(37, 99, 235, 0.08);
+  transform: translateX(2px);
+}
 .finding-list-item:focus-visible { box-shadow: 0 0 0 3px rgba(11, 127, 209, .2); }
-.finding-list-item--selected { border-color: #0b7fd1; background: #f5faff; }
+.finding-list-item--selected {
+  border-color: #2563eb;
+  background: #f5f9ff;
+  box-shadow: inset 3px 0 #2563eb, 0 7px 16px rgba(37, 99, 235, 0.08);
+}
 .fli-topline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .fli-score { color: #8494a8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .fli-message {
