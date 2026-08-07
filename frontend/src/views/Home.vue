@@ -15,6 +15,7 @@
           <router-link to="/qa">智能问答</router-link>
           <router-link to="/knowledge">知识库</router-link>
           <router-link to="/graph">知识图谱</router-link>
+          <router-link v-if="userStore.isLoggedIn" to="/security/projects">安全工作台</router-link>
         </nav>
         <div class="nav-actions">
           <template v-if="userStore.isLoggedIn">
@@ -518,6 +519,7 @@ onMounted(async () => {
   color: var(--home-fg-2);
   position: relative;
   padding: 4px 0;
+  text-decoration: none;
   transition: color 0.2s;
 }
 .nav-links a::after {
@@ -535,6 +537,7 @@ onMounted(async () => {
 }
 .nav-links a:hover {
   color: var(--home-brand);
+  text-decoration: none;
 }
 .nav-links a:hover::after,
 .nav-links a.router-link-active::after {
@@ -1294,6 +1297,7 @@ onMounted(async () => {
   color: #8b949e;
   margin: 0 14px;
   position: relative;
+  text-decoration: none;
   transition: color 0.2s;
 }
 .footer a::after {
@@ -1310,6 +1314,7 @@ onMounted(async () => {
 }
 .footer a:hover {
   color: var(--home-brand);
+  text-decoration: none;
 }
 .footer a:hover::after {
   transform: scaleX(1);
