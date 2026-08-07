@@ -468,8 +468,8 @@ const handleNodeClick = (node) => {
 const loadGraphData = async () => {
   try {
     const [nodesRes, edgesRes] = await Promise.all([
-      adminAPI.getGraphNodes({ limit: 100 }),
-      adminAPI.getGraphEdges({ limit: 400 })
+      adminAPI.getGraphNodes({ limit: 1000 }),
+      adminAPI.getGraphEdges({ limit: 5000 })
     ])
 
     const nodes = (nodesRes.nodes || []).map(node => ({
@@ -488,9 +488,8 @@ const loadGraphData = async () => {
     const candidateEdges = (edgesRes.edges || []).filter(
       edge => nodeIds.has(edge.source) && nodeIds.has(edge.target)
     )
-    const usedEdges = candidateEdges.slice(0, 400)
 
-    const edges = usedEdges.map((edge, idx) => ({
+    const edges = candidateEdges.map((edge, idx) => ({
       source: edge.source,
       target: edge.target,
       name: edge.relation || '相关',
@@ -516,11 +515,24 @@ const applyFilters = () => {
       cat => String(cat.id) === String(selectedCategory.value)
     )?.name
     if (catName) {
-      filteredNodes = filteredNodes.filter(node => node.category === catName)
+      // 该分类的知识节点 + 一阶关联实体，保证筛选后图上有内容
+      const catIds = new Set(
+        allNodes.value
+          .filter(node => node.category === catName)
+          .map(node => node.id)
+      )
+      for (const edge of allEdges.value) {
+        if (catIds.has(edge.source)) catIds.add(edge.target)
+        if (catIds.has(edge.target)) catIds.add(edge.source)
+      }
+      filteredNodes = allNodes.value.filter(node => catIds.has(node.id))
     }
   }
 
-  let filteredEdges = allEdges.value
+  const visibleIds = new Set(filteredNodes.map(node => node.id))
+  let filteredEdges = allEdges.value.filter(
+    edge => visibleIds.has(edge.source) && visibleIds.has(edge.target)
+  )
   if (selectedRelation.value) {
     filteredEdges = filteredEdges.filter(edge => edge.name === selectedRelation.value)
   }
