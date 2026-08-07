@@ -16,6 +16,7 @@ import networkx as nx
 import json
 import os
 import time
+import threading
 from app.config import Config, DATA_DIR
 
 
@@ -41,6 +42,7 @@ class KnowledgeGraph:
         self._neo4j_graph = None
         self._nx_graph = None
         self._synced_at = 0.0
+        self._sync_lock = threading.Lock()
 
         if self.use_neo4j:
             try:
@@ -64,12 +66,18 @@ class KnowledgeGraph:
         return self._nx_graph
 
     def _ensure_networkx_synced(self):
-        """确保 NetworkX 图与 Neo4j 数据同步（带 30 秒缓存，避免重复全量拉取）"""
+        """确保 NetworkX 图与 Neo4j 数据同步（带 30 秒缓存与并发锁）"""
         if self._nx_graph is None:
             self._init_networkx()
         if self._synced_at and time.time() - self._synced_at < 30:
             return
-        # 从 Neo4j 拉取所有节点和边来构建 NetworkX 图
+        with self._sync_lock:
+            if self._synced_at and time.time() - self._synced_at < 30:
+                return
+            self._sync_from_neo4j()
+
+    def _sync_from_neo4j(self):
+        """从 Neo4j 拉取节点与边构建 NetworkX 图（跳过空 id / 悬空边）"""
         try:
             self._nx_graph = nx.DiGraph()
 
@@ -78,8 +86,11 @@ class KnowledgeGraph:
                 # 查询所有 Entity 节点
                 entity_result = session.run("MATCH (e:Entity) RETURN e.id AS id, e.name AS name, e.type AS type, e.source_item AS source_item")
                 for record in entity_result:
+                    node_id = record["id"]
+                    if node_id is None:
+                        continue
                     self._nx_graph.add_node(
-                        record["id"],
+                        node_id,
                         type=record.get("type") or "unknown",
                         title=record.get("name") or "",
                         source_item=record.get("source_item") or ""
@@ -88,14 +99,21 @@ class KnowledgeGraph:
                 # 查询所有 Knowledge 节点
                 knowledge_result = session.run("MATCH (k:Knowledge) RETURN k.id AS id, k.title AS title")
                 for record in knowledge_result:
-                    self._nx_graph.add_node(record["id"], type="knowledge", title=record.get("title") or "")
+                    node_id = record["id"]
+                    if node_id is None:
+                        continue
+                    self._nx_graph.add_node(node_id, type="knowledge", title=record.get("title") or "")
 
-                # 查询所有关系边
+                # 查询所有关系边（跳过两端为空节点的悬空边）
                 edges_result = session.run("MATCH (source)-[r]->(target) RETURN source.id AS source, target.id AS target, r.type AS relation, r.weight AS weight")
                 for record in edges_result:
+                    source = record["source"]
+                    target = record["target"]
+                    if source is None or target is None:
+                        continue
                     self._nx_graph.add_edge(
-                        record["source"],
-                        record["target"],
+                        source,
+                        target,
                         relation=record.get("relation") or "related_to",
                         weight=record.get("weight") or 1.0
                     )

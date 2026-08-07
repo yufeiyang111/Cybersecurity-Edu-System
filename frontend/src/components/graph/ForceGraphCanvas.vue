@@ -173,6 +173,7 @@ const drawEdges = () => {
   for (const edge of simEdges) {
     const a = simNodes[edge.sourceIdx]
     const b = simNodes[edge.targetIdx]
+    if (!isFinite(a.x) || !isFinite(a.y) || !isFinite(b.x) || !isFinite(b.y)) continue
     let alpha = 0.4
     if (focusSet) {
       alpha = focusSet.has(a.id) && focusSet.has(b.id) ? 0.85 : 0.08
@@ -194,6 +195,7 @@ const drawNodes = () => {
   const labelFontSize = 13 / view.scale
 
   for (const node of simNodes) {
+    if (!isFinite(node.x) || !isFinite(node.y)) continue
     const inFocus = !focusSet || node.id === focusId || focusSet.has(node.id)
     ctx.globalAlpha = inFocus ? 1 : 0.15
     ctx.fillStyle = props.nodeColor(node.raw)
@@ -299,6 +301,10 @@ const fitView = () => {
     return
   }
   const bbox = computeBBox(simNodes)
+  if (!isFinite(bbox.w) || !isFinite(bbox.h) || bbox.w <= 0 || bbox.h <= 0) {
+    view = { x: width / 2, y: height / 2, scale: 1 }
+    return
+  }
   const pad = 80
   const fitScale = Math.min(
     (width - pad * 2) / bbox.w,

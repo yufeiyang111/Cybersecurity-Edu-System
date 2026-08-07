@@ -19,6 +19,7 @@ export function createSimNodes(nodes, prevNodes = []) {
   const simNodes = []
   for (let i = 0; i < nodes.length; i++) {
     const raw = nodes[i]
+    if (raw.id === null || raw.id === undefined) continue
     const prev = prevById.get(raw.id)
     simNodes.push({
       id: raw.id,
