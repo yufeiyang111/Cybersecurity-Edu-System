@@ -19,10 +19,24 @@ from app.services.text_chunker import chunk_text
 
 
 class Reranker:
-    """文档重排序器 - 使用交叉编码器进行精细化排序"""
+    """文档重排序器 - 真实 cross-encoder 优先，失败降级为 embedding 伪重排"""
 
     def __init__(self):
         self.embedding_service = get_embedding_service()
+        self._real_reranker = None
+
+    def _get_real_reranker(self):
+        """懒加载真实 rerank 服务（加载失败返回 None，走降级）。"""
+        if self._real_reranker is None:
+            try:
+                from app.services.llm.reranker_service import get_reranker_service
+
+                service = get_reranker_service()
+                if service._load():
+                    self._real_reranker = service
+            except Exception:
+                self._real_reranker = False
+        return self._real_reranker or None
 
     def rerank(
         self,
@@ -46,23 +60,26 @@ class Reranker:
         if not documents:
             return []
 
-        # 计算 query 与每个文档的精细相似度
+        # 真实 cross-encoder 重排（batch 打分）
+        real = self._get_real_reranker()
+        if real is not None:
+            reranked = real.rerank(query, documents, top_k)
+            if reranked:
+                return reranked
+
+        # 降级：embedding 余弦伪重排
         scored_docs = []
         for doc in documents:
             text = doc.get("text", "")
             if not text:
                 continue
 
-            # 使用 SecBERT 计算精细相似度
             try:
                 similarity = self.embedding_service.embedding_model.similarity(query, text)
             except Exception:
-                # 如果 SecBERT 不可用，使用原始分数
                 similarity = doc.get("score", doc.get("similarity", 0.5))
 
-            # 综合原始分数和新计算的相似度
             original_score = doc.get("score", doc.get("similarity", 0.5))
-            # 双重验证：原始检索相似度 vs 重排序相似度
             combined_score = 0.4 * original_score + 0.6 * similarity
 
             scored_docs.append({
@@ -72,7 +89,6 @@ class Reranker:
                 "cross_score": similarity
             })
 
-        # 按综合分数排序
         scored_docs.sort(key=lambda x: x["rerank_score"], reverse=True)
 
         return scored_docs[:top_k]
