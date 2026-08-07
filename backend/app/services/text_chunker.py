@@ -1,10 +1,15 @@
 """
-基于 spaCy 的文本语义分块服务
-将长文本切割为语义完整的文本片段
+基于语义的文本分块服务
+将长文本切割为语义完整的文本片段，支持真实 tokenizer 计数、行号定位与标题路径元数据。
+
+设计要点（对齐工业级 RAG 分块实践）：
+- token 计数使用 embedding 模型同款 AutoTokenizer（精确），加载失败降级为字符估算；
+- 块携带 start_line/end_line，支持输出引用精确到行；
+- 支持 title_path（标题层级），为结构化检索/父子窗口预留元数据。
 """
 import re
-from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
 
 # spaCy 相关
 try:
@@ -32,6 +37,8 @@ class TextChunk:
     start_token: int
     end_token: int
     metadata: Dict[str, Any]
+    start_line: int = 0
+    end_line: int = 0
 
 
 class TextChunker:
@@ -39,8 +46,8 @@ class TextChunker:
 
     def __init__(
         self,
-        model_name: str = "zh_core_web_sm",
-        chunk_size: int = 512,
+        model_name: str = None,
+        chunk_size: int = 384,
         overlap: int = 50,
         language: str = "zh"
     ):
@@ -48,9 +55,9 @@ class TextChunker:
         初始化分块器
 
         Args:
-            model_name: spaCy 模型名称
-            chunk_size: 每个块的最大token数
-            overlap: 相邻块之间的重叠token数
+            model_name: tokenizer 模型名或本地路径（与 embedding 模型一致）
+            chunk_size: 每个块的最大 token 数
+            overlap: 相邻块之间的重叠 token 数
             language: 语言类型 "zh" 或 "en"
         """
         self.chunk_size = chunk_size
@@ -58,12 +65,17 @@ class TextChunker:
         self.language = language
         self.nlp = None
         self.model_name = model_name
+        self._tokenizer = None
+        self._tokenizer_failed = False
 
         if SPACY_AVAILABLE:
             self._load_model()
 
     def _load_model(self):
         """加载 spaCy 模型"""
+        if not self.model_name:
+            print("警告: 未配置 spaCy 模型名，将使用简单的分句方法")
+            return
         try:
             if spacy.util.is_package(self.model_name):
                 self.nlp = spacy.load(self.model_name)
@@ -89,40 +101,84 @@ class TextChunker:
             print(f"加载 spaCy 模型失败: {e}")
             self.nlp = None
 
-    def count_tokens(self, text: str) -> int:
-        """估算token数量（简单按字符计）"""
-        if self.language == "zh":
-            # 中文：大致按字符数估算，1 token ≈ 1-2 个中文字符
-            return len(text) // 2
-        else:
-            # 英文：按单词数估算
-            return len(text.split())
+    def _get_tokenizer(self):
+        """懒加载与 embedding 模型同款的 tokenizer（真实计数）。"""
+        if self._tokenizer is not None or self._tokenizer_failed:
+            return self._tokenizer
+        try:
+            from transformers import AutoTokenizer
+            from app.config import Config
 
-    def chunk_by_sentence(self, text: str, metadata: Dict[str, Any] = None) -> List[TextChunk]:
+            model_name = self.model_name or Config.EMBEDDING_MODEL
+            self._tokenizer = AutoTokenizer.from_pretrained(model_name)
+        except Exception as e:
+            print(f"加载 tokenizer 失败，降级为字符估算: {e}")
+            self._tokenizer_failed = True
+        return self._tokenizer
+
+    def count_tokens(self, text: str) -> int:
+        """估算 token 数量（优先真实 tokenizer，降级字符估算）。"""
+        tokenizer = self._get_tokenizer()
+        if tokenizer is not None:
+            try:
+                return len(tokenizer.encode(text, add_special_tokens=False))
+            except Exception:
+                pass
+        if self.language == "zh":
+            return len(text) // 2
+        return len(text.split())
+
+    def _line_starts(self, text: str) -> List[int]:
+        """构建行起始字符偏移数组（第 i 行从 starts[i] 开始，1-based 行号）。"""
+        starts = [0]
+        for index, char in enumerate(text):
+            if char == "\n":
+                starts.append(index + 1)
+        return starts
+
+    def _char_to_line(self, starts: List[int], char_pos: int) -> int:
+        """把字符位置映射为 1-based 行号。"""
+        lo, hi = 0, len(starts)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if starts[mid] <= char_pos:
+                lo = mid + 1
+            else:
+                hi = mid
+        return lo
+
+    def chunk_by_sentence(
+        self,
+        text: str,
+        metadata: Dict[str, Any] = None,
+        char_offset: int = 0,
+        line_starts: List[int] = None
+    ) -> List[TextChunk]:
         """
-        按句子分块（使用 spaCy sentencizer）
+        按句子分块（使用 spaCy sentencizer，降级正则分句）
 
         Args:
             text: 待分块文本
             metadata: 元数据
+            char_offset: 子文本在整文档中的字符偏移（默认 0）
+            line_starts: 整文档行起始数组（缺省用子文本计算）
 
         Returns:
             TextChunk 列表
         """
         metadata = metadata or {}
-        chunks = []
+        chunks: List[TextChunk] = []
+        line_starts = line_starts or self._line_starts(text)
 
         if not text or not text.strip():
             return chunks
 
         if self.nlp is None:
-            # 无 spaCy 模型，使用简单分句
-            return self._chunk_by_simple_sentence(text, metadata)
+            return self._chunk_by_simple_sentence(text, metadata, line_starts, char_offset)
 
-        # 使用 spaCy 分句
         doc = self.nlp(text)
 
-        current_chunk_texts = []
+        current_chunk_texts: List[str] = []
         current_tokens = 0
         current_start_char = 0
         chunk_id_prefix = metadata.get("chunk_id_prefix", "chunk")
@@ -134,99 +190,137 @@ class TextChunker:
 
             sent_tokens = self.count_tokens(sent_text)
 
-            # 如果单个句子超过 chunk_size，尝试进一步分块
+            # 单个句子超过 chunk_size，进一步分块
             if sent_tokens > self.chunk_size:
                 if current_chunk_texts:
-                    # 先保存当前的块
                     chunks.append(self._create_chunk(
+                        text=text,
                         chunks=current_chunk_texts,
-                        start_char=current_start_char,
-                        end_char=sent.start_char,
+                        start_char=current_start_char + char_offset,
+                        end_char=sent.start_char + char_offset,
+                        line_starts=line_starts,
                         metadata=metadata,
                         chunk_id=f"{chunk_id_prefix}_{len(chunks)}"
                     ))
                     current_chunk_texts = []
                     current_tokens = 0
 
-                # 对长句子进行进一步分块
-                sub_chunks = self._chunk_long_sentence(sent.text, sent.start_char, metadata, chunk_id_prefix, len(chunks))
+                sub_chunks = self._chunk_long_sentence(
+                    text=text,
+                    sent_text=sent.text,
+                    start_char=sent.start_char + char_offset,
+                    line_starts=line_starts,
+                    metadata=metadata,
+                    chunk_id_prefix=chunk_id_prefix,
+                    existing_count=len(chunks)
+                )
                 chunks.extend(sub_chunks)
                 current_start_char = sent.end_char
                 continue
 
-            # 检查添加当前句子是否会超过限制
             if current_tokens + sent_tokens > self.chunk_size and current_chunk_texts:
-                # 保存当前块
                 chunks.append(self._create_chunk(
+                    text=text,
                     chunks=current_chunk_texts,
-                    start_char=current_start_char,
-                    end_char=sent.start_char,
+                    start_char=current_start_char + char_offset,
+                    end_char=sent.start_char + char_offset,
+                    line_starts=line_starts,
                     metadata=metadata,
                     chunk_id=f"{chunk_id_prefix}_{len(chunks)}"
                 ))
 
-                # 处理重叠
+                # 重叠：从尾部句子累积，直到达到目标 overlap token 数
                 overlap_texts = self._get_overlap_texts(current_chunk_texts)
                 current_chunk_texts = overlap_texts
-                current_tokens = self.count_tokens(" ".join(overlap_texts))
-                current_start_char = sent.start_char - sum(len(t) for t in overlap_texts) - 1
+                current_tokens = self.count_tokens(_join_texts(overlap_texts, self.language))
+                if current_chunk_texts:
+                    joined = _join_texts(current_chunk_texts, self.language)
+                    current_start_char = sent.start_char - len(joined)
 
             current_chunk_texts.append(sent_text)
             current_tokens += sent_tokens
 
-        # 保存最后一个块
         if current_chunk_texts:
             chunks.append(self._create_chunk(
+                text=text,
                 chunks=current_chunk_texts,
-                start_char=current_start_char,
-                end_char=len(text),
+                start_char=current_start_char + char_offset,
+                end_char=len(text) + char_offset,
+                line_starts=line_starts,
                 metadata=metadata,
                 chunk_id=f"{chunk_id_prefix}_{len(chunks)}"
             ))
 
         return chunks
 
-    def _chunk_by_simple_sentence(self, text: str, metadata: Dict[str, Any]) -> List[TextChunk]:
-        """使用简单规则进行分句"""
-        chunks = []
+    def _chunk_by_simple_sentence(
+        self,
+        text: str,
+        metadata: Dict[str, Any],
+        line_starts: List[int],
+        char_offset: int = 0
+    ) -> List[TextChunk]:
+        """使用简单规则进行分句（保留分隔符，字符定位精确）"""
+        chunks: List[TextChunk] = []
 
-        # 按常见句子结束符分句
-        sentence_endings = r'[。！？\n]+'
-        sentences = re.split(sentence_endings, text)
+        # 按常见句子结束符分句，保留分隔符以精确累计字符偏移
+        parts = re.split(r'([。！？\n]+)', text)
+        sentences_with_pos: List[Tuple[str, int]] = []
+        cursor = 0
+        index = 0
+        while index < len(parts):
+            seg = parts[index]
+            if seg:
+                sentences_with_pos.append((seg, cursor))
+            cursor += len(seg)
+            if index + 1 < len(parts):
+                cursor += len(parts[index + 1])
+            index += 2
 
-        current_chunk_texts = []
+        current_chunk_texts: List[str] = []
         current_tokens = 0
+        current_start_char = 0
         chunk_id_prefix = metadata.get("chunk_id_prefix", "chunk")
 
-        for sent in sentences:
-            sent = sent.strip()
+        for sent_text, sent_start in sentences_with_pos:
+            sent = sent_text.strip()
             if not sent:
                 continue
 
             sent_tokens = self.count_tokens(sent)
 
             if current_tokens + sent_tokens > self.chunk_size and current_chunk_texts:
+                chunk_text = _join_texts(current_chunk_texts, self.language)
                 chunks.append(self._create_chunk(
+                    text=text,
                     chunks=current_chunk_texts,
-                    start_char=0,  # 简化处理
-                    end_char=len(" ".join(current_chunk_texts)),
+                    start_char=current_start_char + char_offset,
+                    end_char=current_start_char + len(chunk_text) + char_offset,
+                    line_starts=line_starts,
                     metadata=metadata,
                     chunk_id=f"{chunk_id_prefix}_{len(chunks)}"
                 ))
 
-                # 简单重叠处理
-                overlap_size = max(1, len(current_chunk_texts) // 3)
-                current_chunk_texts = current_chunk_texts[-overlap_size:]
-                current_tokens = sum(self.count_tokens(t) for t in current_chunk_texts)
+                # 重叠（按 token 精确）
+                overlap_texts = self._get_overlap_texts(current_chunk_texts)
+                retained = _join_texts(overlap_texts, self.language)
+                current_start_char = current_start_char + len(chunk_text) - len(retained)
+                current_chunk_texts = overlap_texts
+                current_tokens = self.count_tokens(retained)
+
+            if not current_chunk_texts:
+                current_start_char = sent_start
 
             current_chunk_texts.append(sent)
             current_tokens += sent_tokens
 
         if current_chunk_texts:
             chunks.append(self._create_chunk(
+                text=text,
                 chunks=current_chunk_texts,
-                start_char=0,
-                end_char=len(text),
+                start_char=current_start_char + char_offset,
+                end_char=len(text) + char_offset,
+                line_starts=line_starts,
                 metadata=metadata,
                 chunk_id=f"{chunk_id_prefix}_{len(chunks)}"
             ))
@@ -236,101 +330,112 @@ class TextChunker:
     def _chunk_long_sentence(
         self,
         text: str,
+        sent_text: str,
         start_char: int,
+        line_starts: List[int],
         metadata: Dict[str, Any],
         chunk_id_prefix: str,
         existing_count: int
     ) -> List[TextChunk]:
-        """对长句子进一步分块"""
-        chunks = []
+        """对长句子进一步分块（滑动窗口 + token 精确重叠）"""
+        chunks: List[TextChunk] = []
 
         if self.language == "zh":
-            # 使用 jieba 进行分词后再组句
             if JIEBA_AVAILABLE:
-                words = list(jieba.cut(text))
+                words = list(jieba.cut(sent_text))
             else:
-                words = list(text)
+                words = list(sent_text)
         else:
-            words = text.split()
+            words = sent_text.split()
 
-        current_words = []
-        current_tokens = 0
+        index = 0
+        consumed_chars = 0
 
-        for word in words:
-            word_tokens = self.count_tokens(word)
+        while index < len(words):
+            # 收集窗口直到超过 chunk_size
+            window: List[str] = []
+            window_tokens = 0
+            while index < len(words):
+                word_tokens = self.count_tokens(words[index])
+                if window and window_tokens + word_tokens > self.chunk_size:
+                    break
+                window.append(words[index])
+                window_tokens += word_tokens
+                index += 1
 
-            if current_tokens + word_tokens > self.chunk_size and current_words:
-                chunk_text = "".join(current_words) if self.language == "zh" else " ".join(current_words)
-                chunks.append(TextChunk(
-                    id=f"{chunk_id_prefix}_{existing_count + len(chunks)}",
-                    text=chunk_text,
-                    start_char=start_char,
-                    end_char=start_char + len(chunk_text),
-                    start_token=0,
-                    end_token=current_tokens,
-                    metadata=metadata.copy()
-                ))
+            if not window:
+                break
 
-                # 重叠
-                overlap_size = max(1, len(current_words) // 5)
-                current_words = current_words[-overlap_size:]
-                current_tokens = sum(self.count_tokens(w) for w in current_words)
-                start_char = start_char + len(chunk_text) - sum(len(w) for w in current_words)
-
-            current_words.append(word)
-            current_tokens += word_tokens
-
-        # 处理剩余部分
-        if current_words:
-            chunk_text = "".join(current_words) if self.language == "zh" else " ".join(current_words)
+            chunk_text = _join_texts(window, self.language)
+            chunk_start = start_char + consumed_chars
+            chunk_end = chunk_start + len(chunk_text)
             chunks.append(TextChunk(
                 id=f"{chunk_id_prefix}_{existing_count + len(chunks)}",
                 text=chunk_text,
-                start_char=start_char,
-                end_char=start_char + len(chunk_text),
+                start_char=chunk_start,
+                end_char=chunk_end,
                 start_token=0,
-                end_token=current_tokens,
-                metadata=metadata.copy()
+                end_token=window_tokens,
+                metadata=metadata.copy(),
+                start_line=self._char_to_line(line_starts, chunk_start),
+                end_line=self._char_to_line(line_starts, max(chunk_end - 1, chunk_start))
             ))
+
+            # token 精确重叠：窗口尾部保留 overlap token 的词，index 回退
+            keep: List[str] = []
+            keep_tokens = 0
+            for word in reversed(window):
+                keep.append(word)
+                keep_tokens += self.count_tokens(word)
+                if keep_tokens >= self.overlap:
+                    break
+            keep.reverse()
+            retained = _join_texts(keep, self.language)
+            consumed_chars += len(chunk_text) - len(retained)
+            index -= len(keep)
 
         return chunks
 
     def _get_overlap_texts(self, texts: List[str]) -> List[str]:
-        """获取重叠的文本"""
-        if len(texts) <= 2:
-            return texts[-1:] if texts else []
-
-        last_token_count = self.count_tokens(texts[-1])
-        if last_token_count == 0:
-            return texts[-1:] if texts else []
-
-        overlap_count = max(1, self.overlap // last_token_count)
-        return texts[-overlap_count:]
+        """从尾部累积句子，直到达到目标 overlap token 数。"""
+        if not texts:
+            return []
+        total = 0
+        count = 1
+        for item in reversed(texts):
+            total += self.count_tokens(item)
+            if total >= self.overlap:
+                break
+            count += 1
+        return texts[-count:]
 
     def _create_chunk(
         self,
+        text: str,
         chunks: List[str],
         start_char: int,
         end_char: int,
+        line_starts: List[int],
         metadata: Dict[str, Any],
         chunk_id: str
     ) -> TextChunk:
-        """创建 TextChunk 对象"""
-        separator = "" if self.language == "zh" else " "
-        text = separator.join(chunks)
-
+        """创建 TextChunk 对象（含行号定位）。"""
+        chunk_text = _join_texts(chunks, self.language)
+        safe_end = max(end_char - 1, start_char)
         return TextChunk(
             id=chunk_id,
-            text=text,
+            text=chunk_text,
             start_char=start_char,
             end_char=end_char,
             start_token=0,
-            end_token=self.count_tokens(text),
+            end_token=self.count_tokens(chunk_text),
             metadata={
                 **metadata,
-                "char_length": len(text),
-                "token_count": self.count_tokens(text)
-            }
+                "char_length": len(chunk_text),
+                "token_count": self.count_tokens(chunk_text)
+            },
+            start_line=self._char_to_line(line_starts, start_char),
+            end_line=self._char_to_line(line_starts, safe_end)
         )
 
     def chunk_document(
@@ -356,22 +461,31 @@ class TextChunker:
 
         chunks = self.chunk_by_sentence(text, metadata)
 
-        return [
-            {
-                "id": chunk.id,
-                "text": chunk.text,
-                "start_char": chunk.start_char,
-                "end_char": chunk.end_char,
-                "metadata": {
-                    **chunk.metadata,
-                    "doc_id": doc_id,
-                    "source": metadata.get("source", ""),
-                    "title": metadata.get("title", ""),
-                    "category": metadata.get("category", "")
-                }
+        return [self._chunk_to_dict(chunk, doc_id, metadata) for chunk in chunks]
+
+    def _chunk_to_dict(
+        self,
+        chunk: TextChunk,
+        doc_id: str,
+        metadata: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """TextChunk 转字典（含行号与公共元数据）。"""
+        return {
+            "id": chunk.id,
+            "text": chunk.text,
+            "start_char": chunk.start_char,
+            "end_char": chunk.end_char,
+            "start_line": chunk.start_line,
+            "end_line": chunk.end_line,
+            "metadata": {
+                **chunk.metadata,
+                "doc_id": doc_id,
+                "source": metadata.get("source", ""),
+                "title": metadata.get("title", ""),
+                "category": metadata.get("category", ""),
+                "title_path": metadata.get("title_path", "")
             }
-            for chunk in chunks
-        ]
+        }
 
 
 class HybridChunker:
@@ -379,7 +493,7 @@ class HybridChunker:
 
     def __init__(
         self,
-        chunk_size: int = 512,
+        chunk_size: int = 384,
         overlap: int = 50,
         language: str = "zh"
     ):
@@ -387,103 +501,169 @@ class HybridChunker:
         self.overlap = overlap
         self.language = language
 
-        # 初始化各种分块器
         self.sentence_chunker = TextChunker(
             chunk_size=chunk_size,
             overlap=overlap,
             language=language
         )
 
-    def chunk_by_paragraph(self, text: str, metadata: Dict[str, Any] = None) -> List[Dict[str, Any]]:
-        """按段落分块"""
+    def chunk_by_paragraph(
+        self,
+        text: str,
+        metadata: Dict[str, Any] = None
+    ) -> List[Dict[str, Any]]:
+        """按段落分块（块起点精确跟踪，支持行号与 title_path 元数据）"""
         metadata = metadata or {}
 
-        # 按换行分割段落
-        if self.language == "zh":
-            paragraphs = re.split(r'\n{2,}', text)
-        else:
-            paragraphs = re.split(r'\n{2,}', text)
+        paragraphs = re.split(r'\n{2,}', text)
 
-        chunks = []
+        chunks: List[Dict[str, Any]] = []
         chunk_id_prefix = metadata.get("chunk_id_prefix", "chunk")
+        line_starts = self.sentence_chunker._line_starts(text)
 
-        current_paragraphs = []
+        current_paragraphs: List[str] = []
         current_size = 0
+        chunk_start_char = 0
 
-        for i, para in enumerate(paragraphs):
-            para = para.strip()
-            if not para:
+        for para in paragraphs:
+            para = para.strip("\n")
+            if not para.strip():
                 continue
 
-            para_tokens = len(para) // 2 if self.language == "zh" else len(para.split())
+            para_tokens = self.sentence_chunker.count_tokens(para)
 
             if current_size + para_tokens > self.chunk_size and current_paragraphs:
                 chunk_text = "\n\n".join(current_paragraphs)
+                chunk_start = chunk_start_char
+                chunk_end = chunk_start + len(chunk_text)
                 chunks.append({
                     "id": f"{chunk_id_prefix}_{len(chunks)}",
                     "text": chunk_text,
+                    "start_char": chunk_start,
+                    "end_char": chunk_end,
+                    "start_line": self.sentence_chunker._char_to_line(line_starts, chunk_start),
+                    "end_line": self.sentence_chunker._char_to_line(
+                        line_starts, max(chunk_end - 1, chunk_start)
+                    ),
                     "metadata": {
                         **metadata,
-                        "paragraph_indices": [j for j in range(len(chunks), len(chunks) + len(current_paragraphs))]
+                        "token_count": self.sentence_chunker.count_tokens(chunk_text),
+                        "paragraph_indices": [
+                            len(chunks) + i for i in range(len(current_paragraphs))
+                        ]
                     }
                 })
 
-                # 重叠
-                overlap_size = max(1, len(current_paragraphs) // 3)
-                current_paragraphs = current_paragraphs[-overlap_size:]
-                current_size = sum(len(p) // 2 for p in current_paragraphs) if self.language == "zh" else sum(len(p.split()) for p in current_paragraphs)
+                # 重叠（按 token 精确）
+                overlap_paras = self._get_overlap_paragraphs(current_paragraphs)
+                retained = "\n\n".join(overlap_paras)
+                chunk_start_char = chunk_end - len(retained)
+                current_paragraphs = overlap_paras
+                current_size = self.sentence_chunker.count_tokens(retained)
+
+            if not current_paragraphs:
+                pos = text.find(para, chunk_start_char)
+                if pos >= 0:
+                    chunk_start_char = pos
 
             current_paragraphs.append(para)
             current_size += para_tokens
 
         if current_paragraphs:
             chunk_text = "\n\n".join(current_paragraphs)
+            chunk_end = chunk_start_char + len(chunk_text)
             chunks.append({
                 "id": f"{chunk_id_prefix}_{len(chunks)}",
                 "text": chunk_text,
+                "start_char": chunk_start_char,
+                "end_char": chunk_end,
+                "start_line": self.sentence_chunker._char_to_line(
+                    line_starts, chunk_start_char
+                ),
+                "end_line": self.sentence_chunker._char_to_line(
+                    line_starts, max(chunk_end - 1, chunk_start_char)
+                ),
                 "metadata": {
                     **metadata,
-                    "paragraph_indices": list(range(len(chunks), len(chunks) + len(current_paragraphs)))
+                    "token_count": self.sentence_chunker.count_tokens(chunk_text),
+                    "paragraph_indices": list(
+                        range(len(chunks), len(chunks) + len(current_paragraphs))
+                    )
                 }
             })
 
         return chunks
 
-    def smart_chunk(self, text: str, doc_id: str, metadata: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+    def _get_overlap_paragraphs(self, paragraphs: List[str]) -> List[str]:
+        """从尾部累积段落，直到达到目标 overlap token 数。"""
+        if not paragraphs:
+            return []
+        total = 0
+        count = 1
+        for item in reversed(paragraphs):
+            total += self.sentence_chunker.count_tokens(item)
+            if total >= self.overlap:
+                break
+            count += 1
+        return paragraphs[-count:]
+
+    def smart_chunk(
+        self,
+        text: str,
+        doc_id: str,
+        metadata: Dict[str, Any] = None
+    ) -> List[Dict[str, Any]]:
         """
-        智能分块：优先按段落，在段落过长时按句子
+        智能分块：优先按段落，在段落过长时按句子（子块行号为整文档坐标）
 
         Args:
             text: 文档文本
             doc_id: 文档ID
-            metadata: 元数据
+            metadata: 文档元数据（支持 title_path 标题层级）
 
         Returns:
-            分块结果
+            分块结果列表
         """
         metadata = metadata or {}
         metadata["doc_id"] = doc_id
 
-        # 先尝试按段落分块
-        para_chunks = self.chunk_by_paragraph(text, {**metadata, "chunk_id_prefix": f"doc_{doc_id}_para"})
+        line_starts = self.sentence_chunker._line_starts(text)
 
-        final_chunks = []
+        para_chunks = self.chunk_by_paragraph(
+            text, {**metadata, "chunk_id_prefix": f"doc_{doc_id}_para"}
+        )
+
+        final_chunks: List[Dict[str, Any]] = []
 
         for chunk in para_chunks:
-            chunk_tokens = len(chunk["text"]) // 2 if self.language == "zh" else len(chunk["text"].split())
+            chunk_tokens = self.sentence_chunker.count_tokens(chunk["text"])
 
-            # 如果段落过长，使用句子分块器进一步处理
+            # 段落过长时按句子切分（传入整文档坐标，保证行号正确）
             if chunk_tokens > self.chunk_size * 1.5:
-                sub_chunks = self.sentence_chunker.chunk_document(
+                sub_chunks = self.sentence_chunker.chunk_by_sentence(
                     chunk["text"],
-                    chunk["id"],
-                    {**metadata, "parent_chunk": chunk["id"]}
+                    {
+                        **metadata,
+                        "parent_chunk": chunk["id"],
+                        "chunk_id_prefix": f"doc_{doc_id}_chunk",
+                    },
+                    char_offset=chunk.get("start_char", 0),
+                    line_starts=line_starts,
                 )
-                final_chunks.extend(sub_chunks)
+                final_chunks.extend(
+                    self.sentence_chunker._chunk_to_dict(sub, doc_id, metadata)
+                    for sub in sub_chunks
+                )
             else:
                 final_chunks.append(chunk)
 
         return final_chunks
+
+
+def _join_texts(texts: List[str], language: str) -> str:
+    """按语言用正确分隔符拼接。"""
+    separator = "" if language == "zh" else " "
+    return separator.join(texts)
 
 
 # 全局实例
@@ -491,7 +671,12 @@ text_chunker = TextChunker()
 hybrid_chunker = HybridChunker()
 
 
-def chunk_text(text: str, doc_id: str, metadata: Dict[str, Any] = None, strategy: str = "smart") -> List[Dict[str, Any]]:
+def chunk_text(
+    text: str,
+    doc_id: str,
+    metadata: Dict[str, Any] = None,
+    strategy: str = "smart"
+) -> List[Dict[str, Any]]:
     """
     便捷的分块函数
 
@@ -502,14 +687,19 @@ def chunk_text(text: str, doc_id: str, metadata: Dict[str, Any] = None, strategy
         strategy: 分块策略 "sentence", "paragraph", "smart"
 
     Returns:
-        分块结果列表
+        分块结果列表（id 全局唯一：doc_{doc_id}_chunk_{序号}）
     """
     if strategy == "sentence":
-        return text_chunker.chunk_document(text, doc_id, metadata)
+        chunks = text_chunker.chunk_document(text, doc_id, metadata)
     elif strategy == "paragraph":
-        return hybrid_chunker.chunk_by_paragraph(text, {**(metadata or {}), "doc_id": doc_id})
+        chunks = hybrid_chunker.chunk_by_paragraph(text, {**(metadata or {}), "doc_id": doc_id})
     else:  # smart
-        return hybrid_chunker.smart_chunk(text, doc_id, metadata)
+        chunks = hybrid_chunker.smart_chunk(text, doc_id, metadata)
+
+    for index, chunk in enumerate(chunks):
+        chunk["id"] = f"doc_{doc_id}_chunk_{index}"
+
+    return chunks
 
 
 def chunk_documents_batch(
@@ -526,7 +716,7 @@ def chunk_documents_batch(
     Returns:
         所有文档的分块结果
     """
-    all_chunks = []
+    all_chunks: List[Dict[str, Any]] = []
 
     for doc in documents:
         chunks = chunk_text(

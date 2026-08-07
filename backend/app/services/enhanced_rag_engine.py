@@ -15,6 +15,7 @@ from app.services.llm import LLMRequest, LLMResponse
 from app.services.llm.prompt_cache_key_factory import for_stable_prefix
 from app.services.rag_guard import detect_prompt_injection, wrap_untrusted_section
 from app.services.llm.provider_selector import select_provider
+from app.services.text_chunker import chunk_text
 
 
 class Reranker:
@@ -127,23 +128,27 @@ class EnhancedRAGEngine:
         self.model_name = None
 
     def retrieve(self, query: str, top_k: int = None) -> List[Dict]:
-        """混合检索：向量检索 + 知识图谱检索 + RRF融合"""
+        """混合检索：向量检索 + 知识图谱检索 + RRF融合（向量结果按 doc_id 去重）"""
         top_k = top_k or Config.VECTOR_TOP_K
         all_results = {}
 
-        # 1. 向量检索（从 ChromaDB）
+        # 1. 向量检索（分块入库后按 doc_id 去重，保留最高分块）
         try:
             vector_results = self.vector_store.search(query, top_k=top_k * 2)
             for rank, item in enumerate(vector_results):
+                metadata = item.get("metadata", {})
+                doc_id = str(metadata.get("doc_id") or item["id"])
                 weight = Config.VECTOR_WEIGHT * (1 / (60 + rank + 1))
-                all_results[item["id"]] = {
-                    "id": item["id"],
-                    "text": item["text"],
-                    "metadata": item.get("metadata", {}),
-                    "score": weight,
-                    "source": "vector",
-                    "similarity": item.get("similarity", 0)
-                }
+                existing = all_results.get(doc_id)
+                if existing is None or item.get("similarity", 0) > existing.get("similarity", 0):
+                    all_results[doc_id] = {
+                        "id": doc_id,
+                        "text": item["text"],
+                        "metadata": metadata,
+                        "score": weight,
+                        "source": "vector",
+                        "similarity": item.get("similarity", 0)
+                    }
         except Exception as e:
             print(f"向量检索失败: {e}")
             vector_results = []
@@ -425,6 +430,9 @@ class EnhancedRAGEngine:
                 "title": metadata.get("title", ""),
                 "source": metadata.get("source", ""),
                 "similarity": doc.get("similarity", 0),
+                "doc_id": doc.get("id", ""),
+                "start_line": metadata.get("start_line", 0),
+                "end_line": metadata.get("end_line", 0),
             }
             if source_info not in sources:
                 sources.append(source_info)
@@ -611,14 +619,16 @@ class EnhancedRAGEngine:
         }
 
     def _retrieved_docs_payload(self, retrieved_docs: List[Dict]) -> list[dict]:
-        """序列化检索文档供端点返回"""
+        """序列化检索文档供端点返回（含行号，引用可定位到具体行）"""
         return [
             {
                 "id": doc["id"],
                 "title": doc.get("metadata", {}).get("title", ""),
                 "source": doc.get("metadata", {}).get("source", ""),
                 "similarity": doc.get("similarity", 0),
-                "source_type": doc.get("source", "unknown")
+                "source_type": doc.get("source", "unknown"),
+                "start_line": doc.get("metadata", {}).get("start_line", 0),
+                "end_line": doc.get("metadata", {}).get("end_line", 0),
             }
             for doc in retrieved_docs[:5]
         ]
@@ -740,24 +750,58 @@ class EnhancedRAGEngine:
         return suggestions[:3]
 
     def index_knowledge(self, knowledge_items: List[Dict]) -> Dict[str, int]:
-        """为知识库建立索引"""
+        """为知识库建立索引（按文档分块入库，每块一个向量，payload 带行号元数据）"""
         vector_count = 0
         graph_count = 0
 
-        # 向量化存储
+        # 向量化存储：先按 doc_id 清理旧块，再分块写入
+        backend = self.vector_store.backend
         for item in knowledge_items:
-            doc = {
-                "doc_id": str(item["id"]),
-                "text": f"{item.get('title', '')}。{item.get('content', '')}",
-                "metadata": {
+            doc_id = str(item["id"])
+            text = f"{item.get('title', '')}。{item.get('content', '')}"
+            chunks = chunk_text(
+                text,
+                doc_id=doc_id,
+                metadata={
                     "title": item.get("title", ""),
                     "category": item.get("category_name", ""),
                     "source": item.get("source", ""),
-                    "difficulty": item.get("difficulty", "medium")
-                }
-            }
-            if self.vector_store.add_document(**doc):
-                vector_count += 1
+                    "difficulty": item.get("difficulty", "medium"),
+                    "title_path": item.get("title", ""),
+                },
+                strategy="smart",
+            )
+            if not chunks:
+                continue
+            try:
+                backend.delete(where={"doc_id": doc_id})
+                vectors = self.vector_store.embedding_service.encode(
+                    [chunk["text"] for chunk in chunks]
+                )
+                written = backend.upsert(
+                    ids=[chunk["id"] for chunk in chunks],
+                    vectors=vectors.tolist(),
+                    texts=[chunk["text"] for chunk in chunks],
+                    metadatas=[
+                        {
+                            "doc_id": doc_id,
+                            "chunk_index": index,
+                            "start_line": chunk.get("start_line", 0),
+                            "end_line": chunk.get("end_line", 0),
+                            "start_char": chunk.get("start_char", 0),
+                            "end_char": chunk.get("end_char", 0),
+                            "title_path": item.get("title", ""),
+                            "title": item.get("title", ""),
+                            "category": item.get("category_name", ""),
+                            "source": item.get("source", ""),
+                            "difficulty": item.get("difficulty", "medium"),
+                        }
+                        for index, chunk in enumerate(chunks)
+                    ],
+                )
+                vector_count += written
+            except Exception as e:
+                print(f"索引写入失败 doc={doc_id}: {e}")
 
         # 图谱构建
         graph_count = self.knowledge_graph.add_entities_from_knowledge(knowledge_items)
@@ -801,7 +845,7 @@ class EnhancedRAGEngine:
         try:
             vector_results = self.vector_store.search(query_text, top_k=top_k * 3)
             for rank, result in enumerate(vector_results):
-                doc_id = result["id"]
+                doc_id = str(result.get("metadata", {}).get("doc_id") or result["id"])
                 if doc_id == str(knowledge_item.get("id")):
                     continue
 

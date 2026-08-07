@@ -284,7 +284,7 @@ def update_knowledge_item(item_id):
 @knowledge_bp.route("/<int:item_id>", methods=["DELETE"])
 @jwt_required()
 def delete_knowledge_item(item_id):
-    """删除知识条目"""
+    """删除知识条目（同步清理向量索引，避免已删内容仍被召回）"""
     if not check_permission("knowledge:delete"):
         return jsonify({"error": "权限不足"}), 403
     
@@ -292,6 +292,13 @@ def delete_knowledge_item(item_id):
     
     db.session.delete(item)
     db.session.commit()
+    
+    # 同步删除向量索引（按 doc_id 清理全部块）
+    try:
+        from app.services.vector_stores.factory import get_vector_backend
+        get_vector_backend().delete(where={"doc_id": str(item_id)})
+    except Exception as e:
+        print(f"向量索引删除失败 item={item_id}: {e}")
     
     return jsonify({"message": "知识条目删除成功"}), 200
 

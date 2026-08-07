@@ -24,6 +24,9 @@
         <div class="cs-sub">
           <span v-if="source.source" class="cs-url">{{ source.source }}</span>
           <span v-if="source.similarity !== undefined">相似度 {{ (source.similarity * 100).toFixed(0) }}%</span>
+          <span v-if="source.start_line" class="cs-lines">
+            第 {{ source.start_line }}-{{ source.end_line }} 行
+          </span>
         </div>
       </div>
     </div>
@@ -96,6 +99,7 @@ const openDetail = async (source) => {
   font-size: 12px; color: var(--chat-hollow);
   display: flex; gap: 8px; white-space: nowrap; overflow: hidden;
   .cs-url { overflow: hidden; text-overflow: ellipsis; }
+  .cs-lines { flex-shrink: 0; color: var(--chat-accent); }
 }
 
 .cs-detail-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: var(--chat-ink); }
