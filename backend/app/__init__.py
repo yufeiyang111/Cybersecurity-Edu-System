@@ -97,6 +97,14 @@ def create_app(config_object: type | None = None) -> Flask:
                 get_rag_engine()
             except Exception:
                 app.logger.exception("RAG 引擎后台预热失败")
+            # RERANK_ENABLED 开启时预热真实 rerank 模型，避免首次 QA 请求现场加载
+            if app.config.get("RERANK_ENABLED"):
+                try:
+                    from app.services.llm.reranker_service import get_reranker_service
+
+                    get_reranker_service()._load()
+                except Exception:
+                    app.logger.warning("reranker 预热失败，首次问答将现场加载或降级")
 
         warmup_timer = threading.Timer(10.0, _warmup_rag_engine)
         warmup_timer.daemon = True

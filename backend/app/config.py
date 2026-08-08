@@ -223,9 +223,12 @@ class Config:
     RERANK_TOP_K = int(os.getenv("RERANK_TOP_K", "5"))
     VECTOR_WEIGHT = float(os.getenv("VECTOR_WEIGHT", "0.7"))
     GRAPH_WEIGHT = float(os.getenv("GRAPH_WEIGHT", "0.3"))
-    # 真实 cross-encoder 重排模型（本地 D 盘，与 bge-m3 同目录）
+    # 真实 cross-encoder 重排总开关：CPU 环境打分慢（分钟级），默认关闭走快速检索；
+    # GPU 或高性能服务器上置 true 启用真实重排（本地 D 盘模型）
+    RERANK_ENABLED = _env_bool("RERANK_ENABLED", False)
     RERANKER_MODEL = os.getenv("RERANKER_MODEL", "D:/rag-medical/models/bge-reranker-v2-m3")
-    RERANKER_MAX_LENGTH = int(os.getenv("RERANKER_MAX_LENGTH", "2048"))
+    # chunk 约 384 token，512 足够；过长的 max_length 在 CPU 上显著拖慢打分
+    RERANKER_MAX_LENGTH = int(os.getenv("RERANKER_MAX_LENGTH", "512"))
     # 16GB 内存机器建议半精度加载（2.2GB -> 1.1GB）
     RERANKER_HALF_PRECISION = _env_bool("RERANKER_HALF_PRECISION", True)
 

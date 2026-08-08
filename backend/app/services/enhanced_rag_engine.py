@@ -72,18 +72,15 @@ class Reranker:
         if getattr(self.embedding_service, "is_degraded", False):
             return documents[:top_k]
 
-        # 降级：embedding 余弦伪重排
+        # 降级：embedding 余弦伪重排（batch 一次前向，避免逐文档两次 encode 的分钟级延迟）
+        texts = [doc.get("text", "") for doc in documents if doc.get("text")]
+        try:
+            cross_scores = self.embedding_service.compute_similarity(query, texts)
+        except Exception:
+            cross_scores = [doc.get("score", doc.get("similarity", 0.5)) for doc in documents]
+
         scored_docs = []
-        for doc in documents:
-            text = doc.get("text", "")
-            if not text:
-                continue
-
-            try:
-                similarity = self.embedding_service.embedding_model.similarity(query, text)
-            except Exception:
-                similarity = doc.get("score", doc.get("similarity", 0.5))
-
+        for doc, similarity in zip([d for d in documents if d.get("text")], cross_scores):
             original_score = doc.get("score", doc.get("similarity", 0.5))
             combined_score = 0.4 * original_score + 0.6 * similarity
 
@@ -246,8 +243,14 @@ class EnhancedRAGEngine:
         return unique_results
 
     def rerank_results(self, query: str, retrieved_docs: List[Dict], top_k: int = None) -> List[Dict]:
-        """对检索结果进行重排序"""
+        """对检索结果进行重排序。
+
+        RERANK_ENABLED 关闭时直接返回检索结果（快速路径，CPU 环境默认）；
+        开启时优先真实 cross-encoder，失败降级 batch 伪重排。
+        """
         top_k = top_k or Config.RERANK_TOP_K
+        if not Config.RERANK_ENABLED:
+            return retrieved_docs[:top_k]
         return self.reranker.rerank(query, retrieved_docs, top_k)
 
     def build_context(
@@ -539,18 +542,18 @@ class EnhancedRAGEngine:
         }
 
     def _calculate_confidence(self, retrieved_docs: List[Dict]) -> float:
-        """计算答案置信度"""
+        """计算答案置信度（降级模式下 similarity 可能为 None，需归一化）"""
         if not retrieved_docs:
             return 0.0
 
         # 综合考虑相似度分数
         scores = []
         for doc in retrieved_docs:
-            # 原始检索分数
-            sim = doc.get("similarity", 0)
+            # 原始检索分数（词法降级时可能为 None）
+            sim = doc.get("similarity") or 0
             # 重排序分数（如果有）
-            rerank = doc.get("rerank_score", 0)
-            cross = doc.get("cross_score", 0)
+            rerank = doc.get("rerank_score") or 0
+            cross = doc.get("cross_score") or 0
 
             # 综合分数
             combined = 0.3 * sim + 0.3 * rerank + 0.4 * cross if cross else sim

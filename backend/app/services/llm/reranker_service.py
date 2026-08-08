@@ -44,7 +44,6 @@ class RerankerService:
             self.model = AutoModelForSequenceClassification.from_pretrained(
                 self.model_name,
                 dtype=dtype,
-                low_cpu_mem_usage=True,
             )
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
             self.model.to(self.device)
