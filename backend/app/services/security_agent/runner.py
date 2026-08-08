@@ -1,12 +1,13 @@
 """Inline plan runner: walks the policy plan DAG and drives tools.
 
-This is the A1 worker loop.  It executes plans with planner_source =
-rule_based_policy or llm_live (A3 planner) inside a background thread (or
-synchronously when AGENT_RUN_EXECUTOR=synchronous, used by tests).  RQ workers
-replace this dispatcher in batch A10.
+This is the agent worker loop.  It executes plans with planner_source =
+rule_based_policy or llm_live (A3 planner) inside a background thread, an RQ
+worker process (when RQ_ASYNC=true), or synchronously when
+AGENT_RUN_EXECUTOR=synchronous (used by tests).
 """
 from __future__ import annotations
 
+import os
 import time
 from datetime import datetime
 
@@ -166,7 +167,7 @@ class InlinePlanRunner:
                 plan_node_id=node.id,
                 run_id=run.id,
                 attempt_number=attempt_number,
-                worker_id="inline-worker",
+                worker_id=self._worker_id(),
                 status="running",
                 started_at=datetime.utcnow(),
             )
@@ -447,6 +448,13 @@ class InlinePlanRunner:
             .first()
         )
 
+    def _worker_id(self) -> str:
+        if current_app is not None:
+            configured = current_app.config.get("AGENT_WORKER_ID")
+            if configured:
+                return str(configured)
+        return f"{os.getpid()}"
+
     def _next_attempt(self, plan_node_id: int) -> int:
         latest = (
             AgentStepExecution.query.filter_by(plan_node_id=plan_node_id)
@@ -481,3 +489,19 @@ def _elapsed_ms(started_at, finished_at) -> int | None:
     if started_at is None or finished_at is None:
         return None
     return max(0, int((finished_at - started_at).total_seconds() * 1000))
+
+
+def run_queued_agent_run(run_id: int, trace_id: str) -> None:
+    """RQ Worker 入口：在独立进程内创建 application context 并执行 agent run。
+
+    与扫描任务的 run_queued_scan_task 保持同样的隔离边界：worker 不共享
+    API 进程的 Flask context，每次从工厂重建 application。
+    """
+    from app import create_app
+    from app.services.security_agent.service import AgentRunService
+
+    application = create_app()
+    if not application.config.get("AGENT_WORKER_ID"):
+        application.config["AGENT_WORKER_ID"] = f"rq-{os.getpid()}"
+    with application.app_context():
+        AgentRunService().execute_open_run(run_id, trace_id)

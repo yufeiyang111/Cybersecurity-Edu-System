@@ -208,12 +208,32 @@ class AgentRunService:
 
     # ------------------------------------------------------------------ dispatch
 
+    def execute_open_run(self, run_id: int, trace_id: str) -> None:
+        """在独立执行上下文（RQ worker）中运行为开放状态的 run。"""
+        from flask import current_app as _app
+
+        self._runner.run(run_id, trace_id, _app._get_current_object())
+
     def _dispatch(self, run: AgentRun, trace_id: str) -> None:
         app = current_app._get_current_object()
         executor_mode = app.config.get("AGENT_RUN_EXECUTOR", "background")
         if executor_mode == "synchronous":
             self._runner.run(run.id, trace_id, app)
             return
+        rq_enabled = executor_mode == "rq" or bool(app.config.get("RQ_ASYNC", False))
+        if rq_enabled:
+            try:
+                self._enqueue(run.id, trace_id, app)
+                return
+            except Exception:
+                # Redis 不可用时不阻断 run 生命周期；降级为进程内线程并留痕。
+                current_app.logger.warning(
+                    "agent run enqueue failed, falling back to in-process thread "
+                    "(run_id=%s trace_id=%s)",
+                    run.id,
+                    trace_id,
+                    exc_info=True,
+                )
         thread = threading.Thread(
             target=self._runner.run,
             args=(run.id, trace_id, app),
@@ -221,6 +241,26 @@ class AgentRunService:
             daemon=True,
         )
         thread.start()
+
+    def _enqueue(self, run_id: int, trace_id: str, app) -> str:
+        from redis import Redis
+        from rq import Queue
+
+        from app.services.security_agent.runner import run_queued_agent_run
+
+        queue = Queue(
+            app.config["RQ_QUEUE_NAME"],
+            connection=Redis.from_url(app.config["REDIS_URL"]),
+        )
+        job = queue.enqueue(
+            run_queued_agent_run,
+            run_id,
+            trace_id,
+            job_id=f"agent-run-{run_id}-{trace_id}",
+            result_ttl=86400,
+            failure_ttl=604800,
+        )
+        return job.id
 
 
 SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
