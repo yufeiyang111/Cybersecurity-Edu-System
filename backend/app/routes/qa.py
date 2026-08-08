@@ -5,6 +5,7 @@ import json
 import inspect
 import os
 import uuid
+from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app, Response, stream_with_context
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
@@ -125,6 +126,14 @@ def _save_qa_record(user_id: int, conversation_id: int, question: str, result: d
         rag_warnings=result.get("rag_warnings") or None
     )
     db.session.add(record)
+    if conversation_id is not None:
+        # 新问答落库后刷新会话 updated_at，保证会话列表按最近活跃排序
+        conversation = QAConversation.query.filter_by(
+            id=conversation_id,
+            user_id=user_id,
+        ).first()
+        if conversation is not None:
+            conversation.updated_at = datetime.utcnow()
     db.session.commit()
     return record
 
