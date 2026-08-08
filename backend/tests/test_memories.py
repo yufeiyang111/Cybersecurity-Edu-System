@@ -127,8 +127,15 @@ def test_capture_interaction_stores_extracted_facts(memory_app, monkeypatch):
         assert memories[0].source_record_id == 3
 
 
-def test_retrieve_for_query_returns_relevant_memories(memory_app):
+def test_retrieve_for_query_returns_relevant_memories(memory_app, monkeypatch):
+    from app.services import secbert_embedding as embedding_module
     from app.services.memory import service as memory_service
+
+    # 用确定性相似度替代真实 embedding（真实模型/宿主内存波动会让该断言不稳定）
+    def fake_similarity(query, texts):
+        return [1.0 if "Web" in text or "安全" in text else 0.0 for text in texts]
+
+    monkeypatch.setattr(embedding_module, "compute_text_similarity", fake_similarity)
 
     _enable_memory()
     with memory_app.app_context():

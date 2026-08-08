@@ -80,46 +80,63 @@ class SecBERTEmbedding:
         return None
 
     def _load_model(self):
-        """加载模型"""
+        """加载模型：主模型 → 轻量备选模型 → 词袋兜底"""
         if not TRANSFORMERS_AVAILABLE:
             print("警告: transformers 库未安装，将使用备用向量化方案")
             return
 
-        # 内存保护：可用内存不足时跳过加载，避免模型把进程内存耗尽
-        # 拖垮登录等其他与向量无关的功能（宁可检索降级，也不影响全站）
         available_mb = self._system_memory_mb()
-        min_free_mb = getattr(Config, "EMBEDDING_MIN_FREE_MEMORY_MB", 4096)
-        if available_mb is not None and available_mb < min_free_mb:
-            print(
-                f"警告: 可用内存不足（{available_mb}MB < {min_free_mb}MB），"
-                "跳过模型加载，使用备用向量化方案"
-            )
-            self.model = None
-            return
+        main_min_mb = getattr(Config, "EMBEDDING_MIN_FREE_MEMORY_MB", 4096)
+        fallback_min_mb = getattr(Config, "EMBEDDING_FALLBACK_MIN_FREE_MEMORY_MB", 1500)
 
+        # 先尝试主模型（内存充足时）
+        if available_mb is None or available_mb >= main_min_mb:
+            if self._try_load(self.model_name):
+                return
+
+        # 主模型内存不足或加载失败：尝试轻量备选模型
+        fallback_model = getattr(Config, "EMBEDDING_FALLBACK_MODEL", None)
+        if fallback_model and fallback_model != self.model_name:
+            if available_mb is not None and available_mb < fallback_min_mb:
+                print(
+                    f"警告: 可用内存不足（{available_mb}MB < {fallback_min_mb}MB），"
+                    "跳过备选模型加载，使用词袋兜底"
+                )
+            elif self._try_load(fallback_model):
+                print(f"已降级使用轻量备选模型: {fallback_model}")
+                return
+
+        self.model = None
+        print("警告: 模型加载失败，使用备用向量化方案（词袋）")
+
+    def _try_load(self, model_name: str) -> bool:
+        """尝试加载指定模型；成功返回 True，失败返回 False"""
         try:
-            # 设置 HF 国内镜像源加速下载
             import os
+
             os.environ['HF_ENDPOINT'] = Config.HF_ENDPOINT
 
             self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
+                model_name,
                 trust_remote_code=True
             )
             self.model = AutoModel.from_pretrained(
-                self.model_name,
+                model_name,
                 trust_remote_code=True
             )
             self.model.to(self.device)
             self.model.eval()
-            print(f"成功加载模型: {self.model_name}")
+            self.model_name = model_name
+            print(f"成功加载模型: {model_name}")
+            return True
         except MemoryError:
-            print("警告: 模型加载内存不足（MemoryError），已降级为备用向量化方案")
+            print("警告: 模型加载内存不足（MemoryError），尝试下一备选")
             self.model = None
+            return False
         except Exception as e:
             print(f"加载模型失败: {e}")
-            print("将使用备用向量化方案...")
             self.model = None
+            return False
 
     def encode(
         self,
@@ -248,12 +265,16 @@ class SecBERTEmbedding:
 
     @property
     def is_degraded(self) -> bool:
-        """是否处于降级状态（词袋伪向量）。
+        """是否处于降级状态。
 
-        降级向量与库中真实模型向量不在同一语义空间，检索侧必须跳过
-        向量路（改走 BM25 词法），否则相似度全是噪声。
+        模型未加载（词袋伪向量）或加载的是轻量备选模型（维度与主模型/
+        库中索引不同）都视为降级：检索侧必须跳过向量路（改走 BM25 词法），
+        否则查询向量与库中索引维度错配或语义空间不一致。
+        轻量模型仍可用于相似度/语义重排（不依赖索引维度的场景）。
         """
-        return self.model is None
+        if self.model is None:
+            return True
+        return self.model_name != getattr(Config, "EMBEDDING_MODEL", self.model_name)
 
 
 class EmbeddingService:

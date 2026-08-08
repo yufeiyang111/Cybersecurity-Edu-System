@@ -194,6 +194,16 @@ class Config:
     # 模型加载前要求系统剩余可用内存下限（MB）；不足则跳过加载并降级，
     # 避免模型内存占用拖垮登录等与向量无关的功能
     EMBEDDING_MIN_FREE_MEMORY_MB = int(os.getenv("EMBEDDING_MIN_FREE_MEMORY_MB", "4096"))
+    # 轻量备选模型：主模型因内存不足/加载失败时回退到该模型（语义向量仍可用，
+    # 维度与主模型不同时检索侧自动走 BM25，该模型仅用于语义重排等不依赖索引的场景）。
+    # 服务器低配（如 2 核 2GB）可直接把 EMBEDDING_MODEL 指到这里。
+    EMBEDDING_FALLBACK_MODEL = os.getenv(
+        "EMBEDDING_FALLBACK_MODEL", "shibing624/text2vec-base-chinese"
+    )
+    # 备选模型加载前要求的最小可用内存（MB），再低则回退词袋
+    EMBEDDING_FALLBACK_MIN_FREE_MEMORY_MB = int(
+        os.getenv("EMBEDDING_FALLBACK_MIN_FREE_MEMORY_MB", "1500")
+    )
     # BGE 系模型推荐查询指令（文档编码不加，仅查询加）
     EMBEDDING_QUERY_PREFIX = os.getenv(
         "EMBEDDING_QUERY_PREFIX", "为这个句子生成表示以用于检索相关文章："
