@@ -236,7 +236,7 @@ textarea {
   background: var(--chat-bubble);
   display: flex; align-items: center; justify-content: center;
   &:disabled { cursor: default; }
-   &.active { background: var(--chat-accent); }
+   &.active { background: var(--chat-accent-gradient, var(--chat-accent)); }
   svg { width: 16px; height: 16px; stroke: var(--chat-hollow); }
   &.active svg { stroke: var(--chat-canvas); }
 }

@@ -88,8 +88,9 @@ const openDetail = async (source) => {
 }
 .cs-favicon {
   width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0;
-  background: #e8e8e6; display: flex; align-items: center; justify-content: center;
-  svg { width: 11px; height: 11px; stroke: #555; }
+  background: var(--chat-accent-soft);
+  display: flex; align-items: center; justify-content: center;
+  svg { width: 11px; height: 11px; stroke: var(--chat-accent); }
 }
 .cs-meta { min-width: 0; }
 .cs-name {

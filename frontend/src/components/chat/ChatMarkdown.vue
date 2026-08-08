@@ -52,13 +52,13 @@ const renderedContent = computed(() => renderMarkdown(props.content))
   blockquote {
     margin: 12px 0;
     padding: 2px 0 2px 14px;
-    border-left: 3px solid rgba(0, 0, 0, 0.15);
+    border-left: 3px solid var(--chat-hairline-strong);
     color: var(--chat-muted);
     p { margin: 6px 0; }
   }
 
   code {
-    background: rgba(0, 0, 0, 0.05);
+    background: var(--chat-hover);
     padding: 2px 6px;
     border-radius: 4px;
     font-family: ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace;
@@ -71,15 +71,15 @@ const renderedContent = computed(() => renderMarkdown(props.content))
     border-collapse: collapse;
     margin: 12px 0;
     th, td {
-      border: 1px solid rgba(0, 0, 0, 0.1);
+      border: 1px solid var(--chat-hairline);
       padding: 8px 12px;
       text-align: left;
     }
-    th { background: rgba(0, 0, 0, 0.03); font-weight: 600; }
-    tr:nth-child(even) td { background: rgba(0, 0, 0, 0.015); }
+    th { background: var(--chat-hover); font-weight: 600; }
+    tr:nth-child(even) td { background: var(--chat-hairline); }
   }
 
   img { max-width: 100%; border-radius: var(--chat-radius); }
-  hr { border: none; border-top: 1px solid rgba(0, 0, 0, 0.1); margin: 20px 0; }
+  hr { border: none; border-top: 1px solid var(--chat-hairline); margin: 20px 0; }
 }
 </style>

@@ -33,24 +33,26 @@ const items = computed(() => (props.warnings || []).map(parseRagWarning))
 .chat-rag-warnings {
   margin-top: 14px;
   padding: 12px 14px;
-  border: 1px solid #f5cba0;
+  border: 1px solid var(--chat-warning-border);
   border-radius: var(--chat-radius);
-  background: #fdf3e4;
+  background: var(--chat-warning-bg);
 }
 .crw-title {
   display: flex; align-items: center; gap: 8px;
-  color: #8a4b08; font-size: 13px; font-weight: 600;
-  svg { width: 16px; height: 16px; stroke: #c07b1f; flex-shrink: 0; }
+  color: var(--chat-warning-ink); font-size: 13px; font-weight: 600;
+  svg { width: 16px; height: 16px; stroke: var(--chat-warning-icon); flex-shrink: 0; }
 }
 .crw-list {
   margin: 8px 0 0; padding: 0; list-style: none;
 }
 .crw-item {
   display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline;
-  font-size: 12.5px; color: #7c5d14; line-height: 1.6;
-  code { color: #8a4b08; font-weight: 600; }
+  font-size: 12.5px; color: var(--chat-warning-ink); line-height: 1.6;
+  opacity: 0.9;
+  code { color: var(--chat-warning-ink); font-weight: 600; }
 }
 .crw-note {
-  margin: 8px 0 0; font-size: 12px; color: #a4762a;
+  margin: 8px 0 0; font-size: 12px; color: var(--chat-warning-ink);
+  opacity: 0.75;
 }
 </style>

@@ -49,7 +49,7 @@ defineEmits(['select'])
   text-align: left;
   font-family: inherit;
   transition: background .15s;
-  &:hover { background: var(--chat-hover); }
+  &:hover { background: var(--chat-hover); border-color: var(--chat-accent-border); }
   .cw-card-t { font-size: 14px; font-weight: 500; margin-bottom: 4px; color: var(--chat-ink); }
   .cw-card-d { font-size: 13px; color: var(--chat-hollow); line-height: 1.45; }
 }

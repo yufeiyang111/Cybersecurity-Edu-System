@@ -59,13 +59,41 @@ const handleReset = async () => {
 
 <style lang="scss" scoped>
 .settings-layout { display: flex; min-height: 520px; margin: -8px -12px 0; }
-.settings-nav { width: 150px; flex: 0 0 150px; padding: 8px; border-right: 1px solid #e5e7eb; }
-.settings-nav button { width: 100%; border: 0; background: transparent; padding: 10px 12px; text-align: left; border-radius: 8px; cursor: pointer; font-size: 14px; color: #4b5563; }
-.settings-nav button:hover, .settings-nav button.active { background: #f0fdf4; color: #047857; font-weight: 600; }
+.settings-nav {
+  width: 150px;
+  flex: 0 0 150px;
+  padding: 8px;
+  border-right: 1px solid var(--chat-hairline);
+}
+.settings-nav button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 10px 12px;
+  text-align: left;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--chat-muted);
+
+  &:hover {
+    background: var(--chat-hover);
+  }
+
+  &.active {
+    background: var(--chat-accent-soft);
+    color: var(--chat-accent);
+    font-weight: 600;
+  }
+}
 .settings-content { flex: 1; min-width: 0; overflow-y: auto; padding: 8px 22px 16px; }
 .footer-spacer { flex: 1; }
-:global(.el-dialog) { background: var(--chat-canvas); color: var(--chat-ink); }
-:global(.el-dialog__title), :global(.el-dialog__body) { color: var(--chat-ink); }
-:global(.el-dialog__header), :global(.el-dialog__footer) { border-color: var(--chat-hairline); }
-@media (max-width: 620px) { .settings-layout { min-height: 0; }.settings-nav { width: 92px; flex-basis: 92px; }.settings-content { padding: 8px 12px; }.color-grid { grid-template-columns: repeat(2, 1fr); }.radius-grid { grid-template-columns: repeat(3, 1fr); } }
+// 弹窗背景/文字/边框由 chat-tokens.scss 的 --el-* 暗色变量控制，这里不再重复覆盖
+@media (max-width: 620px) {
+  .settings-layout { min-height: 0; }
+  .settings-nav { width: 92px; flex-basis: 92px; }
+  .settings-content { padding: 8px 12px; }
+  .color-grid { grid-template-columns: repeat(2, 1fr); }
+  .radius-grid { grid-template-columns: repeat(3, 1fr); }
+}
 </style>

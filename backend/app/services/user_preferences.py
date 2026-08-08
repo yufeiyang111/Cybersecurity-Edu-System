@@ -19,8 +19,11 @@ DEFAULTS = {
     "persistent_memory_enabled": False,
 }
 OPTIONS = {
-    "theme": {"system", "light", "dark"},
-    "color_preset": {"default", "anthropic", "simple", "night", "rose", "lake", "sunset", "forest", "sea", "lavender"},
+    "theme": {"system", "light", "dark", "sepia"},
+    "color_preset": {
+        "default", "anthropic", "simple", "night", "rose", "lake", "sunset", "forest", "sea", "lavender",
+        "emerald", "gold", "candy",
+    },
     "font_family": {"auto", "sans", "serif"},
     "border_radius": {"auto", "0", "0.3", "0.5", "0.75", "1.0"},
     "content_density": {"compact", "standard", "comfortable"},

@@ -266,7 +266,7 @@ onBeforeUnmount(() => {
 .cs-brand { display: flex; align-items: center; gap: 10px; padding: 14px 12px 10px; }
 .cs-brand-mark {
   width: 30px; height: 30px; border-radius: 8px;
-  background: var(--chat-accent);
+  background: var(--chat-accent-gradient, var(--chat-accent));
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   svg { width: 16px; height: 16px; }
@@ -294,7 +294,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font-family: inherit; font-size: 14px; font-weight: 500; color: var(--chat-ink);
   white-space: nowrap;
-  &:hover { border-color: rgba(0, 0, 0, 0.28); }
+  &:hover { border-color: var(--chat-accent-border); }
   svg { width: 15px; height: 15px; stroke: var(--chat-ink); flex-shrink: 0; }
   .cs-new-label { flex: 1; text-align: left; }
 }
@@ -342,9 +342,9 @@ onBeforeUnmount(() => {
   font-size: 13.5px;
   white-space: nowrap;
   &:hover { background: var(--chat-hover); }
-  &.active { background: var(--chat-hover); font-weight: 500; }
+  &.active { background: var(--chat-accent-soft); font-weight: 500; }
   .cs-item-icon { width: 15px; height: 15px; stroke: var(--chat-hollow); flex-shrink: 0; }
-  &.active .cs-item-icon { stroke: var(--chat-ink); }
+  &.active .cs-item-icon { stroke: var(--chat-accent); }
    .cs-item-title { flex: 1; overflow: hidden; color: var(--chat-ink); text-overflow: ellipsis; }
 }
 .cs-item-ops { display: none; gap: 2px; flex-shrink: 0; }
@@ -385,7 +385,7 @@ onBeforeUnmount(() => {
 }
 .cs-avatar {
   width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-  background: #e2e2e0; display: flex; align-items: center; justify-content: center;
+  background: var(--chat-bubble); display: flex; align-items: center; justify-content: center;
    font-size: 13px; font-weight: 600; color: var(--chat-ink);
 }
 .cs-avatar-image { object-fit: cover; }

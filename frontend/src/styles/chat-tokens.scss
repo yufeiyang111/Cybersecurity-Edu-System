@@ -17,12 +17,29 @@
   --chat-muted: #555555;
   --chat-field: #ffffff;
   --chat-accent: #0d0d0d;
+  --chat-accent-soft: rgba(13, 13, 13, 0.06);
+  --chat-accent-border: rgba(13, 13, 13, 0.22);
+  --chat-accent-gradient: linear-gradient(135deg, #3a3a3a, #0d0d0d);
+  // 语义色：RAG 警告 / 成功提示 / 危险状态
+  --chat-warning-bg: #fdf3e4;
+  --chat-warning-border: #f5cba0;
+  --chat-warning-ink: #8a4b08;
+  --chat-warning-icon: #c07b1f;
+  --chat-success-bg: #f0f9eb;
+  --chat-success-border: #a3d9a5;
+  --chat-success-ink: #1a7f37;
+  --chat-danger-bg: #fef0f0;
+  --chat-danger-border: #f4b3b3;
+  --chat-danger-ink: #b42318;
   --chat-content-width: 768px;
   --chat-space-scale: 1;
   --chat-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  color-scheme: light;
 }
 
-:root[data-chat-theme="dark"] {
+// 暗色 token 全集：显式 dark 与 system(系统暗色) 共用，保证两分支完全一致
+@mixin chat-dark-tokens {
   --chat-sidebar: #202123;
   --chat-canvas: #343541;
   --chat-ink: #f7f7f8;
@@ -37,26 +54,170 @@
   --chat-muted: #c2c2c4;
   --chat-field: #343541;
   --chat-accent: #10a37f;
+  --chat-accent-soft: rgba(16, 163, 127, 0.16);
+  --chat-accent-border: rgba(16, 163, 127, 0.42);
+  --chat-accent-gradient: linear-gradient(135deg, #12b886, #0e8f6f);
+  // 语义色（暗色适配）：深底 + 亮字，保证对比度
+  --chat-warning-bg: rgba(255, 171, 64, 0.12);
+  --chat-warning-border: rgba(255, 171, 64, 0.32);
+  --chat-warning-ink: #f2b24c;
+  --chat-warning-icon: #f2b24c;
+  --chat-success-bg: rgba(63, 185, 80, 0.12);
+  --chat-success-border: rgba(63, 185, 80, 0.32);
+  --chat-success-ink: #4cc26a;
+  --chat-danger-bg: rgba(248, 81, 73, 0.12);
+  --chat-danger-border: rgba(248, 81, 73, 0.32);
+  --chat-danger-ink: #f87f79;
   --chat-content-width: 768px;
+
+  color-scheme: dark;
+
+  // ---- Element Plus 暗色覆盖（QA 页用到的 dialog / button / message / message-box）----
+  // 作用域限定在聊天主题为暗色时，避免影响其他页面 Element Plus 的浅色品牌风格
+  --el-bg-color: #343541;
+  --el-bg-color-overlay: #3e3f4b;
+  --el-fill-color-blank: #343541;
+  --el-fill-color-light: rgba(255, 255, 255, 0.06);
+  --el-fill-color-lighter: rgba(255, 255, 255, 0.03);
+  --el-fill-color-extra-light: rgba(255, 255, 255, 0.015);
+  --el-fill-color-dark: rgba(255, 255, 255, 0.1);
+  --el-text-color-primary: #f7f7f8;
+  --el-text-color-regular: #ececf0;
+  --el-text-color-secondary: #b7b7b8;
+  --el-text-color-placeholder: #8f8f8f;
+  --el-text-color-disabled: #6c6c6c;
+  --el-border-color: rgba(255, 255, 255, 0.22);
+  --el-border-color-light: rgba(255, 255, 255, 0.16);
+  --el-border-color-lighter: rgba(255, 255, 255, 0.12);
+  --el-border-color-extra-light: rgba(255, 255, 255, 0.08);
+  --el-border-color-dark: rgba(255, 255, 255, 0.3);
+  --el-border-color-hover: rgba(255, 255, 255, 0.4);
+  --el-dialog-bg-color: #3e3f4b;
+  --el-messagebox-bg-color: #3e3f4b;
+  --el-message-bg-color: #3e3f4b;
+  // 默认按钮
+  --el-button-bg-color: #343541;
+  --el-button-text-color: #f7f7f8;
+  --el-button-border-color: rgba(255, 255, 255, 0.2);
+  --el-button-hover-bg-color: #3e3f4b;
+  --el-button-hover-text-color: #ffffff;
+  --el-button-hover-border-color: rgba(255, 255, 255, 0.3);
+  --el-button-active-bg-color: #3a3b47;
+  --el-button-active-text-color: #ffffff;
+  --el-button-active-border-color: rgba(255, 255, 255, 0.3);
+  // 品牌色系（GitHub 绿 / 危险红），暗底下用加深的 light 系列让 plain 按钮不刺眼
+  --el-color-primary: #3fb950;
+  --el-color-primary-light-3: #1f6f43;
+  --el-color-primary-light-5: #144d2e;
+  --el-color-primary-light-7: #0d331e;
+  --el-color-primary-light-8: #0a2918;
+  --el-color-primary-light-9: #081f12;
+  --el-color-primary-dark-2: #54c766;
+  --el-color-danger: #f85149;
+  --el-color-danger-light-3: #7d1a21;
+  --el-color-danger-light-5: #581216;
+  --el-color-danger-light-7: #3a0c0f;
+  --el-color-danger-light-8: #2e090b;
+  --el-color-danger-light-9: #24070a;
+  --el-color-danger-dark-2: #fa6a63;
+  // 成功 / 警告 / 信息：ElMessage 等提示类组件背景使用 light-9 变体，暗色下需同步加深
+  --el-color-success: #3fb950;
+  --el-color-success-light-3: #1f6f43;
+  --el-color-success-light-5: #144d2e;
+  --el-color-success-light-7: #0d331e;
+  --el-color-success-light-8: #0a2918;
+  --el-color-success-light-9: #0a2412;
+  --el-color-success-dark-2: #54c766;
+  --el-color-warning: #d29922;
+  --el-color-warning-light-9: #2a2006;
+  --el-color-info: #8b949e;
+  --el-color-info-light-9: #1e2530;
 }
 
-:root[data-chat-theme="system"] { color-scheme: light; }
-@media (prefers-color-scheme: dark) {
-  :root[data-chat-theme="system"] {
-    --chat-sidebar: #202123;
-    --chat-canvas: #343541;
-    --chat-ink: #f7f7f8;
-    --chat-hollow: #b7b7b8;
-    --chat-hairline: rgba(255, 255, 255, 0.12);
-    --chat-hover: rgba(255, 255, 255, 0.08);
-    --chat-bubble: #444654;
+// global.scss 用 SCSS 写死了部分 el 组件背景（不走 CSS 变量），暗色下需要元素级补齐：
+// 按钮主色/危险色/plain 背景、成功/警告消息底色，均在聊天主题为暗色时覆盖
+@mixin chat-dark-el {
+  .el-button--primary {
+    background: #3fb950;
+    border-color: #3fb950;
+    color: #ffffff;
+
+    &:hover,
+    &:focus {
+      background: #54c766;
+      border-color: #54c766;
+    }
+  }
+  .el-button--primary.is-plain {
+    background: #081f12;
+    border-color: #1f6f43;
+    color: #54c766;
+
+    &:hover,
+    &:focus {
+      background: #144d2e;
+      border-color: #1f6f43;
+    }
+  }
+  .el-button--danger {
+    background: #f85149;
+    border-color: #f85149;
+    color: #ffffff;
+
+    &:hover,
+    &:focus {
+      background: #fa6a63;
+      border-color: #fa6a63;
+    }
+  }
+  .el-button--danger.is-plain {
+    background: #24070a;
+    border-color: #7d1a21;
+    color: #f85149;
+
+    &:hover,
+    &:focus {
+      background: #581216;
+      border-color: #7d1a21;
+    }
+  }
+  .el-message--success { background: var(--el-color-success-light-9); }
+  .el-message--warning { background: var(--el-color-warning-light-9); }
+  .el-message--error { background: var(--el-color-danger-light-9); }
+  .el-message--info { background: var(--el-color-info-light-9); }
+  // 提示类组件文字不继承根上的 --el-text-color-*，这里显式点亮
+  .el-dialog,
+  .el-message,
+  .el-message-box {
+    color: var(--el-text-color-primary);
+  }
+  .el-message-box__title { color: var(--el-text-color-primary); }
+  .el-message-box__message p { color: var(--el-text-color-regular); }
+  .el-message-box__close { color: var(--el-text-color-secondary); }
+  // global.scss 写死浅色边框的组件，暗色下改用 --el 边框变量
+  .el-dialog,
+  .el-message,
+  .el-notification {
+    border-color: var(--el-border-color-light);
   }
 }
 
-:root[data-chat-theme="dark"] { --chat-ink: #f7f7f8; --chat-link: #7ab8ff; --chat-hover: rgba(255, 255, 255, 0.08); --chat-accent: #10a37f; }
-@media (prefers-color-scheme: dark) {
-  :root[data-chat-theme="system"] { --chat-ink: #f7f7f8; --chat-link: #7ab8ff; --chat-hover: rgba(255, 255, 255, 0.08); --chat-accent: #10a37f; }
+:root[data-chat-theme="dark"] {
+  @include chat-dark-tokens;
+  @include chat-dark-el;
 }
+
+:root[data-chat-theme="system"] {
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-chat-theme="system"] {
+    @include chat-dark-tokens;
+    @include chat-dark-el;
+  }
+}
+
 :root[data-chat-font="sans"] { --chat-font-family: Arial, Helvetica, sans-serif; }
 :root[data-chat-font="serif"] { --chat-font-family: Georgia, "Times New Roman", serif; }
 :root[data-chat-radius="0"] { --chat-radius: 0; }
@@ -70,52 +231,101 @@
 :root[data-chat-density="comfortable"] { --chat-space-scale: 1.2; }
 :root:not([data-chat-density]) { --chat-space-scale: 1; }
 
-// Presets are declared after theme defaults so the selected preset wins in both light and dark modes.
-:root[data-chat-preset="anthropic"] { --chat-accent: #c2410c; --chat-link: #c2410c; --chat-hover: rgba(194, 65, 12, 0.08); }
-:root[data-chat-preset="simple"] { --chat-accent: #111827; --chat-link: #111827; --chat-hover: rgba(17, 24, 39, 0.08); }
-:root[data-chat-preset="night"] { --chat-accent: #8b6d8a; --chat-link: #b993b7; --chat-hover: rgba(139, 109, 138, 0.16); }
-:root[data-chat-preset="rose"] { --chat-accent: #d94675; --chat-link: #be185d; --chat-hover: rgba(217, 70, 117, 0.1); }
-:root[data-chat-preset="lake"] { --chat-accent: #0f766e; --chat-link: #0f766e; --chat-hover: rgba(15, 118, 110, 0.08); }
-:root[data-chat-preset="sunset"] { --chat-accent: #ea580c; --chat-link: #c2410c; --chat-hover: rgba(234, 88, 12, 0.1); }
-:root[data-chat-preset="forest"] { --chat-accent: #15803d; --chat-link: #15803d; --chat-hover: rgba(21, 128, 61, 0.1); }
-:root[data-chat-preset="sea"] { --chat-accent: #405de6; --chat-link: #405de6; --chat-hover: rgba(64, 93, 230, 0.1); }
-:root[data-chat-preset="lavender"] { --chat-accent: #7652b5; --chat-link: #7652b5; --chat-hover: rgba(118, 82, 181, 0.12); }
+// ==================== 主题种类 ====================
+// sepia：米黄护眼主题（独立于 light/dark 的第三种主题）
+:root[data-chat-theme="sepia"] {
+  --chat-sidebar: #f4ecda;
+  --chat-canvas: #fbf3e0;
+  --chat-ink: #4a3728;
+  --chat-hollow: #8a7560;
+  --chat-hairline: rgba(90, 65, 40, 0.12);
+  --chat-hairline-strong: rgba(90, 65, 40, 0.2);
+  --chat-hover: rgba(90, 65, 40, 0.08);
+  --chat-bubble: #f0e6cf;
+  --chat-field: #f7eeda;
+  --chat-muted: #6b5641;
+  --chat-link: #8a5a1e;
+  --chat-accent: #8a5a1e;
+  --chat-accent-soft: rgba(138, 90, 30, 0.12);
+  --chat-accent-border: rgba(138, 90, 30, 0.35);
+  --chat-accent-gradient: linear-gradient(135deg, #a06a22, #8a5a1e);
+  color-scheme: light;
+}
 
-:root[data-chat-theme="dark"] .settings-section h2,
-:root[data-chat-theme="dark"] .settings-section h3,
-:root[data-chat-theme="dark"] .settings-section label,
-:root[data-chat-theme="dark"] .section-help,
-:root[data-chat-theme="dark"] .section-note,
-:root[data-chat-theme="dark"] .switch-row,
-:root[data-chat-theme="dark"] .choice-card,
-:root[data-chat-theme="dark"] .color-choice,
-:root[data-chat-theme="dark"] .font-choice,
-:root[data-chat-theme="dark"] .radius-choice {
-  color: var(--chat-ink) !important;
+// ==================== 颜色预设 ====================
+// 每个预设是一整套强调色系 token；声明在主题默认值之后，保证 light/dark/sepia 下都优先
+$presets: (
+  anthropic: (
+    accent: #c2410c, link: #c2410c,
+    soft: rgba(194, 65, 12, 0.10), border: rgba(194, 65, 12, 0.35),
+    hover: rgba(194, 65, 12, 0.08), gradient: linear-gradient(135deg, #ea580c, #c2410c)
+  ),
+  simple: (
+    accent: #111827, link: #111827,
+    soft: rgba(17, 24, 39, 0.08), border: rgba(17, 24, 39, 0.3),
+    hover: rgba(17, 24, 39, 0.08), gradient: linear-gradient(135deg, #374151, #111827)
+  ),
+  night: (
+    accent: #8b6d8a, link: #b993b7,
+    soft: rgba(139, 109, 138, 0.18), border: rgba(139, 109, 138, 0.4),
+    hover: rgba(139, 109, 138, 0.16), gradient: linear-gradient(135deg, #a68aa5, #6d5470)
+  ),
+  rose: (
+    accent: #d94675, link: #be185d,
+    soft: rgba(217, 70, 117, 0.12), border: rgba(217, 70, 117, 0.38),
+    hover: rgba(217, 70, 117, 0.1), gradient: linear-gradient(135deg, #fb7185, #d94675)
+  ),
+  lake: (
+    accent: #0f766e, link: #0f766e,
+    soft: rgba(15, 118, 110, 0.10), border: rgba(15, 118, 110, 0.35),
+    hover: rgba(15, 118, 110, 0.08), gradient: linear-gradient(135deg, #14b8a6, #0f766e)
+  ),
+  sunset: (
+    accent: #ea580c, link: #c2410c,
+    soft: rgba(234, 88, 12, 0.12), border: rgba(234, 88, 12, 0.38),
+    hover: rgba(234, 88, 12, 0.1), gradient: linear-gradient(135deg, #f97316, #c2410c)
+  ),
+  forest: (
+    accent: #15803d, link: #15803d,
+    soft: rgba(21, 128, 61, 0.12), border: rgba(21, 128, 61, 0.36),
+    hover: rgba(21, 128, 61, 0.1), gradient: linear-gradient(135deg, #22c55e, #15803d)
+  ),
+  sea: (
+    accent: #405de6, link: #405de6,
+    soft: rgba(64, 93, 230, 0.12), border: rgba(64, 93, 230, 0.38),
+    hover: rgba(64, 93, 230, 0.1), gradient: linear-gradient(135deg, #6d8bff, #405de6)
+  ),
+  lavender: (
+    accent: #7652b5, link: #7652b5,
+    soft: rgba(118, 82, 181, 0.14), border: rgba(118, 82, 181, 0.4),
+    hover: rgba(118, 82, 181, 0.12), gradient: linear-gradient(135deg, #9a76cf, #7652b5)
+  ),
+  emerald: (
+    accent: #059669, link: #047857,
+    soft: rgba(5, 150, 105, 0.12), border: rgba(5, 150, 105, 0.36),
+    hover: rgba(5, 150, 105, 0.1), gradient: linear-gradient(135deg, #10b981, #059669)
+  ),
+  gold: (
+    accent: #b45309, link: #92400e,
+    soft: rgba(180, 83, 9, 0.13), border: rgba(180, 83, 9, 0.38),
+    hover: rgba(180, 83, 9, 0.1), gradient: linear-gradient(135deg, #f59e0b, #b45309)
+  ),
+  candy: (
+    accent: #ec4899, link: #db2777,
+    soft: rgba(236, 72, 153, 0.13), border: rgba(236, 72, 153, 0.4),
+    hover: rgba(236, 72, 153, 0.1), gradient: linear-gradient(135deg, #f472b6, #ec4899)
+  )
+);
+
+@each $name, $t in $presets {
+  :root[data-chat-preset="#{$name}"] {
+    --chat-accent: #{map-get($t, accent)};
+    --chat-link: #{map-get($t, link)};
+    --chat-accent-soft: #{map-get($t, soft)};
+    --chat-accent-border: #{map-get($t, border)};
+    --chat-accent-gradient: #{map-get($t, gradient)};
+    --chat-hover: #{map-get($t, hover)};
+  }
 }
 
 .chat-settings-dialog { font-family: var(--chat-font-family); }
-.settings-section .choice-card.selected,
-.settings-section .color-choice.selected,
-.settings-section .font-choice.selected,
-.settings-section .radius-choice.selected {
-  border-color: var(--chat-accent) !important;
-  box-shadow: 0 0 0 1px var(--chat-accent) !important;
-}
-:root[data-chat-theme="dark"] .settings-nav button {
-  color: var(--chat-ink) !important;
-}
-:root[data-chat-theme="dark"] .settings-nav button.active {
-  background: var(--chat-hover) !important;
-}
-
-:root[data-chat-theme="dark"] .settings-section .choice-card,
-:root[data-chat-theme="dark"] .settings-section .color-choice,
-:root[data-chat-theme="dark"] .settings-section .font-choice,
-:root[data-chat-theme="dark"] .settings-section .radius-choice,
-:root[data-chat-theme="dark"] .settings-section textarea,
-:root[data-chat-theme="dark"] .settings-section select {
-  background: var(--chat-field) !important;
-  border-color: var(--chat-hairline-strong) !important;
-  color: var(--chat-ink) !important;
-}

@@ -89,7 +89,7 @@ defineEmits(['copy', 'favorite', 'feedback'])
 
 .cm-logo {
   width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-  background: var(--chat-accent);
+  background: var(--chat-accent-gradient, var(--chat-accent));
   display: flex; align-items: center; justify-content: center;
   margin-top: 2px;
   svg { width: 16px; height: 16px; }
@@ -150,7 +150,8 @@ defineEmits(['copy', 'favorite', 'feedback'])
   width: 28px; height: 28px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   &:hover { background: var(--chat-hover); }
-  &.active svg { stroke: var(--chat-ink); }
+  &.active { background: var(--chat-accent-soft); }
+  &.active svg { stroke: var(--chat-accent); }
   svg { width: 15px; height: 15px; stroke: var(--chat-hollow); }
 }
 </style>
