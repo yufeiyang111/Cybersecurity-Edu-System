@@ -29,9 +29,16 @@ class RerankerService:
         self.tokenizer = None
         self.model = None
         self.device = "cpu"
+        # 硅基流动 API 模式（免费 bge-reranker-v2-m3，毫秒级，不占内存）
+        self.api_mode = bool(
+            Config.RERANKER_API_ENABLED and Config.RERANKER_API_KEY
+        )
+        self._api_failed = False
 
     def _load(self) -> bool:
-        """加载模型（幂等）。失败返回 False，调用方降级。"""
+        """加载模型（幂等）。API 模式校验 key；本地模式加载模型。失败返回 False。"""
+        if self.api_mode:
+            return not self._api_failed
         if self.model is not None:
             return True
         try:
@@ -54,6 +61,45 @@ class RerankerService:
             logger.warning("reranker 加载失败，将降级为伪重排: %s", exc)
             self.model = None
             return False
+
+    def _api_rerank(self, query: str, passages: List[str], top_k: int) -> Optional[List[float]]:
+        """调用硅基流动 /v1/rerank，返回按原序排列的 relevance_score 列表。"""
+        import requests as http_requests
+
+        response = http_requests.post(
+            f"{Config.RERANKER_API_BASE.rstrip('/')}/rerank",
+            headers={
+                "Authorization": f"Bearer {Config.RERANKER_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": Config.RERANKER_API_MODEL,
+                "query": query,
+                "documents": passages,
+                "return_documents": False,
+                "top_n": top_k,
+            },
+            timeout=(5, 60),
+        )
+        if response.status_code != 200:
+            logger.warning(
+                "siliconflow rerank 请求失败 status=%s detail=%s",
+                response.status_code,
+                response.text[:300],
+            )
+            self._api_failed = True
+            return None
+        body = response.json()
+        results = body.get("results") or []
+        if not results:
+            return None
+        # 只返回 top_n 的分数，其余置低分（保持原文档顺序映射）
+        scores = [0.0] * len(passages)
+        for item in results:
+            index = int(item.get("index", -1))
+            if 0 <= index < len(scores):
+                scores[index] = float(item.get("relevance_score", 0.0))
+        return scores
 
     def score(self, query: str, passage: str) -> float:
         """对 (query, passage) 打分，返回 [0,1] 相关性。失败返回 -1。"""
@@ -98,6 +144,19 @@ class RerankerService:
             str(doc.get("text") if isinstance(doc, dict) else doc)
             for doc in documents
         ]
+
+        # API 模式：一次请求完成排序
+        if self.api_mode:
+            scores = self._api_rerank(query, texts, top_k)
+            if scores is None:
+                return documents[:top_k]
+            scored = [
+                {**doc, "rerank_score": score}
+                for doc, score in zip(documents, scores)
+            ]
+            scored.sort(key=lambda item: item.get("rerank_score", 0.0), reverse=True)
+            return scored[:top_k]
+
         scores = self._batch_score(query, texts)
         if scores is None:
             return documents[:top_k]

@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import sys
 import types
 
@@ -9,6 +10,14 @@ from sqlalchemy import event
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
+
+# 测试隔离：禁止读取开发 .env 中的 API 开关（load_dotenv 不覆盖已有环境变量）
+os.environ.setdefault("SILICONFLOW_API_KEY", "")
+os.environ.setdefault("EMBEDDING_API_KEY", "")
+os.environ.setdefault("RERANKER_API_KEY", "")
+os.environ.setdefault("EMBEDDING_API_ENABLED", "false")
+os.environ.setdefault("RERANKER_API_ENABLED", "false")
+os.environ.setdefault("RERANK_ENABLED", "false")
 
 
 class TestConfig:

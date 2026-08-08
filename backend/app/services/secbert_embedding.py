@@ -293,7 +293,13 @@ class EmbeddingService:
             return
 
         self.model_name = model_name or Config.EMBEDDING_MODEL
-        self.embedding_model = SecBERTEmbedding(model_name=self.model_name)
+        # 硅基流动 API 模式优先（免费 bge-m3，1024 维与本地一致，库无需重建）
+        if Config.EMBEDDING_API_ENABLED and Config.EMBEDDING_API_KEY:
+            from app.services.api_embedding import ApiEmbedding
+
+            self.embedding_model = ApiEmbedding()
+        else:
+            self.embedding_model = SecBERTEmbedding(model_name=self.model_name)
         self._initialized = True
 
     def encode(self, texts: Union[str, List[str]], **kwargs) -> np.ndarray:

@@ -208,6 +208,14 @@ class Config:
     EMBEDDING_QUERY_PREFIX = os.getenv(
         "EMBEDDING_QUERY_PREFIX", "为这个句子生成表示以用于检索相关文章："
     )
+    # 硅基流动 API embedding（免费 bge-m3，与本地模型同维 1024，库无需重建）
+    EMBEDDING_API_ENABLED = _env_bool("EMBEDDING_API_ENABLED", False)
+    EMBEDDING_API_BASE = os.getenv("EMBEDDING_API_BASE", "https://api.siliconflow.cn/v1")
+    EMBEDDING_API_KEY = (
+        os.getenv("EMBEDDING_API_KEY", "").strip()
+        or os.getenv("SILICONFLOW_API_KEY", "").strip()
+    )
+    EMBEDDING_API_MODEL = os.getenv("EMBEDDING_API_MODEL", "BAAI/bge-m3")
 
     GRAPH_MAX_HOPS = int(os.getenv("GRAPH_MAX_HOPS", "3"))
     GRAPH_WEIGHT_DECAY = float(os.getenv("GRAPH_WEIGHT_DECAY", "0.8"))
@@ -227,6 +235,14 @@ class Config:
     # GPU 或高性能服务器上置 true 启用真实重排（本地 D 盘模型）
     RERANK_ENABLED = _env_bool("RERANK_ENABLED", False)
     RERANKER_MODEL = os.getenv("RERANKER_MODEL", "D:/rag-medical/models/bge-reranker-v2-m3")
+    # 硅基流动 API rerank（免费 bge-reranker-v2-m3）：开启后 RERANK_ENABLED 自动生效
+    RERANKER_API_ENABLED = _env_bool("RERANKER_API_ENABLED", False)
+    RERANKER_API_BASE = os.getenv("RERANKER_API_BASE", "https://api.siliconflow.cn/v1")
+    RERANKER_API_KEY = (
+        os.getenv("RERANKER_API_KEY", "").strip()
+        or os.getenv("SILICONFLOW_API_KEY", "").strip()
+    )
+    RERANKER_API_MODEL = os.getenv("RERANKER_API_MODEL", "BAAI/bge-reranker-v2-m3")
     # chunk 约 384 token，512 足够；过长的 max_length 在 CPU 上显著拖慢打分
     RERANKER_MAX_LENGTH = int(os.getenv("RERANKER_MAX_LENGTH", "512"))
     # 16GB 内存机器建议半精度加载（2.2GB -> 1.1GB）

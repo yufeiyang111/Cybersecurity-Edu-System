@@ -245,11 +245,15 @@ class EnhancedRAGEngine:
     def rerank_results(self, query: str, retrieved_docs: List[Dict], top_k: int = None) -> List[Dict]:
         """对检索结果进行重排序。
 
-        RERANK_ENABLED 关闭时直接返回检索结果（快速路径，CPU 环境默认）；
-        开启时优先真实 cross-encoder，失败降级 batch 伪重排。
+        本地模型受 CPU 性能限制默认关闭（RERANK_ENABLED=false）；
+        API 模式（RERANKER_API_ENABLED + key）毫秒级，自动生效。
         """
         top_k = top_k or Config.RERANK_TOP_K
-        if not Config.RERANK_ENABLED:
+        api_rerank = bool(
+            getattr(Config, "RERANKER_API_ENABLED", False)
+            and getattr(Config, "RERANKER_API_KEY", "")
+        )
+        if not Config.RERANK_ENABLED and not api_rerank:
             return retrieved_docs[:top_k]
         return self.reranker.rerank(query, retrieved_docs, top_k)
 
