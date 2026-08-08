@@ -28,7 +28,7 @@
       </div>
     </div>
 
-    <div class="cs-list" @scroll="maybeLoadMore">
+    <div ref="listRef" class="cs-list" @scroll="handleScroll">
       <div v-for="group in visibleGroups" :key="group.key" class="cs-group">
         <button class="cs-group-title" :aria-expanded="!collapsedGroups[group.key]" @click="toggleGroup(group.key)">
           <svg class="cs-group-toggle-icon" :class="{ collapsed: collapsedGroups[group.key] }" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 9l6 6 6-6" /></svg>
@@ -118,10 +118,10 @@ const menuOpen = ref(false)
 const kbCount = ref(null)
 const collapsedGroups = reactive({ earlier: true })
 const moreSentinel = ref(null)
+const listRef = ref(null)
 
-// 哨兵进入视口且还有更早会话时触发加载；由滚动事件和状态变化共同驱动，
-// 避免 IntersectionObserver 只在边界 crossing 时回调导致"哨兵持续可见却不加载"的死锁
-const maybeLoadMore = () => {
+// 滚动触发：仅当用户滚动到列表底部（哨兵进入视口）时加载更早会话
+const handleScroll = () => {
   if (!props.hasMore || props.loadingMore) return
   if (!moreSentinel.value) return
   const rect = moreSentinel.value.getBoundingClientRect()
@@ -131,7 +131,19 @@ const maybeLoadMore = () => {
   }
 }
 
-// 列表长度 / 加载状态变化后重新检查：列表不足一屏时自动补加载直到填满或全部加载完
+// 兜底：列表不足一屏（无法滚动）时补一页使其可滚动，避免加载入口丢失；
+// 列表可滚动时不做任何自动加载，严格等用户滚动到边界
+const maybeLoadMore = () => {
+  if (!props.hasMore || props.loadingMore) return
+  if (!moreSentinel.value || !listRef.value) return
+  if (listRef.value.scrollHeight > listRef.value.clientHeight) return
+  const rect = moreSentinel.value.getBoundingClientRect()
+  const viewportH = window.innerHeight || document.documentElement.clientHeight
+  if (rect.top < viewportH && rect.bottom > 0) {
+    emit('load-more')
+  }
+}
+
 watch(
   () => [props.conversations.length, props.loadingMore, props.hasMore],
   maybeLoadMore
