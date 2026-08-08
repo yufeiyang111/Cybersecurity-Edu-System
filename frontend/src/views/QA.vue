@@ -4,12 +4,15 @@
       :conversations="conversations"
       :active-id="currentConversationId"
       :collapsed="sidebarCollapsed"
+      :loading-more="loadingMore"
+      :has-more="hasMoreConversations"
       @new-chat="createConversation"
       @select="selectConversation"
       @rename="renameConversation"
       @delete="deleteConversation"
       @toggle-collapse="sidebarCollapsed = !sidebarCollapsed"
       @open-settings="settingsOpen = true"
+      @load-more="loadMoreConversations"
     />
 
     <main class="qa-main">
@@ -81,7 +84,10 @@ const {
   submitFeedback,
   copyMessage,
   openConversationByQuery,
-  scrollToBottom
+  scrollToBottom,
+  loadMoreConversations,
+  hasMoreConversations,
+  loadingMore
 } = useChat(threadRef)
 
 const handleSend = ({ text, files }) => {

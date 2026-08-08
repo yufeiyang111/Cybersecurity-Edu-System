@@ -1,4 +1,4 @@
-import { ref, nextTick, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { qaAPI } from '@/api'
@@ -33,6 +33,12 @@ export function useChat(threadRef) {
   const conversations = ref([])
   const currentConversationId = ref(null)
   const loading = ref(false)
+  // 会话列表分页状态：初始只加载最近一页，滚动到列表底部时按页加载更早的会话
+  const conversationPage = ref(1)
+  const conversationTotalPages = ref(1)
+  const loadingMore = ref(false)
+
+  const hasMoreConversations = computed(() => conversationPage.value < conversationTotalPages.value)
 
   const welcomeTopics = [
     '什么是SQL注入攻击？如何防范？',
@@ -57,10 +63,31 @@ export function useChat(threadRef) {
 
   const loadConversations = async () => {
     try {
-      const res = await qaAPI.getConversations({ per_page: 50 })
+      const res = await qaAPI.getConversations({ page: 1, per_page: 15 })
       conversations.value = res.conversations || []
+      conversationPage.value = 1
+      conversationTotalPages.value = res.pages || 1
     } catch (e) {
       console.error('加载会话列表失败', e)
+    }
+  }
+
+  // 加载更早的会话（下一页），追加到列表尾部并去重
+  const loadMoreConversations = async () => {
+    if (loadingMore.value || !hasMoreConversations.value) return
+    loadingMore.value = true
+    try {
+      const nextPage = conversationPage.value + 1
+      const res = await qaAPI.getConversations({ page: nextPage, per_page: 15 })
+      const existingIds = new Set(conversations.value.map((c) => c.id))
+      const fresh = (res.conversations || []).filter((c) => !existingIds.has(c.id))
+      conversations.value.push(...fresh)
+      conversationPage.value = nextPage
+      conversationTotalPages.value = res.pages || conversationTotalPages.value
+    } catch (e) {
+      console.error('加载更早会话失败', e)
+    } finally {
+      loadingMore.value = false
     }
   }
 
@@ -364,6 +391,9 @@ export function useChat(threadRef) {
     submitFeedback,
     copyMessage,
     openConversationByQuery,
-    scrollToBottom
+    scrollToBottom,
+    loadMoreConversations,
+    hasMoreConversations,
+    loadingMore
   }
 }

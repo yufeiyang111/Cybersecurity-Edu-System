@@ -28,7 +28,7 @@
       </div>
     </div>
 
-    <div class="cs-list">
+    <div class="cs-list" @scroll="maybeLoadMore">
       <div v-for="group in visibleGroups" :key="group.key" class="cs-group">
         <button class="cs-group-title" :aria-expanded="!collapsedGroups[group.key]" @click="toggleGroup(group.key)">
           <svg class="cs-group-toggle-icon" :class="{ collapsed: collapsedGroups[group.key] }" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 9l6 6 6-6" /></svg>
@@ -58,6 +58,9 @@
         </div></template>
       </div>
       <div v-if="!conversations.length" class="cs-empty">暂无会话记录</div>
+      <div v-if="conversations.length" ref="moreSentinel" class="cs-more-sentinel">
+        <span v-if="loadingMore" class="cs-more-tip">加载更早会话…</span>
+      </div>
     </div>
 
     <div class="cs-footer">
@@ -92,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { knowledgeAPI } from '@/api'
@@ -101,10 +104,12 @@ import { ElMessage } from 'element-plus'
 const props = defineProps({
   conversations: { type: Array, default: () => [] },
   activeId: { type: Number, default: null },
-  collapsed: { type: Boolean, default: false }
+  collapsed: { type: Boolean, default: false },
+  loadingMore: { type: Boolean, default: false },
+  hasMore: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['new-chat', 'select', 'rename', 'delete', 'toggle-collapse', 'open-settings'])
+const emit = defineEmits(['new-chat', 'select', 'rename', 'delete', 'toggle-collapse', 'open-settings', 'load-more'])
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -112,6 +117,25 @@ const keyword = ref('')
 const menuOpen = ref(false)
 const kbCount = ref(null)
 const collapsedGroups = reactive({ earlier: true })
+const moreSentinel = ref(null)
+
+// 哨兵进入视口且还有更早会话时触发加载；由滚动事件和状态变化共同驱动，
+// 避免 IntersectionObserver 只在边界 crossing 时回调导致"哨兵持续可见却不加载"的死锁
+const maybeLoadMore = () => {
+  if (!props.hasMore || props.loadingMore) return
+  if (!moreSentinel.value) return
+  const rect = moreSentinel.value.getBoundingClientRect()
+  const viewportH = window.innerHeight || document.documentElement.clientHeight
+  if (rect.top < viewportH && rect.bottom > 0) {
+    emit('load-more')
+  }
+}
+
+// 列表长度 / 加载状态变化后重新检查：列表不足一屏时自动补加载直到填满或全部加载完
+watch(
+  () => [props.conversations.length, props.loadingMore, props.hasMore],
+  maybeLoadMore
+)
 
 const displayName = computed(() => userStore.user?.nickname || userStore.user?.username || '安全管理员')
 const email = computed(() => userStore.user?.email || '')
@@ -180,7 +204,9 @@ onMounted(() => {
   const schedule = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 300))
   schedule(loadKbCount)
 })
-onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeMenu)
+})
 </script>
 
 <style lang="scss" scoped>
@@ -209,7 +235,20 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
     .cs-item { justify-content: center; padding: 8px; }
     .cs-account { justify-content: center; }
     .cs-group { margin-bottom: 0; }
+    .cs-more-sentinel { display: none; }
   }
+}
+
+.cs-more-sentinel {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cs-more-tip {
+  font-size: 12px;
+  color: var(--chat-hollow, #8a94a6);
 }
 
 .cs-brand { display: flex; align-items: center; gap: 10px; padding: 14px 12px 10px; }
