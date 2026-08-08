@@ -246,6 +246,15 @@ class SecBERTEmbedding:
             return self.model.config.hidden_size
         return Config.EMBEDDING_DIMENSION
 
+    @property
+    def is_degraded(self) -> bool:
+        """是否处于降级状态（词袋伪向量）。
+
+        降级向量与库中真实模型向量不在同一语义空间，检索侧必须跳过
+        向量路（改走 BM25 词法），否则相似度全是噪声。
+        """
+        return self.model is None
+
 
 class EmbeddingService:
     """统一的向量化服务"""
@@ -289,6 +298,11 @@ class EmbeddingService:
     def dimension(self) -> int:
         """向量维度"""
         return self.embedding_model.get_embedding_dimension()
+
+    @property
+    def is_degraded(self) -> bool:
+        """向量模型是否降级（词袋伪向量），检索侧应改走词法路。"""
+        return self.embedding_model.is_degraded
 
 
 # 全局单例

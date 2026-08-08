@@ -195,24 +195,61 @@ class QdrantVectorBackend:
     def hybrid_search(
         self,
         *,
-        vector: Sequence[float],
+        vector: Optional[Sequence[float]],
         text: str,
         where: Optional[Mapping[str, Any]],
         top_k: int,
     ) -> list[VectorHit]:
-        """稠密向量 + Qdrant 原生 BM25 双路召回，服务端 RRF 融合。
+        """稠密向量 + Qdrant 原生 BM25 双路召回，RRF 融合。
 
-        注意：RRF 融合分不是余弦相似度，similarity 字段保留向量余弦分
-        （前端展示语义不变），排序用 RRF 融合分。
+        vector 为 None 时（embedding 模型降级/不可用）只走 BM25 词法路，
+        避免降级伪向量与库中真实向量错配产生噪声相似度。
+        similarity 字段保留向量余弦分（前端展示语义不变），排序用 RRF 融合分。
         """
         query_filter = self._filter(where) if where else None
-        dense_query = [float(value) for value in vector]
         sparse_query = _sparse_vector_from_text(text)
+
+        if vector is None:
+            lexical = self._client.query_points(
+                collection_name=self._collection_name,
+                query=sparse_query,
+                using=BM25_VECTOR_NAME,
+                query_filter=query_filter,
+                limit=top_k,
+                with_payload=True,
+            )
+            result: list[VectorHit] = []
+            for point in getattr(lexical, "points", None) or []:
+                payload = dict(point.payload or {})
+                result.append(
+                    VectorHit(
+                        id=str(payload.get("id", point.id)),
+                        text=str(payload.get("text", "")),
+                        metadata={
+                            key: value
+                            for key, value in payload.items()
+                            if key not in ("id", "text")
+                        },
+                        similarity=None,
+                        distance=1.0,
+                    )
+                )
+            return result
+
+        dense_query = [float(value) for value in vector]
 
         dense = self._client.query_points(
             collection_name=self._collection_name,
             query=dense_query,
             using=DENSE_VECTOR_NAME,
+            query_filter=query_filter,
+            limit=top_k * 2,
+            with_payload=True,
+        )
+        lexical = self._client.query_points(
+            collection_name=self._collection_name,
+            query=sparse_query,
+            using=BM25_VECTOR_NAME,
             query_filter=query_filter,
             limit=top_k * 2,
             with_payload=True,
@@ -239,7 +276,8 @@ class QdrantVectorBackend:
             point_id = str(point.payload.get("id", point.id))
             fusion_scores[point_id] = fusion_scores.get(point_id, 0.0) + 1.0 / (60 + rank + 1)
             if point_id not in hits:
-                hits[point_id] = {"point": point, "cosine": 0.0}
+                # 词法-only 命中：无向量余弦分，前端不展示相似度
+                hits[point_id] = {"point": point, "cosine": None}
 
         ranked_ids = sorted(fusion_scores, key=fusion_scores.get, reverse=True)[:top_k]
 
@@ -258,7 +296,7 @@ class QdrantVectorBackend:
                         if key not in ("id", "text")
                     },
                     similarity=cosine,
-                    distance=1.0 - cosine,
+                    distance=1.0 if cosine is None else 1.0 - cosine,
                 )
             )
         return result

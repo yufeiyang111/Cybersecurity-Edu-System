@@ -68,6 +68,10 @@ class Reranker:
             if reranked:
                 return reranked
 
+        # embedding 降级时不做伪重排（伪向量打分是噪声），保持检索顺序
+        if getattr(self.embedding_service, "is_degraded", False):
+            return documents[:top_k]
+
         # 降级：embedding 余弦伪重排
         scored_docs = []
         for doc in documents:
@@ -150,22 +154,32 @@ class EnhancedRAGEngine:
         all_results = {}
 
         # 1. 混合检索（向量 + Qdrant 原生 BM25，RRF 融合；分块后按 doc_id 去重）
+        #    embedding 降级时跳过向量路（伪向量与库中真实向量空间错配，只走词法）
         try:
             backend = self.vector_store.backend
-            query_vector = self.vector_store.embedding_service.encode_query(query)[0]
+            embedding_service = self.vector_store.embedding_service
+            degraded = bool(getattr(embedding_service, "is_degraded", False))
+            query_vector = None
+            if not degraded:
+                query_vector = embedding_service.encode_query(query)[0]
+                if hasattr(query_vector, "tolist"):
+                    query_vector = query_vector.tolist()
             if hasattr(backend, "hybrid_search"):
                 vector_results = backend.hybrid_search(
-                    vector=query_vector.tolist() if hasattr(query_vector, "tolist") else list(query_vector),
+                    vector=query_vector,
                     text=query,
                     where=None,
                     top_k=top_k * 2,
                 )
             else:
-                vector_results = backend.search(
-                    vector=query_vector.tolist() if hasattr(query_vector, "tolist") else list(query_vector),
-                    where=None,
-                    top_k=top_k * 2,
-                )
+                if query_vector is None:
+                    vector_results = []
+                else:
+                    vector_results = backend.search(
+                        vector=query_vector,
+                        where=None,
+                        top_k=top_k * 2,
+                    )
             for rank, item in enumerate(vector_results):
                 metadata = dict(item.metadata)
                 doc_id = str(metadata.get("doc_id") or item.id)

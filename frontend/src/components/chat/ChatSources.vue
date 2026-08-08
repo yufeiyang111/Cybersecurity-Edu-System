@@ -23,7 +23,9 @@
         <div class="cs-name">{{ source.title || source.source || '未命名来源' }}</div>
         <div class="cs-sub">
           <span v-if="source.source" class="cs-url">{{ source.source }}</span>
-          <span v-if="source.similarity !== undefined">相似度 {{ (source.similarity * 100).toFixed(0) }}%</span>
+          <span v-if="source.similarity != null" class="cs-sim">
+            相似度 {{ (source.similarity * 100).toFixed(0) }}%
+          </span>
           <span v-if="source.start_line" class="cs-lines">
             第 {{ source.start_line }}-{{ source.end_line }} 行
           </span>
@@ -36,7 +38,7 @@
         <div class="cs-detail-title">{{ current.title || '未命名来源' }}</div>
         <div class="cs-detail-meta">
           <span v-if="current.source">来源：{{ current.source }}</span>
-          <span v-if="current.similarity !== undefined">相似度：{{ (current.similarity * 100).toFixed(1) }}%</span>
+          <span v-if="current.similarity != null">相似度：{{ (current.similarity * 100).toFixed(1) }}%</span>
         </div>
         <div class="cs-detail-content">{{ current.content || '暂无详细内容' }}</div>
       </div>
