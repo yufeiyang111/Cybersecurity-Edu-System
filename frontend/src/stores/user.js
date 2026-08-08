@@ -1,6 +1,21 @@
 import { defineStore } from 'pinia'
 import { authAPI } from '@/api'
 
+// 解析 JWT payload 的 exp（秒级时间戳）；非标准 JWT 或解析失败返回 null
+function parseJwtExp(token) {
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return null
+    let base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    while (base64.length % 4 !== 0) base64 += '='
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+    const json = JSON.parse(new TextDecoder().decode(bytes))
+    return typeof json.exp === 'number' ? json.exp : null
+  } catch (e) {
+    return null
+  }
+}
+
 export const useUserStore = defineStore('user', {
   state: () => ({
     user: JSON.parse(localStorage.getItem('user') || 'null'),
@@ -11,7 +26,14 @@ export const useUserStore = defineStore('user', {
   getters: {
     isLoggedIn: (state) => !!state.token && !!state.user,
     isAdmin: (state) => state.user?.role === 'admin',
-    isTeacher: (state) => state.user?.role === 'teacher'
+    isTeacher: (state) => state.user?.role === 'teacher',
+    // 本地判断 token 是否已过期（按 JWT exp）；无法解析时视为未过期，交给服务端 401 兜底
+    isTokenExpired: (state) => {
+      if (!state.token) return false
+      const exp = parseJwtExp(state.token)
+      if (exp == null) return false
+      return Date.now() / 1000 >= exp
+    }
   },
   
   actions: {

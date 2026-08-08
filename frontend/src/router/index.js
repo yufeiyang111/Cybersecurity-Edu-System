@@ -213,8 +213,11 @@ router.beforeEach((to, from, next) => {
   
   const userStore = useUserStore()
   
-  // 需要登录
-  if (to.meta.requiresAuth && !userStore.isLoggedIn) {
+  // 需要登录：未登录或 token 已过期都回退到登录页（带 redirect 便于登录后回跳）
+  if (to.meta.requiresAuth && (!userStore.isLoggedIn || userStore.isTokenExpired)) {
+    if (userStore.isLoggedIn) {
+      userStore.logout()
+    }
     next({ name: 'Login', query: { redirect: to.fullPath } })
     return
   }

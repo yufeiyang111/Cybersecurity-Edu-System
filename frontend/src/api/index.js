@@ -1,10 +1,37 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
+import { useUserStore } from '@/stores/user'
 
 const api = axios.create({
   baseURL: '/api',
   timeout: 120000
+})
+
+// 会话过期统一处理：清 store 与 localStorage，跳登录页（防并发 401 重复跳转）
+let sessionExpiredRedirected = false
+
+function handleSessionExpired(redirectTo) {
+  const userStore = useUserStore()
+  userStore.logout()
+  if (sessionExpiredRedirected) return
+  sessionExpiredRedirected = true
+  ElMessage.error('登录已过期，请重新登录')
+  const current = router.currentRoute.value
+  // 已在登录页时保留原有 redirect，避免嵌套 /login?redirect=/login?redirect=...
+  const redirect = redirectTo || (current.name === 'Login'
+    ? (current.query.redirect || '/')
+    : current.fullPath)
+  router.push({
+    name: 'Login',
+    query: { redirect }
+  })
+}
+
+router.afterEach((to) => {
+  if (to.name === 'Login') {
+    sessionExpiredRedirected = false
+  }
 })
 
 // 请求拦截器
@@ -34,10 +61,19 @@ api.interceptors.response.use(
       
       switch (status) {
         case 401:
-          ElMessage.error('登录已过期，请重新登录')
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
-          router.push('/login')
+          // 登录/注册失败也是 401，属正常业务错误，由页面自行提示，不按会话过期处理
+          if (error.config?.url?.startsWith('/auth/login') || error.config?.url?.startsWith('/auth/register')) {
+            break
+          }
+          handleSessionExpired()
+          break
+        case 422:
+          // flask-jwt-extended 对无效 token 返回 422 + msg 字段（业务错误统一用 error 键）
+          if (data?.msg) {
+            handleSessionExpired()
+            break
+          }
+          ElMessage.error(data.error || '请求参数错误')
           break
         case 403:
           ElMessage.error(data.error || '权限不足')
@@ -146,6 +182,10 @@ export const qaAPI = {
         const body = await res.json()
         if (body?.error) msg = body.error
       } catch (e) { /* ignore */ }
+      if (res.status === 401) {
+        handleSessionExpired()
+        return
+      }
       onError?.(new Error(msg))
       return
     }
@@ -338,6 +378,10 @@ export const agentAPI = {
         const body = await response.json()
         if (body?.error) message = body.error
       } catch (e) { /* ignore */ }
+      if (response.status === 401) {
+        handleSessionExpired()
+        return 'ended'
+      }
       const error = new Error(message)
       error.response = { status: response.status, data: { error: message } }
       throw error
