@@ -52,10 +52,49 @@ class SecBERTEmbedding:
         self.model = None
         self._load_model()
 
+    @staticmethod
+    def _system_memory_mb() -> Optional[int]:
+        """获取系统当前可用物理内存（MB）；非 Windows 或失败返回 None"""
+        try:
+            import ctypes
+
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+
+            stat = MEMORYSTATUSEX()
+            stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+                return int(stat.ullAvailPhys / 1024 / 1024)
+        except Exception:
+            return None
+        return None
+
     def _load_model(self):
         """加载模型"""
         if not TRANSFORMERS_AVAILABLE:
             print("警告: transformers 库未安装，将使用备用向量化方案")
+            return
+
+        # 内存保护：可用内存不足时跳过加载，避免模型把进程内存耗尽
+        # 拖垮登录等其他与向量无关的功能（宁可检索降级，也不影响全站）
+        available_mb = self._system_memory_mb()
+        min_free_mb = getattr(Config, "EMBEDDING_MIN_FREE_MEMORY_MB", 4096)
+        if available_mb is not None and available_mb < min_free_mb:
+            print(
+                f"警告: 可用内存不足（{available_mb}MB < {min_free_mb}MB），"
+                "跳过模型加载，使用备用向量化方案"
+            )
+            self.model = None
             return
 
         try:
@@ -74,6 +113,9 @@ class SecBERTEmbedding:
             self.model.to(self.device)
             self.model.eval()
             print(f"成功加载模型: {self.model_name}")
+        except MemoryError:
+            print("警告: 模型加载内存不足（MemoryError），已降级为备用向量化方案")
+            self.model = None
         except Exception as e:
             print(f"加载模型失败: {e}")
             print("将使用备用向量化方案...")

@@ -191,6 +191,9 @@ class Config:
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "D:/rag-medical/models/bge-m3")
     EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1024"))
     EMBEDDING_MAX_LENGTH = int(os.getenv("EMBEDDING_MAX_LENGTH", "4096"))
+    # 模型加载前要求系统剩余可用内存下限（MB）；不足则跳过加载并降级，
+    # 避免模型内存占用拖垮登录等与向量无关的功能
+    EMBEDDING_MIN_FREE_MEMORY_MB = int(os.getenv("EMBEDDING_MIN_FREE_MEMORY_MB", "4096"))
     # BGE 系模型推荐查询指令（文档编码不加，仅查询加）
     EMBEDDING_QUERY_PREFIX = os.getenv(
         "EMBEDDING_QUERY_PREFIX", "为这个句子生成表示以用于检索相关文章："
