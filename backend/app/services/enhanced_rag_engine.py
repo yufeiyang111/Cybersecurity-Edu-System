@@ -6,6 +6,7 @@ RAG核心引擎 - 增强版
 """
 import time
 import json
+from time import perf_counter
 from typing import List, Dict, Any, Optional, Tuple
 from app.config import Config
 from app.services.vector_store import get_vector_store
@@ -544,9 +545,11 @@ class EnhancedRAGEngine:
         use_rerank: bool = True
     ) -> Tuple[List[Dict], str]:
         """混合检索并构建上下文（供 ask / generate_stream 复用）"""
+        retrieve_started = perf_counter()
         retrieved_docs = self.retrieve(query)
         if use_rerank and retrieved_docs:
             retrieved_docs = self.rerank_results(query, retrieved_docs)
+        self.last_retrieval_ms = int((perf_counter() - retrieve_started) * 1000)
         injected: List[tuple[str, tuple[str, ...]]] = []
         context = self.build_context(retrieved_docs, injected_out=injected)
         self.last_injected_docs = injected

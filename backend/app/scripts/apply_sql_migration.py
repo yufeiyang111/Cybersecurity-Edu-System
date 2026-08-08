@@ -26,6 +26,7 @@ MIGRATION_IDS = (
     "015_llm_cache_telemetry",
     "016_user_memories",
     "017_agent_llm_invocations_cost",
+    "018_qa_retrieval_eval",
 )
 
 

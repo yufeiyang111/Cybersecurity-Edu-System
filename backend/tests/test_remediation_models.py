@@ -282,6 +282,7 @@ def test_phase_three_schema_is_in_init_sql_and_ordered_migration_runner():
         "015_llm_cache_telemetry",
         "016_user_memories",
         "017_agent_llm_invocations_cost",
+        "018_qa_retrieval_eval",
     )
     assert len(_statements(migration_sql)) == 3
     for table_name in (

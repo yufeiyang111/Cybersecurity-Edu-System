@@ -86,3 +86,30 @@ class FeedbackLog(db.Model):
     feedback_type = db.Column(db.Enum("good", "neutral", "bad"))
     comment = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class QaRetrievalLog(db.Model):
+    """RAG 检索落库日志（离线评估与检索质量分析）"""
+    __tablename__ = "qa_retrieval_logs"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    query = db.Column(db.Text, nullable=False)
+    conversation_id = db.Column(db.Integer, db.ForeignKey("qa_conversations.id"))
+    record_id = db.Column(db.Integer, db.ForeignKey("qa_records.id"))
+    engine_version = db.Column(db.String(64), default="enhanced")
+    model_name = db.Column(db.String(64))
+    retrieved_docs = db.Column(db.JSON)
+    sources = db.Column(db.JSON)
+    retrieval_ms = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class RagEvalCase(db.Model):
+    """RAG 离线评估集（query + 期望命中文档 + 期望答案）"""
+    __tablename__ = "rag_eval_cases"
+    id = db.Column(db.Integer, primary_key=True)
+    query = db.Column(db.String(500), nullable=False)
+    expected_doc_ids = db.Column(db.JSON, nullable=False)
+    expected_answer = db.Column(db.Text)
+    category = db.Column(db.String(64))
+    notes = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

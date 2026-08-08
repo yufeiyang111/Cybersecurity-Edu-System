@@ -181,6 +181,20 @@ def ask_question():
 
     # 保存问答记录
     record = _save_qa_record(user_id, conversation_id, question, result, attachments)
+    # 检索结果落库（离线评估用）
+    try:
+        from app.services.qa_retrieval_log import log_retrieval
+
+        log_retrieval(
+            user_id=int(user_id),
+            query=engine_query,
+            conversation_id=conversation_id,
+            record_id=record.id,
+            result=result,
+            retrieval_ms=getattr(rag_engine, "last_retrieval_ms", 0),
+        )
+    except Exception:
+        pass
     # ADD phase: 提取并保存持久记忆（开关开启时）
     try:
         memory_service.capture_interaction(
@@ -235,6 +249,20 @@ def ask_question_stream():
                     yield _sse_event(event["type"], {"delta": event.get("content") or event.get("delta") or ""})
                 elif event["type"] == "done":
                     record = _save_qa_record(user_id, conversation_id, question, event, attachments)
+                    # 检索结果落库（离线评估用）
+                    try:
+                        from app.services.qa_retrieval_log import log_retrieval
+
+                        log_retrieval(
+                            user_id=int(user_id),
+                            query=engine_query,
+                            conversation_id=conversation_id,
+                            record_id=record.id,
+                            result=event,
+                            retrieval_ms=getattr(rag_engine, "last_retrieval_ms", 0),
+                        )
+                    except Exception:
+                        pass
                     try:
                         memory_service.capture_interaction(
                             user_id=int(user_id),
