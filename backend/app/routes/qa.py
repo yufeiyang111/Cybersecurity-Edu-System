@@ -478,7 +478,12 @@ def create_conversation():
 @qa_bp.route("/conversations/<int:conversation_id>", methods=["GET"])
 @jwt_required()
 def get_conversation(conversation_id):
-    """获取会话详情（含问答记录）"""
+    """获取会话详情（含问答记录）
+
+    两种记录加载模式（都不传时保持全量返回，兼容旧调用方）：
+    - cursor 模式：limit=N（可选 before_id=记录id），返回最近 N 条或该 id 之前的 N 条（正序），供聊天窗口滚动加载；
+    - 分页模式：page/per_page 按 id 正序分页，page=-1 表示最后一页。
+    """
     user_id = get_jwt_identity()
 
     conversation = QAConversation.query.filter_by(
@@ -492,25 +497,77 @@ def get_conversation(conversation_id):
     # 获取用户的所有收藏
     user_favorites = {f.qa_record_id: f.id for f in Favorite.query.filter_by(user_id=user_id).all()}
 
+    limit = request.args.get("limit", type=int)
+    before_id = request.args.get("before_id", type=int)
+    page = request.args.get("page", type=int)
+    per_page = request.args.get("per_page", type=int)
+
+    record_query = QARecord.query.filter_by(conversation_id=conversation_id)
+
+    if limit and limit > 0:
+        record_total = record_query.count()
+        tail_query = record_query.order_by(QARecord.id.desc())
+        if before_id:
+            tail_query = tail_query.filter(QARecord.id < before_id)
+        records = tail_query.limit(limit).all()
+        records = list(reversed(records))
+        if records:
+            earliest_id = records[0].id
+            has_more = QARecord.query.filter(
+                QARecord.conversation_id == conversation_id,
+                QARecord.id < earliest_id
+            ).count() > 0
+        else:
+            has_more = False
+        record_meta = {
+            "total": record_total,
+            "limit": limit,
+            "before_id": before_id,
+            "returned": len(records),
+            "has_more": has_more
+        }
+    elif per_page and per_page > 0:
+        ordered_query = record_query.order_by(QARecord.id.asc())
+        record_total = ordered_query.count()
+        if page == -1:
+            page = max(1, (record_total + per_page - 1) // per_page)
+        elif not page or page < 1:
+            page = 1
+        pagination = ordered_query.paginate(page=page, per_page=per_page, error_out=False)
+        records = pagination.items
+        record_meta = {
+            "page": pagination.page,
+            "per_page": per_page,
+            "total": record_total,
+            "pages": pagination.pages
+        }
+    else:
+        records = record_query.order_by(QARecord.id.asc()).all()
+        record_meta = None
+
     # 构建记录列表，包含收藏ID
-    records = []
-    for r in conversation.records:
+    record_list = []
+    for r in records:
         record_dict = r.to_dict()
         record_dict["favoriteId"] = user_favorites.get(r.id)
-        records.append(record_dict)
+        record_list.append(record_dict)
 
-    return jsonify({
+    response = {
         "conversation": {
             "id": conversation.id,
             "user_id": conversation.user_id,
             "title": conversation.title,
             "is_archived": conversation.is_archived,
-            "record_count": len(conversation.records),
+            "record_count": record_meta["total"] if record_meta else len(record_list),
             "created_at": conversation.created_at.isoformat() if conversation.created_at else None,
             "updated_at": conversation.updated_at.isoformat() if conversation.updated_at else None,
-            "records": records
+            "records": record_list
         }
-    }), 200
+    }
+    if record_meta:
+        response["record_meta"] = record_meta
+
+    return jsonify(response), 200
 
 
 @qa_bp.route("/conversations/<int:conversation_id>", methods=["PUT"])

@@ -4,8 +4,7 @@ import { useUserStore } from '@/stores/user'
 import { qaAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { titleFromQuestion } from '@/features/chat/conversationTitle'
-
-let keySeed = 0
+import { useConversationMessages } from '@/composables/chat/useConversationMessages'
 
 let typeTimer = null
 
@@ -29,7 +28,18 @@ export function useChat(threadRef) {
 
   onUnmounted(stopTyping)
 
-  const messages = ref([])
+  // 消息流由 useConversationMessages 管理：打开会话只取最近一页，向上滚动加载更早消息
+  const {
+    messages,
+    loadingEarlier,
+    hasEarlierMessages,
+    loadInitial,
+    loadEarlier,
+    scrollToBottom,
+    reset: resetMessages,
+    nextKey
+  } = useConversationMessages(threadRef)
+
   const conversations = ref([])
   const currentConversationId = ref(null)
   const loading = ref(false)
@@ -47,14 +57,6 @@ export function useChat(threadRef) {
     '什么是零信任安全架构？',
     '服务器被入侵后应如何排查？'
   ]
-
-  const scrollToBottom = () => {
-    nextTick(() => {
-      if (threadRef.value) {
-        threadRef.value.scrollTop = threadRef.value.scrollHeight
-      }
-    })
-  }
 
   const normalizeSources = (sources) => (sources || []).map((s) => ({
     ...s,
@@ -94,33 +96,7 @@ export function useChat(threadRef) {
   const selectConversation = async (id) => {
     currentConversationId.value = id
     try {
-      const res = await qaAPI.getConversation(id)
-      messages.value = []
-      for (const r of res.conversation.records) {
-        messages.value.push({
-          key: ++keySeed,
-          role: 'user',
-          content: r.question
-        })
-        if (r.answer) {
-          messages.value.push({
-            key: ++keySeed,
-            role: 'assistant',
-            content: r.answer,
-            reasoning: r.reasoning || '',
-            sources: normalizeSources(r.sources),
-            confidence: r.confidence,
-            response_time: r.response_time,
-            model_name: r.model_name,
-            ragWarnings: r.rag_warnings || [],
-            recordId: r.id,
-            feedback: r.feedback,
-            isFavorite: r.is_favorited,
-            favoriteId: r.favoriteId || null
-          })
-        }
-      }
-      scrollToBottom()
+      await loadInitial(id)
     } catch (e) {
       ElMessage.error('加载会话失败')
     }
@@ -131,7 +107,7 @@ export function useChat(threadRef) {
       const res = await qaAPI.createConversation({ title: '新会话' })
       conversations.value.unshift(res.conversation)
       currentConversationId.value = res.conversation.id
-      messages.value = []
+      resetMessages()
     } catch (e) {
       ElMessage.error('创建会话失败')
     }
@@ -169,7 +145,7 @@ export function useChat(threadRef) {
       conversations.value = conversations.value.filter(c => c.id !== conv.id)
       if (currentConversationId.value === conv.id) {
         currentConversationId.value = null
-        messages.value = []
+        resetMessages()
       }
       ElMessage.success('删除成功')
     } catch (e) {
@@ -181,7 +157,7 @@ export function useChat(threadRef) {
     if (loading.value) return
 
     messages.value.push({
-      key: ++keySeed,
+      key: nextKey(),
       role: 'user',
       content: text,
       attachments: (files || []).map((f) => ({
@@ -194,7 +170,7 @@ export function useChat(threadRef) {
     scrollToBottom()
 
     messages.value.push({
-      key: ++keySeed,
+      key: nextKey(),
       role: 'assistant',
       content: '',
       reasoning: '',
@@ -394,6 +370,9 @@ export function useChat(threadRef) {
     scrollToBottom,
     loadMoreConversations,
     hasMoreConversations,
-    loadingMore
+    loadingMore,
+    loadEarlierMessages: loadEarlier,
+    hasEarlierMessages,
+    loadingEarlier
   }
 }

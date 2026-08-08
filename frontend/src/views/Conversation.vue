@@ -11,36 +11,37 @@
     </header>
 
     <div class="conversation-container" v-loading="loading">
-      <div ref="messageListRef" class="message-list">
+      <div ref="messageListRef" class="message-list" @scroll="handleScroll">
+        <div v-if="loadingEarlier" class="loading-earlier">正在加载更早的消息…</div>
         <div
-          v-for="(record, index) in records"
-          :key="index"
+          v-for="msg in messages"
+          :key="msg.key"
           class="message-item"
         >
-          <div class="message-user">
+          <div v-if="msg.role === 'user'" class="message-user">
             <el-avatar :size="36" :src="userStore.user?.avatar_url || undefined">
               {{ userStore.user?.nickname?.[0] || userStore.user?.username?.[0] || '用户' }}
             </el-avatar>
             <div class="message-bubble user-bubble">
-              <p>{{ record.question }}</p>
+              <p>{{ msg.content }}</p>
             </div>
           </div>
-          <div class="message-assistant">
+          <div v-else class="message-assistant">
             <el-avatar :size="36" color="#67c23a">
               <el-icon :size="24"><ElementPlus /></el-icon>
             </el-avatar>
             <div class="message-bubble assistant-bubble">
-              <div v-if="record.sources?.length" class="source-info">
+              <div v-if="msg.sources?.length" class="source-info">
                 <span>来源：</span>
                 <el-tag
-                  v-for="(source, sIdx) in record.sources"
+                  v-for="(source, sIdx) in msg.sources"
                   :key="sIdx"
                   size="small"
                 >
                   {{ source.title }}
                 </el-tag>
               </div>
-              <div class="answer-content markdown-content" v-html="renderMarkdownSafe(record.answer)"></div>
+              <div class="answer-content markdown-content" v-html="renderMarkdownSafe(msg.content)"></div>
             </div>
           </div>
         </div>
@@ -50,42 +51,43 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { qaAPI } from '@/api'
+import { useUserStore } from '@/stores/user'
 import { renderMarkdown } from '@/features/markdown/renderMarkdown'
+import { useConversationMessages } from '@/composables/chat/useConversationMessages'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
-const loading = ref(false)
 const conversation = ref(null)
-const records = ref([])
 const messageListRef = ref(null)
+
+const {
+  messages,
+  loading,
+  loadingEarlier,
+  loadInitial,
+  loadEarlier
+} = useConversationMessages(messageListRef)
 
 const renderMarkdownSafe = (content) => {
   return renderMarkdown(content)
 }
 
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (messageListRef.value) {
-      messageListRef.value.scrollTop = messageListRef.value.scrollHeight
-    }
-  })
+// 向上滚动到顶部时加载更早的消息
+const handleScroll = () => {
+  if (messageListRef.value && messageListRef.value.scrollTop < 40) {
+    loadEarlier()
+  }
 }
 
 const fetchConversation = async () => {
-  loading.value = true
   try {
-    const res = await qaAPI.getConversation(route.params.id)
-    conversation.value = res.conversation
-    records.value = res.conversation.records || []
-    scrollToBottom()
+    conversation.value = await loadInitial(route.params.id)
   } catch (error) {
     router.push('/qa')
-  } finally {
-    loading.value = false
   }
 }
 
@@ -136,6 +138,13 @@ onMounted(() => {
   padding: 20px;
   background: #fff;
   border-radius: 12px;
+}
+
+.loading-earlier {
+  text-align: center;
+  font-size: 12px;
+  color: #909399;
+  padding: 8px 0;
 }
 
 .message-item {

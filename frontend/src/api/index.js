@@ -229,7 +229,7 @@ export const qaAPI = {
   // 会话管理
   getConversations: (params) => api.get('/qa/conversations', { params }),
   createConversation: (data) => api.post('/qa/conversations', data),
-  getConversation: (id) => api.get(`/qa/conversations/${id}`),
+  getConversation: (id, params) => api.get(`/qa/conversations/${id}`, { params }),
   updateConversation: (id, data) => api.put(`/qa/conversations/${id}`, data),
   deleteConversation: (id) => api.delete(`/qa/conversations/${id}`),
   

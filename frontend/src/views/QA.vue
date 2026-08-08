@@ -24,9 +24,10 @@
         </div>
       </div>
 
-      <div ref="threadRef" class="qa-thread">
+      <div ref="threadRef" class="qa-thread" @scroll="handleThreadScroll">
         <ChatWelcome v-if="!messages.length && !loading" :topics="welcomeTopics" @select="quickAsk" />
         <div v-else class="qa-thread-inner">
+          <div v-if="loadingEarlier" class="qa-loading-earlier">正在加载更早的消息…</div>
           <ChatMessage
             v-for="msg in messages"
             :key="msg.key"
@@ -87,8 +88,18 @@ const {
   scrollToBottom,
   loadMoreConversations,
   hasMoreConversations,
-  loadingMore
+  loadingMore,
+  loadEarlierMessages,
+  hasEarlierMessages,
+  loadingEarlier
 } = useChat(threadRef)
+
+// 聊天窗口向上滚动到顶部时加载更早的消息
+const handleThreadScroll = () => {
+  if (threadRef.value && threadRef.value.scrollTop < 40) {
+    loadEarlierMessages()
+  }
+}
 
 const handleSend = ({ text, files }) => {
   sendMessage({ text, files })
@@ -166,6 +177,13 @@ onMounted(async () => {
   width: 100%;
   margin: 0 auto;
    padding: calc(24px * var(--chat-space-scale)) 20px calc(8px * var(--chat-space-scale));
+}
+
+.qa-loading-earlier {
+  text-align: center;
+  font-size: 12px;
+  color: var(--chat-hollow, #8a94a6);
+  padding: 6px 0;
 }
 
 .qa-legal {
