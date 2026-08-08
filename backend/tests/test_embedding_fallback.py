@@ -164,3 +164,51 @@ def test_fallback_dimension_matches_loaded_model(monkeypatch):
     service, _ = _make_embedding(monkeypatch, memory_mb=2000)
     assert service.get_embedding_dimension() == 768
     assert module.Config.EMBEDDING_DIMENSION == 1024
+
+
+def test_retrieve_tolerates_none_similarity_when_degraded(monkeypatch):
+    """降级（BM25-only）时 hybrid_search 返回 similarity=None 的重复 doc_id，
+    检索去重不得抛 TypeError（回归：None 参与比较崩溃）。"""
+    from app.services.enhanced_rag_engine import EnhancedRAGEngine
+    from app.services.vector_stores.contracts import VectorHit
+
+    class _DegradedEmbedding:
+        is_degraded = True
+
+    class _FakeBackend:
+        def hybrid_search(self, *, vector, text, where, top_k):
+            assert vector is None
+            # 同一 doc_id 两条 BM25-only 命中，similarity 均为 None
+            return [
+                VectorHit(
+                    id="doc-1",
+                    text="第一条",
+                    metadata={"doc_id": "doc-1"},
+                    similarity=None,
+                    distance=1.0,
+                ),
+                VectorHit(
+                    id="doc-1",
+                    text="第二条",
+                    metadata={"doc_id": "doc-1"},
+                    similarity=None,
+                    distance=1.0,
+                ),
+            ]
+
+    class _FakeVectorStore:
+        backend = _FakeBackend()
+        embedding_service = _DegradedEmbedding()
+
+    class _FakeGraph:
+        def get_neighbors(self, query, depth):
+            return []
+
+    engine = EnhancedRAGEngine.__new__(EnhancedRAGEngine)
+    engine.vector_store = _FakeVectorStore()
+    engine.knowledge_graph = _FakeGraph()
+
+    results = engine.retrieve("测试查询", top_k=3)
+    assert any(item["id"] == "doc-1" for item in results)
+    assert len(results) >= 1
+

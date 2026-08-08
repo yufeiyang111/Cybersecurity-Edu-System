@@ -185,7 +185,15 @@ class EnhancedRAGEngine:
                 doc_id = str(metadata.get("doc_id") or item.id)
                 weight = Config.VECTOR_WEIGHT * (1 / (60 + rank + 1))
                 existing = all_results.get(doc_id)
-                if existing is None or item.similarity > existing.get("similarity", 0):
+                # BM25-only 降级路 similarity 为 None；None 视为最低相似度，
+                # 避免 None 参与比较抛 TypeError
+                item_similarity = item.similarity if item.similarity is not None else -1.0
+                existing_similarity = (
+                    existing.get("similarity")
+                    if existing and existing.get("similarity") is not None
+                    else -1.0
+                )
+                if existing is None or item_similarity > existing_similarity:
                     all_results[doc_id] = {
                         "id": doc_id,
                         "text": item.text,
