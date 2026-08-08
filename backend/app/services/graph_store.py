@@ -366,6 +366,21 @@ class KnowledgeGraph:
             except Exception:
                 return []
 
+    def get_source_items(self, node_id: str) -> List[Dict[str, Any]]:
+        """获取实体节点的来源知识条目（contains 入边，实体归并后包含全部来源）"""
+        graph_data = self.graph
+        sources = []
+        for predecessor in graph_data.predecessors(node_id):
+            edge_data = graph_data.get_edge_data(predecessor, node_id)
+            if edge_data and edge_data.get("relation") == "contains":
+                node_data = graph_data.nodes[predecessor]
+                sources.append({
+                    "id": predecessor,
+                    "title": node_data.get("title", predecessor),
+                    "category": node_data.get("category", "")
+                })
+        return sources
+
     def get_related_concepts(self, concept: str, limit: int = 10) -> List[Dict]:
         """获取相关概念"""
         if self.use_neo4j and self._neo4j_graph:

@@ -668,6 +668,11 @@ def get_related_nodes(node_id):
 
             enhanced_neighbors.append(neighbor_data)
 
+        # 实体节点：查询全部来源知识条目（contains 入边）
+        sources = []
+        if node_type != "knowledge":
+            sources = graph.get_source_items(node_id)
+
         return jsonify({
             "node": {
                 "id": node_id,
@@ -679,7 +684,8 @@ def get_related_nodes(node_id):
                              if k not in ["type", "title", "source_item"]},
                 "knowledge_info": knowledge_info
             },
-            "neighbors": enhanced_neighbors
+            "neighbors": enhanced_neighbors,
+            "sources": sources
         }), 200
     except Exception as e:
         import traceback

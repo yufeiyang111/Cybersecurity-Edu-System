@@ -354,6 +354,42 @@ def test_deduplicate_requires_admin(graph_api_app, graph_stub):
     assert response.status_code == 403
 
 
+def test_related_returns_entity_source_items(graph_api_app, graph_stub):
+    user_id = make_user(graph_api_app, "src1", "src1@example.test")
+    client = graph_api_app.test_client()
+
+    # 给实体节点挂上多个来源知识条目（contains 入边，模拟归并后的形态）
+    graph_stub._nx_graph.add_node("2", type="knowledge", title="加密技术", category="加密")
+    graph_stub._nx_graph.add_node("3", type="knowledge", title="数字签名", category="加密")
+    graph_stub._nx_graph.add_node("1_签名", type="concept", title="签名", category="")
+    graph_stub._nx_graph.add_edge("2", "1_签名", relation="contains", weight=1.0)
+    graph_stub._nx_graph.add_edge("3", "1_签名", relation="contains", weight=1.0)
+
+    response = client.get(
+        "/api/admin/graph/related/1_签名",
+        headers=auth_headers(graph_api_app, user_id),
+    )
+    assert response.status_code == 200
+    body = response.json
+    source_ids = {source["id"] for source in body["sources"]}
+    assert source_ids == {"2", "3"}
+    titles = {source["title"] for source in body["sources"]}
+    assert titles == {"加密技术", "数字签名"}
+
+
+def test_related_returns_empty_sources_for_knowledge_node(graph_api_app, graph_stub):
+    user_id = make_user(graph_api_app, "src2", "src2@example.test")
+    client = graph_api_app.test_client()
+
+    graph_stub._nx_graph.add_node("2", type="knowledge", title="加密技术", category="加密")
+    response = client.get(
+        "/api/admin/graph/related/2",
+        headers=auth_headers(graph_api_app, user_id),
+    )
+    assert response.status_code == 200
+    assert response.json["sources"] == []
+
+
 # ==================== 中心性 ====================
 
 def test_centrality_pagerank_covers_all_nodes(graph_api_app, graph_stub):

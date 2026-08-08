@@ -239,6 +239,22 @@
               <el-empty v-if="!neighbors.length && !loadingNeighbors" description="暂无关联节点" />
             </div>
 
+            <div v-if="nodeSources.length" class="detail-sources">
+              <el-divider />
+              <h4>来源文档（{{ nodeSources.length }}）</h4>
+              <div class="sources-list">
+                <div
+                  v-for="source in nodeSources"
+                  :key="source.id"
+                  class="source-item"
+                  @click="goToKnowledge(source.id)"
+                >
+                  <span class="source-title">{{ source.title }}</span>
+                  <span class="source-cat">{{ source.category || '未分类' }}</span>
+                </div>
+              </div>
+            </div>
+
             <el-divider />
             <h4>路径分析</h4>
             <div class="path-analyzer">
@@ -370,6 +386,7 @@ const selectedRelation = ref(null)
 const selectedNode = ref(null)
 const selectedNodeForFocus = ref(null)
 const neighbors = ref([])
+const nodeSources = ref([])
 const loadingNeighbors = ref(false)
 const nodeDialogVisible = ref(false)
 const searchQuery = ref('')
@@ -618,8 +635,10 @@ const showNodeDetail = async (nodeData) => {
     try {
       const res = await adminAPI.getRelatedNodes(nodeData.id, { depth: 1 })
       neighbors.value = res.neighbors || []
+      nodeSources.value = res.sources || []
     } catch (error) {
       neighbors.value = []
+      nodeSources.value = []
     }
   } else {
     // 示例数据
@@ -628,6 +647,7 @@ const showNodeDetail = async (nodeData) => {
       { node_id: '2', relation: 'uses' },
       { node_id: '5', relation: 'related_to' }
     ]
+    nodeSources.value = []
   }
   
   loadingNeighbors.value = false
@@ -797,23 +817,29 @@ const focusSelectedNode = () => {
   }
 }
 
+const goToKnowledge = (id) => {
+  nodeDialogVisible.value = false
+  router.push(`/knowledge/${id}`)
+}
+
 const viewKnowledge = () => {
   if (selectedNode.value) {
     const nodeId = selectedNode.value.id
-    // 实体节点 ID 格式是 "知识ID_实体名"，需要提取知识ID
+    // 实体节点优先跳转到来源文档（可能有多个，取第一个）
     if (selectedNode.value.nodeType === 'knowledge') {
-      router.push(`/knowledge/${nodeId}`)
+      goToKnowledge(nodeId)
+    } else if (nodeSources.value.length) {
+      goToKnowledge(nodeSources.value[0].id)
     } else {
       // 实体节点，提取知识ID（格式如 "11_加密" -> "11"）
       const knowledgeId = nodeId.split('_')[0]
       if (knowledgeId) {
-        router.push(`/knowledge/${knowledgeId}`)
+        goToKnowledge(knowledgeId)
       } else {
         ElMessage.error('无法跳转：该节点没有关联的知识条目')
       }
     }
   }
-  nodeDialogVisible.value = false
 }
 
 const startFromNode = async () => {
@@ -1498,6 +1524,47 @@ onMounted(() => {
 .category-source {
   font-size: 12px;
   color: #8c959f;
+}
+
+.detail-sources {
+  .sources-list {
+    max-height: 180px;
+    overflow-y: auto;
+
+    .source-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f6f8fa;
+      border: 1px solid #e6e8eb;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: background 0.25s, border-color 0.25s;
+
+      &:hover {
+        background: rgba(46, 164, 79, 0.08);
+        border-color: rgba(46, 164, 79, 0.3);
+      }
+
+      .source-title {
+        flex: 1;
+        font-size: 13px;
+        color: #24292f;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .source-cat {
+        font-size: 12px;
+        color: #8c959f;
+        flex-shrink: 0;
+      }
+    }
+  }
 }
 
 .dedup-hint {
