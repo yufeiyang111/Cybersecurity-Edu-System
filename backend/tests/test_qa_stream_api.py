@@ -107,12 +107,48 @@ def test_ask_stream_emits_sse_events_and_persists_record(qa_app, monkeypatch):
     assert '"response_time": 1.2' in text
     assert '"rag_warnings": ["knowledge-9:ignore_instructions"]' in text
 
-    from app.models.qa import QARecord
+    from app.models.qa import QARecord, QAConversation
 
     records = QARecord.query.all()
     assert len(records) == 1
     assert records[0].answer == "\u4f60\u597d\uff0c\u4e16\u754c"
     assert records[0].confidence == 0.8
+    # 无会话提问自动创建会话：记录归属新会话，done 事件返回 conversation_id
+    assert records[0].conversation_id is not None
+    assert 'conversation_id' in text
+    conversations = QAConversation.query.all()
+    assert len(conversations) == 1
+    assert conversations[0].id == records[0].conversation_id
+    assert conversations[0].title == "\u4ec0\u4e48\u662fSQL\u6ce8\u5165"
+
+
+def test_ask_stream_with_existing_conversation_keeps_it(qa_app, monkeypatch):
+    from app.routes import qa as qa_module
+    from app.models.qa import QAConversation, QARecord
+
+    monkeypatch.setattr(qa_module, "get_rag_engine", lambda: _FakeStreamEngine())
+    with qa_app.app_context():
+        conv = QAConversation(user_id=1, title="既有会话")
+        db.session.add(conv)
+        db.session.commit()
+        conv_id = conv.id
+
+    client = qa_app.test_client()
+    resp = client.post(
+        "/api/qa/ask/stream",
+        json={"question": "追问", "conversation_id": conv_id},
+        headers=_auth_header(qa_app),
+    )
+    assert resp.status_code == 200
+    text = resp.get_data(as_text=True)
+
+    with qa_app.app_context():
+        conversations = QAConversation.query.all()
+        assert len(conversations) == 1
+        records = QARecord.query.all()
+        assert len(records) == 1
+        assert records[0].conversation_id == conv_id
+    assert f'"conversation_id": {conv_id}' in text
 
 
 def test_ask_stream_error_event_does_not_leak_internals(qa_app, monkeypatch):

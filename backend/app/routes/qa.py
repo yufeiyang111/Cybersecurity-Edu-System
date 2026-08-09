@@ -89,6 +89,16 @@ def _prepare_ask_inputs(user_id: int):
         engine_query = "用户上传了以下附件内容，请结合附件内容与知识库回答：\n\n" + \
             "\n\n".join(attachment_parts) + f"\n\n用户问题：{question}"
 
+    # 未指定会话时自动创建新会话，保证每次提问都有归属（前端可据此展示会话记录）
+    if conversation_id is None:
+        conversation = QAConversation(
+            user_id=user_id,
+            title=(question or "新会话")[:30] or "新会话"
+        )
+        db.session.add(conversation)
+        db.session.flush()
+        conversation_id = conversation.id
+
     # 获取会话历史
     conversation_history = []
     if conversation_id:
@@ -218,6 +228,7 @@ def ask_question():
 
     return jsonify({
         "id": record.id,
+        "conversation_id": conversation_id,
         "question": question,
         "answer": result.get("answer"),
         "reasoning": result.get("reasoning"),
@@ -284,6 +295,7 @@ def ask_question_stream():
                         pass
                     yield _sse_event("done", {
                         "id": record.id,
+                        "conversation_id": conversation_id,
                         "answer": event.get("answer"),
                         "reasoning": event.get("reasoning"),
                         "sources": event.get("retrieved_docs") or event.get("sources") or [],

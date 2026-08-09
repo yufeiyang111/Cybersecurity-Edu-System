@@ -254,8 +254,18 @@ export function useChat(threadRef) {
               }))
               userMsg.attachments = assistantMsg.attachments
             }
-            if (currentConversationId.value) {
-              const conv = conversations.value.find(c => c.id === currentConversationId.value)
+            if (data.conversation_id && !currentConversationId.value) {
+              // 无会话直接提问时，后端自动创建了新会话：更新前端状态，侧栏立即显示
+              currentConversationId.value = data.conversation_id
+              const generatedTitle = titleFromQuestion(text)
+              conversations.value.unshift({
+                id: data.conversation_id,
+                title: generatedTitle,
+                is_archived: false
+              })
+              qaAPI.updateConversation(data.conversation_id, { title: generatedTitle }).catch(() => {})
+            } else {
+              // 已有会话：刷新列表保持按最近活跃排序
               loadConversations()
             }
             scrollToBottom()
