@@ -28,6 +28,9 @@
         <ChatWelcome v-if="!messages.length && !loading" :topics="welcomeTopics" @select="quickAsk" />
         <div v-else class="qa-thread-inner">
           <div v-if="loadingEarlier" class="qa-loading-earlier">正在加载更早的消息…</div>
+          <div v-else-if="hasEarlierMessages" class="qa-loading-earlier">
+            已加载 {{ loadedRecords }} / {{ totalRecords }} 条消息，向上滚动加载更早
+          </div>
           <ChatMessage
             v-for="msg in messages"
             :key="msg.key"
@@ -91,7 +94,9 @@ const {
   loadingMore,
   loadEarlierMessages,
   hasEarlierMessages,
-  loadingEarlier
+  loadingEarlier,
+  loadedRecords,
+  totalRecords
 } = useChat(threadRef)
 
 // 聊天窗口向上滚动到顶部时加载更早的消息

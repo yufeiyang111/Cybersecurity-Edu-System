@@ -33,6 +33,8 @@ export function useChat(threadRef) {
     messages,
     loadingEarlier,
     hasEarlierMessages,
+    loadedRecords,
+    totalRecords,
     loadInitial,
     loadEarlier,
     scrollToBottom,
@@ -373,6 +375,8 @@ export function useChat(threadRef) {
     loadingMore,
     loadEarlierMessages: loadEarlier,
     hasEarlierMessages,
-    loadingEarlier
+    loadingEarlier,
+    loadedRecords,
+    totalRecords
   }
 }

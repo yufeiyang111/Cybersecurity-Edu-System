@@ -48,10 +48,20 @@ export function useConversationMessages(threadRef) {
   const messages = ref([])
   const conversationId = ref(null)
   const hasMore = ref(false)
+  const totalRecords = ref(0)
   const loadingEarlier = ref(false)
   const loading = ref(false)
 
   const hasEarlierMessages = computed(() => hasMore.value)
+
+  // 已加载的记录数（user/assistant 消息同属一条记录，按 recordId 去重）
+  const loadedRecords = computed(() => {
+    const ids = new Set()
+    for (const m of messages.value) {
+      if (m.recordId) ids.add(m.recordId)
+    }
+    return ids.size
+  })
 
   const scrollToBottom = () => {
     nextTick(() => {
@@ -70,6 +80,7 @@ export function useConversationMessages(threadRef) {
       messages.value = buildMessages(res.conversation.records || [])
       const meta = res.record_meta
       hasMore.value = meta ? !!meta.has_more : false
+      totalRecords.value = meta ? meta.total : loadedRecords.value
       scrollToBottom()
       return res.conversation
     } finally {
@@ -94,6 +105,7 @@ export function useConversationMessages(threadRef) {
       }
       const meta = res.record_meta
       hasMore.value = meta ? !!meta.has_more : false
+      totalRecords.value = meta ? meta.total : totalRecords.value
       await nextTick()
       if (threadRef.value) {
         const grown = threadRef.value.scrollHeight - beforeHeight
@@ -108,6 +120,7 @@ export function useConversationMessages(threadRef) {
     messages.value = []
     conversationId.value = null
     hasMore.value = false
+    totalRecords.value = 0
     loadingEarlier.value = false
   }
 
@@ -116,6 +129,8 @@ export function useConversationMessages(threadRef) {
     loading,
     loadingEarlier,
     hasEarlierMessages,
+    loadedRecords,
+    totalRecords,
     loadInitial,
     loadEarlier,
     scrollToBottom,
