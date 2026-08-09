@@ -18,6 +18,8 @@ from app.models.user import UserPreference
 RETRIEVE_TOP_K = 5
 MIN_SIMILARITY = 0.30
 
+VALID_CATEGORIES = {"preference", "fact", "decision", "goal", "other"}
+
 _CATEGORY_LABELS = {
     "preference": "偏好",
     "fact": "事实",
@@ -121,6 +123,39 @@ def delete_memory(user_id: int, memory_id: int) -> bool:
     db.session.delete(memory)
     db.session.commit()
     return True
+
+
+def create_memory(user_id: int, content: str, category: str) -> UserMemory:
+    """手动新增一条记忆（用户主动维护，不受持久记忆开关门控）。"""
+    content = (content or "").strip()
+    if not content:
+        raise ValueError("记忆内容不能为空")
+    if len(content) > 2000:
+        raise ValueError("记忆内容不能超过 2000 字")
+    if category not in VALID_CATEGORIES:
+        raise ValueError(f"无效的记忆分类：{category}")
+    memory = UserMemory(user_id=user_id, content=content, category=category)
+    db.session.add(memory)
+    db.session.commit()
+    return memory
+
+
+def update_memory(user_id: int, memory_id: int, content: str, category: str) -> UserMemory | None:
+    """更新一条记忆（仅限本人），不存在或不属于该用户时返回 None。"""
+    memory = UserMemory.query.filter_by(id=memory_id, user_id=user_id).first()
+    if memory is None:
+        return None
+    content = (content or "").strip()
+    if not content:
+        raise ValueError("记忆内容不能为空")
+    if len(content) > 2000:
+        raise ValueError("记忆内容不能超过 2000 字")
+    if category not in VALID_CATEGORIES:
+        raise ValueError(f"无效的记忆分类：{category}")
+    memory.content = content
+    memory.category = category
+    db.session.commit()
+    return memory
 
 
 def category_label(category: str) -> str:

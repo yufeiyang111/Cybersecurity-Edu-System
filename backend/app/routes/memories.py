@@ -32,6 +32,59 @@ def list_memories():
     ), 200
 
 
+@memories_bp.route("/memories", methods=["POST"])
+@jwt_required()
+def create_memory():
+    """新增一条当前用户的持久记忆。"""
+    user_id = int(get_jwt_identity())
+    body = request.get_json(silent=True) or {}
+    try:
+        item = memory_service.create_memory(
+            user_id,
+            str(body.get("content") or ""),
+            str(body.get("category") or "fact"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return (
+        jsonify(
+            {
+                **item.to_dict(),
+                "category_label": memory_service.category_label(item.category),
+            }
+        ),
+        201,
+    )
+
+
+@memories_bp.route("/memories/<int:memory_id>", methods=["PUT"])
+@jwt_required()
+def update_memory(memory_id: int):
+    """更新当前用户的一条持久记忆。"""
+    user_id = int(get_jwt_identity())
+    body = request.get_json(silent=True) or {}
+    try:
+        item = memory_service.update_memory(
+            user_id,
+            memory_id,
+            str(body.get("content") or ""),
+            str(body.get("category") or "fact"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if item is None:
+        return jsonify({"error": "记忆不存在"}), 404
+    return (
+        jsonify(
+            {
+                **item.to_dict(),
+                "category_label": memory_service.category_label(item.category),
+            }
+        ),
+        200,
+    )
+
+
 @memories_bp.route("/memories/<int:memory_id>", methods=["DELETE"])
 @jwt_required()
 def delete_memory(memory_id: int):

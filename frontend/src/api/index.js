@@ -456,6 +456,8 @@ export const policyAPI = {
 // 持久记忆相关
 export const memoryAPI = {
   list: (params) => api.get('/memories', { params }),
+  create: (data) => api.post('/memories', data),
+  update: (memoryId, data) => api.put(`/memories/${memoryId}`, data),
   remove: (memoryId) => api.delete(`/memories/${memoryId}`)
 }
 

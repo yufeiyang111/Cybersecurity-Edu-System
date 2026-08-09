@@ -11,15 +11,24 @@
           <h3>我的持久记忆</h3>
           <span class="memories-card__sub">系统从你的问答中记住的事实，回答时会自动参考</span>
         </div>
-        <div class="memories-card__filters">
-          <select v-model="category" class="memories-card__select" @change="load">
-            <option value="">全部分类</option>
-            <option value="preference">偏好</option>
-            <option value="fact">事实</option>
-            <option value="decision">决定</option>
-            <option value="goal">目标</option>
-            <option value="other">其他</option>
-          </select>
+        <div class="memories-card__actions">
+          <div class="memories-card__filters">
+            <select v-model="category" class="memories-card__select" @change="load">
+              <option value="">全部分类</option>
+              <option value="preference">偏好</option>
+              <option value="fact">事实</option>
+              <option value="decision">决定</option>
+              <option value="goal">目标</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            class="memories-card__add"
+            @click="openCreate"
+          >
+            新增记忆
+          </button>
         </div>
       </div>
 
@@ -40,21 +49,36 @@
           </span>
           <p class="memory-item__content">{{ item.content }}</p>
           <span class="memory-item__time">{{ formatDate(item.created_at) }}</span>
-          <button
-            type="button"
-            class="memory-item__delete"
-            :disabled="deletingId === item.id"
-            @click="remove(item)"
-          >
-            {{ deletingId === item.id ? '删除中...' : '删除' }}
-          </button>
+          <div class="memory-item__ops">
+            <button
+              type="button"
+              class="memory-item__edit"
+              @click="openEdit(item)"
+            >
+              编辑
+            </button>
+            <button
+              type="button"
+              class="memory-item__delete"
+              :disabled="deletingId === item.id"
+              @click="remove(item)"
+            >
+              {{ deletingId === item.id ? '删除中...' : '删除' }}
+            </button>
+          </div>
         </div>
       </div>
 
       <div v-else class="memories-card__empty">
         <p>暂无持久记忆</p>
-        <span>开启「全局持久记忆」后，问答中透露的偏好与背景会被自动记住</span>
+        <span>开启「全局持久记忆」后，问答中透露的偏好与背景会被自动记住，也可手动新增</span>
       </div>
+
+      <MemoryFormDialog
+        v-model="formOpen"
+        :memory="editing"
+        @saved="load"
+      />
 
       <div v-if="total > perPage" class="memories-card__pagination">
         <button
@@ -80,6 +104,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import ProfileTabs from '@/components/user/ProfileTabs.vue'
+import MemoryFormDialog from '@/components/user/MemoryFormDialog.vue'
 import { memoryAPI } from '@/api'
 
 const items = ref([])
@@ -91,6 +116,18 @@ const category = ref('')
 const loading = ref(false)
 const deletingId = ref(null)
 const errorMessage = ref('')
+const formOpen = ref(false)
+const editing = ref(null)
+
+const openCreate = () => {
+  editing.value = null
+  formOpen.value = true
+}
+
+const openEdit = (item) => {
+  editing.value = item
+  formOpen.value = true
+}
 
 const formatDate = (value) => {
   if (!value) return '-'
@@ -184,6 +221,26 @@ onMounted(load)
   background: #fff;
 }
 
+.memories-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.memories-card__add {
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover {
+    background: #1d4ed8;
+  }
+}
+
 .memories-card__error {
   margin: 14px 20px 0;
   padding: 10px 12px;
@@ -226,7 +283,6 @@ onMounted(load)
   gap: 12px;
   padding: 14px 4px;
   border-bottom: 1px solid #eef2f7;
-
   &:last-child {
     border-bottom: 0;
   }
@@ -277,6 +333,27 @@ onMounted(load)
   color: #94a3b8;
   font-size: 11px;
   white-space: nowrap;
+}
+
+.memory-item__ops {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.memory-item__edit {
+  padding: 5px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #475569;
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover {
+    background: #f8fafc;
+  }
 }
 
 .memory-item__delete {

@@ -17,6 +17,7 @@
       <section class="settings-content">
         <ChatAppearanceSettings v-if="activeTab === 'appearance'" v-model="preferences" />
         <ChatPersonalizationSettings v-else-if="activeTab === 'personalization'" v-model="preferences" />
+        <ChatMemorySettings v-else-if="activeTab === 'memory'" />
         <ChatGeneralSettings v-else v-model="preferences" />
       </section>
     </div>
@@ -36,6 +37,7 @@ import { useChatPreferences } from '@/composables/chat/useChatPreferences'
 import { useI18n } from '@/features/chat/i18n'
 import ChatAppearanceSettings from './settings/ChatAppearanceSettings.vue'
 import ChatGeneralSettings from './settings/ChatGeneralSettings.vue'
+import ChatMemorySettings from './settings/ChatMemorySettings.vue'
 import ChatPersonalizationSettings from './settings/ChatPersonalizationSettings.vue'
 
 defineProps({ modelValue: { type: Boolean, default: false } })
@@ -47,6 +49,7 @@ const { t } = useI18n()
 const tabs = [
   { key: 'appearance', labelKey: 'settings.appearance' },
   { key: 'personalization', labelKey: 'settings.personalization' },
+  { key: 'memory', labelKey: 'settings.memory' },
   { key: 'general', labelKey: 'settings.general' }
 ]
 

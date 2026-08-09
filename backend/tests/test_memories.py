@@ -202,6 +202,91 @@ def test_memories_api_delete_other_user_returns_404(memory_app):
     assert deleted.status_code == 404
 
 
+def test_memories_api_create(memory_app):
+    client = memory_app.test_client()
+    headers = _auth_header(memory_app)
+
+    created = client.post("/api/memories", json={"content": "用户是后端工程师", "category": "fact"}, headers=headers)
+    assert created.status_code == 201
+    assert created.json["content"] == "用户是后端工程师"
+    assert created.json["category"] == "fact"
+    assert created.json["category_label"] == "事实"
+    assert created.json["user_id"] == 1
+
+    listed = client.get("/api/memories", headers=headers)
+    assert listed.json["total"] == 1
+    assert listed.json["items"][0]["content"] == "用户是后端工程师"
+
+
+def test_memories_api_create_validations(memory_app):
+    client = memory_app.test_client()
+    headers = _auth_header(memory_app)
+
+    missing = client.post("/api/memories", json={"category": "fact"}, headers=headers)
+    assert missing.status_code == 400
+
+    blank = client.post("/api/memories", json={"content": "   ", "category": "fact"}, headers=headers)
+    assert blank.status_code == 400
+
+    bad_category = client.post("/api/memories", json={"content": "x", "category": "unknown"}, headers=headers)
+    assert bad_category.status_code == 400
+
+    too_long = client.post("/api/memories", json={"content": "x" * 2001, "category": "fact"}, headers=headers)
+    assert too_long.status_code == 400
+
+
+def test_memories_api_create_defaults_category_and_requires_auth(memory_app):
+    client = memory_app.test_client()
+    headers = _auth_header(memory_app)
+
+    created = client.post("/api/memories", json={"content": "默认分类"}, headers=headers)
+    assert created.status_code == 201
+    assert created.json["category"] == "fact"
+
+    unauthorized = client.post("/api/memories", json={"content": "x"})
+    assert unauthorized.status_code == 401
+
+
+def test_memories_api_update(memory_app):
+    client = memory_app.test_client()
+    headers = _auth_header(memory_app)
+    with memory_app.app_context():
+        memory_id = _add_memory(1, "旧内容", "fact")
+
+    updated = client.put(f"/api/memories/{memory_id}", json={"content": "新内容", "category": "goal"}, headers=headers)
+    assert updated.status_code == 200
+    assert updated.json["content"] == "新内容"
+    assert updated.json["category"] == "goal"
+    assert updated.json["category_label"] == "目标"
+
+    listed = client.get("/api/memories", headers=headers)
+    assert listed.json["total"] == 1
+    assert listed.json["items"][0]["content"] == "新内容"
+
+
+def test_memories_api_update_other_user_returns_404(memory_app):
+    client = memory_app.test_client()
+    headers = _auth_header(memory_app, user_id=1)
+    with memory_app.app_context():
+        memory_id = _add_memory(2, "别人的记忆")
+
+    updated = client.put(f"/api/memories/{memory_id}", json={"content": "篡改", "category": "fact"}, headers=headers)
+    assert updated.status_code == 404
+
+
+def test_memories_api_update_invalid_returns_400(memory_app):
+    client = memory_app.test_client()
+    headers = _auth_header(memory_app)
+    with memory_app.app_context():
+        memory_id = _add_memory(1, "内容", "fact")
+
+    blank = client.put(f"/api/memories/{memory_id}", json={"content": "", "category": "fact"}, headers=headers)
+    assert blank.status_code == 400
+
+    bad_category = client.put(f"/api/memories/{memory_id}", json={"content": "x", "category": "nope"}, headers=headers)
+    assert bad_category.status_code == 400
+
+
 def test_parse_facts_json_tolerates_markdown_fences():
     from app.services.memory.extractor import parse_facts_json
 
