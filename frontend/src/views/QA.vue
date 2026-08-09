@@ -187,10 +187,15 @@ onMounted(async () => {
 }
 
 .qa-loading-earlier {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   text-align: center;
   font-size: 12px;
   color: var(--chat-hollow, #8a94a6);
+  background: var(--chat-canvas, #f5f7fa);
   padding: 6px 0;
+  border-radius: 6px;
 }
 
 .qa-legal {
