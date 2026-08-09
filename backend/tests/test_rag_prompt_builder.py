@@ -104,9 +104,9 @@ def test_history_skipped_when_include_history_false():
 def test_output_guidance_tiers_follow_max_tokens():
     assert "详尽完整" in output_guidance_for(DEFAULT_QA_MAX_TOKENS)
     assert "详尽完整" in output_guidance_for(8192)
-    assert "详尽完整" in output_guidance_for(32768)
+    assert "详尽完整" in output_guidance_for(384000)
     assert "适中" in output_guidance_for(4096)
-    assert "简洁" in output_guidance_for(256)
+    assert "简洁" in output_guidance_for(1)
     assert "简洁" in output_guidance_for(1024)
 
 
@@ -115,7 +115,9 @@ def test_qa_max_tokens_resolution_defaults_and_invalid_values():
     assert resolve_qa_max_tokens({}) == DEFAULT_QA_MAX_TOKENS
     assert resolve_qa_max_tokens({"qa_max_tokens": None}) == DEFAULT_QA_MAX_TOKENS
     assert resolve_qa_max_tokens({"qa_max_tokens": 8192}) == 8192
-    for invalid in (100, 100000, "8192", True, 3.14):
+    assert resolve_qa_max_tokens({"qa_max_tokens": 384000}) == 384000
+    assert resolve_qa_max_tokens({"qa_max_tokens": 1}) == 1
+    for invalid in (0, -1, 384001, 500000, "8192", True, 3.14):
         assert resolve_qa_max_tokens({"qa_max_tokens": invalid}) == DEFAULT_QA_MAX_TOKENS
 
 

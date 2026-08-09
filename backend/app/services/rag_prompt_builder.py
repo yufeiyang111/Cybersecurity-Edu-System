@@ -14,8 +14,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 DEFAULT_QA_MAX_TOKENS = 16384
-QA_MAX_TOKENS_LOW = 256
-QA_MAX_TOKENS_HIGH = 32768
+QA_MAX_TOKENS_LOW = 1
+QA_MAX_TOKENS_HIGH = 384000
 
 # system prompt 必须保持完全稳定：任何用户数据都不得进入该常量。
 SYSTEM_PROMPT = """你是网络安全领域的专业教学助手"网安助手"。

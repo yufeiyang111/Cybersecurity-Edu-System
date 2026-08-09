@@ -37,7 +37,7 @@ OPTIONS = {
 TEXT_LIMITS = {"about_user": 1000, "response_preferences": 2000, "custom_prompt": 4000}
 BOOLEAN_FIELDS = ("show_citations", "show_security_warnings", "persistent_memory_enabled")
 QA_MAX_TOKENS_DEFAULT = 16384
-QA_MAX_TOKENS_LIMITS = (256, 32768)
+QA_MAX_TOKENS_LIMITS = (1, 384000)
 
 
 def _validated_qa_max_tokens(value) -> int | None:

@@ -258,7 +258,7 @@ def test_generate_ignores_invalid_qa_max_tokens_values():
     provider = _FakeRagProvider()
     engine = _engine_with_provider(provider)
 
-    for invalid in ({"qa_max_tokens": 100}, {"qa_max_tokens": "8192"}, {"qa_max_tokens": True}, {"qa_max_tokens": None}):
+    for invalid in ({"qa_max_tokens": 0}, {"qa_max_tokens": 384001}, {"qa_max_tokens": "8192"}, {"qa_max_tokens": True}, {"qa_max_tokens": None}):
         provider.requests.clear()
         result = engine.generate("SQL", "context", retrieved_docs=[], user_preferences=invalid)
         assert result["answer"] == "????"

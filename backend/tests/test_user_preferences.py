@@ -112,7 +112,7 @@ def test_preferences_qa_max_tokens_null_resets_to_default(preferences_app):
 def test_preferences_qa_max_tokens_reject_invalid(preferences_app):
     user_id = _make_user(preferences_app)
     headers = _auth_headers(preferences_app, user_id)
-    for invalid in (100, 100000, "8192", True, 0, -1):
+    for invalid in (0, -1, 384001, 500000, "8192", True, 1.5):
         response = preferences_app.test_client().put(
             "/api/auth/preferences",
             json={"qa_max_tokens": invalid},
