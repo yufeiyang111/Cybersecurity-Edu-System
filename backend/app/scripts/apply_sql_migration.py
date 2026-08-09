@@ -27,6 +27,7 @@ MIGRATION_IDS = (
     "016_user_memories",
     "017_agent_llm_invocations_cost",
     "018_qa_retrieval_eval",
+    "019_user_font_size",
 )
 
 

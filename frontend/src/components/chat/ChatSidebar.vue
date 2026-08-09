@@ -7,9 +7,9 @@
           <path d="M9.5 12l2 2 3.5-4" />
         </svg>
       </div>
-      <span class="cs-brand-name">AI 安全助手</span>
+      <span class="cs-brand-name">{{ t('sidebar.brand') }}</span>
       <span class="cs-spacer"></span>
-      <button class="cs-icon-btn" title="收起侧边栏" @click="$emit('toggle-collapse')">
+      <button class="cs-icon-btn" :title="t('sidebar.collapse')" @click="$emit('toggle-collapse')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M15 6l-6 6 6 6" /></svg>
       </button>
     </div>
@@ -17,14 +17,14 @@
     <div class="cs-new-wrap">
       <button class="cs-new-btn" @click="$emit('new-chat')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>
-        <span class="cs-new-label">新建会话</span>
+        <span class="cs-new-label">{{ t('sidebar.newChat') }}</span>
       </button>
     </div>
 
     <div class="cs-search-wrap">
       <div class="cs-search">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
-        <input v-model="keyword" type="text" placeholder="搜索会话">
+        <input v-model="keyword" type="text" :placeholder="t('sidebar.search')">
       </div>
     </div>
 
@@ -32,7 +32,7 @@
       <div v-for="group in visibleGroups" :key="group.key" class="cs-group">
         <button class="cs-group-title" :aria-expanded="!collapsedGroups[group.key]" @click="toggleGroup(group.key)">
           <svg class="cs-group-toggle-icon" :class="{ collapsed: collapsedGroups[group.key] }" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 9l6 6 6-6" /></svg>
-          {{ group.label }}
+          {{ t(group.labelKey) }}
           <span class="cs-count">{{ group.items.length }}</span>
         </button>
         <template v-if="!collapsedGroups[group.key]"><div
@@ -57,9 +57,9 @@
           </span>
         </div></template>
       </div>
-      <div v-if="!conversations.length" class="cs-empty">暂无会话记录</div>
+      <div v-if="!conversations.length" class="cs-empty">{{ t('sidebar.empty') }}</div>
       <div v-if="conversations.length" ref="moreSentinel" class="cs-more-sentinel">
-        <span v-if="loadingMore" class="cs-more-tip">加载更早会话…</span>
+        <span v-if="loadingMore" class="cs-more-tip">{{ t('sidebar.loadingMore') }}</span>
       </div>
     </div>
 
@@ -67,7 +67,7 @@
       <div class="cs-kb-status">
         <span class="cs-dot"></span>
         <span class="cs-kb-text">{{ kbText }}</span>
-        <span v-if="kbCount !== null" class="cs-kb-count">{{ kbCount }} 篇文档</span>
+        <span v-if="kbCount !== null" class="cs-kb-count">{{ t('sidebar.kbCount', { count: kbCount }) }}</span>
       </div>
       <div class="cs-account" @click.stop="toggleMenu">
         <img v-if="userStore.user?.avatar_url" class="cs-avatar cs-avatar-image" :src="userStore.user.avatar_url" alt="">
@@ -85,11 +85,11 @@
     </div>
 
     <div v-if="menuOpen" class="cs-menu-pop" @click.stop>
-      <div class="cs-menu-item" @click="goProfile">个人资料</div>
-       <div class="cs-menu-item" @click="goSettings">设置</div>
-      <div class="cs-menu-item" @click="goHelp">帮助与文档</div>
+      <div class="cs-menu-item" @click="goProfile">{{ t('sidebar.profile') }}</div>
+       <div class="cs-menu-item" @click="goSettings">{{ t('sidebar.settings') }}</div>
+      <div class="cs-menu-item" @click="goHelp">{{ t('sidebar.help') }}</div>
       <div class="cs-menu-sep"></div>
-      <div class="cs-menu-item danger" @click="logout">退出登录</div>
+      <div class="cs-menu-item danger" @click="logout">{{ t('sidebar.logout') }}</div>
     </div>
   </aside>
 </template>
@@ -100,6 +100,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { knowledgeAPI } from '@/api'
 import { ElMessage } from 'element-plus'
+import { useI18n } from '@/features/chat/i18n'
 
 const props = defineProps({
   conversations: { type: Array, default: () => [] },
@@ -113,6 +114,7 @@ const emit = defineEmits(['new-chat', 'select', 'rename', 'delete', 'toggle-coll
 
 const router = useRouter()
 const userStore = useUserStore()
+const { t } = useI18n()
 const keyword = ref('')
 const menuOpen = ref(false)
 const kbCount = ref(null)
@@ -149,11 +151,11 @@ watch(
   maybeLoadMore
 )
 
-const displayName = computed(() => userStore.user?.nickname || userStore.user?.username || '安全管理员')
+const displayName = computed(() => userStore.user?.nickname || userStore.user?.username || t('sidebar.defaultName'))
 const email = computed(() => userStore.user?.email || '')
-const userInitial = computed(() => (displayName.value || '安')[0])
+const userInitial = computed(() => (displayName.value || 'A')[0])
 
-const kbText = computed(() => (kbCount.value === null ? '知识库已连接' : '知识库已连接 ·'))
+const kbText = computed(() => t('sidebar.kbConnected'))
 
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
@@ -175,10 +177,10 @@ const visibleGroups = computed(() => {
     else groups.earlier.push(conv)
   }
   const labels = [
-    { key: 'today', label: '今天', items: groups.today },
-    { key: 'yesterday', label: '昨天', items: groups.yesterday },
-    { key: 'week', label: '近 7 天', items: groups.week },
-    { key: 'earlier', label: '更早', items: groups.earlier }
+    { key: 'today', labelKey: 'sidebar.groupToday', items: groups.today },
+    { key: 'yesterday', labelKey: 'sidebar.groupYesterday', items: groups.yesterday },
+    { key: 'week', labelKey: 'sidebar.groupWeek', items: groups.week },
+    { key: 'earlier', labelKey: 'sidebar.groupEarlier', items: groups.earlier }
   ]
   return labels.filter(g => g.items.length > 0)
 })

@@ -19,7 +19,7 @@
       <div class="qa-topbar">
         <div class="qa-model-picker" @click="notifyModel">
           <span class="qa-model-dot"></span>
-           <span>AI 安全助手 · 全部</span>
+           <span>{{ t('qa.topbar') }}</span>
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 9l6 6 6-6" /></svg>
         </div>
       </div>
@@ -43,7 +43,7 @@
       </div>
 
       <ChatComposer :disabled="loading" @send="handleSend" />
-      <div class="qa-legal">AI 安全助手可能会犯错。请核查重要信息。</div>
+      <div class="qa-legal">{{ t('qa.legal') }}</div>
     </main>
 
     <ChatSettingsDialog v-if="settingsOpen" v-model="settingsOpen" />
@@ -61,11 +61,13 @@ import ChatMessage from '@/components/chat/ChatMessage.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import { useChat } from '@/composables/chat/useChat'
 import { useChatPreferences } from '@/composables/chat/useChatPreferences'
+import { useI18n } from '@/features/chat/i18n'
 
 const ChatSettingsDialog = defineAsyncComponent(() => import('@/components/chat/ChatSettingsDialog.vue'))
 
 const route = useRoute()
 const userStore = useUserStore()
+const { t } = useI18n()
 
 const threadRef = ref(null)
 const sidebarCollapsed = ref(false)

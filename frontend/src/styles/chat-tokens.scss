@@ -33,6 +33,7 @@
   --chat-danger-ink: #b42318;
   --chat-content-width: 768px;
   --chat-space-scale: 1;
+  --chat-font-scale: 1;
   --chat-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   color-scheme: light;
@@ -227,9 +228,13 @@
 :root[data-chat-radius="1.0"] { --chat-radius: 12px; }
 :root[data-chat-width="narrow"] { --chat-content-width: 640px; }
 :root[data-chat-width="wide"] { --chat-content-width: 960px; }
-:root[data-chat-density="compact"] { --chat-space-scale: 0.8; }
-:root[data-chat-density="comfortable"] { --chat-space-scale: 1.2; }
+:root[data-chat-density="compact"] { --chat-space-scale: 0.65; }
+:root[data-chat-density="comfortable"] { --chat-space-scale: 1.35; }
 :root:not([data-chat-density]) { --chat-space-scale: 1; }
+:root[data-chat-font-scale="small"] { --chat-font-scale: 0.9; }
+:root[data-chat-font-scale="large"] { --chat-font-scale: 1.15; }
+:root[data-chat-font-scale="medium"] { --chat-font-scale: 1; }
+:root:not([data-chat-font-scale]) { --chat-font-scale: 1; }
 
 // ==================== 主题种类 ====================
 // sepia：米黄护眼主题（独立于 light/dark 的第三种主题）

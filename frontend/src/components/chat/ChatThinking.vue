@@ -2,25 +2,25 @@
   <div v-if="seconds !== null || reasoning" class="chat-thinking">
     <div class="ct-toggle" :class="{ open }" @click="open = !open">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6" /></svg>
-      {{ seconds !== null ? `已思考 ${seconds} 秒` : '思考过程' }}
+      {{ seconds !== null ? t('thinking.seconds', { seconds }) : t('thinking.title') }}
     </div>
     <div v-if="open" class="ct-panel">
       <div v-if="reasoning" class="ct-reasoning">{{ reasoning }}</div>
       <template v-else>
         <div class="ct-row">
-          <span class="ct-label">检索来源</span>
-          <span>{{ sourceCount }} 篇文档</span>
+          <span class="ct-label">{{ t('thinking.sources') }}</span>
+          <span>{{ sourceCount }} {{ t('thinking.docs') }}</span>
         </div>
         <div v-if="avgSimilarity !== null" class="ct-row">
-          <span class="ct-label">平均相似度</span>
+          <span class="ct-label">{{ t('thinking.avgSimilarity') }}</span>
           <span>{{ avgSimilarity }}%</span>
         </div>
         <div v-if="confidence !== null" class="ct-row">
-          <span class="ct-label">回答置信度</span>
+          <span class="ct-label">{{ t('thinking.confidence') }}</span>
           <span>{{ (confidence * 100).toFixed(0) }}%</span>
         </div>
         <div v-if="modelName" class="ct-row">
-          <span class="ct-label">模型</span>
+          <span class="ct-label">{{ t('thinking.model') }}</span>
           <span>{{ modelName }}</span>
         </div>
       </template>
@@ -30,6 +30,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useI18n } from '@/features/chat/i18n'
 
 const props = defineProps({
   seconds: { type: Number, default: null },
@@ -40,6 +41,7 @@ const props = defineProps({
 })
 
 const open = ref(false)
+const { t } = useI18n()
 
 const sourceCount = computed(() => (props.sources || []).length)
 const avgSimilarity = computed(() => {

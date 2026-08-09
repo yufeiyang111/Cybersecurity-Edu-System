@@ -9,14 +9,14 @@
             <path d="M14 3v6h6" />
           </svg>
           <span class="cc-chip-name">{{ att.name }}</span>
-          <button class="cc-chip-x" title="移除" @click="removeAttachment(idx)">
+          <button class="cc-chip-x" :title="t('composer.remove')" @click="removeAttachment(idx)">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
       </div>
 
       <div class="cc-box">
-        <button class="cc-plus" title="添加文件或图片" @click="pickFiles">
+        <button class="cc-plus" :title="t('composer.addFiles')" @click="pickFiles">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>
         </button>
         <textarea
@@ -31,7 +31,7 @@
           class="cc-send"
           :class="{ active: canSend }"
           :disabled="!canSend"
-          title="发送"
+          :title="t('composer.send')"
           @click="handleSend"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
@@ -40,7 +40,7 @@
 
       <div class="cc-hint">
         <span>{{ hintText }}</span>
-        <span class="cc-kbd"><kbd>Enter</kbd> 发送</span>
+        <span class="cc-kbd"><kbd>Enter</kbd> {{ t('composer.send') }}</span>
       </div>
     </div>
 
@@ -53,20 +53,22 @@
     >
 
     <div v-if="dragging" class="cc-drag-overlay">
-      <div class="cc-drag-box">松开以上传文件或图片</div>
+      <div class="cc-drag-box">{{ t('composer.drop') }}</div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from '@/features/chat/i18n'
 
 const props = defineProps({
   disabled: { type: Boolean, default: false },
-  placeholder: { type: String, default: '询问网络安全问题，或上传文件、图片分析' }
+  placeholder: { type: String, default: '' }
 })
 
 const emit = defineEmits(['send'])
+const { t } = useI18n()
 
 const text = ref('')
 const attachments = ref([])
@@ -76,9 +78,12 @@ const fileInputRef = ref(null)
 
 let uidSeed = 0
 
+const placeholder = computed(() => props.placeholder || t('composer.placeholder'))
 const canSend = computed(() => text.value.trim().length > 0 || attachments.value.length > 0)
 const hintText = computed(() =>
-  attachments.value.length ? `${attachments.value.length} 个附件已就绪` : 'AI 安全助手 · 全部模式：自动选择检索策略'
+  attachments.value.length
+    ? t('composer.attachments', { count: attachments.value.length })
+    : t('composer.hint')
 )
 
 const resize = () => {
@@ -225,7 +230,7 @@ onBeforeUnmount(() => {
 }
 textarea {
   flex: 1; border: none; outline: none; resize: none;
-  font-family: inherit; font-size: 15px; line-height: 1.5;
+  font-family: inherit; font-size: calc(15px * var(--chat-font-scale)); line-height: 1.5;
   padding: 6px 4px; max-height: 160px; color: var(--chat-ink);
   background: transparent;
   &::placeholder { color: var(--chat-hollow); }

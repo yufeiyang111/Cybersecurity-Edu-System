@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     :model-value="modelValue"
-    title="设置"
+    :title="t('settings.title')"
     width="min(760px, calc(100vw - 32px))"
     class="chat-settings-dialog"
     destroy-on-close
@@ -10,7 +10,7 @@
     <div class="settings-layout">
       <nav class="settings-nav" aria-label="设置分类">
         <button v-for="tab in tabs" :key="tab.key" :class="{ active: activeTab === tab.key }" @click="activeTab = tab.key">
-          {{ tab.label }}
+          {{ t(tab.labelKey) }}
         </button>
       </nav>
 
@@ -21,10 +21,10 @@
       </section>
     </div>
     <template #footer>
-      <el-button type="danger" plain @click="handleReset">重置</el-button>
+      <el-button type="danger" plain @click="handleReset">{{ t('settings.reset') }}</el-button>
       <span class="footer-spacer"></span>
-      <el-button @click="$emit('update:modelValue', false)">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="handleSave">保存设置</el-button>
+      <el-button @click="$emit('update:modelValue', false)">{{ t('settings.cancel') }}</el-button>
+      <el-button type="primary" :loading="saving" @click="handleSave">{{ t('settings.save') }}</el-button>
     </template>
   </el-dialog>
 </template>
@@ -33,6 +33,7 @@
 import { ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useChatPreferences } from '@/composables/chat/useChatPreferences'
+import { useI18n } from '@/features/chat/i18n'
 import ChatAppearanceSettings from './settings/ChatAppearanceSettings.vue'
 import ChatGeneralSettings from './settings/ChatGeneralSettings.vue'
 import ChatPersonalizationSettings from './settings/ChatPersonalizationSettings.vue'
@@ -42,17 +43,22 @@ defineEmits(['update:modelValue'])
 
 const activeTab = ref('appearance')
 const { preferences, saving, save, reset } = useChatPreferences()
-const tabs = [{ key: 'appearance', label: '外观' }, { key: 'personalization', label: '个性化' }, { key: 'general', label: '通用' }]
+const { t } = useI18n()
+const tabs = [
+  { key: 'appearance', labelKey: 'settings.appearance' },
+  { key: 'personalization', labelKey: 'settings.personalization' },
+  { key: 'general', labelKey: 'settings.general' }
+]
 
 const handleSave = async () => {
-  if (await save()) ElMessage.success('设置已保存')
-  else ElMessage.error('设置保存失败，请稍后重试')
+  if (await save()) ElMessage.success(t('settings.saved'))
+  else ElMessage.error(t('settings.saveFailed'))
 }
 
 const handleReset = async () => {
   try {
-    await ElMessageBox.confirm('将恢复默认主题和个性化设置，确定继续吗？', '重置设置', { type: 'warning' })
-    if (await reset()) ElMessage.success('已恢复默认设置')
+    await ElMessageBox.confirm(t('settings.resetConfirm'), t('settings.resetTitle'), { type: 'warning' })
+    if (await reset()) ElMessage.success(t('settings.resetDone'))
   } catch { /* 用户取消 */ }
 }
 </script>

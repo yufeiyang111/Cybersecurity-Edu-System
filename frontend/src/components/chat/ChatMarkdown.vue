@@ -15,7 +15,7 @@ const renderedContent = computed(() => renderMarkdown(props.content))
 
 <style lang="scss">
 .chat-markdown {
-  font-size: 16px;
+  font-size: calc(16px * var(--chat-font-scale));
   line-height: 1.6;
   color: var(--chat-ink);
   word-break: break-word;

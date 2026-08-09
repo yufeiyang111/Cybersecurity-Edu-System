@@ -5,28 +5,30 @@
         <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
         <path d="M12 8v4M12 15.5h.01" />
       </svg>
-      <span>已拦截 {{ items.length }} 条可疑知识引用</span>
+      <span>{{ t('warnings.title', { count: items.length }) }}</span>
     </div>
     <ul class="crw-list">
       <li v-for="item in items" :key="item.id + item.flagsText" class="crw-item">
         <code>{{ item.id }}</code>
         <span v-if="item.flagsText">{{ item.flagsText }}</span>
-        <span v-else>检测到注入特征</span>
+        <span v-else>{{ t('warnings.injection') }}</span>
       </li>
     </ul>
-    <p class="crw-note">以上内容未进入模型上下文，回答未受其影响。</p>
+    <p class="crw-note">{{ t('warnings.note') }}</p>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { parseRagWarning } from '@/features/security/warningCodes'
+import { useI18n } from '@/features/chat/i18n'
 
 const props = defineProps({
   warnings: { type: Array, default: () => [] }
 })
 
 const items = computed(() => (props.warnings || []).map(parseRagWarning))
+const { t } = useI18n()
 </script>
 
 <style lang="scss" scoped>

@@ -1,17 +1,35 @@
 <template>
   <div class="settings-section">
-    <h2>通用设置</h2><p class="section-help">管理语言和聊天行为。</p>
-    <label for="language">语言</label>
-    <select id="language" v-model="modelValue.language" class="wide-select"><option v-for="item in languages" :key="item.value" :value="item.value">{{ item.label }}</option></select>
-    <label class="switch-row"><input type="checkbox" checked disabled><span>保存聊天记录</span></label>
-    <label class="switch-row"><input type="checkbox" checked disabled><span>Enter 发送消息</span></label>
-    <p class="section-note">语言切换会先应用于 AI 安全助手和设置中心，其他页面将逐步接入。</p>
+    <h2>{{ t('general.title') }}</h2>
+    <p class="section-help">{{ t('general.help') }}</p>
+
+    <label for="language">{{ t('general.language') }}</label>
+    <select id="language" v-model="modelValue.language" class="wide-select">
+      <option v-for="item in languages" :key="item.value" :value="item.value">{{ item.label }}</option>
+    </select>
+
+    <label class="switch-row"><input type="checkbox" checked disabled><span>{{ t('general.saveHistory') }}</span></label>
+    <label class="switch-row"><input type="checkbox" checked disabled><span>{{ t('general.enterSend') }}</span></label>
+
+    <p class="section-note">{{ t('general.note') }}</p>
   </div>
 </template>
 
 <script setup>
+import { useI18n } from '@/features/chat/i18n'
+
 defineProps({ modelValue: { type: Object, required: true } })
-const languages = [{ value: 'zh-CN', label: '简体中文' }, { value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'ru', label: 'Русский' }, { value: 'ja', label: '日本語' }, { value: 'vi', label: 'Tiếng Việt' }, { value: 'zh-TW', label: '繁體中文' }]
+const { t } = useI18n()
+
+const languages = [
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'en', label: 'English' },
+  { value: 'fr', label: 'Français' },
+  { value: 'ru', label: 'Русский' },
+  { value: 'ja', label: '日本語' },
+  { value: 'vi', label: 'Tiếng Việt' },
+  { value: 'zh-TW', label: '繁體中文' }
+]
 </script>
 
 <style scoped>

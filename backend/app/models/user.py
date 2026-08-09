@@ -107,6 +107,7 @@ class UserPreference(db.Model):
     theme = db.Column(db.String(20), nullable=False, default="system")
     color_preset = db.Column(db.String(40), nullable=False, default="default")
     font_family = db.Column(db.String(20), nullable=False, default="auto")
+    font_size = db.Column(db.String(20), nullable=False, default="medium")
     border_radius = db.Column(db.String(20), nullable=False, default="auto")
     content_density = db.Column(db.String(20), nullable=False, default="standard")
     content_width = db.Column(db.String(20), nullable=False, default="standard")
@@ -128,6 +129,7 @@ class UserPreference(db.Model):
             "theme": self.theme,
             "color_preset": self.color_preset,
             "font_family": self.font_family,
+            "font_size": self.font_size,
             "border_radius": self.border_radius,
             "content_density": self.content_density,
             "content_width": self.content_width,

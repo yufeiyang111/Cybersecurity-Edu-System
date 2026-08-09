@@ -35,21 +35,21 @@
           <span></span><span></span><span></span>
         </div>
         <ChatMarkdown v-if="message.content" :content="message.content" />
-        <ChatRagWarnings :warnings="message.ragWarnings" />
-        <ChatSources :sources="message.sources" />
+        <ChatRagWarnings v-if="showWarnings" :warnings="message.ragWarnings" />
+        <ChatSources v-if="showCitations" :sources="message.sources" />
         <div class="cm-actions">
-          <button title="复制" @click="$emit('copy', message)">
+          <button :title="t('message.copy')" @click="$emit('copy', message)">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
               <rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 012-2h10" />
             </svg>
           </button>
-          <button title="收藏" @click="$emit('favorite', message)">
+          <button :title="t('message.favorite')" @click="$emit('favorite', message)">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
               <path d="M12 4l2.9 6 6.6.9-4.8 4.6 1.2 6.5-5.9-3.1-5.9 3.1 1.2-6.5L2.5 10.9 9.1 10 12 4z" />
             </svg>
           </button>
           <button
-            title="赞同"
+            :title="t('message.good')"
             :class="{ active: message.feedback === 'good' }"
             @click="$emit('feedback', message, 'good')"
           >
@@ -58,7 +58,7 @@
             </svg>
           </button>
           <button
-            title="反对"
+            :title="t('message.bad')"
             :class="{ active: message.feedback === 'bad' }"
             @click="$emit('feedback', message, 'bad')"
           >
@@ -73,15 +73,24 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import ChatMarkdown from './ChatMarkdown.vue'
 import ChatRagWarnings from './ChatRagWarnings.vue'
 import ChatSources from './ChatSources.vue'
 import ChatThinking from './ChatThinking.vue'
+import { useChatPreferences } from '@/composables/chat/useChatPreferences'
+import { useI18n } from '@/features/chat/i18n'
 
 defineProps({
   message: { type: Object, required: true }
 })
 defineEmits(['copy', 'favorite', 'feedback'])
+
+const { t } = useI18n()
+const { preferences } = useChatPreferences()
+// 展示开关：默认展示，仅当用户在设置里显式关闭时才隐藏
+const showCitations = computed(() => preferences.show_citations !== false)
+const showWarnings = computed(() => preferences.show_security_warnings !== false)
 </script>
 
 <style lang="scss" scoped>
@@ -102,7 +111,7 @@ defineEmits(['copy', 'favorite', 'feedback'])
   background: var(--chat-bubble);
   border-radius: var(--chat-radius);
   padding: calc(12px * var(--chat-space-scale)) calc(16px * var(--chat-space-scale));
-  font-size: 15px;
+  font-size: calc(15px * var(--chat-font-scale));
   line-height: 1.6;
   .cm-text { white-space: pre-wrap; word-break: break-word; }
 }

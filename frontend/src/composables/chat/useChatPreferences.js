@@ -1,11 +1,13 @@
 import { reactive, ref, watch } from 'vue'
 import { authAPI } from '@/api'
 import { useUserStore } from '@/stores/user'
+import { setLanguage } from '@/features/chat/i18n'
 
 export const DEFAULT_CHAT_PREFERENCES = {
   theme: 'system',
   color_preset: 'default',
   font_family: 'auto',
+  font_size: 'medium',
   border_radius: 'auto',
   content_density: 'standard',
   content_width: 'standard',
@@ -33,10 +35,12 @@ const applyPreferences = (preferences) => {
   root.dataset.chatTheme = preferences.theme
   root.dataset.chatPreset = preferences.color_preset
   root.dataset.chatFont = preferences.font_family
+  root.dataset.chatFontScale = preferences.font_size
   root.dataset.chatRadius = preferences.border_radius
   root.dataset.chatDensity = preferences.content_density
   root.dataset.chatWidth = preferences.content_width
   root.lang = preferences.language
+  setLanguage(preferences.language)
 }
 
 const preferences = reactive(readLocalPreferences())

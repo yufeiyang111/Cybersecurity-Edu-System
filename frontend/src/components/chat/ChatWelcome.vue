@@ -1,8 +1,8 @@
 <template>
   <div class="chat-welcome">
     <div class="cw-box">
-      <h1>今天有什么可以帮你的？</h1>
-      <p>网络安全问答 · 基于内部知识库检索，回答附带来源</p>
+      <h1>{{ t('welcome.title') }}</h1>
+      <p>{{ t('welcome.subtitle') }}</p>
     </div>
     <div class="cw-grid">
       <button
@@ -12,17 +12,20 @@
         @click="$emit('select', topic)"
       >
         <div class="cw-card-t">{{ topic }}</div>
-        <div class="cw-card-d">点击提问，立即获得基于知识库的回答</div>
+        <div class="cw-card-d">{{ t('welcome.cardDesc') }}</div>
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { useI18n } from '@/features/chat/i18n'
+
 defineProps({
   topics: { type: Array, default: () => [] }
 })
 defineEmits(['select'])
+const { t } = useI18n()
 </script>
 
 <style lang="scss" scoped>

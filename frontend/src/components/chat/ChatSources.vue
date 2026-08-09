@@ -1,6 +1,6 @@
 <template>
   <div v-if="sources.length" class="chat-sources">
-    <div class="cs-title">来源</div>
+    <div class="cs-title">{{ t('sources.title') }}</div>
     <div
       v-for="(source, idx) in sources"
       :key="idx"
@@ -20,27 +20,27 @@
         </svg>
       </div>
       <div class="cs-meta">
-        <div class="cs-name">{{ source.title || source.source || '未命名来源' }}</div>
+        <div class="cs-name">{{ source.title || source.source || t('sources.unnamed') }}</div>
         <div class="cs-sub">
           <span v-if="source.source" class="cs-url">{{ source.source }}</span>
           <span v-if="source.similarity != null" class="cs-sim">
-            相似度 {{ (source.similarity * 100).toFixed(0) }}%
+            {{ t('sources.similarity') }}{{ (source.similarity * 100).toFixed(0) }}%
           </span>
           <span v-if="source.start_line" class="cs-lines">
-            第 {{ source.start_line }}-{{ source.end_line }} 行
+            {{ t('sources.lines', { start: source.start_line, end: source.end_line }) }}
           </span>
         </div>
       </div>
     </div>
 
-    <el-dialog v-model="dialogVisible" title="来源详情" width="560px" append-to-body>
+    <el-dialog v-model="dialogVisible" :title="t('sources.detailTitle')" width="560px" append-to-body>
       <div v-if="current" class="cs-detail">
-        <div class="cs-detail-title">{{ current.title || '未命名来源' }}</div>
+        <div class="cs-detail-title">{{ current.title || t('sources.unnamed') }}</div>
         <div class="cs-detail-meta">
-          <span v-if="current.source">来源：{{ current.source }}</span>
-          <span v-if="current.similarity != null">相似度：{{ (current.similarity * 100).toFixed(1) }}%</span>
+          <span v-if="current.source">{{ t('sources.source') }}{{ current.source }}</span>
+          <span v-if="current.similarity != null">{{ t('sources.similarity') }}{{ (current.similarity * 100).toFixed(1) }}%</span>
         </div>
-        <div class="cs-detail-content">{{ current.content || '暂无详细内容' }}</div>
+        <div class="cs-detail-content">{{ current.content || t('sources.noContent') }}</div>
       </div>
     </el-dialog>
   </div>
@@ -49,6 +49,7 @@
 <script setup>
 import { ref } from 'vue'
 import { knowledgeAPI } from '@/api'
+import { useI18n } from '@/features/chat/i18n'
 
 const props = defineProps({
   sources: { type: Array, default: () => [] }
@@ -56,6 +57,7 @@ const props = defineProps({
 
 const dialogVisible = ref(false)
 const current = ref(null)
+const { t } = useI18n()
 
 const openDetail = async (source) => {
   current.value = { ...source }
@@ -64,10 +66,10 @@ const openDetail = async (source) => {
       const res = await knowledgeAPI.getKnowledge(source.id)
       current.value = { ...current.value, content: res.item?.content }
     } catch (e) {
-      current.value.content = '暂无详细内容'
+      current.value.content = t('sources.noContent')
     }
   } else {
-    current.value.content = '暂无详细内容'
+    current.value.content = t('sources.noContent')
   }
   dialogVisible.value = true
 }
