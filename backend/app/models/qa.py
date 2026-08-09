@@ -113,3 +113,13 @@ class RagEvalCase(db.Model):
     category = db.Column(db.String(64))
     notes = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class MemoryEvalCase(db.Model):
+    """持久记忆离线评估集（query + 期望命中的记忆内容）"""
+    __tablename__ = "memory_eval_cases"
+    id = db.Column(db.Integer, primary_key=True)
+    query = db.Column(db.Text, nullable=False)
+    expected_content = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(32), nullable=False, default="fact")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

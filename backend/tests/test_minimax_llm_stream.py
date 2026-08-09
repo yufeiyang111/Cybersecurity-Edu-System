@@ -17,7 +17,8 @@ class _FakeStreamResponse:
 
     def iter_lines(self, decode_unicode=False):
         for line in self._lines:
-            yield line
+            # 与 requests 行为一致：decode_unicode=False 时按字节返回
+            yield line.encode("utf-8") if isinstance(line, str) else line
 
 
 def _mock_post(monkeypatch, response):

@@ -187,6 +187,18 @@ class Config:
     MAX_CONTEXT_LENGTH = int(os.getenv("MAX_CONTEXT_LENGTH", "4000"))
     # QA 高成本 LLM 调用限流（每分钟每用户）
     QA_RATE_LIMIT_PER_MINUTE = _env_int("QA_RATE_LIMIT_PER_MINUTE", 10)
+    # 持久记忆写入去重相似度阈值（>= 阈值视为同一事实，跳过入库）
+    MEMORY_DEDUP_THRESHOLD = float(os.getenv("MEMORY_DEDUP_THRESHOLD", "0.92"))
+    # 持久记忆检索时间加权：每早一天衰减 0.02，5 天后不再加权（封顶 ±10%）
+    MEMORY_TEMPORAL_DECAY_PER_DAY = float(os.getenv("MEMORY_TEMPORAL_DECAY_PER_DAY", "0.02"))
+    # 记忆抽取专用 LLM（需结构化 JSON 输出稳定，MiniMax 免费档不可靠）；
+    # 配置为空时回退服务端默认 provider
+    MEMORY_LLM_API_BASE = os.getenv("MEMORY_LLM_API_BASE", "https://api.siliconflow.cn/v1")
+    MEMORY_LLM_API_KEY = (
+        os.getenv("MEMORY_LLM_API_KEY", "").strip()
+        or os.getenv("SILICONFLOW_API_KEY", "").strip()
+    )
+    MEMORY_LLM_MODEL = os.getenv("MEMORY_LLM_MODEL", "deepseek-ai/DeepSeek-V3")
     # 本地 bge-m3（1024 维，8192 上下文）：D 盘已有模型，无需下载
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "D:/rag-medical/models/bge-m3")
     EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1024"))

@@ -207,9 +207,13 @@ class MiniMaxLLM:
                     }
                     return
 
-                for line in response.iter_lines(decode_unicode=True):
-                    if not line:
+                # 注意：不使用 iter_lines(decode_unicode=True) —— 它会按响应头推断编码，
+                # MiniMax 响应头不带 charset 时回退 ISO-8859-1，中文会被解成乱码。
+                # 这里按字节流读取，统一按 UTF-8 解码。
+                for raw_line in response.iter_lines(decode_unicode=False):
+                    if not raw_line:
                         continue
+                    line = raw_line.decode("utf-8", errors="replace")
                     if not line.startswith("data:"):
                         continue
                     data = line[len("data:"):].strip()

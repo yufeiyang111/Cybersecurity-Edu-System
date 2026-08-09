@@ -215,16 +215,19 @@ def ask_question():
     except Exception:
         pass
     # ADD phase: 提取并保存持久记忆（开关开启时）
+    memory_changes = {"added": 0, "updated": 0, "skipped": 0}
     try:
-        memory_service.capture_interaction(
+        memory_changes = memory_service.capture_interaction(
             user_id=int(user_id),
             conversation_id=conversation_id,
             record_id=record.id,
             question=question,
             answer=result.get("answer") or "",
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        current_app.logger.warning(
+            "memory.capture failed (error_type=%s)", type(exc).__name__
+        )
 
     return jsonify({
         "id": record.id,
@@ -237,6 +240,7 @@ def ask_question():
         "response_time": result.get("response_time"),
         "rag_warnings": result.get("rag_warnings") or [],
         "attachments": attachments,
+        "memory_changes": memory_changes,
         "created_at": record.created_at.isoformat() if record.created_at else None
     }), 200
 
@@ -283,8 +287,9 @@ def ask_question_stream():
                         )
                     except Exception:
                         pass
+                    memory_changes = {"added": 0, "updated": 0, "skipped": 0}
                     try:
-                        memory_service.capture_interaction(
+                        memory_changes = memory_service.capture_interaction(
                             user_id=int(user_id),
                             conversation_id=conversation_id,
                             record_id=record.id,
@@ -302,6 +307,7 @@ def ask_question_stream():
                         "confidence": event.get("confidence"),
                         "response_time": event.get("response_time"),
                         "attachments": attachments,
+                        "memory_changes": memory_changes,
                         "created_at": record.created_at.isoformat() if record.created_at else None,
                         "warning_code": event.get("warning_code"),
                         "rag_warnings": event.get("rag_warnings") or [],

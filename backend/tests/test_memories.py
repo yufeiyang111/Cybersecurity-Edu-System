@@ -86,14 +86,14 @@ def test_capture_interaction_skipped_when_disabled(memory_app, monkeypatch):
 
     monkeypatch.setattr(memory_service, "_selector_provider", lambda user_id: _FakeProvider('[{"category": "preference", "content": "用户关注 Web 安全"}]'))
     with memory_app.app_context():
-        count = memory_service.capture_interaction(
+        result = memory_service.capture_interaction(
             user_id=1,
-            conversation_id=None,
-            record_id=None,
-            question="你好",
-            answer="回答",
+            conversation_id=7,
+            record_id=3,
+            question="x",
+            answer="y",
         )
-        assert count == 0
+        assert result["added"] == 0
         assert UserMemory.query.count() == 0
 
 
@@ -113,14 +113,15 @@ def test_capture_interaction_stores_extracted_facts(memory_app, monkeypatch):
         from app.services.memory import service as memory_service
 
         assert memory_service.memory_enabled(1) is True
-        count = memory_service.capture_interaction(
+        result = memory_service.capture_interaction(
             user_id=1,
             conversation_id=7,
             record_id=3,
             question="如何学习渗透测试？",
             answer="建议从基础开始...",
         )
-        assert count == 2
+        assert result["added"] == 2
+        assert result["skipped"] == 0
         memories = UserMemory.query.filter_by(user_id=1).all()
         assert len(memories) == 2
         assert memories[0].source_conversation_id == 7
@@ -295,3 +296,42 @@ def test_parse_facts_json_tolerates_markdown_fences():
     ]
     assert parse_facts_json("不是 JSON") == []
     assert parse_facts_json("[]") == []
+
+
+def test_heuristic_facts_extracts_explicit_preferences():
+    from app.services.memory.extractor import _heuristic_facts
+
+    assert _heuristic_facts("我喜欢简洁直接的回答") == [
+        {"category": "preference", "content": "用户喜欢简洁直接的回答"}
+    ]
+    assert _heuristic_facts("请记住我早上七点起床开始巡检安全日志") == [
+        {"category": "preference", "content": "用户早上七点起床开始巡检安全日志"}
+    ]
+    assert _heuristic_facts("我是安全运营工程师") == [
+        {"category": "fact", "content": "用户是安全运营工程师"}
+    ]
+    assert _heuristic_facts("我决定使用 PostgreSQL 作为主库") == [
+        {"category": "decision", "content": "用户决定使用 PostgreSQL 作为主库"}
+    ]
+    assert _heuristic_facts("我打算下半年学习云原生安全") == [
+        {"category": "goal", "content": "用户打算下半年学习云原生安全"}
+    ]
+    assert _heuristic_facts("什么是SQL注入攻击？") == []
+
+
+def test_extract_facts_falls_back_to_heuristic(memory_app, monkeypatch):
+    from app.services.memory import extractor
+    from app.services.memory.extractor import extract_facts
+
+    class _BoomProvider:
+        def generate(self, request):
+            raise RuntimeError("provider down")
+
+    class _NoSleep:
+        @staticmethod
+        def sleep(seconds):
+            return None
+
+    monkeypatch.setattr(extractor, "time", _NoSleep)
+    facts = extract_facts(_BoomProvider(), "我喜欢简洁的回答", "好的")
+    assert facts == [{"category": "preference", "content": "用户喜欢简洁的回答"}]
