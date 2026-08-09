@@ -13,7 +13,16 @@ from .secrets import decrypt_secret
 
 def select_provider(user_id: int | None = None, operation: str = "unknown"):
     if user_id is not None and has_app_context():
-        configured = get_default_for_user(user_id)
+        try:
+            configured = get_default_for_user(user_id)
+        except Exception as exc:
+            # 用户 provider 查询失败（如迁移未应用、DB 不可用）时不得阻断
+            # 系统兜底：记录后继续回退到 env 配置的服务端 provider
+            current_app.logger.warning(
+                "User LLM provider lookup failed, falling back to server provider (error_type=%s)",
+                type(exc).__name__,
+            )
+            configured = None
         if configured is not None:
             try:
                 provider = OpenAICompatibleProvider(
