@@ -39,12 +39,6 @@ const routes = [
     meta: { title: '智能问答' }
   },
   {
-    path: '/qa/conversation/:id',
-    name: 'Conversation',
-    component: () => import('@/views/Conversation.vue'),
-    meta: { title: '会话详情', requiresAuth: true }
-  },
-  {
     path: '/security',
     component: () => import('@/views/SecurityWorkbenchLayout.vue'),
     meta: { requiresAuth: true },
@@ -199,6 +193,10 @@ const routes = [
         meta: { title: '政策文档' }
       }
     ]
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ]
 
