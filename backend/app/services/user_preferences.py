@@ -18,6 +18,7 @@ DEFAULTS = {
     "show_citations": True,
     "show_security_warnings": True,
     "persistent_memory_enabled": False,
+    "qa_max_tokens": None,
 }
 OPTIONS = {
     "theme": {"system", "light", "dark", "sepia"},
@@ -35,6 +36,19 @@ OPTIONS = {
 }
 TEXT_LIMITS = {"about_user": 1000, "response_preferences": 2000, "custom_prompt": 4000}
 BOOLEAN_FIELDS = ("show_citations", "show_security_warnings", "persistent_memory_enabled")
+QA_MAX_TOKENS_DEFAULT = 16384
+QA_MAX_TOKENS_LIMITS = (256, 32768)
+
+
+def _validated_qa_max_tokens(value) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("qa_max_tokens 必须是整数")
+    low, high = QA_MAX_TOKENS_LIMITS
+    if not low <= value <= high:
+        raise ValueError(f"qa_max_tokens 必须在 {low} 至 {high} 之间")
+    return value
 
 
 def get_or_create(user_id):
@@ -65,6 +79,8 @@ def update(preferences, data):
             if not isinstance(data[field], bool):
                 raise ValueError(f"{field} 必须是布尔值")
             setattr(preferences, field, data[field])
+    if "qa_max_tokens" in data:
+        setattr(preferences, "qa_max_tokens", _validated_qa_max_tokens(data["qa_max_tokens"]))
 
 
 def reset(preferences):

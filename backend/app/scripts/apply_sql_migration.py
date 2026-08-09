@@ -31,6 +31,7 @@ MIGRATION_IDS = (
     "020_memory_eval_cases",
     "021_help_center",
     "022_llm_provider_max_tokens",
+    "023_user_qa_max_tokens",
 )
 
 

@@ -83,3 +83,39 @@ def test_preferences_reject_invalid_values(preferences_app):
         headers=_auth_headers(preferences_app, user_id),
     )
     assert response.status_code == 400
+
+
+def test_preferences_qa_max_tokens_accepted_and_persisted(preferences_app):
+    user_id = _make_user(preferences_app)
+    response = preferences_app.test_client().put(
+        "/api/auth/preferences",
+        json={"qa_max_tokens": 8192},
+        headers=_auth_headers(preferences_app, user_id),
+    )
+    assert response.status_code == 200
+    assert response.json["preferences"]["qa_max_tokens"] == 8192
+
+    with preferences_app.app_context():
+        stored = UserPreference.query.filter_by(user_id=user_id).one()
+        assert stored.qa_max_tokens == 8192
+
+
+def test_preferences_qa_max_tokens_null_resets_to_default(preferences_app):
+    user_id = _make_user(preferences_app)
+    headers = _auth_headers(preferences_app, user_id)
+    client = preferences_app.test_client()
+    assert client.put("/api/auth/preferences", json={"qa_max_tokens": 4096}, headers=headers).status_code == 200
+    assert client.put("/api/auth/preferences", json={"qa_max_tokens": None}, headers=headers).status_code == 200
+    assert client.put("/api/auth/preferences", json={"qa_max_tokens": None}, headers=headers).json["preferences"]["qa_max_tokens"] is None
+
+
+def test_preferences_qa_max_tokens_reject_invalid(preferences_app):
+    user_id = _make_user(preferences_app)
+    headers = _auth_headers(preferences_app, user_id)
+    for invalid in (100, 100000, "8192", True, 0, -1):
+        response = preferences_app.test_client().put(
+            "/api/auth/preferences",
+            json={"qa_max_tokens": invalid},
+            headers=headers,
+        )
+        assert response.status_code == 400, f"qa_max_tokens={invalid!r} 应被拒绝"

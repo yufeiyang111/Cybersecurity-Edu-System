@@ -68,6 +68,7 @@ def test_enhanced_rag_keeps_safe_unavailable_result_without_provider():
 
 class _StreamingFakeRagProvider(_FakeRagProvider):
     def generate_stream(self, request):
+        self.requests.append(request)
         yield LLMStreamChunk(reasoning_delta="\u5206\u6790")
         yield LLMStreamChunk(delta="\u7f51")
         yield LLMStreamChunk(delta="\u5b89")
@@ -231,3 +232,45 @@ def test_ask_stream_done_event_has_empty_rag_warnings_when_clean():
     done_events = [e for e in events if e["type"] == "done"]
 
     assert done_events[0]["rag_warnings"] == []
+
+
+def test_generate_uses_user_qa_max_tokens_preference():
+    provider = _FakeRagProvider()
+    engine = _engine_with_provider(provider)
+
+    result = engine.generate("SQL", "context", retrieved_docs=[], user_preferences={"qa_max_tokens": 8192})
+
+    assert result["answer"] == "????"
+    assert provider.requests[0].max_tokens == 8192
+
+
+def test_generate_falls_back_to_default_without_preference():
+    provider = _FakeRagProvider()
+    engine = _engine_with_provider(provider)
+
+    result = engine.generate("SQL", "context", retrieved_docs=[])
+
+    assert result["answer"] == "????"
+    assert provider.requests[0].max_tokens == 16384
+
+
+def test_generate_ignores_invalid_qa_max_tokens_values():
+    provider = _FakeRagProvider()
+    engine = _engine_with_provider(provider)
+
+    for invalid in ({"qa_max_tokens": 100}, {"qa_max_tokens": "8192"}, {"qa_max_tokens": True}, {"qa_max_tokens": None}):
+        provider.requests.clear()
+        result = engine.generate("SQL", "context", retrieved_docs=[], user_preferences=invalid)
+        assert result["answer"] == "????"
+        assert provider.requests[0].max_tokens == 16384, f"qa_max_tokens={invalid!r} 应回退默认"
+
+
+def test_generate_stream_uses_user_qa_max_tokens_preference():
+    provider = _StreamingFakeRagProvider()
+    engine = _engine_with_provider(provider)
+
+    events = list(engine.generate_stream("SQL", "context", retrieved_docs=[], user_preferences={"qa_max_tokens": 4096}))
+
+    done_events = [e for e in events if e["type"] == "done"]
+    assert len(done_events) == 1
+    assert provider.requests[0].max_tokens == 4096

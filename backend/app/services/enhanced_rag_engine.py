@@ -396,6 +396,17 @@ class EnhancedRAGEngine:
 
         return messages
 
+    _DEFAULT_QA_MAX_TOKENS = 16384
+
+    def _resolve_qa_max_tokens(self, user_preferences: Dict[str, Any] | None) -> int:
+        """从用户偏好解析 QA 回答最大 tokens；缺失或非法时回退引擎默认。"""
+        value = (user_preferences or {}).get("qa_max_tokens")
+        if value is None or isinstance(value, bool) or not isinstance(value, int):
+            return self._DEFAULT_QA_MAX_TOKENS
+        if not 256 <= value <= 32768:
+            return self._DEFAULT_QA_MAX_TOKENS
+        return value
+
     def generate(
         self,
         query: str,
@@ -423,7 +434,7 @@ class EnhancedRAGEngine:
         request = LLMRequest(
             prompt=_render_messages_for_provider(messages),
             system_prompt=_system_prompt_from_messages(messages),
-            max_tokens=16384,
+            max_tokens=self._resolve_qa_max_tokens(user_preferences),
             prompt_cache_key=self._prompt_cache_key(
                 provider,
                 _system_prompt_from_messages(messages),
@@ -625,7 +636,7 @@ class EnhancedRAGEngine:
         request = LLMRequest(
             prompt=_render_messages_for_provider(messages),
             system_prompt=_system_prompt_from_messages(messages),
-            max_tokens=16384,
+            max_tokens=self._resolve_qa_max_tokens(user_preferences),
             prompt_cache_key=self._prompt_cache_key(
                 provider,
                 _system_prompt_from_messages(messages),
