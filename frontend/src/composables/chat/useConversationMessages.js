@@ -1,7 +1,7 @@
 import { ref, computed, nextTick } from 'vue'
 import { qaAPI } from '@/api'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 5
 
 let keySeed = 0
 
