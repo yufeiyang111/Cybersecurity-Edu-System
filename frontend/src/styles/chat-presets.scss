@@ -1,0 +1,220 @@
+// ==================== 颜色预设：完整独立主题 ====================
+// 每个预设不只是强调色，而是一整套背景/侧栏/文字/边框配色（light + dark 两套），
+// 切换预设时整个界面的底色都随之变化。由 chat-tokens.scss @use 引入编译。
+
+@mixin preset-bg($t) {
+  --chat-canvas: #{map-get($t, canvas)};
+  --chat-sidebar: #{map-get($t, sidebar)};
+  --chat-ink: #{map-get($t, ink)};
+  --chat-hollow: #{map-get($t, hollow)};
+  --chat-muted: #{map-get($t, muted)};
+  --chat-hairline: #{map-get($t, hairline)};
+  --chat-hairline-strong: #{map-get($t, hairline-strong)};
+  --chat-hover: #{map-get($t, hover)};
+  --chat-bubble: #{map-get($t, bubble)};
+  --chat-field: #{map-get($t, field)};
+}
+
+$presets: (
+  anthropic: (
+    accent: #c2410c, link: #c2410c,
+    soft: rgba(194, 65, 12, 0.10), border: rgba(194, 65, 12, 0.35),
+    gradient: linear-gradient(135deg, #ea580c, #c2410c),
+    light: (
+      canvas: #faf6f0, sidebar: #f1ebe2, ink: #3d2f24, hollow: #9a8a78, muted: #6b5a48,
+      hairline: rgba(61, 47, 36, 0.10), hairline-strong: rgba(61, 47, 36, 0.18),
+      hover: rgba(61, 47, 36, 0.05), bubble: #efe6d8, field: #fdfaf6
+    ),
+    dark: (
+      canvas: #201a15, sidebar: #17120e, ink: #efe3d3, hollow: #a2907c, muted: #bfaf9b,
+      hairline: rgba(239, 227, 211, 0.12), hairline-strong: rgba(239, 227, 211, 0.20),
+      hover: rgba(239, 227, 211, 0.07), bubble: #2b231b, field: #241d16
+    )
+  ),
+  simple: (
+    accent: #111827, link: #111827,
+    soft: rgba(17, 24, 39, 0.08), border: rgba(17, 24, 39, 0.30),
+    gradient: linear-gradient(135deg, #374151, #111827),
+    light: (
+      canvas: #ffffff, sidebar: #f7f7f7, ink: #111111, hollow: #999999, muted: #666666,
+      hairline: rgba(17, 17, 17, 0.10), hairline-strong: rgba(17, 17, 17, 0.18),
+      hover: rgba(17, 17, 17, 0.05), bubble: #f2f2f2, field: #ffffff
+    ),
+    dark: (
+      canvas: #171717, sidebar: #101010, ink: #f5f5f5, hollow: #888888, muted: #b0b0b0,
+      hairline: rgba(245, 245, 245, 0.12), hairline-strong: rgba(245, 245, 245, 0.20),
+      hover: rgba(245, 245, 245, 0.07), bubble: #242424, field: #1a1a1a
+    )
+  ),
+  night: (
+    accent: #8b6d8a, link: #b993b7,
+    soft: rgba(139, 109, 138, 0.18), border: rgba(139, 109, 138, 0.40),
+    gradient: linear-gradient(135deg, #a68aa5, #6d5470),
+    light: (
+      canvas: #eceaf2, sidebar: #e2dfec, ink: #2a2440, hollow: #8f88a8, muted: #62597e,
+      hairline: rgba(42, 36, 64, 0.10), hairline-strong: rgba(42, 36, 64, 0.18),
+      hover: rgba(42, 36, 64, 0.05), bubble: #dedaeb, field: #f3f1f8
+    ),
+    dark: (
+      canvas: #1c1829, sidebar: #151120, ink: #e6e1f2, hollow: #8b84a4, muted: #aaa2c0,
+      hairline: rgba(230, 225, 242, 0.12), hairline-strong: rgba(230, 225, 242, 0.20),
+      hover: rgba(230, 225, 242, 0.07), bubble: #262038, field: #1e1a2d
+    )
+  ),
+  rose: (
+    accent: #d94675, link: #be185d,
+    soft: rgba(217, 70, 117, 0.12), border: rgba(217, 70, 117, 0.38),
+    gradient: linear-gradient(135deg, #fb7185, #d94675),
+    light: (
+      canvas: #fdf2f6, sidebar: #f9e7ee, ink: #47212f, hollow: #b08a97, muted: #8a5c6c,
+      hairline: rgba(71, 33, 47, 0.10), hairline-strong: rgba(71, 33, 47, 0.18),
+      hover: rgba(71, 33, 47, 0.05), bubble: #f5dce4, field: #fff7fa
+    ),
+    dark: (
+      canvas: #2a1520, sidebar: #201019, ink: #f7dfe7, hollow: #b28797, muted: #cfa6b5,
+      hairline: rgba(247, 223, 231, 0.12), hairline-strong: rgba(247, 223, 231, 0.20),
+      hover: rgba(247, 223, 231, 0.07), bubble: #381c28, field: #2d1822
+    )
+  ),
+  lake: (
+    accent: #0f766e, link: #0f766e,
+    soft: rgba(15, 118, 110, 0.10), border: rgba(15, 118, 110, 0.35),
+    gradient: linear-gradient(135deg, #14b8a6, #0f766e),
+    light: (
+      canvas: #eff9f7, sidebar: #e3f2ef, ink: #1c3b38, hollow: #7f9c98, muted: #53716d,
+      hairline: rgba(28, 59, 56, 0.10), hairline-strong: rgba(28, 59, 56, 0.18),
+      hover: rgba(28, 59, 56, 0.05), bubble: #dbece8, field: #f6fbfa
+    ),
+    dark: (
+      canvas: #142624, sidebar: #0e1c1a, ink: #d3e8e5, hollow: #7fa09c, muted: #9dbdb9,
+      hairline: rgba(211, 232, 229, 0.12), hairline-strong: rgba(211, 232, 229, 0.20),
+      hover: rgba(211, 232, 229, 0.07), bubble: #1b322f, field: #162825
+    )
+  ),
+  sunset: (
+    accent: #ea580c, link: #c2410c,
+    soft: rgba(234, 88, 12, 0.12), border: rgba(234, 88, 12, 0.38),
+    gradient: linear-gradient(135deg, #f97316, #c2410c),
+    light: (
+      canvas: #fdf3ee, sidebar: #f8e7dd, ink: #4a2717, hollow: #b28d77, muted: #8a6249,
+      hairline: rgba(74, 39, 23, 0.10), hairline-strong: rgba(74, 39, 23, 0.18),
+      hover: rgba(74, 39, 23, 0.05), bubble: #f4ddd0, field: #fff8f4
+    ),
+    dark: (
+      canvas: #2a180f, sidebar: #201108, ink: #f8e3d4, hollow: #b58e75, muted: #d2ae96,
+      hairline: rgba(248, 227, 212, 0.12), hairline-strong: rgba(248, 227, 212, 0.20),
+      hover: rgba(248, 227, 212, 0.07), bubble: #38200f, field: #2d1a0f
+    )
+  ),
+  forest: (
+    accent: #15803d, link: #15803d,
+    soft: rgba(21, 128, 61, 0.12), border: rgba(21, 128, 61, 0.36),
+    gradient: linear-gradient(135deg, #22c55e, #15803d),
+    light: (
+      canvas: #eff7f0, sidebar: #e4efe5, ink: #1e3a28, hollow: #7f9c86, muted: #55705c,
+      hairline: rgba(30, 58, 40, 0.10), hairline-strong: rgba(30, 58, 40, 0.18),
+      hover: rgba(30, 58, 40, 0.05), bubble: #dfeede, field: #f7faf6
+    ),
+    dark: (
+      canvas: #14231a, sidebar: #0f1b14, ink: #d9ead9, hollow: #8aa08f, muted: #a7bcab,
+      hairline: rgba(217, 234, 217, 0.12), hairline-strong: rgba(217, 234, 217, 0.20),
+      hover: rgba(217, 234, 217, 0.07), bubble: #1c3023, field: #16251b
+    )
+  ),
+  sea: (
+    accent: #405de6, link: #405de6,
+    soft: rgba(64, 93, 230, 0.12), border: rgba(64, 93, 230, 0.38),
+    gradient: linear-gradient(135deg, #6d8bff, #405de6),
+    light: (
+      canvas: #eef2fd, sidebar: #e2e9fa, ink: #1f2c4d, hollow: #8493b8, muted: #57689a,
+      hairline: rgba(31, 44, 77, 0.10), hairline-strong: rgba(31, 44, 77, 0.18),
+      hover: rgba(31, 44, 77, 0.05), bubble: #dbe3f5, field: #f5f8fe
+    ),
+    dark: (
+      canvas: #141c30, sidebar: #0e1526, ink: #dce3f5, hollow: #8592b5, muted: #a5b0d0,
+      hairline: rgba(220, 227, 245, 0.12), hairline-strong: rgba(220, 227, 245, 0.20),
+      hover: rgba(220, 227, 245, 0.07), bubble: #1c2642, field: #161f35
+    )
+  ),
+  lavender: (
+    accent: #7652b5, link: #7652b5,
+    soft: rgba(118, 82, 181, 0.14), border: rgba(118, 82, 181, 0.40),
+    gradient: linear-gradient(135deg, #9a76cf, #7652b5),
+    light: (
+      canvas: #f5f0fb, sidebar: #ebe2f7, ink: #372a55, hollow: #a090bf, muted: #70599a,
+      hairline: rgba(55, 42, 85, 0.10), hairline-strong: rgba(55, 42, 85, 0.18),
+      hover: rgba(55, 42, 85, 0.05), bubble: #e5daf3, field: #faf7fd
+    ),
+    dark: (
+      canvas: #1c1630, sidebar: #151024, ink: #e7e0f7, hollow: #9488b5, muted: #b3a8cf,
+      hairline: rgba(231, 224, 247, 0.12), hairline-strong: rgba(231, 224, 247, 0.20),
+      hover: rgba(231, 224, 247, 0.07), bubble: #262040, field: #1e1834
+    )
+  ),
+  emerald: (
+    accent: #059669, link: #047857,
+    soft: rgba(5, 150, 105, 0.12), border: rgba(5, 150, 105, 0.36),
+    gradient: linear-gradient(135deg, #10b981, #059669),
+    light: (
+      canvas: #eef7f2, sidebar: #e1f0e6, ink: #143e2e, hollow: #7da18d, muted: #4f7a64,
+      hairline: rgba(20, 62, 46, 0.10), hairline-strong: rgba(20, 62, 46, 0.18),
+      hover: rgba(20, 62, 46, 0.05), bubble: #d9eee1, field: #f6faf7
+    ),
+    dark: (
+      canvas: #0f2418, sidebar: #0a1a11, ink: #d4eee0, hollow: #7ea391, muted: #9ec3b0,
+      hairline: rgba(212, 238, 224, 0.12), hairline-strong: rgba(212, 238, 224, 0.20),
+      hover: rgba(212, 238, 224, 0.07), bubble: #163525, field: #11291c
+    )
+  ),
+  gold: (
+    accent: #b45309, link: #92400e,
+    soft: rgba(180, 83, 9, 0.13), border: rgba(180, 83, 9, 0.38),
+    gradient: linear-gradient(135deg, #f59e0b, #b45309),
+    light: (
+      canvas: #faf5ec, sidebar: #f1e9da, ink: #462d12, hollow: #a88f67, muted: #7d6542,
+      hairline: rgba(70, 45, 18, 0.10), hairline-strong: rgba(70, 45, 18, 0.18),
+      hover: rgba(70, 45, 18, 0.05), bubble: #efe2c8, field: #fdf9f1
+    ),
+    dark: (
+      canvas: #211708, sidebar: #170f04, ink: #f2e5c8, hollow: #a88f64, muted: #c7ae82,
+      hairline: rgba(242, 229, 200, 0.12), hairline-strong: rgba(242, 229, 200, 0.20),
+      hover: rgba(242, 229, 200, 0.07), bubble: #2c1f0a, field: #24190a
+    )
+  ),
+  candy: (
+    accent: #ec4899, link: #db2777,
+    soft: rgba(236, 72, 153, 0.13), border: rgba(236, 72, 153, 0.40),
+    gradient: linear-gradient(135deg, #f472b6, #ec4899),
+    light: (
+      canvas: #fdf1fb, sidebar: #f8e3f4, ink: #471a3f, hollow: #b288aa, muted: #8a5d7f,
+      hairline: rgba(71, 26, 63, 0.10), hairline-strong: rgba(71, 26, 63, 0.18),
+      hover: rgba(71, 26, 63, 0.05), bubble: #f5d8ee, field: #fff8fd
+    ),
+    dark: (
+      canvas: #271324, sidebar: #1c0d1a, ink: #f6dcf0, hollow: #b58aaa, muted: #d3abd0,
+      hairline: rgba(246, 220, 240, 0.12), hairline-strong: rgba(246, 220, 240, 0.20),
+      hover: rgba(246, 220, 240, 0.07), bubble: #351a31, field: #2a1527
+    )
+  )
+);
+
+@each $name, $t in $presets {
+  :root[data-chat-preset="#{$name}"] {
+    --chat-accent: #{map-get($t, accent)};
+    --chat-link: #{map-get($t, link)};
+    --chat-accent-soft: #{map-get($t, soft)};
+    --chat-accent-border: #{map-get($t, border)};
+    --chat-accent-gradient: #{map-get($t, gradient)};
+    @include preset-bg(map-get($t, light));
+  }
+
+  :root[data-chat-preset="#{$name}"][data-chat-theme="dark"] {
+    @include preset-bg(map-get($t, dark));
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root[data-chat-preset="#{$name}"][data-chat-theme="system"] {
+      @include preset-bg(map-get($t, dark));
+    }
+  }
+}

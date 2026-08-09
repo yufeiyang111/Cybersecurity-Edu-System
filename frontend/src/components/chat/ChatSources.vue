@@ -77,7 +77,7 @@ const openDetail = async (source) => {
 
 <style lang="scss" scoped>
 .chat-sources { margin-top: 24px; }
-.cs-title { font-size: 13px; font-weight: 600; color: var(--chat-ink); margin-bottom: 10px; }
+.cs-title { font-size: calc(13px * var(--chat-font-scale)); font-weight: 600; color: var(--chat-ink); margin-bottom: 10px; }
 .cs-card {
   display: flex; gap: 10px; align-items: flex-start;
   border: 1px solid var(--chat-hairline);
@@ -96,25 +96,25 @@ const openDetail = async (source) => {
 }
 .cs-meta { min-width: 0; }
 .cs-name {
-  font-size: 13.5px; font-weight: 500; margin-bottom: 1px;
+  font-size: calc(13.5px * var(--chat-font-scale)); font-weight: 500; margin-bottom: 1px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   color: var(--chat-ink);
 }
 .cs-sub {
-  font-size: 12px; color: var(--chat-hollow);
+  font-size: calc(12px * var(--chat-font-scale)); color: var(--chat-hollow);
   display: flex; gap: 8px; white-space: nowrap; overflow: hidden;
   .cs-url { overflow: hidden; text-overflow: ellipsis; }
   .cs-lines { flex-shrink: 0; color: var(--chat-accent); }
 }
 
-.cs-detail-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: var(--chat-ink); }
+.cs-detail-title { font-size: calc(15px * var(--chat-font-scale)); font-weight: 600; margin-bottom: 10px; color: var(--chat-ink); }
 .cs-detail-meta {
-  display: flex; gap: 20px; color: var(--chat-hollow); font-size: 13px;
+  display: flex; gap: 20px; color: var(--chat-hollow); font-size: calc(13px * var(--chat-font-scale));
   padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--chat-hairline);
 }
 .cs-detail-content {
   max-height: 380px; overflow-y: auto;
-  font-size: 14px; line-height: 1.8; color: var(--chat-ink);
+  font-size: calc(14px * var(--chat-font-scale)); line-height: 1.8; color: var(--chat-ink);
   white-space: pre-wrap;
 }
 </style>

@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   svg { width: 16px; height: 16px; }
 }
-.cs-brand-name { font-size: 15px; font-weight: 600; color: var(--chat-ink); white-space: nowrap; }
+.cs-brand-name { font-size: calc(15px * var(--chat-font-scale)); font-weight: 600; color: var(--chat-ink); white-space: nowrap; }
 .cs-spacer { flex: 1; }
 
 .cs-icon-btn {
@@ -294,7 +294,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--chat-hairline-strong);
   border-radius: var(--chat-radius);
   cursor: pointer;
-  font-family: inherit; font-size: 14px; font-weight: 500; color: var(--chat-ink);
+  font-family: inherit; font-size: calc(14px * var(--chat-font-scale)); font-weight: 500; color: var(--chat-ink);
   white-space: nowrap;
   &:hover { border-color: var(--chat-accent-border); }
   svg { width: 15px; height: 15px; stroke: var(--chat-ink); flex-shrink: 0; }
@@ -325,7 +325,7 @@ onBeforeUnmount(() => {
 .cs-group-title {
   width: 100%; border: 0; background: transparent; cursor: pointer;
   display: flex; align-items: center; gap: 6px;
-  font-size: 12px; color: var(--chat-hollow);
+  font-size: calc(12px * var(--chat-font-scale)); color: var(--chat-hollow);
   padding: 10px 10px 4px;
   white-space: nowrap;
   .cs-group-toggle-icon { width: 13px; height: 13px; stroke: var(--chat-hollow); transition: transform .15s ease; flex-shrink: 0; }
@@ -341,7 +341,7 @@ onBeforeUnmount(() => {
   padding: 8px 10px;
   border-radius: var(--chat-radius);
   cursor: pointer;
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--chat-font-scale));
   white-space: nowrap;
   &:hover { background: var(--chat-hover); }
   &.active { background: var(--chat-accent-soft); font-weight: 500; }
@@ -392,8 +392,8 @@ onBeforeUnmount(() => {
 }
 .cs-avatar-image { object-fit: cover; }
 .cs-account-meta { flex: 1; min-width: 0; }
-.cs-name { font-size: 13.5px; font-weight: 500; color: var(--chat-ink); overflow: hidden; text-overflow: ellipsis; }
-.cs-email { font-size: 12px; color: var(--chat-hollow); overflow: hidden; text-overflow: ellipsis; }
+.cs-name { font-size: calc(13.5px * var(--chat-font-scale)); font-weight: 500; color: var(--chat-ink); overflow: hidden; text-overflow: ellipsis; }
+.cs-email { font-size: calc(12px * var(--chat-font-scale)); color: var(--chat-hollow); overflow: hidden; text-overflow: ellipsis; }
 .cs-menu-btn {
   width: 26px; height: 26px; border: none; background: transparent;
   border-radius: 7px; cursor: pointer; flex-shrink: 0;

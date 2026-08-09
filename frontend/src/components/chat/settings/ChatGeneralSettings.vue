@@ -21,14 +21,10 @@ import { useI18n } from '@/features/chat/i18n'
 defineProps({ modelValue: { type: Object, required: true } })
 const { t } = useI18n()
 
+// 目前仅提供简体中文 / 英文两套完整翻译，其他语言暂不列出
 const languages = [
   { value: 'zh-CN', label: '简体中文' },
-  { value: 'en', label: 'English' },
-  { value: 'fr', label: 'Français' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'ja', label: '日本語' },
-  { value: 'vi', label: 'Tiếng Việt' },
-  { value: 'zh-TW', label: '繁體中文' }
+  { value: 'en', label: 'English' }
 ]
 </script>
 

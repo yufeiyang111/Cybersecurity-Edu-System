@@ -40,8 +40,8 @@ const { t } = useI18n()
   margin: 0 auto;
 }
 .cw-box { text-align: center; margin-bottom: 32px; }
-.cw-box h1 { font-size: 24px; font-weight: 600; line-height: 1.33; margin-bottom: 10px; color: var(--chat-ink); }
-.cw-box p { font-size: 15px; color: var(--chat-hollow); }
+.cw-box h1 { font-size: calc(24px * var(--chat-font-scale)); font-weight: 600; line-height: 1.33; margin-bottom: 10px; color: var(--chat-ink); }
+.cw-box p { font-size: calc(15px * var(--chat-font-scale)); color: var(--chat-hollow); }
 .cw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .cw-card {
   background: var(--chat-canvas);
@@ -53,7 +53,7 @@ const { t } = useI18n()
   font-family: inherit;
   transition: background .15s;
   &:hover { background: var(--chat-hover); border-color: var(--chat-accent-border); }
-  .cw-card-t { font-size: 14px; font-weight: 500; margin-bottom: 4px; color: var(--chat-ink); }
-  .cw-card-d { font-size: 13px; color: var(--chat-hollow); line-height: 1.45; }
+  .cw-card-t { font-size: calc(14px * var(--chat-font-scale)); font-weight: 500; margin-bottom: 4px; color: var(--chat-ink); }
+  .cw-card-d { font-size: calc(13px * var(--chat-font-scale)); color: var(--chat-hollow); line-height: 1.45; }
 }
 </style>

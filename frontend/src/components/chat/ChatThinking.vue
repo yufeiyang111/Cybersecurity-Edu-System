@@ -56,7 +56,7 @@ const avgSimilarity = computed(() => {
 .chat-thinking { margin-bottom: 6px; }
 .ct-toggle {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 13px; color: var(--chat-hollow);
+  font-size: calc(13px * var(--chat-font-scale)); color: var(--chat-hollow);
   cursor: pointer; padding: 4px 0;
   user-select: none;
   svg { width: 13px; height: 13px; stroke: var(--chat-hollow); transition: transform .15s; }
@@ -68,14 +68,14 @@ const avgSimilarity = computed(() => {
   margin-top: 4px;
 }
 .ct-reasoning {
-  font-size: 13px; line-height: 1.7;
+  font-size: calc(13px * var(--chat-font-scale)); line-height: 1.7;
   color: var(--chat-hollow);
   white-space: pre-wrap;
   word-break: break-word;
 }
 .ct-row {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  font-size: 13px; color: var(--chat-hollow); line-height: 1.7;
+  font-size: calc(13px * var(--chat-font-scale)); color: var(--chat-hollow); line-height: 1.7;
   .ct-label { flex-shrink: 0; }
 }
 </style>

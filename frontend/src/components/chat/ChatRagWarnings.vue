@@ -41,7 +41,7 @@ const { t } = useI18n()
 }
 .crw-title {
   display: flex; align-items: center; gap: 8px;
-  color: var(--chat-warning-ink); font-size: 13px; font-weight: 600;
+  color: var(--chat-warning-ink); font-size: calc(13px * var(--chat-font-scale)); font-weight: 600;
   svg { width: 16px; height: 16px; stroke: var(--chat-warning-icon); flex-shrink: 0; }
 }
 .crw-list {
@@ -49,12 +49,12 @@ const { t } = useI18n()
 }
 .crw-item {
   display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline;
-  font-size: 12.5px; color: var(--chat-warning-ink); line-height: 1.6;
+  font-size: calc(12.5px * var(--chat-font-scale)); color: var(--chat-warning-ink); line-height: 1.6;
   opacity: 0.9;
   code { color: var(--chat-warning-ink); font-weight: 600; }
 }
 .crw-note {
-  margin: 8px 0 0; font-size: 12px; color: var(--chat-warning-ink);
+  margin: 8px 0 0; font-size: calc(12px * var(--chat-font-scale)); color: var(--chat-warning-ink);
   opacity: 0.75;
 }
 </style>

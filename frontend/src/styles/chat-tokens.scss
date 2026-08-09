@@ -1,5 +1,6 @@
 // ==================== 聊天页 ChatGPT 风格设计 Token ====================
 // 仅定义 CSS 变量，不写任何元素规则；由 chat 组件 scoped 样式引用
+@use './chat-presets';
 
 :root {
   --chat-sidebar: #f9f9f9;
@@ -258,79 +259,6 @@
 }
 
 // ==================== 颜色预设 ====================
-// 每个预设是一整套强调色系 token；声明在主题默认值之后，保证 light/dark/sepia 下都优先
-$presets: (
-  anthropic: (
-    accent: #c2410c, link: #c2410c,
-    soft: rgba(194, 65, 12, 0.10), border: rgba(194, 65, 12, 0.35),
-    hover: rgba(194, 65, 12, 0.08), gradient: linear-gradient(135deg, #ea580c, #c2410c)
-  ),
-  simple: (
-    accent: #111827, link: #111827,
-    soft: rgba(17, 24, 39, 0.08), border: rgba(17, 24, 39, 0.3),
-    hover: rgba(17, 24, 39, 0.08), gradient: linear-gradient(135deg, #374151, #111827)
-  ),
-  night: (
-    accent: #8b6d8a, link: #b993b7,
-    soft: rgba(139, 109, 138, 0.18), border: rgba(139, 109, 138, 0.4),
-    hover: rgba(139, 109, 138, 0.16), gradient: linear-gradient(135deg, #a68aa5, #6d5470)
-  ),
-  rose: (
-    accent: #d94675, link: #be185d,
-    soft: rgba(217, 70, 117, 0.12), border: rgba(217, 70, 117, 0.38),
-    hover: rgba(217, 70, 117, 0.1), gradient: linear-gradient(135deg, #fb7185, #d94675)
-  ),
-  lake: (
-    accent: #0f766e, link: #0f766e,
-    soft: rgba(15, 118, 110, 0.10), border: rgba(15, 118, 110, 0.35),
-    hover: rgba(15, 118, 110, 0.08), gradient: linear-gradient(135deg, #14b8a6, #0f766e)
-  ),
-  sunset: (
-    accent: #ea580c, link: #c2410c,
-    soft: rgba(234, 88, 12, 0.12), border: rgba(234, 88, 12, 0.38),
-    hover: rgba(234, 88, 12, 0.1), gradient: linear-gradient(135deg, #f97316, #c2410c)
-  ),
-  forest: (
-    accent: #15803d, link: #15803d,
-    soft: rgba(21, 128, 61, 0.12), border: rgba(21, 128, 61, 0.36),
-    hover: rgba(21, 128, 61, 0.1), gradient: linear-gradient(135deg, #22c55e, #15803d)
-  ),
-  sea: (
-    accent: #405de6, link: #405de6,
-    soft: rgba(64, 93, 230, 0.12), border: rgba(64, 93, 230, 0.38),
-    hover: rgba(64, 93, 230, 0.1), gradient: linear-gradient(135deg, #6d8bff, #405de6)
-  ),
-  lavender: (
-    accent: #7652b5, link: #7652b5,
-    soft: rgba(118, 82, 181, 0.14), border: rgba(118, 82, 181, 0.4),
-    hover: rgba(118, 82, 181, 0.12), gradient: linear-gradient(135deg, #9a76cf, #7652b5)
-  ),
-  emerald: (
-    accent: #059669, link: #047857,
-    soft: rgba(5, 150, 105, 0.12), border: rgba(5, 150, 105, 0.36),
-    hover: rgba(5, 150, 105, 0.1), gradient: linear-gradient(135deg, #10b981, #059669)
-  ),
-  gold: (
-    accent: #b45309, link: #92400e,
-    soft: rgba(180, 83, 9, 0.13), border: rgba(180, 83, 9, 0.38),
-    hover: rgba(180, 83, 9, 0.1), gradient: linear-gradient(135deg, #f59e0b, #b45309)
-  ),
-  candy: (
-    accent: #ec4899, link: #db2777,
-    soft: rgba(236, 72, 153, 0.13), border: rgba(236, 72, 153, 0.4),
-    hover: rgba(236, 72, 153, 0.1), gradient: linear-gradient(135deg, #f472b6, #ec4899)
-  )
-);
-
-@each $name, $t in $presets {
-  :root[data-chat-preset="#{$name}"] {
-    --chat-accent: #{map-get($t, accent)};
-    --chat-link: #{map-get($t, link)};
-    --chat-accent-soft: #{map-get($t, soft)};
-    --chat-accent-border: #{map-get($t, border)};
-    --chat-accent-gradient: #{map-get($t, gradient)};
-    --chat-hover: #{map-get($t, hover)};
-  }
-}
+// 完整独立主题配色（背景/侧栏/文字/强调色，含 light/dark 两套）见 chat-presets.scss，由文件头部 @use 引入。
 
 .chat-settings-dialog { font-family: var(--chat-font-family); }
