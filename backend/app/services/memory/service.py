@@ -297,40 +297,11 @@ def _store(
 
 
 def _selector_provider(user_id: int):
-    # 记忆抽取优先使用结构化输出稳定的专用模型（如硅基流动 DeepSeek），
-    # MiniMax 免费档对 JSON 输出时好时坏（LLM_OUTPUT_INVALID）
-    provider = _memory_dedicated_provider(user_id)
-    if provider is not None:
-        return provider
+    # 记忆抽取只使用用户自己配置的 LLM provider（用户默认 provider 优先，
+    # 无则回退服务端默认 provider）；硅基流动仅限 embedding/rerank，禁止用于 LLM 生成。
     try:
         from app.services.llm.provider_selector import select_provider
 
         return select_provider(user_id=user_id, operation="memory")
-    except Exception:
-        return None
-
-
-def _memory_dedicated_provider(user_id: int):
-    """创建记忆抽取专用 provider；配置缺失或创建失败时返回 None（走默认链路）。"""
-    from app.config import Config
-
-    base = getattr(Config, "MEMORY_LLM_API_BASE", "") or ""
-    api_key = getattr(Config, "MEMORY_LLM_API_KEY", "") or ""
-    model = getattr(Config, "MEMORY_LLM_MODEL", "") or ""
-    if not api_key or not model:
-        return None
-    try:
-        from app.services.llm.call_logging import observe_provider
-        from app.services.llm.openai_compatible import OpenAICompatibleProvider
-
-        provider = OpenAICompatibleProvider(
-            provider_name="memory-llm",
-            base_url=base,
-            api_key=api_key,
-            model=model,
-            user_id=user_id,
-            operation="memory",
-        )
-        return observe_provider(provider, user_id=user_id, operation="memory")
     except Exception:
         return None
