@@ -62,13 +62,20 @@
       </div>
     </section>
 
-    <div class="ai-fab">
+    <div ref="fabEl" class="ai-fab" :style="fabStyle" :class="{ 'is-dragging': isDragging }">
       <transition name="bubble">
         <div v-if="aiMessage" class="ai-bubble">
           {{ aiMessage }}
         </div>
       </transition>
-      <button class="ai-avatar" type="button" title="AI 安全助手" @click="router.push('/qa')">
+      <button
+        class="ai-avatar"
+        type="button"
+        title="AI 安全助手"
+        @click="onAvatarClick"
+        @mousedown.prevent="onMouseDown"
+        @touchstart.prevent="onTouchStart"
+      >
         <BaseIcon name="edit" :size="18" />
       </button>
     </div>
@@ -98,6 +105,7 @@ import KnowledgeDocumentTable from '@/components/security/knowledge/KnowledgeDoc
 import KnowledgeSourceDialog from '@/components/security/knowledge/KnowledgeSourceDialog.vue'
 import KnowledgeSourceList from '@/components/security/knowledge/KnowledgeSourceList.vue'
 import { useSecurityKnowledge } from '@/composables/security/useSecurityKnowledge'
+import { useFabDrag } from '@/composables/security/useFabDrag'
 import { securityApiErrorMessage } from '@/features/security/presentation'
 
 const router = useRouter()
@@ -128,6 +136,13 @@ const {
 } = useSecurityKnowledge()
 
 const aiMessage = ref('检测到 1 条知识更新建议：OWASP Top 10 2025 已发布，建议更新相关知识库文档。')
+
+const { fabEl, isDragging, didDrag, fabStyle, onMouseDown, onTouchStart } = useFabDrag()
+
+const onAvatarClick = () => {
+  if (didDrag.value) return
+  router.push('/qa')
+}
 
 const openDocumentDialog = () => {
   if (selectedSource.value) documentDialogVisible.value = true
@@ -361,13 +376,24 @@ onMounted(loadSources)
 
 .ai-fab {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
+  left: 0;
+  top: 0;
   z-index: 200;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
+  cursor: grab;
+  touch-action: none;
+
+  &.is-dragging {
+    cursor: grabbing;
+    user-select: none;
+
+    .ai-bubble {
+      visibility: hidden;
+    }
+  }
 }
 
 .ai-bubble {
@@ -380,6 +406,7 @@ onMounted(loadSources)
   color: #475569;
   max-width: 320px;
   line-height: 1.65;
+  pointer-events: none;
 }
 
 .ai-avatar {

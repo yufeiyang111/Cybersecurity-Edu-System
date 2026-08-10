@@ -15,6 +15,7 @@
           <router-link to="/qa" @mouseenter="prefetchRoute('qa')">智能问答</router-link>
           <router-link to="/knowledge" @mouseenter="prefetchRoute('knowledge')">知识库</router-link>
           <router-link to="/graph" @mouseenter="prefetchRoute('graph')">知识图谱</router-link>
+          <router-link to="/security/projects" @mouseenter="prefetchRoute('security')">安全工作台</router-link>
         </nav>
         <div class="nav-actions">
           <template v-if="userStore.isLoggedIn">
@@ -334,7 +335,8 @@ const prefetchRoute = (name) => {
     home: () => import('@/views/Home.vue'),
     qa: () => import('@/views/QA.vue'),
     knowledge: () => import('@/views/Knowledge.vue'),
-    graph: () => import('@/views/KnowledgeGraph.vue')
+    graph: () => import('@/views/KnowledgeGraph.vue'),
+    security: () => import('@/views/SecurityWorkbenchLayout.vue')
   }
   loaders[name]?.().catch(() => {})
 }
@@ -398,7 +400,7 @@ onMounted(async () => {
   font-size: 15px;
   line-height: 1.7;
   color: var(--home-fg);
-  -webkit-font-smoothing: antialiased;
+  -webkit-font-smoothing: auto;
   overflow-x: hidden;
 }
 

@@ -21,7 +21,7 @@
   min-height: 100vh;
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont,
     'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
+  -webkit-font-smoothing: auto;
 
   &__brand {
     display: flex;

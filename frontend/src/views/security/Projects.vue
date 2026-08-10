@@ -74,7 +74,12 @@
 
     <RecentScanList :scans="overview.recentScans" :loading="loading" @open-scan="openScan" />
 
-    <div class="ai-fab">
+    <div
+      ref="fabEl"
+      class="ai-fab"
+      :style="fabStyle"
+      :class="{ 'is-dragging': isDragging }"
+    >
       <div class="ai-bubble">
         <template v-if="aiRiskCount > 0">
           检测到 <b>{{ aiRiskCount }}</b> 个高危及以上漏洞，点击向 AI 安全助手咨询修复建议。
@@ -83,7 +88,14 @@
           暂无高危及以上风险，点击向 <b>AI 安全助手</b> 提问，获取扫描结果解读与安全知识。
         </template>
       </div>
-      <button class="ai-avatar" type="button" title="AI 安全助手" @click="router.push('/qa')">
+      <button
+        class="ai-avatar"
+        type="button"
+        title="AI 安全助手"
+        @click="onAvatarClick"
+        @mousedown.prevent="onMouseDown"
+        @touchstart.prevent="onTouchStart"
+      >
         <el-icon><MagicStick /></el-icon>
       </button>
     </div>
@@ -146,7 +158,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from '@/features/security/feedback'
 import { MagicStick, Refresh, Search } from '@element-plus/icons-vue'
@@ -157,6 +169,7 @@ import ProjectVulnPanel from '@/components/security/project/ProjectVulnPanel.vue
 import RecentScanList from '@/components/security/project/RecentScanList.vue'
 import WorkbenchOverviewCards from '@/components/security/project/WorkbenchOverviewCards.vue'
 import { useProjectImport } from '@/composables/security/useProjectImport'
+import { useFabDrag } from '@/composables/security/useFabDrag'
 import { securityApiErrorMessage } from '@/features/security/presentation'
 import { GithubIcon } from '@/components/icons'
 
@@ -198,6 +211,20 @@ const RUNNING_STATUSES = new Set(['created', 'validating', 'snapshotting', 'scan
 const aiRiskCount = computed(
   () => (overview.value.totals.critical || 0) + (overview.value.totals.high || 0)
 )
+
+const {
+  fabEl,
+  isDragging,
+  didDrag,
+  fabStyle,
+  onMouseDown,
+  onTouchStart
+} = useFabDrag()
+
+const onAvatarClick = () => {
+  if (didDrag.value) return
+  router.push('/qa')
+}
 
 const filteredProjects = computed(() => {
   let items = projects.value
@@ -564,13 +591,24 @@ onMounted(async () => {
 
 .ai-fab {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
+  left: 0;
+  top: 0;
   z-index: 200;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
+  cursor: grab;
+  touch-action: none;
+
+  &.is-dragging {
+    cursor: grabbing;
+    user-select: none;
+
+    .ai-bubble {
+      visibility: hidden;
+    }
+  }
 
   .ai-bubble {
     max-width: 320px;
@@ -582,6 +620,7 @@ onMounted(async () => {
     font-size: 12.5px;
     color: #475569;
     line-height: 1.65;
+    pointer-events: none;
 
     b {
       color: #dc2626;
@@ -591,6 +630,8 @@ onMounted(async () => {
   .ai-avatar {
     width: 42px;
     height: 42px;
+    min-width: 42px;
+    min-height: 42px;
     border-radius: 50%;
     border: none;
     background: #2563eb;
@@ -602,6 +643,7 @@ onMounted(async () => {
     cursor: pointer;
     box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
     transition: transform 0.15s ease;
+    flex-shrink: 0;
 
     &:hover {
       transform: scale(1.06);
