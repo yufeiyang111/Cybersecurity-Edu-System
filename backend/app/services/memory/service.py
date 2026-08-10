@@ -6,19 +6,28 @@ Follows the Mem0 ADD/SEARCH loop:
   against existing memories before being written (context lookup).
 - retrieve_for_query: before the next answer, rank stored memories against the
   query with hybrid retrieval (semantic + lexical + temporal boost) and return
-  the top candidates (SEARCH).
+  the top candidates (SEARCH). Expired memories are never returned; hits
+  reinforce last_reinforced_at under a throttle so per-query writes stay cheap.
+- feedback_memory: user rates a memory useful/useless; enough negative ratings
+  flag it "suggest delete" in the management page (no auto delete).
 The whole pipeline is gated by the user's persistent_memory_enabled preference.
 """
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime
 from typing import Any
 
 from flask import current_app
 
 from app import db
-from app.models.memory import UserMemory
+from app.models.memory import (
+    MemoryEntity,
+    MemoryEntityLink,
+    MemoryFeedback,
+    UserMemory,
+)
 from app.models.user import UserPreference
 
 logger = logging.getLogger(__name__)
@@ -30,8 +39,13 @@ _RECALL_MULTIPLIER = 2
 _RRF_CONSTANT = 60
 # 时间加权：距今超过该天数后不再获得加成（配合衰减因子封顶 ±10%）
 _TEMPORAL_WINDOW_DAYS = 5
+# 强化回写节流：同一记忆两次强化写入的最小间隔（秒），避免每次检索都写库
+_REINFORCE_THROTTLE_SECONDS = 300
 
 VALID_CATEGORIES = {"preference", "fact", "decision", "goal", "other"}
+
+# memory_id -> 上次强化写入时间戳（进程内节流，可接受多实例重复写）
+_last_reinforced_ts: dict[int, float] = {}
 
 _CATEGORY_LABELS = {
     "preference": "偏好",
@@ -129,8 +143,12 @@ def retrieve_for_query(
     """
     if not memory_enabled(user_id):
         return []
+    now = datetime.utcnow()
     memories = (
         UserMemory.query.filter_by(user_id=user_id)
+        .filter(
+            db.or_(UserMemory.expires_at.is_(None), UserMemory.expires_at > now)
+        )
         .order_by(UserMemory.created_at.desc())
         .limit(200)
         .all()
@@ -143,10 +161,32 @@ def retrieve_for_query(
             key=lambda pair: (pair[0].source_conversation_id == conversation_id, pair[1]),
             reverse=True,
         )
+    hits = ranked[:top_k]
+    _reinforce(hits)
     return [
         {"content": memory.content, "category": memory.category}
-        for memory, _score in ranked[:top_k]
+        for memory, _score in hits
     ]
+
+
+def _reinforce(hits: list[tuple[UserMemory, float]]) -> None:
+    """Throttled reinforcement: write last_reinforced_at at most once per window."""
+    now_ts = time.time()
+    now = datetime.utcnow()
+    dirty = False
+    for memory, _score in hits:
+        previous = _last_reinforced_ts.get(memory.id)
+        if previous is not None and now_ts - previous < _REINFORCE_THROTTLE_SECONDS:
+            continue
+        memory.last_reinforced_at = now
+        _last_reinforced_ts[memory.id] = now_ts
+        dirty = True
+    if dirty:
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            logger.warning("memory.reinforce write failed, skipped", exc_info=True)
 
 
 def _hybrid_rank(query: str, memories: list[UserMemory]) -> list[tuple[UserMemory, float]]:
@@ -225,6 +265,49 @@ def list_memories(user_id: int, params: dict) -> tuple[list[UserMemory], int]:
     return pagination.items, pagination.total
 
 
+def negative_feedback_counts(user_id: int, memory_ids: list[int]) -> dict[int, int]:
+    """批量返回 记忆 id -> 负面反馈（rating=0）计数（限当前用户）。"""
+    if not memory_ids:
+        return {}
+    from sqlalchemy import func
+
+    rows = (
+        db.session.query(MemoryFeedback.memory_id, func.count(MemoryFeedback.id))
+        .filter(
+            MemoryFeedback.memory_id.in_(memory_ids),
+            MemoryFeedback.user_id == user_id,
+            MemoryFeedback.rating == 0,
+        )
+        .group_by(MemoryFeedback.memory_id)
+        .all()
+    )
+    return {memory_id: count for memory_id, count in rows}
+
+
+def suggest_delete_threshold() -> int:
+    return max(1, int(current_app.config.get("MEMORY_FEEDBACK_SUGGEST_THRESHOLD", 3)))
+
+
+def submit_feedback(user_id: int, memory_id: int, rating: int) -> tuple[UserMemory | None, int]:
+    """记录用户对一条记忆的好/坏反馈，返回 (记忆, 累计负面计数)。"""
+    memory = UserMemory.query.filter_by(id=memory_id, user_id=user_id).first()
+    if memory is None:
+        return None, 0
+    if isinstance(rating, bool) or rating not in (0, 1):
+        raise ValueError("rating 必须是 0（没用）或 1（有用）")
+    db.session.add(MemoryFeedback(memory_id=memory.id, user_id=user_id, rating=rating))
+    db.session.commit()
+    from sqlalchemy import func
+
+    negative = (
+        db.session.query(func.count(MemoryFeedback.id))
+        .filter(MemoryFeedback.memory_id == memory.id, MemoryFeedback.rating == 0)
+        .scalar()
+        or 0
+    )
+    return memory, negative
+
+
 def delete_memory(user_id: int, memory_id: int) -> bool:
     memory = UserMemory.query.filter_by(id=memory_id, user_id=user_id).first()
     if memory is None:
@@ -274,7 +357,12 @@ def category_label(category: str) -> str:
 def _extract(provider: Any, question: str, answer: str) -> list[dict]:
     from .extractor import extract_facts
 
-    return extract_facts(provider, question, answer)
+    result = extract_facts(provider, question, answer)
+    if isinstance(result, dict):
+        # extract_facts 现返回 {"facts": [...], "entities": [...]}（实体抽取扩展后）；
+        # 兼容旧 list 返回，只取 facts 部分入库。
+        return result.get("facts") or []
+    return result or []
 
 
 def _store(

@@ -13,7 +13,7 @@ class LLMRequest:
     prompt: str
     system_prompt: str | None = None
     temperature: float = 0.7
-    max_tokens: int = 2048
+    max_tokens: int = 8192
     timeout_seconds: float | None = None
     prompt_cache_key: str | None = None
 

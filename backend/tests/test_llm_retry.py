@@ -63,6 +63,59 @@ def test_generate_retries_on_5xx_then_succeeds(monkeypatch, provider):
     assert result.text == "ok"
 
 
+def test_provider_max_tokens_caps_requests(monkeypatch):
+    from app.services.llm.openai_compatible import OpenAICompatibleProvider
+
+    recorded = {}
+
+    class RecordingSession:
+        def post(self, *args, **kwargs):
+            recorded["body"] = kwargs["json"]
+            return FakeResponse(200, '{"choices":[{"message":{"content":"ok"}}]}')
+
+    provider = OpenAICompatibleProvider(
+        provider_name="fake",
+        base_url="http://fake.local/v1",
+        api_key="k",
+        model="m",
+        max_tokens=4096,
+    )
+    monkeypatch.setattr(provider, "_http_client", RecordingSession())
+    monkeypatch.setattr("app.services.llm.openai_compatible._max_retries", lambda: 0)
+
+    # 用户配置的上限封顶显式的大请求
+    provider.generate(LLMRequest(prompt="hi", max_tokens=16384))
+    assert recorded["body"]["max_tokens"] == 4096
+
+    # 探测类小请求不受大值影响
+    provider.generate(LLMRequest(prompt="hi", max_tokens=512))
+    assert recorded["body"]["max_tokens"] == 512
+
+
+def test_provider_without_max_tokens_keeps_request_value(monkeypatch):
+    from app.services.llm.openai_compatible import OpenAICompatibleProvider
+
+    recorded = {}
+
+    class RecordingSession:
+        def post(self, *args, **kwargs):
+            recorded["body"] = kwargs["json"]
+            return FakeResponse(200, '{"choices":[{"message":{"content":"ok"}}]}')
+
+    provider = OpenAICompatibleProvider(
+        provider_name="fake",
+        base_url="http://fake.local/v1",
+        api_key="k",
+        model="m",
+        max_tokens=None,
+    )
+    monkeypatch.setattr(provider, "_http_client", RecordingSession())
+    monkeypatch.setattr("app.services.llm.openai_compatible._max_retries", lambda: 0)
+
+    provider.generate(LLMRequest(prompt="hi"))
+    assert recorded["body"]["max_tokens"] == 8192
+
+
 def test_generate_retries_on_timeout_then_succeeds(monkeypatch, provider):
     import requests
 

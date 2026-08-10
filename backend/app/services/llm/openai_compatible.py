@@ -1,6 +1,7 @@
 ﻿"""OpenAI-compatible chat completion adapter with safe response handling."""
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 import time
@@ -11,8 +12,11 @@ import requests
 from flask import current_app, has_app_context
 
 from .contracts import LLMRequest, LLMResponse, LLMStreamChunk
+from .encoding_guard import safe_decode
 from .internal_reasoning_boundary import project
 from .usage_normalizer import normalize_usage
+
+_DEFAULT_MAX_TOKENS = 8192
 
 
 def _should_retry_status(status_code: int) -> bool:
@@ -114,6 +118,7 @@ class OpenAICompatibleProvider:
         provider_config_id: int | None = None,
         user_id: int | None = None,
         operation: str = "unknown",
+        max_tokens: int | None = None,
     ) -> None:
         self.provider_name = provider_name
         self.model = model
@@ -123,9 +128,24 @@ class OpenAICompatibleProvider:
         self.provider_config_id = provider_config_id
         self.user_id = user_id
         self.operation = operation
+        self.max_tokens = max_tokens
+
+    def _apply_provider_max_tokens(self, request: LLMRequest) -> LLMRequest:
+        """Provider 级 max_tokens 作为该 Provider 的输出上限（封顶）。
+
+        用户配置了 max_tokens 时，任何请求都被限制在其内（取较小值）；
+        未配置时维持请求自身值。探测类小请求（如 512）不受大值影响。
+        """
+        if self.max_tokens is None:
+            return request
+        capped = min(request.max_tokens, self.max_tokens)
+        if capped == request.max_tokens:
+            return request
+        return dataclasses.replace(request, max_tokens=capped)
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         started = perf_counter()
+        request = self._apply_provider_max_tokens(request)
         payload = _payload(request, self.model, stream=False)
         _log(current_app.logger.warning if has_app_context() else None,
              "OpenAICompatibleProvider.generate called (provider=%s, base_url=%s, model=%s)",
@@ -142,7 +162,7 @@ class OpenAICompatibleProvider:
                 )
                 raw_text = getattr(response, "text", None)
                 if raw_text is None:
-                    raw_text = getattr(response, "content", b"").decode("utf-8", errors="replace")
+                    raw_text = safe_decode(getattr(response, "content", b""))
                 _log(current_app.logger.warning if has_app_context() else None,
                      "OpenAICompatibleProvider HTTP raw response (provider=%s, status=%s, raw=%r)",
                      self.provider_name, getattr(response, "status_code", None), raw_text[:1500])
@@ -272,8 +292,13 @@ class OpenAICompatibleProvider:
             seen_bytes = 0
             usage = {}
             think_filter = _ThinkStreamFilter()
-            for raw_line in iterator(decode_unicode=True):
-                line = raw_line.decode("utf-8", errors="replace") if isinstance(raw_line, bytes) else str(raw_line)
+            # 注意：不使用 iter_lines(decode_unicode=True) —— 它会按响应头推断编码，
+            # 响应头缺少 charset 时回退 ISO-8859-1，中文会被解成乱码。
+            # 这里按字节流读取，统一用 UTF-8 解码。
+            for raw_line in iterator(decode_unicode=False):
+                if not raw_line:
+                    continue
+                line = safe_decode(raw_line)
                 seen_bytes += len(line.encode("utf-8"))
                 if seen_bytes > _max_response_bytes():
                     yield LLMStreamChunk(finished=True, warning_code="LLM_PROVIDER_RESPONSE_TOO_LARGE")
@@ -379,15 +404,20 @@ def _success_response(provider: OpenAICompatibleProvider, body: object, started:
     )
     visible, reasoning = project(raw_content, reasoning_content)
     if not visible.strip():
+        finish_reason = choice.get("finish_reason") if isinstance(choice, dict) else None
+        if finish_reason == "length":
+            warning_code = "LLM_OUTPUT_TRUNCATED"
+        else:
+            warning_code = "LLM_OUTPUT_INVALID"
         _log(
             current_app.logger.warning if has_app_context() else None,
-            "OpenAICompatible: empty content from %s (base_url=%s, model=%s). "
+            "OpenAICompatible: empty content from %s (base_url=%s, model=%s, warning_code=%s). "
             "choices=%r, body_keys=%r, choice=%r, message=%r, content=%r, reasoning=%r",
-            provider.provider_name, provider.base_url, provider.model,
+            provider.provider_name, provider.base_url, provider.model, warning_code,
             body.get("choices"), list(body.keys()),
             choice, message, repr(raw_content), repr(reasoning),
         )
-        return _failure(provider, "LLM_OUTPUT_INVALID", started, status_code=200)
+        return _failure(provider, warning_code, started, status_code=200)
     raw_usage = body.get("usage") if isinstance(body.get("usage"), dict) else {}
     usage = normalize_usage(raw_usage) or {}
     return LLMResponse(
@@ -459,7 +489,7 @@ def _body_mentions_stream_options(response: object) -> bool:
     raw = getattr(response, "text", None)
     if raw is None:
         raw = getattr(response, "content", b"")
-        raw = raw.decode("utf-8", errors="replace") if isinstance(raw, (bytes, bytearray)) else ""
+        raw = safe_decode(raw) if isinstance(raw, (bytes, bytearray)) else ""
     lower = str(raw or "").lower()
     return (
         "stream_options" in lower

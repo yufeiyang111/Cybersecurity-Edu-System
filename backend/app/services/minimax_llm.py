@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 import requests
 
 from app.config import Config
+from app.services.llm.encoding_guard import safe_decode
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ class MiniMaxLLM:
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
-        max_tokens: int = 2048,
+        max_tokens: int = 8192,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -153,7 +154,7 @@ class MiniMaxLLM:
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
-        max_tokens: int = 2048,
+        max_tokens: int = 8192,
         **kwargs
     ) -> Any:
         """
@@ -209,11 +210,11 @@ class MiniMaxLLM:
 
                 # 注意：不使用 iter_lines(decode_unicode=True) —— 它会按响应头推断编码，
                 # MiniMax 响应头不带 charset 时回退 ISO-8859-1，中文会被解成乱码。
-                # 这里按字节流读取，统一按 UTF-8 解码。
+                # 这里按字节流读取，统一走 safe_decode（UTF-8 直解 + 乱码自动修复）。
                 for raw_line in response.iter_lines(decode_unicode=False):
                     if not raw_line:
                         continue
-                    line = raw_line.decode("utf-8", errors="replace")
+                    line = safe_decode(raw_line)
                     if not line.startswith("data:"):
                         continue
                     data = line[len("data:"):].strip()
@@ -265,7 +266,7 @@ class MiniMaxLLM:
         prompt: str,
         system_prompt: str = None,
         temperature: float = 0.7,
-        max_tokens: int = 2048
+        max_tokens: int = 8192
     ) -> str:
         """
         简单文本生成
@@ -300,7 +301,7 @@ class MiniMaxLLM:
         messages: List[Dict[str, str]],
         system_prompt: str = None,
         temperature: float = 0.7,
-        max_tokens: int = 2048
+        max_tokens: int = 8192
     ) -> str:
         """
         带历史的对话

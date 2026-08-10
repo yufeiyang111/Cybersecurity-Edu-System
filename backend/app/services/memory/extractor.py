@@ -27,8 +27,11 @@ EXTRACT_PROMPT = """你是记忆提取助手。从下面的一轮网络安全问
 1. 只提取稳定的、未来可能有用的信息；不要提取一次性问题或技术答案本身。
 2. 不要提取密码、密钥、Token、手机号、地址等敏感信息。
 3. 每条事实用第三人称客观描述，如"用户是安全工程师，关注 Web 安全"。
-4. 如果没有任何值得记住的信息，返回空数组。
-5. 只输出 JSON 数组，不要输出其他内容。格式：[{{"category": "preference", "content": "..."}}]
+4. 如果没有任何值得记住的信息，facts 返回空数组。
+5. 实体（entities）：从事实中提取可复用的名词实体（人名、组织、技术、工具等），
+   entity_type 只能是 person/org/tech/other；没有则为空数组。
+6. 只输出 JSON 对象，不要输出其他内容。
+格式：{{"facts": [{{"category": "preference", "content": "..."}}], "entities": [{{"name": "Web安全", "type": "tech"}}]}}
 
 问答内容：
 用户问题：{question}
@@ -37,37 +40,38 @@ EXTRACT_PROMPT = """你是记忆提取助手。从下面的一轮网络安全问
 """
 
 
-def extract_facts(provider: Any, question: str, answer: str) -> list[dict]:
-    """Ask the provider to extract durable facts from one QA interaction.
+def extract_facts(provider: Any, question: str, answer: str) -> dict:
+    """Ask the provider to extract durable facts and entities from one QA interaction.
 
-    Retries up to ``LLM_MAX_RETRIES`` times (default 2) with backoff when the
-    provider reports an invalid response (e.g. free-tier models that fail
-    structured JSON output intermittently). When the LLM path yields nothing,
-    a heuristic fallback mines explicit preference statements from the user's
-    question so memory capture still works with weak/free models.
+    Returns ``{"facts": [...], "entities": [...]}``. Retries up to
+    ``LLM_MAX_RETRIES`` times (default 2) with backoff when the provider
+    reports an invalid response (e.g. free-tier models that fail structured
+    JSON output intermittently). When the LLM path yields nothing, a heuristic
+    fallback mines explicit preference statements from the user's question so
+    memory capture still works with weak/free models.
     """
     if not answer or not answer.strip():
-        return []
-    # 默认最多 2 次重试；provider 自带重试数（如 LLM_MAX_RETRIES 包装）时取较大值
+        return {"facts": [], "entities": []}
+    # 默认最多 2 次重试；provider 自带重试数（按 LLM_MAX_RETRIES 包装）时取较大者
     max_retries = max(2, int(getattr(provider, "max_retries", 0) or 0))
     for attempt in range(max_retries + 1):
         try:
-            response = provider.generate(_build_request(question, answer))
+            response = provider.generate(_build_request(provider, question, answer))
         except Exception:
             response = None
-        facts = _parse_response(response)
-        if facts is not None:
-            if facts:
-                return facts
+        parsed = _parse_response(response)
+        if parsed is not None:
+            if parsed["facts"]:
+                return parsed
             # LLM 判定"无可记信息"：用规则兜底补漏（只补显式偏好表达，不覆盖 LLM 判断）
             fallback = _heuristic_facts(question)
             if fallback:
                 logger.info("memory.extract heuristic fallback used question_len=%d", len(question))
-            return fallback
+            return {"facts": fallback, "entities": []}
         if attempt < max_retries:
             logger.warning("memory.extract invalid response, retry %d/%d", attempt + 1, max_retries)
             time.sleep(0.5 * (attempt + 1))
-    return _heuristic_facts(question)
+    return {"facts": _heuristic_facts(question), "entities": []}
 
 
 def _heuristic_facts(question: str) -> list[dict]:
@@ -107,40 +111,47 @@ def _normalize_heuristic(raw: str) -> str:
     return raw
 
 
-def _parse_response(response: Any) -> list[dict] | None:
-    """Return parsed facts, or None when the response is invalid (retryable)."""
+def _parse_response(response: Any) -> dict | None:
+    """Return {"facts": [...], "entities": [...]}, or None when invalid (retryable)."""
     if not getattr(response, "is_success", False) or not getattr(response, "text", None):
         return None
-    return parse_facts_json(response.text)
+    return parse_extract_response(response.text)
 
 
-def _build_request(question: str, answer: str):
-    from app.services.llm.contracts import LLMRequest
+def parse_extract_response(text: str) -> dict:
+    """Parse facts+entities JSON from an LLM response.
 
-    return LLMRequest(
-        prompt=EXTRACT_PROMPT.format(question=question, answer=answer[:4000]),
-        temperature=0.2,
-        max_tokens=512,
-    )
+    Accepts the current object shape ``{"facts": [...], "entities": [...]}``
+    and the legacy bare-array shape (entities default to empty) so older
+    mocks and provider outputs keep working.
+    """
+    payload = _load_json(text)
+    if isinstance(payload, list):
+        return {"facts": _normalize_facts(payload), "entities": []}
+    if not isinstance(payload, dict):
+        return {"facts": [], "entities": []}
+    facts = _normalize_facts(payload.get("facts") if isinstance(payload.get("facts"), list) else [])
+    entities = _normalize_entities(payload.get("entities") if isinstance(payload.get("entities"), list) else [])
+    return {"facts": facts, "entities": entities}
 
 
-def parse_facts_json(text: str) -> list[dict]:
-    """Parse a JSON array from an LLM response, tolerating markdown fences."""
+def _load_json(text: str):
     cleaned = text.strip()
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
     cleaned = re.sub(r"\s*```$", "", cleaned)
     try:
-        payload = json.loads(cleaned)
+        return json.loads(cleaned)
     except (TypeError, ValueError):
-        match = re.search(r"\[.*\]", cleaned, re.DOTALL)
+        match = re.search(r"\{.*\}|\[.*\]", cleaned, re.DOTALL)
         if not match:
-            return []
+            return None
         try:
-            payload = json.loads(match.group(0))
+            return json.loads(match.group(0))
         except (TypeError, ValueError):
-            return []
-    if not isinstance(payload, list):
-        return []
+            return None
+
+
+def _normalize_facts(payload: list) -> list[dict]:
     return [
         {
             "category": str(item.get("category") or "fact")[:32],
@@ -149,3 +160,41 @@ def parse_facts_json(text: str) -> list[dict]:
         for item in payload
         if isinstance(item, dict) and str(item.get("content") or "").strip()
     ]
+
+
+def _normalize_entities(payload: list) -> list[dict]:
+    allowed_types = {"person", "org", "tech", "other"}
+    seen: set[str] = set()
+    entities: list[dict] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()[:128]
+        if not name or name in seen:
+            continue
+        entity_type = str(item.get("type") or item.get("entity_type") or "other").strip()[:32]
+        if entity_type not in allowed_types:
+            entity_type = "other"
+        seen.add(name)
+        entities.append({"name": name, "type": entity_type})
+    return entities
+
+
+def _build_request(provider: Any, question: str, answer: str):
+    from app.services.llm.contracts import LLMRequest
+    from app.services.llm.provider_selector import resolve_provider_max_tokens
+
+    return LLMRequest(
+        prompt=EXTRACT_PROMPT.format(question=question, answer=answer[:4000]),
+        temperature=0.2,
+        max_tokens=resolve_provider_max_tokens(provider, 512),
+    )
+
+
+def parse_facts_json(text: str) -> list[dict]:
+    """Parse a JSON array from an LLM response, tolerating markdown fences.
+
+    Backward-compatible shim: returns only the facts part of the
+    extract response (entities are ignored).
+    """
+    return parse_extract_response(text)["facts"]

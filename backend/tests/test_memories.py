@@ -334,4 +334,5 @@ def test_extract_facts_falls_back_to_heuristic(memory_app, monkeypatch):
 
     monkeypatch.setattr(extractor, "time", _NoSleep)
     facts = extract_facts(_BoomProvider(), "我喜欢简洁的回答", "好的")
-    assert facts == [{"category": "preference", "content": "用户喜欢简洁的回答"}]
+    assert facts["facts"] == [{"category": "preference", "content": "用户喜欢简洁的回答"}]
+    assert facts["entities"] == []

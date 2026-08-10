@@ -9,7 +9,7 @@ def test_llm_request_has_safe_explicit_defaults():
     assert request.prompt == "hello"
     assert request.system_prompt is None
     assert request.temperature == 0.7
-    assert request.max_tokens == 2048
+    assert request.max_tokens == 8192
     assert request.timeout_seconds is None
 
 
