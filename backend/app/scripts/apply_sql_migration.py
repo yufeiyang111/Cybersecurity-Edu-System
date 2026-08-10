@@ -35,6 +35,8 @@ MIGRATION_IDS = (
     "024_memory_governance",
     "025_memory_entities_dream",
     "026_qa_record_reasoning",
+    "027_project_security_graph",
+    "028_knowledge_content_mediumtext",
 )
 
 

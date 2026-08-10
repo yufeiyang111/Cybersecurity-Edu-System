@@ -585,7 +585,17 @@ def extract_tags_from_content(content, title=""):
         if len(term) > 2:
             tags.add(term)
 
-    return list(tags)[:10]
+    # 去重（大小写不敏感）：MySQL utf8mb4_0900_ai_ci 唯一索引忽略大小写，
+    # 同一条目下 "JBOSS"/"JBoss" 这类变体会触发 unique_knowledge_tag 冲突
+    unique_tags = []
+    seen = set()
+    for tag in tags:
+        key = tag.lower()
+        if key not in seen:
+            seen.add(key)
+            unique_tags.append(tag)
+
+    return unique_tags[:10]
 
 
 @knowledge_bp.route("/search", methods=["GET"])
