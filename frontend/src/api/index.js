@@ -420,6 +420,7 @@ export const adminAPI = {
   getQAStats: () => api.get('/admin/stats/qa'),
 
   getUsers: (params) => api.get('/admin/users', { params }),
+  getUserDetail: (id) => api.get(`/admin/users/${id}/detail`),
   updateUser: (id, data) => api.put(`/admin/users/${id}`, data),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
 
@@ -439,6 +440,8 @@ export const adminAPI = {
 
   rebuildVectorIndex: () => api.post('/admin/vector/rebuild'),
   rebuildAllIndex: () => api.post('/admin/data/rebuild-index'),
+  startVectorRebuildTask: (data) => api.post('/admin/vector/rebuild/task', data),
+  getVectorRebuildStatus: () => api.get('/admin/vector/rebuild/task'),
   getRoles: () => api.get('/admin/roles'),
 
   // 数据初始化
