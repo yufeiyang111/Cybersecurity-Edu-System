@@ -37,9 +37,10 @@ class _FakeStreamProvider:
     model = "fake-model"
     provider_config_id = None
 
-    def __init__(self, chunks):
+    def __init__(self, chunks, max_tokens=None):
         self._chunks = chunks
         self.requests = []
+        self.max_tokens = max_tokens
 
     def generate_stream(self, request):
         self.requests.append(request)
@@ -175,6 +176,42 @@ def _patch_provider(monkeypatch, provider):
         "app.services.security_agent.llm_analysis.select_provider",
         lambda *args, **kwargs: provider,
     )
+
+
+def test_analysis_uses_user_configured_max_tokens(app, monkeypatch):
+    """用户 Provider 配置了 max_tokens 时，分析请求必须使用用户配置值。"""
+    with app.app_context():
+        run = _make_run(with_turn=True)
+        provider = _FakeStreamProvider(
+            [
+                LLMStreamChunk(delta="结论：无严重风险。"),
+                LLMStreamChunk(finished=True, usage={"total_tokens": 8}),
+            ],
+            max_tokens=4096,
+        )
+        _patch_provider(monkeypatch, provider)
+
+        AgentLlmAnalysisService(EventService()).analyze(run, trace_id="t-mt")
+
+        assert provider.requests[0].max_tokens == 4096
+
+
+def test_analysis_falls_back_to_default_max_tokens(app, monkeypatch):
+    """用户未配置 max_tokens 时，分析请求使用代码默认值 1200。"""
+    with app.app_context():
+        run = _make_run(with_turn=True)
+        provider = _FakeStreamProvider(
+            [
+                LLMStreamChunk(delta="结论：无严重风险。"),
+                LLMStreamChunk(finished=True, usage={"total_tokens": 8}),
+            ],
+            max_tokens=None,
+        )
+        _patch_provider(monkeypatch, provider)
+
+        AgentLlmAnalysisService(EventService()).analyze(run, trace_id="t-mt2")
+
+        assert provider.requests[0].max_tokens == 1200
 
 
 # ------------------------------------------------------------------ 无 Provider 降级

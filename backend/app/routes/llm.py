@@ -37,6 +37,10 @@ WARNING_DIAGNOSTICS: dict[str, tuple[str, str]] = {
         "Provider 返回格式无效（非 JSON 或缺少必需字段）",
         "请确认 base_url 支持 OpenAI Chat Completions API 格式",
     ),
+    "LLM_OUTPUT_TRUNCATED": (
+        "Provider 响应被截断：模型输出为空（推理模型 token 被 max_tokens 耗尽）",
+        "若为推理模型（如 deepseek-reasoner），请调大 max_tokens 或确认模型可用额度",
+    ),
     "LLM_PROVIDER_RESPONSE_INVALID": (
         "Provider 流式响应格式无效",
         "请确认 base_url 支持 SSE 流式响应",
@@ -215,7 +219,7 @@ def test_provider(provider_id: int):
                 prompt="Return exactly: OK",
                 system_prompt="This is a provider connectivity probe. Return exactly OK.",
                 temperature=0.0,
-                max_tokens=8,
+                max_tokens=512,
                 timeout_seconds=8,
             )
         )

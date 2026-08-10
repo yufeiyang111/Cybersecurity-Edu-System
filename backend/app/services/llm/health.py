@@ -250,7 +250,7 @@ class LLMProviderHealthChecker:
             prompt=HEALTH_CHECK_PROMPT,
             system_prompt=HEALTH_CHECK_SYSTEM_PROMPT,
             temperature=0.0,
-            max_tokens=8,
+            max_tokens=512,
             timeout_seconds=self._live_check_timeout_seconds,
         )
         started = perf_counter()

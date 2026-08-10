@@ -11,6 +11,14 @@ from .provider_service import get_default_for_user
 from .secrets import decrypt_secret
 
 
+def resolve_provider_max_tokens(provider: object, fallback: int) -> int:
+    """优先使用用户在 Provider 配置里设置的 max_tokens，未配置时回退代码默认值。"""
+    configured = getattr(provider, "max_tokens", None)
+    if isinstance(configured, int) and configured > 0:
+        return configured
+    return fallback
+
+
 def select_provider(user_id: int | None = None, operation: str = "unknown"):
     if user_id is not None and has_app_context():
         try:
@@ -33,6 +41,7 @@ def select_provider(user_id: int | None = None, operation: str = "unknown"):
                     provider_config_id=configured.id,
                     user_id=user_id,
                     operation=operation,
+                    max_tokens=configured.max_tokens,
                 )
                 return observe_provider(provider, user_id=user_id, operation=operation)
             except (RuntimeError, ValueError):

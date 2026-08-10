@@ -23,7 +23,7 @@ from app.models.agent_runtime import AgentArtifact, AgentMessage, AgentRun, Agen
 from app.models.conversation import AgentConversationMessage, AgentTurn
 from app.services.agent_observability import AgentLogger
 from app.services.llm.contracts import LLMRequest
-from app.services.llm.provider_selector import select_provider
+from app.services.llm.provider_selector import resolve_provider_max_tokens, select_provider
 from app.services.llm.redactor import redact_reasoning
 from app.services.llm.usage_normalizer import normalize_usage
 from app.services.security_agent.contracts import (
@@ -116,7 +116,7 @@ class AgentLlmAnalysisService:
             status="started",
             trace_id=trace_id,
         )
-        request = self._build_request(goal, evidence)
+        request = self._build_request(goal, evidence, provider)
         self._last_prompt = request.prompt
         try:
             return self._consume_stream(run, provider, request, evidence, trace_id)
@@ -374,7 +374,7 @@ class AgentLlmAnalysisService:
 
     # ------------------------------------------------------------------ helpers
 
-    def _build_request(self, goal: str, evidence: dict) -> LLMRequest:
+    def _build_request(self, goal: str, evidence: dict, provider: object) -> LLMRequest:
         evidence_text = json.dumps(evidence, ensure_ascii=False)[:MAX_EVIDENCE_CHARS]
         return LLMRequest(
             prompt=f"本轮目标：{goal}\n\n确定性工具证据：\n{evidence_text}",
@@ -384,7 +384,7 @@ class AgentLlmAnalysisService:
                 "3）修复建议。只能依据证据作答，禁止编造证据之外的发现。"
             ),
             temperature=0.3,
-            max_tokens=1200,
+            max_tokens=resolve_provider_max_tokens(provider, 1200),
         )
 
     def _turn_input(self, run: AgentRun) -> str | None:

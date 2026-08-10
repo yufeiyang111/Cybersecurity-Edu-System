@@ -81,6 +81,50 @@ def test_generate_stream_yields_content_and_finished_chunk():
     assert client.calls[0][1]["json"]["stream"] is True
 
 
+def test_generate_stream_keeps_utf8_chinese_intact():
+    lines = [
+        'data: {"choices":[{"delta":{"content":"安全"}}]}'.encode("utf-8"),
+        'data: {"choices":[{"delta":{"content":"分析"}}]}'.encode("utf-8"),
+        "data: [DONE]".encode("utf-8"),
+    ]
+    client = _FakeClient(_FakeResponse(lines=lines))
+    provider = OpenAICompatibleProvider(
+        provider_name="private",
+        base_url="https://llm.example/v1",
+        api_key="private-api-key",
+        model="private-model",
+        http_client=client,
+    )
+
+    chunks = list(provider.generate_stream(LLMRequest(prompt="hello")))
+
+    assert [chunk.delta for chunk in chunks] == ["安全", "分析", ""]
+    assert chunks[-1].finished is True
+
+
+def test_generate_stream_auto_repairs_latin1_mojibake():
+    def broken_line(text):
+        return 'data: {"choices":[{"delta":{"content":"%s"}}]}' % text
+
+    broken = "安全分析".encode("utf-8").decode("latin-1")
+    lines = [
+        broken_line(broken).encode("utf-8"),
+        "data: [DONE]".encode("utf-8"),
+    ]
+    client = _FakeClient(_FakeResponse(lines=lines))
+    provider = OpenAICompatibleProvider(
+        provider_name="private",
+        base_url="https://llm.example/v1",
+        api_key="private-api-key",
+        model="private-model",
+        http_client=client,
+    )
+
+    chunks = list(provider.generate_stream(LLMRequest(prompt="hello")))
+
+    assert chunks[0].delta == "安全分析"
+
+
 def test_generate_returns_safe_warning_for_non_success_response():
     client = _FakeClient(_FakeResponse(status_code=401, payload={"error": "secret body"}))
     provider = OpenAICompatibleProvider(

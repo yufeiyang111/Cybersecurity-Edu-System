@@ -24,7 +24,7 @@ from app.models.agent_runtime import (
 )
 from app.services.agent_observability import AgentLogger
 from app.services.llm.contracts import LLMRequest, LLMResponse
-from app.services.llm.provider_selector import select_provider
+from app.services.llm.provider_selector import resolve_provider_max_tokens, select_provider
 from app.services.security_agent.budget import budget_status
 from app.services.security_agent.contracts import (
     EVENT_BUDGET_UPDATED,
@@ -163,7 +163,7 @@ class PlanPlanner:
                 "只输出符合要求的 PlanEnvelope JSON。"
             ),
             temperature=0.2,
-            max_tokens=1500,
+            max_tokens=resolve_provider_max_tokens(provider, 1500),
         )
         try:
             response = provider.generate(request)

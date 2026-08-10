@@ -30,6 +30,7 @@ class _FakeUserConfig:
     api_key_ciphertext = "ciphertext"
     model = "private-model"
     id = 7
+    max_tokens = 8192
 
 
 class _FakePrivateProvider:
@@ -70,11 +71,13 @@ def test_select_provider_uses_user_provider_first(app_ctx, monkeypatch):
         provider_selector, "get_default_for_user", lambda uid: _FakeUserConfig()
     )
     monkeypatch.setattr(provider_selector, "decrypt_secret", lambda c: "key")
-    monkeypatch.setattr(
-        provider_selector,
-        "OpenAICompatibleProvider",
-        lambda **kw: _FakePrivateProvider(),
-    )
+    captured = {}
+
+    def fake_factory(**kw):
+        captured.update(kw)
+        return _FakePrivateProvider()
+
+    monkeypatch.setattr(provider_selector, "OpenAICompatibleProvider", fake_factory)
     monkeypatch.setattr(provider_selector, "observe_provider", lambda p, **kw: p)
     called = {"fallback": False}
 
@@ -87,6 +90,22 @@ def test_select_provider_uses_user_provider_first(app_ctx, monkeypatch):
     provider = provider_selector.select_provider(user_id=13, operation="memory")
     assert isinstance(provider, _FakePrivateProvider)
     assert called["fallback"] is False
+    assert captured.get("max_tokens") == 8192, "用户配置的 max_tokens 必须传给 provider"
+
+
+def test_resolve_provider_max_tokens_uses_user_config_first(monkeypatch):
+    """用户配置了 max_tokens 时优先使用，未配置时回退默认值。"""
+    from app.services.llm.provider_selector import resolve_provider_max_tokens
+
+    class _WithTokens:
+        max_tokens = 4096
+
+    class _WithoutTokens:
+        pass
+
+    assert resolve_provider_max_tokens(_WithTokens(), 1500) == 4096
+    assert resolve_provider_max_tokens(_WithoutTokens(), 1500) == 1500
+    assert resolve_provider_max_tokens(None, 1500) == 1500
 
 
 def test_select_provider_user_provider_load_failure_falls_back(app_ctx, monkeypatch):

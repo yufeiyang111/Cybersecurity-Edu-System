@@ -14,6 +14,7 @@ SUPPORTED_PROVIDER_TYPE = "openai_compatible"
 MAX_PROVIDER_NAME_LENGTH = 100
 MAX_MODEL_LENGTH = 200
 MAX_BASE_URL_LENGTH = 500
+MAX_TOKENS_LIMIT = 1000000
 _BLOCKED_HOSTNAMES = {
     "localhost",
     "metadata.google.internal",
@@ -119,6 +120,7 @@ def update_for_user(
     provider.provider_type = values["provider_type"]
     provider.base_url = values["base_url"]
     provider.model = values["model"]
+    provider.max_tokens = values["max_tokens"]
     if values["api_key_ciphertext"] is not None:
         provider.api_key_ciphertext = values["api_key_ciphertext"]
         provider.api_key_hint = values["api_key_hint"]
@@ -179,6 +181,7 @@ def build_provider(
         user_id=user_id,
         operation=operation,
         http_client=http_client,
+        max_tokens=provider.max_tokens,
     )
 
 
@@ -218,7 +221,20 @@ def _validated_values(
         "is_default": _boolean(
             data["is_default"], "is_default"
         ) if "is_default" in data else (existing.is_default if existing else False),
+        "max_tokens": _max_tokens(
+            data["max_tokens"]
+        ) if "max_tokens" in data else (existing.max_tokens if existing else None),
     }
+
+
+def _max_tokens(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("max_tokens 必须是整数")
+    if not 1 <= value <= MAX_TOKENS_LIMIT:
+        raise ValueError(f"max_tokens 必须在 1 至 {MAX_TOKENS_LIMIT} 之间")
+    return value
 
 
 def _normalize_allowed_host(value: object) -> str:

@@ -289,3 +289,172 @@ def test_provider_update_and_test_are_user_scoped(llm_api_app):
 
     assert updated.status_code == 404
     assert tested.status_code == 404
+
+
+class _FakeProvider:
+    def __init__(self, response):
+        self.provider_name = "fake"
+        self.base_url = "https://llm.example/v1"
+        self.model = "fake-model"
+        self._response = response
+        self.last_request = None
+
+    def generate(self, request):
+        self.last_request = request
+        return self._response
+
+
+def _make_provider_config(application, user_id: int) -> int:
+    from app.models.llm import LLMProviderConfig
+
+    with application.app_context():
+        provider = LLMProviderConfig(
+            user_id=user_id,
+            name="fake",
+            base_url="https://llm.example/v1",
+            model="fake-model",
+            api_key_ciphertext="ciphertext",
+            api_key_hint="sk-fa••••ket",
+        )
+        db.session.add(provider)
+        db.session.commit()
+        return provider.id
+
+
+def _llm_response(text, *, warning_code=None, finish_reason=None):
+    from app.services.llm.contracts import LLMResponse
+
+    return LLMResponse(
+        text=text,
+        provider_name="fake",
+        model="fake-model",
+        status_code=200,
+        warning_code=warning_code,
+        finish_reason=finish_reason,
+    )
+
+
+def test_provider_test_accepts_reasoning_model_output(llm_api_app, monkeypatch):
+    from app.routes import llm as llm_routes
+
+    user_id = _make_user(llm_api_app, "llm-reason-ok")
+    provider_id = _make_provider_config(llm_api_app, user_id)
+    fake = _FakeProvider(_llm_response("OK"))
+    monkeypatch.setattr(llm_routes.provider_service, "build_provider", lambda *a, **k: fake)
+
+    response = llm_api_app.test_client().post(
+        f"/api/llm/providers/{provider_id}/test",
+        headers=_headers(llm_api_app, user_id),
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["check"]["status"] == "healthy"
+    assert fake.last_request is not None
+    assert fake.last_request.max_tokens >= 64
+
+
+def test_provider_test_reports_truncated_reasoning(llm_api_app, monkeypatch):
+    from app.routes import llm as llm_routes
+
+    user_id = _make_user(llm_api_app, "llm-reason-trunc")
+    provider_id = _make_provider_config(llm_api_app, user_id)
+    fake = _FakeProvider(
+        _llm_response(None, warning_code="LLM_OUTPUT_TRUNCATED", finish_reason="length")
+    )
+    monkeypatch.setattr(llm_routes.provider_service, "build_provider", lambda *a, **k: fake)
+
+    response = llm_api_app.test_client().post(
+        f"/api/llm/providers/{provider_id}/test",
+        headers=_headers(llm_api_app, user_id),
+    )
+
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["check"]["status"] == "LLM_OUTPUT_TRUNCATED"
+    assert payload["check"]["warning_code"] == "LLM_OUTPUT_TRUNCATED"
+    assert "推理" in payload["check"]["detail"]
+
+
+def test_provider_max_tokens_persist_and_validate(llm_api_app):
+    user_id = _make_user(llm_api_app, "llm-max-tokens")
+    client = llm_api_app.test_client()
+    headers = _headers(llm_api_app, user_id)
+
+    created = client.post(
+        "/api/llm/providers",
+        json={
+            "name": "with-limit",
+            "base_url": "https://llm.internal:8000/v1",
+            "model": "deepseek-reasoner",
+            "api_key": "sk-test-1",
+            "max_tokens": 8192,
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201
+    provider = created.get_json()["provider"]
+    assert provider["max_tokens"] == 8192
+
+    provider_id = provider["id"]
+    updated = client.put(
+        f"/api/llm/providers/{provider_id}",
+        json={"max_tokens": 4096},
+        headers=headers,
+    )
+    assert updated.status_code == 200
+    assert updated.get_json()["provider"]["max_tokens"] == 4096
+
+    cleared = client.put(
+        f"/api/llm/providers/{provider_id}",
+        json={"max_tokens": None},
+        headers=headers,
+    )
+    assert cleared.status_code == 200
+    assert cleared.get_json()["provider"]["max_tokens"] is None
+
+    invalid = client.put(
+        f"/api/llm/providers/{provider_id}",
+        json={"max_tokens": 0},
+        headers=headers,
+    )
+    assert invalid.status_code == 400
+
+    invalid_high = client.put(
+        f"/api/llm/providers/{provider_id}",
+        json={"max_tokens": 1000001},
+        headers=headers,
+    )
+    assert invalid_high.status_code == 400
+
+    million = client.put(
+        f"/api/llm/providers/{provider_id}",
+        json={"max_tokens": 1000000},
+        headers=headers,
+    )
+    assert million.status_code == 200
+    assert million.get_json()["provider"]["max_tokens"] == 1000000
+
+
+def test_provider_max_tokens_overrides_default_request(llm_api_app, monkeypatch):
+    from app.routes import llm as llm_routes
+
+    user_id = _make_user(llm_api_app, "llm-max-override")
+    provider_id = _make_provider_config(llm_api_app, user_id)
+    with llm_api_app.app_context():
+        from app.models.llm import LLMProviderConfig
+
+        provider = db.session.get(LLMProviderConfig, provider_id)
+        provider.max_tokens = 8192
+        db.session.commit()
+
+    fake = _FakeProvider(_llm_response("OK"))
+    monkeypatch.setattr(llm_routes.provider_service, "build_provider", lambda *a, **k: fake)
+
+    response = llm_api_app.test_client().post(
+        f"/api/llm/providers/{provider_id}/test",
+        headers=_headers(llm_api_app, user_id),
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["check"]["status"] == "healthy"
+    assert fake.last_request.max_tokens == 512

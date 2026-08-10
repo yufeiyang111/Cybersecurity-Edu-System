@@ -27,6 +27,7 @@ class LLMProviderConfig(db.Model):
     api_key_hint = db.Column(db.String(64), nullable=False)
     is_enabled = db.Column(db.Boolean, nullable=False, default=True)
     is_default = db.Column(db.Boolean, nullable=False, default=False)
+    max_tokens = db.Column(db.Integer)
     last_check_status = db.Column(db.String(32))
     last_checked_at = db.Column(db.DateTime)
     last_latency_ms = db.Column(db.Integer)
@@ -49,6 +50,7 @@ class LLMProviderConfig(db.Model):
             "api_key_masked": self.api_key_hint,
             "is_enabled": bool(self.is_enabled),
             "is_default": bool(self.is_default),
+            "max_tokens": self.max_tokens,
             "last_check_status": self.last_check_status,
             "last_checked_at": self.last_checked_at.isoformat() if self.last_checked_at else None,
             "last_latency_ms": self.last_latency_ms,

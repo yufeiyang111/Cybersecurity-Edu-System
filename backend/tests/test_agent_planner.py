@@ -40,9 +40,10 @@ class _PlannerProvider:
     model_version = None
     provider_config_id = None
 
-    def __init__(self, responses):
+    def __init__(self, responses, max_tokens=None):
         self._responses = list(responses)
         self.requests = []
+        self.max_tokens = max_tokens
 
     def generate(self, request):
         self.requests.append(request)
@@ -170,6 +171,37 @@ def test_repair_succeeds_on_second_attempt(app, monkeypatch):
 
         assert plan.planner_source == "llm_live"
         assert len(provider.requests) == 2
+
+
+def test_planner_uses_user_configured_max_tokens(app, monkeypatch):
+    """用户 Provider 配置了 max_tokens 时，Planner 请求必须使用用户配置值。"""
+    with app.app_context():
+        run = _make_run()
+        provider = _PlannerProvider(
+            [_ok_response(json.dumps(VALID_ENVELOPE, ensure_ascii=False))],
+            max_tokens=8192,
+        )
+        _patch_provider(monkeypatch, provider)
+
+        plan = PlanPlanner(EventService()).generate_plan(run, trace_id="p6")
+
+        assert plan.planner_source == "llm_live"
+        assert provider.requests[0].max_tokens == 8192
+
+
+def test_planner_falls_back_to_default_max_tokens(app, monkeypatch):
+    """用户未配置 max_tokens 时，Planner 使用代码默认值 1500。"""
+    with app.app_context():
+        run = _make_run()
+        provider = _PlannerProvider(
+            [_ok_response(json.dumps(VALID_ENVELOPE, ensure_ascii=False))],
+            max_tokens=None,
+        )
+        _patch_provider(monkeypatch, provider)
+
+        PlanPlanner(EventService()).generate_plan(run, trace_id="p7")
+
+        assert provider.requests[0].max_tokens == 1500
 
 
 def test_budget_exhausted_blocks_llm_planning(app, monkeypatch):
