@@ -293,13 +293,11 @@ class EmbeddingService:
             return
 
         self.model_name = model_name or Config.EMBEDDING_MODEL
-        # 硅基流动 API 模式优先（免费 bge-m3，1024 维与本地一致，库无需重建）
-        if Config.EMBEDDING_API_ENABLED and Config.EMBEDDING_API_KEY:
-            from app.services.api_embedding import ApiEmbedding
+        # 按需求全部走硅基流动 API（免费 bge-m3，1024 维，与库索引一致）；
+        # 本地模型不再加载。API 失败时 is_degraded=True，检索侧自动走 BM25 词法路。
+        from app.services.api_embedding import ApiEmbedding
 
-            self.embedding_model = ApiEmbedding()
-        else:
-            self.embedding_model = SecBERTEmbedding(model_name=self.model_name)
+        self.embedding_model = ApiEmbedding()
         self._initialized = True
 
     def encode(self, texts: Union[str, List[str]], **kwargs) -> np.ndarray:

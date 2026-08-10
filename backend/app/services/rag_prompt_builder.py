@@ -8,6 +8,9 @@
    在 user 消息的 XML 标签内，标签顺序固定；标签内无内容时输出固定占位符。
 3. 回答长度与 qa_max_tokens 联动：按档位生成 <output_guidance> 指令，引导模型
    在允许的 token 预算内产出相应详略程度的回答。
+4. 对话历史采用 token 预算驱动的滑动窗口（业界主流做法，对标 ChatGPT/Claude）：
+   最近消息全量保留、从后往前在预算内尽量多保留早前消息，超出预算的早期消息
+   丢弃；稳定前缀（system）不动，保证前缀缓存命中率。
 """
 from __future__ import annotations
 
@@ -16,6 +19,7 @@ from typing import Any, Dict, List, Optional
 DEFAULT_QA_MAX_TOKENS = 16384
 QA_MAX_TOKENS_LOW = 1
 QA_MAX_TOKENS_HIGH = 384000
+DEFAULT_HISTORY_TOKEN_BUDGET = 4096
 
 # system prompt 必须保持完全稳定：任何用户数据都不得进入该常量。
 SYSTEM_PROMPT = """你是网络安全领域的专业教学助手"网安助手"。
@@ -84,16 +88,51 @@ def output_guidance_for(max_tokens: Optional[int] = None) -> str:
     return _OUTPUT_GUIDANCE_CONCISE
 
 
+def _estimate_tokens(text: str) -> int:
+    """粗略 token 估算：中文约 1.5 字符/token，英文约 4 字符/token。
+
+    用于历史滑动窗口的预算分配，无需精确（预算只做截断边界）。
+    """
+    if not text:
+        return 0
+    cjk = sum(1 for ch in text if "\u4e00" <= ch <= "\u9fff")
+    other = len(text) - cjk
+    return max(1, int(cjk / 1.5 + other / 4))
+
+
 def _history_lines(
     conversation_history: Optional[List[Dict[str, Any]]],
     include_history: bool,
+    token_budget: int = DEFAULT_HISTORY_TOKEN_BUDGET,
 ) -> str:
+    """token 预算驱动的滑动窗口：从最近消息向前保留，超预算的早期消息丢弃。
+
+    至少保留最近 1 轮（单条超长消息截断到预算内）。
+    """
     if not include_history or not conversation_history:
         return _EMPTY_PLACEHOLDER
+    budget = max(1, int(token_budget or DEFAULT_HISTORY_TOKEN_BUDGET))
     lines: List[str] = []
-    for msg in conversation_history[-5:]:
+    used = 0
+    for msg in reversed(conversation_history[-20:]):
         role = "用户" if msg.get("role", "user") == "user" else "助手"
-        lines.append(f"[{role}] {str(msg.get('content') or '').strip()}")
+        content = str(msg.get("content") or "").strip()
+        if not content:
+            continue
+        line = f"[{role}] {content}"
+        tokens = _estimate_tokens(line)
+        if lines and used + tokens > budget:
+            # 预算已满：更早的消息全部丢弃（滑动窗口）
+            break
+        if tokens > budget:
+            # 单条超长消息：截断到预算内（保证至少有上下文可用）
+            line = line[: int(budget * 1.5)]
+            tokens = _estimate_tokens(line)
+        lines.append(line)
+        used += tokens
+        if len(lines) >= 30:
+            break
+    lines.reverse()
     return "\n".join(lines) if lines else _EMPTY_PLACEHOLDER
 
 
@@ -127,6 +166,7 @@ def build_qa_messages(
     include_history: bool = True,
     user_preferences: Optional[Dict[str, Any]] = None,
     memories: Optional[List[Dict[str, Any]]] = None,
+    history_token_budget: int = DEFAULT_HISTORY_TOKEN_BUDGET,
 ) -> List[Dict[str, str]]:
     """组装 QA 消息：固定 system + XML 标签化 user 消息。"""
     max_tokens = resolve_qa_max_tokens(user_preferences)
@@ -135,7 +175,7 @@ def build_qa_messages(
         f"{context.strip() if context and context.strip() else _EMPTY_PLACEHOLDER}\n"
         "</retrieved_context>\n\n"
         "<conversation_history>\n"
-        f"{_history_lines(conversation_history, include_history)}\n"
+        f"{_history_lines(conversation_history, include_history, history_token_budget)}\n"
         "</conversation_history>\n\n"
         "<user_context>\n"
         f"{_context_lines(user_preferences)}\n"

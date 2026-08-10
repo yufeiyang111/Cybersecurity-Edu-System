@@ -188,9 +188,15 @@ class Config:
     # QA 高成本 LLM 调用限流（每分钟每用户）
     QA_RATE_LIMIT_PER_MINUTE = _env_int("QA_RATE_LIMIT_PER_MINUTE", 10)
     # 持久记忆写入去重相似度阈值（>= 阈值视为同一事实，跳过入库）
-    MEMORY_DEDUP_THRESHOLD = float(os.getenv("MEMORY_DEDUP_THRESHOLD", "0.92"))
+    MEMORY_DEDUP_THRESHOLD = float(os.getenv("MEMORY_DEDUP_THRESHOLD", "0.88"))
+    # 记忆抽取 LLM 请求的最大输出 tokens（用户 provider 配置的 max_tokens 优先）
+    MEMORY_EXTRACT_MAX_TOKENS = _env_int("MEMORY_EXTRACT_MAX_TOKENS", 4000)
+    # QA 对话历史 token 预算：从最近消息向前滑动窗口，超出预算的早期消息丢弃
+    QA_HISTORY_TOKEN_BUDGET = _env_int("QA_HISTORY_TOKEN_BUDGET", 4096)
     # 持久记忆检索时间加权：每早一天衰减 0.02，5 天后不再加权（封顶 ±10%）
     MEMORY_TEMPORAL_DECAY_PER_DAY = float(os.getenv("MEMORY_TEMPORAL_DECAY_PER_DAY", "0.02"))
+    # 记忆负面反馈（没用）累计达该阈值时，管理页标注"建议删除"（不自动删）
+    MEMORY_FEEDBACK_SUGGEST_THRESHOLD = int(os.getenv("MEMORY_FEEDBACK_SUGGEST_THRESHOLD", "3"))
     # 本地 bge-m3（1024 维，8192 上下文）：D 盘已有模型，无需下载
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "D:/rag-medical/models/bge-m3")
     EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1024"))
@@ -213,7 +219,7 @@ class Config:
         "EMBEDDING_QUERY_PREFIX", "为这个句子生成表示以用于检索相关文章："
     )
     # 硅基流动 API embedding（免费 bge-m3，与本地模型同维 1024，库无需重建）
-    EMBEDDING_API_ENABLED = _env_bool("EMBEDDING_API_ENABLED", False)
+    EMBEDDING_API_ENABLED = _env_bool("EMBEDDING_API_ENABLED", True)
     EMBEDDING_API_BASE = os.getenv("EMBEDDING_API_BASE", "https://api.siliconflow.cn/v1")
     EMBEDDING_API_KEY = (
         os.getenv("EMBEDDING_API_KEY", "").strip()
@@ -240,7 +246,7 @@ class Config:
     RERANK_ENABLED = _env_bool("RERANK_ENABLED", False)
     RERANKER_MODEL = os.getenv("RERANKER_MODEL", "D:/rag-medical/models/bge-reranker-v2-m3")
     # 硅基流动 API rerank（免费 bge-reranker-v2-m3）：开启后 RERANK_ENABLED 自动生效
-    RERANKER_API_ENABLED = _env_bool("RERANKER_API_ENABLED", False)
+    RERANKER_API_ENABLED = _env_bool("RERANKER_API_ENABLED", True)
     RERANKER_API_BASE = os.getenv("RERANKER_API_BASE", "https://api.siliconflow.cn/v1")
     RERANKER_API_KEY = (
         os.getenv("RERANKER_API_KEY", "").strip()

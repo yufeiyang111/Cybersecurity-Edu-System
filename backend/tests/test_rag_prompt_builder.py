@@ -82,7 +82,8 @@ def test_user_prompt_uses_placeholders_when_empty():
     assert "（无）" in user_content.split("<memories>")[1].split("</memories>")[0]
 
 
-def test_history_is_included_and_bounded_to_five_turns():
+def test_history_included_fully_within_budget():
+    """短历史在默认预算内全部保留（滑动窗口按预算而非固定轮数）。"""
     history = [
         {"role": "user", "content": f"历史问题{i}"}
         for i in range(8)
@@ -91,7 +92,42 @@ def test_history_is_included_and_bounded_to_five_turns():
     user_content = messages[1]["content"]
     history_section = user_content.split("<conversation_history>")[1].split("</conversation_history>")[0]
     assert "历史问题7" in history_section
-    assert "历史问题0" not in history_section
+    assert "历史问题0" in history_section
+
+
+def test_history_sliding_window_keeps_recent_messages_within_budget():
+    """token 预算驱动的滑动窗口：预算不足时丢弃更早消息，保留最近的。"""
+    history = [
+        {"role": "user", "content": f"第{i}轮很长的历史消息内容" + "详细内容" * 60}
+        for i in range(8)
+    ]
+    messages = _messages(conversation_history=history, include_history=True, history_token_budget=1000)
+    history_section = messages[1]["content"].split("<conversation_history>")[1].split("</conversation_history>")[0]
+    assert "第7轮" in history_section
+    assert "第0轮" not in history_section
+
+
+def test_history_sliding_window_keeps_at_least_most_recent_turn():
+    """预算极小（单轮都放不下）时仍保留最近一轮上下文。"""
+    history = [
+        {"role": "user", "content": "这是非常" + "长" * 500 + "的历史内容"},
+        {"role": "assistant", "content": "这是回复"},
+    ]
+    messages = _messages(conversation_history=history, include_history=True, history_token_budget=10)
+    history_section = messages[1]["content"].split("<conversation_history>")[1].split("</conversation_history>")[0]
+    assert "这是回复" in history_section
+    assert history_section != "（无）"
+
+
+def test_history_sliding_window_large_budget_keeps_more_turns():
+    history = [
+        {"role": "user", "content": f"短问题{i}"}
+        for i in range(12)
+    ]
+    messages = _messages(conversation_history=history, include_history=True, history_token_budget=4096)
+    history_section = messages[1]["content"].split("<conversation_history>")[1].split("</conversation_history>")[0]
+    assert "短问题0" in history_section
+    assert "短问题11" in history_section
 
 
 def test_history_skipped_when_include_history_false():

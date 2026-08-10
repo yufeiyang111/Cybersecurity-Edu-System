@@ -20,7 +20,7 @@ DEFAULT_RERANKER_MODEL = "D:/rag-medical/models/bge-reranker-v2-m3"
 
 
 class RerankerService:
-    """基于 cross-encoder 的排序服务。"""
+    """基于硅基流动 API 的 rerank 服务（按需求全部走 API，本地模型不再加载）。"""
 
     _instance: Optional["RerankerService"] = None
 
@@ -29,38 +29,16 @@ class RerankerService:
         self.tokenizer = None
         self.model = None
         self.device = "cpu"
-        # 硅基流动 API 模式（免费 bge-reranker-v2-m3，毫秒级，不占内存）
-        self.api_mode = bool(
-            Config.RERANKER_API_ENABLED and Config.RERANKER_API_KEY
-        )
+        # API-only：配置了 key 即启用（免费 bge-reranker-v2-m3，毫秒级，不占内存）；
+        # 无 key 时降级为伪重排（保持原序），不加载本地 cross-encoder。
+        self.api_mode = bool(Config.RERANKER_API_KEY)
         self._api_failed = False
 
     def _load(self) -> bool:
-        """加载模型（幂等）。API 模式校验 key；本地模式加载模型。失败返回 False。"""
-        if self.api_mode:
-            return not self._api_failed
-        if self.model is not None:
-            return True
-        try:
-            import torch
-            from transformers import AutoModelForSequenceClassification, AutoTokenizer
-
-            os.environ.setdefault("HF_ENDPOINT", Config.HF_ENDPOINT)
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            dtype = torch.float16 if Config.RERANKER_HALF_PRECISION else torch.float32
-            self.model = AutoModelForSequenceClassification.from_pretrained(
-                self.model_name,
-                dtype=dtype,
-            )
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
-            self.model.to(self.device)
-            self.model.eval()
-            logger.info("reranker loaded: %s (device=%s)", self.model_name, self.device)
-            return True
-        except Exception as exc:
-            logger.warning("reranker 加载失败，将降级为伪重排: %s", exc)
-            self.model = None
+        """API 模式可用即返回 True；失败后保持降级（不加载本地模型）。"""
+        if not self.api_mode:
             return False
+        return not self._api_failed
 
     def _api_rerank(self, query: str, passages: List[str], top_k: int) -> Optional[List[float]]:
         """调用硅基流动 /v1/rerank，返回按原序排列的 relevance_score 列表。"""

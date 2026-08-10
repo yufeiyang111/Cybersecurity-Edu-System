@@ -181,13 +181,19 @@ def _normalize_entities(payload: list) -> list[dict]:
 
 
 def _build_request(provider: Any, question: str, answer: str):
+    from app.config import Config
     from app.services.llm.contracts import LLMRequest
     from app.services.llm.provider_selector import resolve_provider_max_tokens
 
     return LLMRequest(
         prompt=EXTRACT_PROMPT.format(question=question, answer=answer[:4000]),
         temperature=0.2,
-        max_tokens=resolve_provider_max_tokens(provider, 512),
+        # 默认 4000 tokens（Config.MEMORY_EXTRACT_MAX_TOKENS 可调）；
+        # 用户 provider 配置了 max_tokens 时优先使用用户配置
+        max_tokens=resolve_provider_max_tokens(
+            provider,
+            Config.MEMORY_EXTRACT_MAX_TOKENS,
+        ),
     )
 
 

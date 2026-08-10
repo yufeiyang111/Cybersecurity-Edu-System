@@ -15,7 +15,7 @@ from app.services.secbert_embedding import get_embedding_service
 from app.services.llm import LLMRequest, LLMResponse
 from app.services.llm.prompt_cache_key_factory import for_stable_prefix
 from app.services.rag_guard import detect_prompt_injection, wrap_untrusted_section
-from app.services.llm.provider_selector import select_provider
+from app.services.llm.provider_selector import resolve_provider_max_tokens, select_provider
 from app.services.text_chunker import chunk_text
 from app.services.rag_prompt_builder import (
     DEFAULT_QA_MAX_TOKENS,
@@ -317,6 +317,7 @@ class EnhancedRAGEngine:
             include_history=include_history,
             user_preferences=user_preferences,
             memories=memories,
+            history_token_budget=Config.QA_HISTORY_TOKEN_BUDGET,
         )
 
     _DEFAULT_QA_MAX_TOKENS = DEFAULT_QA_MAX_TOKENS
@@ -724,7 +725,7 @@ class EnhancedRAGEngine:
                 response = provider.generate(
                     LLMRequest(
                         prompt=prompt,
-                        max_tokens=512,
+                        max_tokens=resolve_provider_max_tokens(provider, 512),
                         prompt_cache_key=self._prompt_cache_key(provider, None),
                     )
                 )
