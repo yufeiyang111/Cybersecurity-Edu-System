@@ -291,6 +291,8 @@ def test_phase_three_schema_is_in_init_sql_and_ordered_migration_runner():
         "024_memory_governance",
         "025_memory_entities_dream",
         "026_qa_record_reasoning",
+        "027_project_security_graph",
+        "028_knowledge_content_mediumtext",
     )
     assert len(_statements(migration_sql)) == 3
     for table_name in (

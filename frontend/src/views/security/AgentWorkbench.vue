@@ -212,6 +212,22 @@
             :loading="loading"
           />
           <AgentPlanGraph :plan="store.plan" :loading="loading" />
+          <ProjectSecurityGraph
+            :run-id="currentRunId || runId"
+            @select-node="selectGraphNode"
+            @error="handleGraphError"
+          />
+          <SecurityGraphNodeDetail
+            :node="selectedGraphNode"
+            :run-id="currentRunId || runId"
+            @show-code="openCodeEvidence"
+          />
+          <CodeEvidenceViewer
+            :visible="codeVisible"
+            :slice="codeSlice"
+            @close="closeCodeEvidence"
+          />
+          <CallChainPanel :run-id="currentRunId || runId" />
           <AgentCoverageOverview
             :summary="coverageSummary"
             :loading="coverageLoading"
@@ -263,6 +279,10 @@ import AgentWorkbenchHeader from '@/components/security/agent/home/AgentWorkbenc
 import AgentProjectFilters from '@/components/security/agent/home/AgentProjectFilters.vue'
 import AgentProjectInspector from '@/components/security/agent/home/AgentProjectInspector.vue'
 import AgentProjectTable from '@/components/security/agent/home/AgentProjectTable.vue'
+import CallChainPanel from '@/components/security/agent/CallChainPanel.vue'
+import CodeEvidenceViewer from '@/components/security/agent/CodeEvidenceViewer.vue'
+import ProjectSecurityGraph from '@/components/security/agent/ProjectSecurityGraph.vue'
+import SecurityGraphNodeDetail from '@/components/security/agent/SecurityGraphNodeDetail.vue'
 import { BaseBadge, BaseIcon } from '@/components/ui'
 import { agentAPI, securityAPI } from '@/api'
 import { useAgentCosts } from '@/composables/security/useAgentCosts'
@@ -313,6 +333,27 @@ const projectSearch = ref('')
 const projectLanguage = ref('all')
 const projectSort = ref('recent')
 const inspectorRef = ref(null)
+const selectedGraphNode = ref(null)
+const codeVisible = ref(false)
+const codeSlice = ref(null)
+
+function selectGraphNode(node) {
+  selectedGraphNode.value = node
+}
+
+function handleGraphError(message) {
+  if (message) ElMessage.error(message)
+}
+
+function openCodeEvidence(slice) {
+  codeSlice.value = slice
+  codeVisible.value = true
+}
+
+function closeCodeEvidence() {
+  codeVisible.value = false
+  codeSlice.value = null
+}
 
 const runId = computed(() => Number(route.params.runId))
 const projectId = computed(() => Number(route.params.id))

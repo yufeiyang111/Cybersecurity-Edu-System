@@ -152,3 +152,127 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
         ),
         build_report_handler(),
     )
+    _register_graph_tools(registry)
+
+
+def _register_graph_tools(registry: ToolRegistry) -> None:
+    from app.services.security_agent.tools.code_tools import build_read_code_slice_handler
+    from app.services.security_agent.tools.graph_tools import (
+        build_call_chain_handler,
+        build_find_symbol_references_handler,
+        build_get_authentication_map_handler,
+        build_get_related_files_handler,
+        build_get_route_map_handler,
+        build_search_code_handler,
+    )
+    from app.services.security_agent.tools.repository_tools import build_map_repository_handler
+
+    graph_tools = [
+        (
+            ToolDescriptor(
+                name="map_repository",
+                version="1.0",
+                category="repository",
+                description="为快照构建项目安全有向图（Route/Service/Repository/Model/调用关系），幂等可重跑。",
+                input_schema={"type": "object", "properties": {}},
+                risk_level="safe_read",
+                timeout_seconds=600,
+                idempotent=True,
+                produces_artifact_types=["security_graph"],
+            ),
+            build_map_repository_handler(),
+        ),
+        (
+            ToolDescriptor(
+                name="get_route_map",
+                version="1.0",
+                category="graph",
+                description="分页读取快照图的路由/文件入口节点。",
+                input_schema={"type": "object", "properties": {"limit": {"type": "integer"}, "offset": {"type": "integer"}}},
+                risk_level="safe_read",
+                timeout_seconds=30,
+                idempotent=True,
+            ),
+            build_get_route_map_handler(),
+        ),
+        (
+            ToolDescriptor(
+                name="get_authentication_map",
+                version="1.0",
+                category="graph",
+                description="启发式过滤路由/中间件/含 auth 或 login 的节点，用于鉴权面梳理。",
+                input_schema={"type": "object", "properties": {"limit": {"type": "integer"}, "offset": {"type": "integer"}}},
+                risk_level="safe_read",
+                timeout_seconds=30,
+                idempotent=True,
+            ),
+            build_get_authentication_map_handler(),
+        ),
+        (
+            ToolDescriptor(
+                name="search_code",
+                version="1.0",
+                category="code",
+                description="按标签或文件路径模糊搜索图节点（分页）。",
+                input_schema={"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer"}, "offset": {"type": "integer"}}},
+                risk_level="safe_read",
+                timeout_seconds=30,
+                idempotent=True,
+            ),
+            build_search_code_handler(),
+        ),
+        (
+            ToolDescriptor(
+                name="find_symbol_references",
+                version="1.0",
+                category="graph",
+                description="查询指向某符号节点的入边（谁引用它），分页。",
+                input_schema={"type": "object", "properties": {"symbol": {"type": "string"}, "limit": {"type": "integer"}, "offset": {"type": "integer"}}},
+                risk_level="safe_read",
+                timeout_seconds=30,
+                idempotent=True,
+            ),
+            build_find_symbol_references_handler(),
+        ),
+        (
+            ToolDescriptor(
+                name="get_related_files",
+                version="1.0",
+                category="graph",
+                description="查询某个文件路径下的全部图节点。",
+                input_schema={"type": "object", "properties": {"file_path": {"type": "string"}}},
+                risk_level="safe_read",
+                timeout_seconds=30,
+                idempotent=True,
+            ),
+            build_get_related_files_handler(),
+        ),
+        (
+            ToolDescriptor(
+                name="build_call_chain",
+                version="1.0",
+                category="graph",
+                description="按上游调用边追溯符号的调用链（深度受限）。",
+                input_schema={"type": "object", "properties": {"symbol": {"type": "string"}, "depth": {"type": "integer"}}},
+                risk_level="safe_read",
+                timeout_seconds=60,
+                idempotent=True,
+            ),
+            build_call_chain_handler(),
+        ),
+        (
+            ToolDescriptor(
+                name="read_code_slice",
+                version="1.0",
+                category="code",
+                description="读取快照内受限源码片段（必须带行号范围与理由，防路径逃逸）。",
+                input_schema={"type": "object", "properties": {"file_path": {"type": "string"}, "start_line": {"type": "integer"}, "end_line": {"type": "integer"}, "reason": {"type": "string"}}},
+                risk_level="sensitive_read",
+                timeout_seconds=30,
+                idempotent=True,
+            ),
+            build_read_code_slice_handler(),
+        ),
+    ]
+    for descriptor, handler in graph_tools:
+        registry.register(descriptor, handler)

@@ -66,6 +66,13 @@ from app.models.memory import (
     MemoryFeedback,
     UserMemory,
 )
+from app.models.project_security_graph import (
+    GraphConfidence,
+    GraphEdgeType,
+    GraphNodeType,
+    ProjectSecurityGraphEdge,
+    ProjectSecurityGraphNode,
+)
 
 __all__ = [
     "User", "Role", "LoginLog",
@@ -89,4 +96,6 @@ __all__ = [
     "ConversationStatus", "TurnStatus",
     "LLMProviderConfig", "LLMCallLog",
     "LLMInvocation", "LLMPriceCatalog",
+    "GraphNodeType", "GraphEdgeType", "GraphConfidence",
+    "ProjectSecurityGraphNode", "ProjectSecurityGraphEdge",
 ]

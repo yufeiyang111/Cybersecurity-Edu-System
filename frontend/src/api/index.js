@@ -352,6 +352,14 @@ export const agentAPI = {
   getEvents: (runId, params) => api.get(`/security/agent-runs/${runId}/events`, { params }),
   getCoverage: (runId, params) => api.get(`/security/agent-runs/${runId}/coverage`, { params }),
   getRunCosts: (runId) => api.get(`/security/agent-runs/${runId}/costs`),
+  getGraph: (runId, params) => api.get(`/security/agent-runs/${runId}/graph`, { params }),
+  buildGraph: (runId) => api.post(`/security/agent-runs/${runId}/graph/build`),
+  getGraphNeighbors: (runId, nodeId, params) =>
+    api.get(`/security/agent-runs/${runId}/graph/nodes/${nodeId}/neighbors`, { params }),
+  getGraphNodesByFile: (runId, params) =>
+    api.get(`/security/agent-runs/${runId}/graph/by-file`, { params }),
+  getGraphCodeSlice: (runId, params) =>
+    api.get(`/security/agent-runs/${runId}/graph/code-slice`, { params }),
   sendMessage: (runId, content) => api.post(`/security/agent-runs/${runId}/messages`, { content }),
   createConversation: (projectId, data) => api.post(`/security/projects/${projectId}/agent-conversations`, data || {}),
   listProjectConversations: (projectId, params) => api.get(`/security/projects/${projectId}/agent-conversations`, { params }),
