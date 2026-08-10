@@ -32,14 +32,12 @@ import { computed } from 'vue'
 import { useI18n } from '@/features/chat/i18n'
 
 const props = defineProps({ modelValue: { type: Object, required: true } })
-const emit = defineEmits(['update:modelValue'])
 const { t } = useI18n()
 
 const maxTokensInput = computed({
   get: () => props.modelValue.qa_max_tokens ?? '',
   set: (value) => {
-    const num = value === '' || value === null ? null : Number(value)
-    emit('update:modelValue', { ...props.modelValue, qa_max_tokens: num })
+    props.modelValue.qa_max_tokens = value === '' || value === null ? null : Number(value)
   }
 })
 
