@@ -65,6 +65,8 @@ _ROUTE_STUB_MODULES = {
     "app.routes.memories": "memories_bp",
     "app.routes.help": "help_bp",
     "app.routes.user_activity": "user_activity_bp",
+    "app.routes.admin_users": "admin_users_bp",
+    "app.routes.admin_vector": "admin_vector_bp",
 }
 
 # legacy stub 不含 projects / help，两者需从磁盘真实加载：

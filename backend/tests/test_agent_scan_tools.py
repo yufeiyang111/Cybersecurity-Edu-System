@@ -14,6 +14,7 @@ from app.models.agent_runtime import (
 )
 from app.models.security import (
     ProjectSnapshot,
+    ScanTask,
     SecurityFinding,
     SecurityProject,
     Workspace,
@@ -170,3 +171,139 @@ def test_rank_findings_tool_sorts_by_risk(app, tmp_path):
         assert result.metrics["ranked_count"] >= 2
         scores = [item["risk_score"] for item in result.metrics["top_ranked"]]
         assert scores == sorted(scores, reverse=True), "必须按风险分降序"
+
+
+def test_run_scanner_tool_directed_python_only(app, tmp_path):
+    with app.app_context():
+        run, node, step = _make_run_and_node(app, tmp_path)
+        scanner_node = AgentPlanNode(
+            plan_id=node.plan_id,
+            node_key="directed_scan",
+            node_type="baseline_scan",
+            status="ready",
+            title="d",
+            tool_name="run_scanner",
+        )
+        db.session.add(scanner_node)
+        db.session.flush()
+        scanner_step = AgentStepExecution(
+            plan_node_id=scanner_node.id, run_id=run.id, attempt_number=1, status="running"
+        )
+        db.session.add(scanner_step)
+        db.session.commit()
+        executor = ToolExecutor(get_tool_registry(), EventService())
+        result = executor.execute(
+            run,
+            scanner_node,
+            scanner_step,
+            actor_id=run.created_by,
+            trace_id="t",
+            input_payload={"scanner_names": ["python-baseline"]},
+        )
+        assert result.status == "succeeded"
+        assert result.metrics["scanner_names"] == ["python-baseline"]
+        assert result.metrics["task_id"] > 0
+        assert result.metrics["findings_count"] >= 1
+        task_id = result.metrics["task_id"]
+        task = ScanTask.query.get(task_id)
+        assert task.summary_json["secret_findings_count"] == 0, "定向 python 不应执行 universal secret"
+        persisted = SecurityFinding.query.filter_by(task_id=task_id).all()
+        assert all(f.file_path == "app.py" for f in persisted), "定向 python 只扫描语言文件"
+
+
+def test_run_scanner_tool_directed_secret(app, tmp_path):
+    with app.app_context():
+        run, node, step = _make_run_and_node(app, tmp_path)
+        scanner_node = AgentPlanNode(
+            plan_id=node.plan_id,
+            node_key="secret_scan",
+            node_type="baseline_scan",
+            status="ready",
+            title="s",
+            tool_name="run_scanner",
+        )
+        db.session.add(scanner_node)
+        db.session.flush()
+        scanner_step = AgentStepExecution(
+            plan_node_id=scanner_node.id, run_id=run.id, attempt_number=1, status="running"
+        )
+        db.session.add(scanner_step)
+        db.session.commit()
+        executor = ToolExecutor(get_tool_registry(), EventService())
+        result = executor.execute(
+            run,
+            scanner_node,
+            scanner_step,
+            actor_id=run.created_by,
+            trace_id="t",
+            input_payload={"scanner_names": ["universal_secret"]},
+        )
+        assert result.status == "succeeded"
+        assert result.metrics["findings_count"] >= 1
+        task_id = result.metrics["task_id"]
+        task = ScanTask.query.get(task_id)
+        assert task.summary_json["secret_findings_count"] >= 1, "定向 universal_secret 应产出 secret 发现"
+        persisted = SecurityFinding.query.filter_by(task_id=task_id).all()
+        assert all(f.category == "secret" for f in persisted)
+
+
+def test_run_scanner_tool_rejects_unknown_scanner(app, tmp_path):
+    with app.app_context():
+        run, node, step = _make_run_and_node(app, tmp_path)
+        scanner_node = AgentPlanNode(
+            plan_id=node.plan_id,
+            node_key="bad_scan",
+            node_type="baseline_scan",
+            status="ready",
+            title="b",
+            tool_name="run_scanner",
+        )
+        db.session.add(scanner_node)
+        db.session.flush()
+        scanner_step = AgentStepExecution(
+            plan_node_id=scanner_node.id, run_id=run.id, attempt_number=1, status="running"
+        )
+        db.session.add(scanner_step)
+        db.session.commit()
+        executor = ToolExecutor(get_tool_registry(), EventService())
+        result = executor.execute(
+            run,
+            scanner_node,
+            scanner_step,
+            actor_id=run.created_by,
+            trace_id="t",
+            input_payload={"scanner_names": ["not-a-scanner"]},
+        )
+        assert result.status == "failed"
+        assert "not-a-scanner" in result.summary
+
+
+def test_run_scanner_tool_rejects_empty_names(app, tmp_path):
+    with app.app_context():
+        run, node, step = _make_run_and_node(app, tmp_path)
+        scanner_node = AgentPlanNode(
+            plan_id=node.plan_id,
+            node_key="empty_scan",
+            node_type="baseline_scan",
+            status="ready",
+            title="e",
+            tool_name="run_scanner",
+        )
+        db.session.add(scanner_node)
+        db.session.flush()
+        scanner_step = AgentStepExecution(
+            plan_node_id=scanner_node.id, run_id=run.id, attempt_number=1, status="running"
+        )
+        db.session.add(scanner_step)
+        db.session.commit()
+        executor = ToolExecutor(get_tool_registry(), EventService())
+        result = executor.execute(
+            run,
+            scanner_node,
+            scanner_step,
+            actor_id=run.created_by,
+            trace_id="t",
+            input_payload={"scanner_names": []},
+        )
+        assert result.status == "failed"
+        assert "scanner_names" in result.summary

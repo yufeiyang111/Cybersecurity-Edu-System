@@ -54,6 +54,7 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
     from app.services.security_agent.tools.scan_tools import (
         build_baseline_scan_handler,
         build_dependency_inventory_handler,
+        build_run_scanner_handler,
     )
 
     registry.register(
@@ -96,6 +97,31 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
             idempotent=True,
         ),
         build_dependency_inventory_handler(),
+    )
+    registry.register(
+        ToolDescriptor(
+            name="run_scanner",
+            version="1.0",
+            category="scanner",
+            description="定向执行指定扫描器（scanner_names 必填，如 python-baseline/universal_secret），"
+            "复用真实扫描管线并返回该次任务的发现统计。",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "scanner_names": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                    }
+                },
+                "required": ["scanner_names"],
+            },
+            risk_level="safe_read",
+            timeout_seconds=600,
+            idempotent=True,
+            produces_artifact_types=["finding_set"],
+        ),
+        build_run_scanner_handler(),
     )
     registry.register(
         ToolDescriptor(

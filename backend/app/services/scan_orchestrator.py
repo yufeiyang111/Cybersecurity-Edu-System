@@ -28,8 +28,17 @@ _value = status_value
 _transition = transition_task
 
 
-def run_scan_task(task_id: int) -> ScanTask:
-    """执行已持久化快照的确定性扫描，不执行任何源代码。"""
+def run_scan_task(
+    task_id: int,
+    scanners: list | None = None,
+    include_universal_secret: bool = True,
+) -> ScanTask:
+    """执行已持久化快照的确定性扫描，不执行任何源代码。
+
+    ``scanners`` 传 None 表示全量注册扫描器（既有行为）；传入部分扫描器时
+    仅执行指定扫描器，用于 Agent run_scanner 等定向场景。
+    ``include_universal_secret`` 控制是否追加独立 Secret 扫描，默认开启保持兼容。
+    """
     task = db.session.get(ScanTask, task_id)
     if task is None:
         raise ValueError("扫描任务不存在")
@@ -53,13 +62,18 @@ def run_scan_task(task_id: int) -> ScanTask:
 
         transition_task(task, ScanTaskStatus.SNAPSHOTTING.value, 25)
         transition_task(task, ScanTaskStatus.SCANNING.value, 40)
+        active_scanners = scanners if scanners is not None else get_scanners()
         execution = execute_scan_stages(
             task,
             snapshot_root,
-            scanners=get_scanners(),
+            scanners=active_scanners,
             vulnerability_provider=OSVVulnerabilityProvider(),
         )
-        secret_findings = execute_universal_secret_scan(task, snapshot_root)
+        secret_findings = 0
+        secret_ran = False
+        if include_universal_secret:
+            secret_findings = execute_universal_secret_scan(task, snapshot_root)
+            secret_ran = True
         task.summary_json = {
             "findings_count": execution.findings_count,
             "languages": execution.languages,
@@ -69,7 +83,7 @@ def run_scan_task(task_id: int) -> ScanTask:
             "secret_findings_count": secret_findings,
             "warnings": execution.warnings,
         }
-        if execution.completed_scanners:
+        if execution.completed_scanners or secret_ran:
             final_status = (
                 ScanTaskStatus.COMPLETED_WITH_WARNINGS.value
                 if execution.warnings
