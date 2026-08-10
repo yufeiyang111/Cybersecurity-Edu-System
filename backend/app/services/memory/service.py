@@ -79,17 +79,19 @@ def capture_interaction(
     provider = _selector_provider(user_id)
     if provider is None:
         return {"added": 0, "updated": 0, "skipped": 0}
-    facts = _extract(provider, question, answer)
+    extracted = _extract(provider, question, answer)
+    facts = extracted["facts"]
     if not facts:
         return {"added": 0, "updated": 0, "skipped": 0}
     kept, skipped = _dedup_against_existing(user_id, facts)
     if kept:
-        _store(user_id, conversation_id, record_id, kept)
+        _store(user_id, conversation_id, record_id, kept, extracted["entities"])
         logger.info(
-            "memory.capture user_id=%s added=%d skipped=%d",
+            "memory.capture user_id=%s added=%d skipped=%d entities=%d",
             user_id,
             len(kept),
             skipped,
+            len(extracted["entities"]),
         )
     return {"added": len(kept), "updated": 0, "skipped": skipped}
 
@@ -156,6 +158,12 @@ def retrieve_for_query(
     if not memories:
         return []
     ranked = _hybrid_rank(query, memories)
+    boost = _entity_boost(user_id, query, memories)
+    ranked = [
+        (memory, score + boost.get(memory.id, 0.0))
+        for memory, score in ranked
+    ]
+    ranked.sort(key=lambda pair: pair[1], reverse=True)
     if conversation_id is not None:
         ranked.sort(
             key=lambda pair: (pair[0].source_conversation_id == conversation_id, pair[1]),
@@ -167,6 +175,45 @@ def retrieve_for_query(
         {"content": memory.content, "category": memory.category}
         for memory, _score in hits
     ]
+
+
+def _entity_boost(
+    user_id: int, query: str, memories: list[UserMemory]
+) -> dict[int, float]:
+    """Entity signal: memories whose stored entities appear in the query get +0.1.
+
+    Query terms come from jieba (fallback to 2+ char ngrams); matching is a
+    single batched ``IN`` query so retrieval cost stays flat.
+    """
+    terms = _query_terms(query)
+    if not terms:
+        return {}
+    try:
+        entities = (
+            MemoryEntity.query.filter(
+                MemoryEntity.user_id == user_id,
+                MemoryEntity.name.in_(terms),
+            )
+            .all()
+        )
+    except Exception:
+        logger.warning("memory.entity_boost unavailable user_id=%s", user_id)
+        return {}
+    boosts: dict[int, float] = {}
+    for entity in entities:
+        if entity.memory_id is not None:
+            boosts[entity.memory_id] = boosts.get(entity.memory_id, 0.0) + 0.1
+    return boosts
+
+
+def _query_terms(query: str) -> list[str]:
+    try:
+        import jieba
+
+        words = [word.strip() for word in jieba.lcut(query) if len(word.strip()) >= 2]
+    except Exception:
+        words = [query[index : index + 2] for index in range(max(0, len(query) - 1))]
+    return list(dict.fromkeys(words))[:20]
 
 
 def _reinforce(hits: list[tuple[UserMemory, float]]) -> None:
@@ -354,15 +401,10 @@ def category_label(category: str) -> str:
     return _CATEGORY_LABELS.get(category, "其他")
 
 
-def _extract(provider: Any, question: str, answer: str) -> list[dict]:
+def _extract(provider: Any, question: str, answer: str) -> dict:
     from .extractor import extract_facts
 
-    result = extract_facts(provider, question, answer)
-    if isinstance(result, dict):
-        # extract_facts 现返回 {"facts": [...], "entities": [...]}（实体抽取扩展后）；
-        # 兼容旧 list 返回，只取 facts 部分入库。
-        return result.get("facts") or []
-    return result or []
+    return extract_facts(provider, question, answer)
 
 
 def _store(
@@ -370,18 +412,35 @@ def _store(
     conversation_id: int | None,
     record_id: int | None,
     facts: list[dict],
+    entities: list[dict] | None = None,
 ) -> None:
     for fact in facts:
+        memory = UserMemory(
+            user_id=user_id,
+            content=fact["content"],
+            category=fact["category"],
+            source_conversation_id=conversation_id,
+            source_record_id=record_id,
+        )
+        db.session.add(memory)
+        db.session.flush()
+        _store_entities(user_id, memory.id, entities or [])
+    db.session.commit()
+
+
+def _store_entities(user_id: int, memory_id: int, entities: list[dict]) -> None:
+    """同一轮抽取的实体关联到每条新记忆。"""
+    if not entities:
+        return
+    for entity in entities:
         db.session.add(
-            UserMemory(
+            MemoryEntity(
                 user_id=user_id,
-                content=fact["content"],
-                category=fact["category"],
-                source_conversation_id=conversation_id,
-                source_record_id=record_id,
+                memory_id=memory_id,
+                name=entity["name"],
+                entity_type=entity["type"],
             )
         )
-    db.session.commit()
 
 
 def _selector_provider(user_id: int):

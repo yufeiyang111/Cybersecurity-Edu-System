@@ -17,7 +17,8 @@ export const DEFAULT_CHAT_PREFERENCES = {
   custom_prompt: '',
   response_style: 'professional',
   show_citations: true,
-  show_security_warnings: true
+  show_security_warnings: true,
+  qa_max_tokens: null
 }
 
 const STORAGE_KEY = 'cyberguard-chat-preferences'

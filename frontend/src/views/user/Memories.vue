@@ -29,6 +29,14 @@
           >
             新增记忆
           </button>
+          <button
+            type="button"
+            class="memories-card__dream"
+            :disabled="dreaming"
+            @click="runDream"
+          >
+            {{ dreaming ? '整理中...' : '记忆整理' }}
+          </button>
         </div>
       </div>
 
@@ -47,9 +55,29 @@
           <span class="memory-item__badge" :class="`memory-item__badge--${item.category}`">
             {{ item.category_label || '其他' }}
           </span>
+          <div class="memory-item__status">
+            <span v-if="item.is_expired" class="memory-item__flag memory-item__flag--expired">已过期</span>
+            <span v-if="item.suggest_delete" class="memory-item__flag memory-item__flag--suggest">建议删除</span>
+          </div>
           <p class="memory-item__content">{{ item.content }}</p>
           <span class="memory-item__time">{{ formatDate(item.created_at) }}</span>
           <div class="memory-item__ops">
+            <button
+              type="button"
+              class="memory-item__feedback"
+              :disabled="feedbackId === item.id"
+              @click="rate(item, 1)"
+            >
+              有用
+            </button>
+            <button
+              type="button"
+              class="memory-item__feedback"
+              :disabled="feedbackId === item.id"
+              @click="rate(item, 0)"
+            >
+              没用
+            </button>
             <button
               type="button"
               class="memory-item__edit"
@@ -72,6 +100,17 @@
       <div v-else class="memories-card__empty">
         <p>暂无持久记忆</p>
         <span>开启「全局持久记忆」后，问答中透露的偏好与背景会被自动记住，也可手动新增</span>
+      </div>
+
+      <div v-if="dreamAudits.length" class="dream-audits">
+        <div class="dream-audits__title">记忆整理记录</div>
+        <div v-for="audit in dreamAudits" :key="audit.id" class="dream-audit">
+          <span class="dream-audit__action" :class="`dream-audit__action--${audit.action}`">
+            {{ actionLabel(audit.action) }}
+          </span>
+          <span class="dream-audit__detail">{{ audit.detail }}</span>
+          <span class="dream-audit__time">{{ formatDate(audit.created_at) }}</span>
+        </div>
       </div>
 
       <MemoryFormDialog
@@ -173,7 +212,64 @@ const remove = async (item) => {
   }
 }
 
-onMounted(load)
+const feedbackId = ref(null)
+
+const rate = async (item, rating) => {
+  feedbackId.value = item.id
+  try {
+    await memoryAPI.feedback(item.id, rating)
+    await load()
+  } catch (e) {
+    errorMessage.value = e?.response?.data?.error || '反馈提交失败'
+  } finally {
+    feedbackId.value = null
+  }
+}
+
+const dreaming = ref(false)
+const dreamAudits = ref([])
+
+const actionLabel = (action) => ({
+  merge: '合并',
+  supersede: '取代',
+  synthesize: '合成'
+}[action] || action)
+
+const runDream = async () => {
+  dreaming.value = true
+  errorMessage.value = ''
+  try {
+    const result = await memoryAPI.dream({ dry_run: false })
+    if (result.operations > 0) {
+      await load()
+      await loadDreamAudits()
+    }
+    const summary = result.failures > 0
+      ? `整理完成：${result.operations} 项操作，${result.failures} 项失败`
+      : result.operations > 0
+        ? `整理完成：${result.operations} 项操作（重复/碎片已合并或取代）`
+        : '整理完成：暂无需要整合的记忆碎片'
+    window.alert(summary)
+  } catch (e) {
+    errorMessage.value = e?.response?.data?.error || '记忆整理失败'
+  } finally {
+    dreaming.value = false
+  }
+}
+
+const loadDreamAudits = async () => {
+  try {
+    const res = await memoryAPI.dreamAudits()
+    dreamAudits.value = res.items || []
+  } catch (e) {
+    dreamAudits.value = []
+  }
+}
+
+onMounted(() => {
+  load()
+  loadDreamAudits()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -241,6 +337,81 @@ onMounted(load)
   }
 }
 
+.memories-card__dream {
+  padding: 7px 16px;
+  border: 1px solid #2563eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #2563eb;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: #eff6ff;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.dream-audits {
+  padding: 14px 20px 6px;
+  border-top: 1px solid #eef2f7;
+
+  &__title {
+    margin-bottom: 8px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+.dream-audit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 12px;
+
+  &__action {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+
+    &--merge {
+      background: #fef9c3;
+      color: #ca8a04;
+    }
+
+    &--supersede {
+      background: #ede9fe;
+      color: #7c3aed;
+    }
+
+    &--synthesize {
+      background: #dbeafe;
+      color: #2563eb;
+    }
+  }
+
+  &__detail {
+    flex: 1;
+    min-width: 0;
+    color: #475569;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__time {
+    flex-shrink: 0;
+    color: #94a3b8;
+  }
+}
+
 .memories-card__error {
   margin: 14px 20px 0;
   padding: 10px 12px;
@@ -278,13 +449,38 @@ onMounted(load)
 
 .memory-item {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto auto 1fr auto auto;
   align-items: center;
   gap: 12px;
   padding: 14px 4px;
   border-bottom: 1px solid #eef2f7;
   &:last-child {
     border-bottom: 0;
+  }
+}
+
+.memory-item__status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.memory-item__flag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--expired {
+    background: #f1f5f9;
+    color: #64748b;
+  }
+
+  &--suggest {
+    background: #fee2e2;
+    color: #dc2626;
   }
 }
 
@@ -340,6 +536,26 @@ onMounted(load)
   align-items: center;
   gap: 8px;
   white-space: nowrap;
+}
+
+.memory-item__feedback {
+  padding: 5px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 }
 
 .memory-item__edit {
@@ -430,8 +646,18 @@ onMounted(load)
     grid-template-columns: auto 1fr auto;
   }
 
+  .memory-item__status {
+    grid-column: 1 / -1;
+    flex-direction: row;
+  }
+
   .memory-item__time {
     display: none;
+  }
+
+  .memory-item__ops {
+    grid-column: 1 / -1;
+    justify-self: end;
   }
 }
 </style>

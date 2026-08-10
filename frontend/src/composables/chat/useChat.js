@@ -268,15 +268,17 @@ export function useChat(threadRef) {
               // 已有会话：刷新列表保持按最近活跃排序
               loadConversations()
             }
-            if (data.memory_changes?.added > 0) {
-              // 持久记忆新增提示（对标 ChatGPT "Memory updated"）：点击直达记忆管理页
+            scrollToBottom()
+          } else if (event === 'memory') {
+            // 持久记忆抽取在 done 之后异步完成（不阻塞回答与资料展示），
+            // 抽取结果通过本事件送达，新增提示对标 ChatGPT "Memory updated"
+            if (data?.added > 0) {
               ElMessage({
-                message: `已记住 ${data.memory_changes.added} 条新信息`,
+                message: `已记住 ${data.added} 条新信息`,
                 duration: 4000,
                 onClick: () => router.push('/user/memories')
               })
             }
-            scrollToBottom()
           } else if (event === 'error') {
             handleStreamError(data.error)
             ElMessage.error(data.error || '生成答案失败')

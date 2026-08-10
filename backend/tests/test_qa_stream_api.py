@@ -102,6 +102,9 @@ def test_ask_stream_emits_sse_events_and_persists_record(qa_app, monkeypatch):
     assert "event: delta\ndata: {\"delta\": \"\u4f60\u597d\"}" in text
     assert "event: reasoning\ndata: {\"delta\": \"\u601d\u8003\u4e2d\"}" in text
     assert "event: done" in text
+    assert "event: memory" in text
+    # done（回答+资料）必须先于 memory（记忆抽取在 done 后异步执行，不阻塞资料展示）
+    assert text.index("event: done") < text.index("event: memory")
     assert "\u4f60\u597d\uff0c\u4e16\u754c" in text
     assert '"confidence": 0.8' in text
     assert '"response_time": 1.2' in text

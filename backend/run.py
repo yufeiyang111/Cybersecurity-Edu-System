@@ -1,5 +1,7 @@
 ﻿"""CyberGuard backend entrypoint."""
 
+import click
+
 from app import create_app, db
 from app.utils.database import seed_sample_data
 from app.scripts.apply_sql_migration import apply_security_scanning_migration
@@ -46,6 +48,21 @@ def rq_worker_command() -> None:
 
     queue = Queue(app.config["RQ_QUEUE_NAME"], connection=Redis.from_url(app.config["REDIS_URL"]))
     Worker([queue], connection=queue.connection).work()
+
+
+@app.cli.command("memory-dream")
+@click.option("--user-id", type=int, default=None, help="只整合指定用户的记忆（默认全部启用记忆的用户）")
+@click.option("--dry-run", is_flag=True, help="只分析不执行（不写库、不落审计）")
+def memory_dream_command(user_id: int | None, dry_run: bool) -> None:
+    """Run Dream consolidation over persistent memories (synthesize/supersede/merge)."""
+    from app.services.memory import memory_dream
+
+    with app.app_context():
+        result = memory_dream.run_dream(user_id=user_id, dry_run=dry_run)
+        print(
+            f"Dream {'dry-run' if dry_run else 'applied'}: "
+            f"users={result['users']} operations={result['operations']} failures={result['failures']}"
+        )
 
 
 @app.cli.command("reindex-knowledge")

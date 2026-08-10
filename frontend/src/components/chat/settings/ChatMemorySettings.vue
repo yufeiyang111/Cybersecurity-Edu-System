@@ -27,6 +27,10 @@
         >
           {{ item.category_label || '其他' }}
         </span>
+        <div class="memory-item__flags">
+          <span v-if="item.is_expired" class="memory-item__flag memory-item__flag--expired">已过期</span>
+          <span v-if="item.suggest_delete" class="memory-item__flag memory-item__flag--suggest">建议删除</span>
+        </div>
         <p class="memory-item__content">{{ item.content }}</p>
         <div class="memory-item__ops">
           <button
@@ -223,7 +227,7 @@ onMounted(() => {
 
 .memory-item {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
@@ -231,6 +235,31 @@ onMounted(() => {
 
   &:last-child {
     border-bottom: 0;
+  }
+}
+
+.memory-item__flags {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.memory-item__flag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--expired {
+    background: var(--chat-hover);
+    color: var(--chat-hollow);
+  }
+
+  &--suggest {
+    background: #fee2e2;
+    color: #dc2626;
   }
 }
 
