@@ -129,6 +129,7 @@ def _save_qa_record(user_id: int, conversation_id: int, question: str, result: d
         user_id=user_id,
         question=question,
         answer=result.get("answer"),
+        reasoning=result.get("reasoning"),
         sources=result.get("retrieved_docs") or result.get("sources"),
         confidence=result.get("confidence"),
         model_name=result.get("model_name"),
@@ -287,6 +288,23 @@ def ask_question_stream():
                         )
                     except Exception:
                         pass
+                    # 先发 done（含回答与资料），让客户端立即渲染；
+                    # 记忆抽取是一次独立 LLM 调用（数秒），放在 done 之后执行，
+                    # 避免阻塞资料展示，完成后通过 memory 事件通知前端。
+                    yield _sse_event("done", {
+                        "id": record.id,
+                        "conversation_id": conversation_id,
+                        "answer": event.get("answer"),
+                        "reasoning": event.get("reasoning"),
+                        "sources": event.get("retrieved_docs") or event.get("sources") or [],
+                        "confidence": event.get("confidence"),
+                        "response_time": event.get("response_time"),
+                        "attachments": attachments,
+                        "memory_changes": {"added": 0, "updated": 0, "skipped": 0},
+                        "created_at": record.created_at.isoformat() if record.created_at else None,
+                        "warning_code": event.get("warning_code"),
+                        "rag_warnings": event.get("rag_warnings") or [],
+                    })
                     memory_changes = {"added": 0, "updated": 0, "skipped": 0}
                     try:
                         memory_changes = memory_service.capture_interaction(
@@ -298,20 +316,7 @@ def ask_question_stream():
                         )
                     except Exception:
                         pass
-                    yield _sse_event("done", {
-                        "id": record.id,
-                        "conversation_id": conversation_id,
-                        "answer": event.get("answer"),
-                        "reasoning": event.get("reasoning"),
-                        "sources": event.get("retrieved_docs") or event.get("sources") or [],
-                        "confidence": event.get("confidence"),
-                        "response_time": event.get("response_time"),
-                        "attachments": attachments,
-                        "memory_changes": memory_changes,
-                        "created_at": record.created_at.isoformat() if record.created_at else None,
-                        "warning_code": event.get("warning_code"),
-                        "rag_warnings": event.get("rag_warnings") or [],
-                    })
+                    yield _sse_event("memory", memory_changes)
         except Exception:
             # 不向客户端泄漏内部实现细节
             yield _sse_event("error", {"error": "生成答案时发生异常，请稍后重试。"})

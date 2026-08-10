@@ -134,9 +134,10 @@ def test_capture_interaction_dedups(memory_app, monkeypatch):
     monkeypatch.setattr(
         memory_service,
         "_extract",
-        lambda provider, q, a: [
-            {"category": "fact", "content": "用户负责公司安全运营"}
-        ],
+        lambda provider, q, a: {
+            "facts": [{"category": "fact", "content": "用户负责公司安全运营"}],
+            "entities": [],
+        },
     )
     from app.models.user import UserPreference
 

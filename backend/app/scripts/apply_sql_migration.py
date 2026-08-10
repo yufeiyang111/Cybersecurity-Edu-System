@@ -32,6 +32,9 @@ MIGRATION_IDS = (
     "021_help_center",
     "022_llm_provider_max_tokens",
     "023_user_qa_max_tokens",
+    "024_memory_governance",
+    "025_memory_entities_dream",
+    "026_qa_record_reasoning",
 )
 
 

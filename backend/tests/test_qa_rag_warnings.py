@@ -93,6 +93,46 @@ def test_save_qa_record_defaults_to_none_without_rag_warnings(qa_app):
     assert reloaded.rag_warnings is None
 
 
+def test_save_qa_record_persists_reasoning(qa_app):
+    """思考过程必须随记录落库，重新加载会话时回显（推理模型长思考内容用 MEDIUMTEXT 存储）。"""
+    from app.models.qa import QARecord
+    from app.routes.qa import _save_qa_record
+
+    long_reasoning = "先分析攻击面" + "详细推理过程" * 500
+    result = {
+        "answer": "测试回答",
+        "reasoning": long_reasoning,
+        "sources": [],
+        "confidence": 0.7,
+        "model_name": "test",
+        "response_time": 1.0,
+    }
+    record = _save_qa_record(1, None, "测试问题", result, [])
+    reloaded = db.session.get(QARecord, record.id)
+
+    assert reloaded is not None
+    assert reloaded.reasoning == long_reasoning
+    assert len(reloaded.reasoning) > 1000
+
+
+def test_qa_record_to_dict_includes_reasoning(qa_app):
+    from app.models.qa import QARecord
+    from app.routes.qa import _save_qa_record
+
+    result = {
+        "answer": "测试回答",
+        "reasoning": "思考过程内容",
+        "sources": [],
+        "confidence": 0.7,
+        "model_name": "test",
+        "response_time": 1.0,
+    }
+    record = _save_qa_record(1, None, "测试问题", result, [])
+
+    data = record.to_dict()
+    assert data["reasoning"] == "思考过程内容"
+
+
 def test_ask_stream_persists_rag_warnings_to_record(qa_app, monkeypatch):
     from app.models.qa import QARecord
     from app.routes import qa as qa_module

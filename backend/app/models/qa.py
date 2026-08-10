@@ -2,6 +2,8 @@
 问答相关模型
 """
 from datetime import datetime
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
+
 from app import db
 
 class QAConversation(db.Model):
@@ -36,7 +38,8 @@ class QARecord(db.Model):
     conversation_id = db.Column(db.Integer, db.ForeignKey("qa_conversations.id"))
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     question = db.Column(db.Text, nullable=False)
-    answer = db.Column(db.Text)
+    answer = db.Column(db.Text().with_variant(MEDIUMTEXT, "mysql"))
+    reasoning = db.Column(db.Text().with_variant(MEDIUMTEXT, "mysql"))
     sources = db.Column(db.JSON)
     confidence = db.Column(db.Float)
     model_name = db.Column(db.String(50))
@@ -56,6 +59,7 @@ class QARecord(db.Model):
             "user_id": self.user_id,
             "question": self.question,
             "answer": self.answer,
+            "reasoning": self.reasoning,
             "sources": self.sources if include_sources else None,
             "confidence": self.confidence,
             "model_name": self.model_name,

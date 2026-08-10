@@ -287,6 +287,10 @@ def test_phase_three_schema_is_in_init_sql_and_ordered_migration_runner():
         "020_memory_eval_cases",
         "021_help_center",
         "022_llm_provider_max_tokens",
+        "023_user_qa_max_tokens",
+        "024_memory_governance",
+        "025_memory_entities_dream",
+        "026_qa_record_reasoning",
     )
     assert len(_statements(migration_sql)) == 3
     for table_name in (

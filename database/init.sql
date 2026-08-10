@@ -1,9 +1,9 @@
--- =========================================
--- CyberGuard 网络安全智能问答教学系统
--- 数据库初始化脚本
+﻿-- =========================================
+-- CyberGuard 缃戠粶瀹夊叏鏅鸿兘闂瓟鏁欏绯荤粺
+-- 鏁版嵁搴撳垵濮嬪寲鑴氭湰
 -- =========================================
 
--- 创建数据库
+-- 鍒涘缓鏁版嵁搴?
 CREATE DATABASE IF NOT EXISTS cyberguard
     DEFAULT CHARACTER SET utf8mb4
     DEFAULT COLLATE utf8mb4_unicode_ci;
@@ -11,249 +11,250 @@ CREATE DATABASE IF NOT EXISTS cyberguard
 USE cyberguard;
 
 -- =========================================
--- 用户角色表
+-- 鐢ㄦ埛瑙掕壊琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS roles (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE COMMENT '角色名称',
-    description VARCHAR(200) COMMENT '角色描述',
-    permissions JSON COMMENT '权限列表',
+    name VARCHAR(50) NOT NULL UNIQUE COMMENT '瑙掕壊鍚嶇О',
+    description VARCHAR(200) COMMENT '瑙掕壊鎻忚堪',
+    permissions JSON COMMENT '鏉冮檺鍒楄〃',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户角色表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鐢ㄦ埛瑙掕壊琛?;
 
--- 初始化角色
+-- 鍒濆鍖栬鑹?
 INSERT INTO roles (name, description, permissions) VALUES
-('admin', '系统管理员', '["all"]'),
-('teacher', '教师用户', '["knowledge:create", "knowledge:edit", "knowledge:delete", "qa:review"]'),
-('user', '普通用户', '["qa:ask", "qa:history", "favorite:manage"]'),
-('guest', '游客', '["knowledge:view"]')
+('admin', '绯荤粺绠＄悊鍛?, '["all"]'),
+('teacher', '鏁欏笀鐢ㄦ埛', '["knowledge:create", "knowledge:edit", "knowledge:delete", "qa:review"]'),
+('user', '鏅€氱敤鎴?, '["qa:ask", "qa:history", "favorite:manage"]'),
+('guest', '娓稿', '["knowledge:view"]')
 ON DUPLICATE KEY UPDATE 
     description = VALUES(description),
     permissions = VALUES(permissions);
 
 -- =========================================
--- 用户表
+-- 鐢ㄦ埛琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
-    email VARCHAR(100) UNIQUE COMMENT '邮箱',
-    password_hash VARCHAR(255) COMMENT '密码哈希',
-    nickname VARCHAR(50) COMMENT '昵称',
-    avatar_url VARCHAR(255) COMMENT '头像URL',
-    oauth_provider VARCHAR(20) COMMENT '第三方登录提供商',
-    oauth_subject VARCHAR(100) COMMENT '第三方账号唯一标识',
-    oauth_bindings TEXT COMMENT '全部第三方绑定 JSON 数组',
-    role_id INT NOT NULL DEFAULT 3 COMMENT '角色ID',
-    is_active BOOLEAN DEFAULT TRUE COMMENT '是否激活',
-    last_login_at DATETIME COMMENT '最后登录时间',
+    username VARCHAR(50) NOT NULL UNIQUE COMMENT '鐢ㄦ埛鍚?,
+    email VARCHAR(100) UNIQUE COMMENT '閭',
+    password_hash VARCHAR(255) COMMENT '瀵嗙爜鍝堝笇',
+    nickname VARCHAR(50) COMMENT '鏄电О',
+    avatar_url VARCHAR(255) COMMENT '澶村儚URL',
+    oauth_provider VARCHAR(20) COMMENT '绗笁鏂圭櫥褰曟彁渚涘晢',
+    oauth_subject VARCHAR(100) COMMENT '绗笁鏂硅处鍙峰敮涓€鏍囪瘑',
+    oauth_bindings TEXT COMMENT '鍏ㄩ儴绗笁鏂圭粦瀹?JSON 鏁扮粍',
+    role_id INT NOT NULL DEFAULT 3 COMMENT '瑙掕壊ID',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '鏄惁婵€娲?,
+    last_login_at DATETIME COMMENT '鏈€鍚庣櫥褰曟椂闂?,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_users_oauth (oauth_provider, oauth_subject),
     FOREIGN KEY (role_id) REFERENCES roles(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鐢ㄦ埛琛?;
 
 -- =========================================
--- 默认测试用户（密码均为 123456，使用 bcrypt 加密）
--- 注意：以下哈希值对应的密码均为 "123456"
+-- 榛樿娴嬭瘯鐢ㄦ埛锛堝瘑鐮佸潎涓?123456锛屼娇鐢?bcrypt 鍔犲瘑锛?
+-- 娉ㄦ剰锛氫互涓嬪搱甯屽€煎搴旂殑瀵嗙爜鍧囦负 "123456"
 -- =========================================
 INSERT INTO users (username, email, password_hash, nickname, role_id) VALUES
-('admin', 'admin@cyberguard.local', '$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '管理员', 1),
-('teacher', 'teacher@cyberguard.local', '$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '教师', 2),
-('user', 'user@cyberguard.local', '$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '用户', 3)
+('admin', 'admin@cyberguard.local', '$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '绠＄悊鍛?, 1),
+('teacher', 'teacher@cyberguard.local', '$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '鏁欏笀', 2),
+('user', 'user@cyberguard.local', '$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '鐢ㄦ埛', 3)
 ON DUPLICATE KEY UPDATE 
     nickname = VALUES(nickname),
     role_id = VALUES(role_id);
 
 
 -- =========================================
--- 登录日志表
+-- 鐧诲綍鏃ュ織琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS login_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT COMMENT '用户ID',
-    ip_address VARCHAR(50) COMMENT 'IP地址',
-    user_agent VARCHAR(255) COMMENT '用户代理',
+    user_id INT COMMENT '鐢ㄦ埛ID',
+    ip_address VARCHAR(50) COMMENT 'IP鍦板潃',
+    user_agent VARCHAR(255) COMMENT '鐢ㄦ埛浠ｇ悊',
     login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('success', 'failed') DEFAULT 'success' COMMENT '登录状态',
+    status ENUM('success', 'failed') DEFAULT 'success' COMMENT '鐧诲綍鐘舵€?,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='登录日志表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鐧诲綍鏃ュ織琛?;
 
 -- =========================================
--- 知识分类表
+-- 鐭ヨ瘑鍒嗙被琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL COMMENT '分类名称',
-    description TEXT COMMENT '分类描述',
-    parent_id INT DEFAULT NULL COMMENT '父分类ID',
-    icon VARCHAR(50) COMMENT '图标名称',
-    sort_order INT DEFAULT 0 COMMENT '排序',
+    name VARCHAR(100) NOT NULL COMMENT '鍒嗙被鍚嶇О',
+    description TEXT COMMENT '鍒嗙被鎻忚堪',
+    parent_id INT DEFAULT NULL COMMENT '鐖跺垎绫籌D',
+    icon VARCHAR(50) COMMENT '鍥炬爣鍚嶇О',
+    sort_order INT DEFAULT 0 COMMENT '鎺掑簭',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='知识分类表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鐭ヨ瘑鍒嗙被琛?;
 
--- 初始化知识分类
+-- 鍒濆鍖栫煡璇嗗垎绫?
 INSERT INTO categories (name, description, icon, sort_order) VALUES
-('网络安全基础', '网络基本原理和安全概念', 'Connection', 1),
-('Web 安全', 'Web 应用漏洞与防护', 'Monitor', 2),
-('系统安全', '操作系统安全加固', 'Desktop', 3),
-('密码学', '加密算法与安全协议', 'Key', 4),
-('渗透测试', '渗透测试方法与工具', 'Aim', 5),
-('应急响应', '安全事件响应取证', 'Warning', 6),
-('数据安全', '数据保护隐私合规', 'Folder', 7),
-('移动安全', '移动应用设备安全', 'Mobile', 8)
+('缃戠粶瀹夊叏鍩虹', '缃戠粶鍩烘湰鍘熺悊鍜屽畨鍏ㄦ蹇?, 'Connection', 1),
+('Web 瀹夊叏', 'Web 搴旂敤婕忔礊涓庨槻鎶?, 'Monitor', 2),
+('绯荤粺瀹夊叏', '鎿嶄綔绯荤粺瀹夊叏鍔犲浐', 'Desktop', 3),
+('瀵嗙爜瀛?, '鍔犲瘑绠楁硶涓庡畨鍏ㄥ崗璁?, 'Key', 4),
+('娓楅€忔祴璇?, '娓楅€忔祴璇曟柟娉曚笌宸ュ叿', 'Aim', 5),
+('搴旀€ュ搷搴?, '瀹夊叏浜嬩欢鍝嶅簲鍙栬瘉', 'Warning', 6),
+('鏁版嵁瀹夊叏', '鏁版嵁淇濇姢闅愮鍚堣', 'Folder', 7),
+('绉诲姩瀹夊叏', '绉诲姩搴旂敤璁惧瀹夊叏', 'Mobile', 8)
 ON DUPLICATE KEY UPDATE 
     description = VALUES(description),
     icon = VALUES(icon),
     sort_order = VALUES(sort_order);
 
 -- =========================================
--- 知识条目表
+-- 鐭ヨ瘑鏉＄洰琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS knowledge_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(200) NOT NULL COMMENT '标题',
-    content TEXT NOT NULL COMMENT '内容',
-    summary TEXT COMMENT '摘要',
-    category_id INT COMMENT '分类ID',
-    difficulty ENUM('easy', 'medium', 'hard') DEFAULT 'medium' COMMENT '难度',
-    source VARCHAR(200) COMMENT '来源',
-    author_id INT COMMENT '作者ID',
-    view_count INT DEFAULT 0 COMMENT '浏览次数',
-    favorite_count INT DEFAULT 0 COMMENT '收藏次数',
-    status ENUM('draft', 'published', 'archived') DEFAULT 'published' COMMENT '状态',
+    title VARCHAR(200) NOT NULL COMMENT '鏍囬',
+    content TEXT NOT NULL COMMENT '鍐呭',
+    summary TEXT COMMENT '鎽樿',
+    category_id INT COMMENT '鍒嗙被ID',
+    difficulty ENUM('easy', 'medium', 'hard') DEFAULT 'medium' COMMENT '闅惧害',
+    source VARCHAR(200) COMMENT '鏉ユ簮',
+    author_id INT COMMENT '浣滆€匢D',
+    view_count INT DEFAULT 0 COMMENT '娴忚娆℃暟',
+    favorite_count INT DEFAULT 0 COMMENT '鏀惰棌娆℃暟',
+    status ENUM('draft', 'published', 'archived') DEFAULT 'published' COMMENT '鐘舵€?,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
     FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL,
     FULLTEXT INDEX idx_fulltext (title, content)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='知识条目表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鐭ヨ瘑鏉＄洰琛?;
 
 -- =========================================
--- 知识标签关联表
+-- 鐭ヨ瘑鏍囩鍏宠仈琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS knowledge_tags (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    knowledge_id INT NOT NULL COMMENT '知识ID',
-    tag_name VARCHAR(50) NOT NULL COMMENT '标签名',
+    knowledge_id INT NOT NULL COMMENT '鐭ヨ瘑ID',
+    tag_name VARCHAR(50) NOT NULL COMMENT '鏍囩鍚?,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (knowledge_id) REFERENCES knowledge_items(id) ON DELETE CASCADE,
     UNIQUE KEY unique_knowledge_tag (knowledge_id, tag_name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='知识标签关联表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鐭ヨ瘑鏍囩鍏宠仈琛?;
 
 -- =========================================
--- 问答会话表
+-- 闂瓟浼氳瘽琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS qa_conversations (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL COMMENT '用户ID',
-    title VARCHAR(200) COMMENT '会话标题',
-    is_archived BOOLEAN DEFAULT FALSE COMMENT '是否归档',
+    user_id INT NOT NULL COMMENT '鐢ㄦ埛ID',
+    title VARCHAR(200) COMMENT '浼氳瘽鏍囬',
+    is_archived BOOLEAN DEFAULT FALSE COMMENT '鏄惁褰掓。',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='问答会话表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='闂瓟浼氳瘽琛?;
 
 -- =========================================
--- 问答记录表
+-- 闂瓟璁板綍琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS qa_records (
     id INT AUTO_INCREMENT PRIMARY KEY,
     conversation_id INT COMMENT '会话ID',
     user_id INT NOT NULL COMMENT '用户ID',
     question TEXT NOT NULL COMMENT '问题',
-    answer TEXT COMMENT '答案',
+    answer MEDIUMTEXT COMMENT '回答内容（长回答场景使用 MEDIUMTEXT）',
+    reasoning MEDIUMTEXT NULL COMMENT '模型思考过程（推理模型 reasoning_content），重新加载会话时回显',
     sources JSON COMMENT '来源信息',
-    confidence FLOAT COMMENT '置信度',
-    model_name VARCHAR(50) COMMENT '使用的模型',
-    response_time FLOAT COMMENT '响应时间(秒)',
-    rag_warnings JSON NULL COMMENT 'RAG 注入防护警告（docId:flag 列表）',
-    feedback ENUM('good', 'neutral', 'bad') COMMENT '用户反馈',
+    confidence FLOAT COMMENT '缃俊搴?,
+    model_name VARCHAR(50) COMMENT '浣跨敤鐨勬ā鍨?,
+    response_time FLOAT COMMENT '鍝嶅簲鏃堕棿(绉?',
+    rag_warnings JSON NULL COMMENT 'RAG 娉ㄥ叆闃叉姢璀﹀憡锛坉ocId:flag 鍒楄〃锛?,
+    feedback ENUM('good', 'neutral', 'bad') COMMENT '鐢ㄦ埛鍙嶉',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES qa_conversations(id) ON DELETE SET NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FULLTEXT INDEX idx_fulltext_question (question)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='问答记录表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='闂瓟璁板綍琛?;
 
 -- =========================================
--- 收藏表
+-- 鏀惰棌琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS favorites (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL COMMENT '用户ID',
-    qa_record_id INT NOT NULL COMMENT '问答记录ID',
+    user_id INT NOT NULL COMMENT '鐢ㄦ埛ID',
+    qa_record_id INT NOT NULL COMMENT '闂瓟璁板綍ID',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (qa_record_id) REFERENCES qa_records(id) ON DELETE CASCADE,
     UNIQUE KEY unique_user_qa (user_id, qa_record_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='收藏表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鏀惰棌琛?;
 
 -- =========================================
--- 追问建议表
+-- 杩介棶寤鸿琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS suggested_questions (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    question VARCHAR(500) NOT NULL COMMENT '问题',
-    suggestions JSON COMMENT '建议列表',
-    category VARCHAR(100) COMMENT '分类',
+    question VARCHAR(500) NOT NULL COMMENT '闂',
+    suggestions JSON COMMENT '寤鸿鍒楄〃',
+    category VARCHAR(100) COMMENT '鍒嗙被',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='追问建议表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='杩介棶寤鸿琛?;
 
 -- =========================================
--- 系统配置表
+-- 绯荤粺閰嶇疆琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS system_configs (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    config_key VARCHAR(100) NOT NULL UNIQUE COMMENT '配置键',
-    config_value TEXT COMMENT '配置值',
-    description VARCHAR(200) COMMENT '配置描述',
+    config_key VARCHAR(100) NOT NULL UNIQUE COMMENT '閰嶇疆閿?,
+    config_value TEXT COMMENT '閰嶇疆鍊?,
+    description VARCHAR(200) COMMENT '閰嶇疆鎻忚堪',
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统配置表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='绯荤粺閰嶇疆琛?;
 
--- 初始化系统配置
+-- 鍒濆鍖栫郴缁熼厤缃?
 INSERT INTO system_configs (config_key, config_value, description) VALUES
-('llm_api_key', '', '通义千问 API 密钥'),
-('llm_model', 'qwen-plus', '使用的 LLM 模型'),
-('vector_top_k', '10', '向量检索返回数量'),
-('similarity_threshold', '0.5', '相似度阈值'),
-('max_context_length', '4000', '最大上下文长度')
+('llm_api_key', '', '閫氫箟鍗冮棶 API 瀵嗛挜'),
+('llm_model', 'qwen-plus', '浣跨敤鐨?LLM 妯″瀷'),
+('vector_top_k', '10', '鍚戦噺妫€绱㈣繑鍥炴暟閲?),
+('similarity_threshold', '0.5', '鐩镐技搴﹂槇鍊?),
+('max_context_length', '4000', '鏈€澶т笂涓嬫枃闀垮害')
 ON DUPLICATE KEY UPDATE 
     config_value = VALUES(config_value),
     description = VALUES(description);
 
 -- =========================================
--- 知识图谱关系表
+-- 鐭ヨ瘑鍥捐氨鍏崇郴琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS knowledge_graph_edges (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    source_id INT NOT NULL COMMENT '源节点ID',
-    target_id INT NOT NULL COMMENT '目标节点ID',
-    relation_type VARCHAR(50) NOT NULL COMMENT '关系类型',
-    weight FLOAT DEFAULT 1.0 COMMENT '权重',
+    source_id INT NOT NULL COMMENT '婧愯妭鐐笽D',
+    target_id INT NOT NULL COMMENT '鐩爣鑺傜偣ID',
+    relation_type VARCHAR(50) NOT NULL COMMENT '鍏崇郴绫诲瀷',
+    weight FLOAT DEFAULT 1.0 COMMENT '鏉冮噸',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (source_id) REFERENCES knowledge_items(id) ON DELETE CASCADE,
     FOREIGN KEY (target_id) REFERENCES knowledge_items(id) ON DELETE CASCADE,
     UNIQUE KEY unique_edge (source_id, target_id, relation_type)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='知识图谱关系表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鐭ヨ瘑鍥捐氨鍏崇郴琛?;
 
 -- =========================================
--- 反馈记录表
+-- 鍙嶉璁板綍琛?
 -- =========================================
 CREATE TABLE IF NOT EXISTS feedback_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    qa_record_id INT NOT NULL COMMENT '问答记录ID',
-    user_id INT NOT NULL COMMENT '用户ID',
-    feedback_type ENUM('good', 'neutral', 'bad') COMMENT '反馈类型',
-    comment TEXT COMMENT '反馈评论',
+    qa_record_id INT NOT NULL COMMENT '闂瓟璁板綍ID',
+    user_id INT NOT NULL COMMENT '鐢ㄦ埛ID',
+    feedback_type ENUM('good', 'neutral', 'bad') COMMENT '鍙嶉绫诲瀷',
+    comment TEXT COMMENT '鍙嶉璇勮',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (qa_record_id) REFERENCES qa_records(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='反馈记录表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鍙嶉璁板綍琛?;
 
 -- =========================================
--- 创建索引以优化查询性能
+-- 鍒涘缓绱㈠紩浠ヤ紭鍖栨煡璇㈡€ц兘
 -- =========================================
 DROP INDEX IF EXISTS idx_users_email ON users;
 DROP INDEX IF EXISTS idx_users_username ON users;
@@ -274,7 +275,7 @@ CREATE INDEX idx_qa_created ON qa_records(created_at);
 CREATE INDEX idx_favorites_user ON favorites(user_id);
 
 -- =========================================
--- 企业安全扫描基础表（与数据库迁移保持一致）
+-- 浼佷笟瀹夊叏鎵弿鍩虹琛紙涓庢暟鎹簱杩佺Щ淇濇寔涓€鑷达級
 -- =========================================
 -- CyberGuard security scanning foundation (additive migration)
 -- Apply to an existing MySQL 8+ CyberGuard database. This migration does not alter or delete legacy tables.
@@ -287,7 +288,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT uq_workspaces_slug UNIQUE (slug)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='安全工作区';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='瀹夊叏宸ヤ綔鍖?;
 
 CREATE TABLE IF NOT EXISTS workspace_members (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -300,7 +301,7 @@ CREATE TABLE IF NOT EXISTS workspace_members (
     CONSTRAINT fk_workspace_members_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
     CONSTRAINT fk_workspace_members_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX ix_workspace_members_user_id (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='工作区成员';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='宸ヤ綔鍖烘垚鍛?;
 
 CREATE TABLE IF NOT EXISTS security_projects (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -315,7 +316,7 @@ CREATE TABLE IF NOT EXISTS security_projects (
     CONSTRAINT fk_security_projects_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
     CONSTRAINT fk_security_projects_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     INDEX ix_security_projects_workspace_id (workspace_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='安全扫描项目';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='瀹夊叏鎵弿椤圭洰';
 
 CREATE TABLE IF NOT EXISTS project_snapshots (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -333,7 +334,7 @@ CREATE TABLE IF NOT EXISTS project_snapshots (
     CONSTRAINT fk_project_snapshots_project FOREIGN KEY (project_id) REFERENCES security_projects(id) ON DELETE CASCADE,
     INDEX ix_project_snapshots_project_id (project_id),
     INDEX ix_project_snapshots_commit_sha (commit_sha)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='不可变项目快照';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='涓嶅彲鍙橀」鐩揩鐓?;
 
 CREATE TABLE IF NOT EXISTS scan_tasks (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -359,7 +360,7 @@ CREATE TABLE IF NOT EXISTS scan_tasks (
     CONSTRAINT uq_scan_tasks_dispatch_key UNIQUE (dispatch_key),
     INDEX ix_scan_tasks_dispatch_key (dispatch_key),
     INDEX ix_scan_tasks_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='异步扫描任务';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='寮傛鎵弿浠诲姟';
 
 CREATE TABLE IF NOT EXISTS security_findings (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -384,7 +385,7 @@ CREATE TABLE IF NOT EXISTS security_findings (
     INDEX ix_security_findings_task_id (task_id),
     INDEX ix_security_findings_severity (severity),
     INDEX ix_security_findings_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='标准化安全发现项';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鏍囧噯鍖栧畨鍏ㄥ彂鐜伴」';
 
 CREATE TABLE IF NOT EXISTS finding_evidences (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -400,7 +401,7 @@ CREATE TABLE IF NOT EXISTS finding_evidences (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_finding_evidences_finding FOREIGN KEY (finding_id) REFERENCES security_findings(id) ON DELETE CASCADE,
     INDEX ix_finding_evidences_finding_id (finding_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='脱敏漏洞证据';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鑴辨晱婕忔礊璇佹嵁';
 
 CREATE TABLE IF NOT EXISTS project_exclusion_rules (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -413,7 +414,7 @@ CREATE TABLE IF NOT EXISTS project_exclusion_rules (
     CONSTRAINT fk_exclusion_rules_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT uq_exclusion_rules_position UNIQUE (project_id, position),
     INDEX ix_exclusion_rules_project_id (project_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目级扫描排除规则';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='椤圭洰绾ф壂鎻忔帓闄よ鍒?;
 
 CREATE TABLE IF NOT EXISTS audit_events (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -429,7 +430,7 @@ CREATE TABLE IF NOT EXISTS audit_events (
     CONSTRAINT fk_audit_events_actor FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX ix_audit_events_workspace_created (workspace_id, created_at),
     INDEX ix_audit_events_target (target_type, target_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='安全域审计事件';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='瀹夊叏鍩熷璁′簨浠?;
 
 -- Additive Phase 2 dependency inventory and advisory-cache persistence.
 
@@ -452,7 +453,7 @@ CREATE TABLE IF NOT EXISTS snapshot_dependencies (
         REFERENCES project_snapshots(id) ON DELETE CASCADE,
     INDEX ix_snapshot_dependencies_snapshot_id (snapshot_id),
     INDEX ix_snapshot_dependencies_coordinate_hash (coordinate_hash)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='快照依赖库存';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='蹇収渚濊禆搴撳瓨';
 
 CREATE TABLE IF NOT EXISTS vulnerability_advisory_cache (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -467,7 +468,7 @@ CREATE TABLE IF NOT EXISTS vulnerability_advisory_cache (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT uq_vulnerability_advisory_cache_key UNIQUE (cache_key),
     INDEX ix_vulnerability_advisory_cache_expires_at (expires_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='漏洞公告缓存';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='婕忔礊鍏憡缂撳瓨';
 
 -- Additive Phase 3 trusted-agent RAG remediation persistence.
 
@@ -1079,6 +1080,7 @@ CREATE TABLE IF NOT EXISTS llm_provider_configs (
     api_key_hint VARCHAR(64) NOT NULL,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    max_tokens INT NULL COMMENT '自定义最大输出 tokens，NULL 使用默认 2048',
     last_check_status VARCHAR(32),
     last_checked_at DATETIME NULL,
     last_latency_ms INT NULL,
@@ -1089,6 +1091,33 @@ CREATE TABLE IF NOT EXISTS llm_provider_configs (
     INDEX ix_llm_provider_configs_user_default (user_id, is_default),
     INDEX ix_llm_provider_configs_user_enabled (user_id, is_enabled)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User-managed OpenAI-compatible LLM providers';
+
+-- =========================================
+-- Per-user chat preferences（009 + 019 + 023 同步）
+-- =========================================
+CREATE TABLE IF NOT EXISTS user_preferences (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    theme VARCHAR(20) NOT NULL DEFAULT 'system',
+    color_preset VARCHAR(40) NOT NULL DEFAULT 'default',
+    font_family VARCHAR(20) NOT NULL DEFAULT 'auto',
+    font_size VARCHAR(20) NOT NULL DEFAULT 'medium',
+    border_radius VARCHAR(20) NOT NULL DEFAULT 'auto',
+    content_density VARCHAR(20) NOT NULL DEFAULT 'standard',
+    content_width VARCHAR(20) NOT NULL DEFAULT 'standard',
+    language VARCHAR(20) NOT NULL DEFAULT 'zh-CN',
+    about_user VARCHAR(1000) NOT NULL DEFAULT '',
+    response_preferences VARCHAR(2000) NOT NULL DEFAULT '',
+    custom_prompt VARCHAR(4000) NOT NULL DEFAULT '',
+    response_style VARCHAR(20) NOT NULL DEFAULT 'professional',
+    show_citations BOOLEAN NOT NULL DEFAULT TRUE,
+    show_security_warnings BOOLEAN NOT NULL DEFAULT TRUE,
+    persistent_memory_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    qa_max_tokens INT NULL COMMENT 'QA 回答最大输出 tokens，NULL 使用引擎默认 16384',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_preferences_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户界面与 AI 个性化设置';
 
 CREATE TABLE IF NOT EXISTS llm_call_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1130,11 +1159,71 @@ CREATE TABLE IF NOT EXISTS user_memories (
     source_record_id INT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_reinforced_at DATETIME NULL COMMENT '最近被检索引用时间（强化）',
+    expires_at DATETIME NULL COMMENT '过期时间，NULL 表示永不过期',
     CONSTRAINT fk_user_memories_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_user_memories_record FOREIGN KEY (source_record_id) REFERENCES qa_records(id) ON DELETE SET NULL,
     INDEX ix_user_memories_user_created (user_id, created_at),
     INDEX ix_user_memories_user_category (user_id, category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User-scoped persistent memories extracted from QA';
+
+CREATE TABLE IF NOT EXISTS memory_feedback (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    memory_id INT NOT NULL,
+    user_id INT NOT NULL,
+    rating TINYINT NOT NULL COMMENT '1=有用 0=没用',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX ix_memory_feedback_memory (memory_id),
+    INDEX ix_memory_feedback_user (user_id),
+    CONSTRAINT fk_memory_feedback_memory FOREIGN KEY (memory_id)
+        REFERENCES user_memories (id) ON DELETE CASCADE,
+    CONSTRAINT fk_memory_feedback_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='记忆反馈';
+
+CREATE TABLE IF NOT EXISTS memory_entities (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    memory_id INT NULL,
+    name VARCHAR(128) NOT NULL,
+    entity_type VARCHAR(32) NOT NULL DEFAULT 'other' COMMENT 'person/org/tech/other',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX ix_memory_entities_user_name (user_id, name),
+    INDEX ix_memory_entities_memory (memory_id),
+    CONSTRAINT fk_memory_entities_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_memory_entities_memory FOREIGN KEY (memory_id)
+        REFERENCES user_memories (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='记忆实体';
+
+CREATE TABLE IF NOT EXISTS memory_entity_links (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    source_entity_id INT NOT NULL,
+    target_entity_id INT NOT NULL,
+    relation VARCHAR(64) NOT NULL DEFAULT 'related',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX ix_memory_entity_links_source (source_entity_id),
+    INDEX ix_memory_entity_links_target (target_entity_id),
+    CONSTRAINT fk_memory_entity_links_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_memory_entity_links_source FOREIGN KEY (source_entity_id)
+        REFERENCES memory_entities (id) ON DELETE CASCADE,
+    CONSTRAINT fk_memory_entity_links_target FOREIGN KEY (target_entity_id)
+        REFERENCES memory_entities (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='记忆实体关系';
+
+CREATE TABLE IF NOT EXISTS memory_dream_audit (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    action VARCHAR(32) NOT NULL COMMENT 'synthesize/supersede/merge',
+    memory_ids VARCHAR(512) NULL COMMENT '被处理记忆 id 列表（逗号分隔）',
+    detail VARCHAR(2000) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX ix_memory_dream_audit_user (user_id, created_at),
+    CONSTRAINT fk_memory_dream_audit_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Dream 记忆整合审计';
 -- CyberGuard agent-run LLM invocations and versioned price catalog (additive only).
 CREATE TABLE IF NOT EXISTS llm_invocations (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1219,8 +1308,8 @@ CREATE TABLE IF NOT EXISTS qa_retrieval_logs (
     record_id BIGINT UNSIGNED NULL,
     engine_version VARCHAR(64) NOT NULL DEFAULT 'enhanced',
     model_name VARCHAR(64) NULL,
-    retrieved_docs JSON NULL COMMENT '检索命中的文档(含doc_id/title/similarity/行号)',
-    sources JSON NULL COMMENT '最终引用来源',
+    retrieved_docs JSON NULL COMMENT '妫€绱㈠懡涓殑鏂囨。(鍚玠oc_id/title/similarity/琛屽彿)',
+    sources JSON NULL COMMENT '鏈€缁堝紩鐢ㄦ潵婧?,
     retrieval_ms INT UNSIGNED NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
@@ -1231,11 +1320,73 @@ CREATE TABLE IF NOT EXISTS qa_retrieval_logs (
 CREATE TABLE IF NOT EXISTS rag_eval_cases (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     query VARCHAR(500) NOT NULL,
-    expected_doc_ids JSON NOT NULL COMMENT '期望命中的知识条目 id 列表',
-    expected_answer TEXT NULL COMMENT '期望答案要点（用于答案相关性评估）',
+    expected_doc_ids JSON NOT NULL COMMENT '鏈熸湜鍛戒腑鐨勭煡璇嗘潯鐩?id 鍒楄〃',
+    expected_answer TEXT NULL COMMENT '鏈熸湜绛旀瑕佺偣锛堢敤浜庣瓟妗堢浉鍏虫€ц瘎浼帮級',
     category VARCHAR(64) NULL,
     notes VARCHAR(500) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_eval_cases_category (category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS memory_eval_cases (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    query TEXT NOT NULL COMMENT '评测问题',
+    expected_content TEXT NOT NULL COMMENT '期望命中的记忆内容',
+    category VARCHAR(32) NOT NULL DEFAULT 'fact' COMMENT '记忆分类',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_memory_eval_cases_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO memory_eval_cases (query, expected_content, category) VALUES
+('用户关注哪个安全方向？', '用户负责公司安全运营，重点关注 Web 安全', 'fact'),
+('用户平时用什么系统工作？', '用户使用 Linux 和 Windows 双环境进行安全工作', 'fact'),
+('用户喜欢什么样的回答风格？', '用户偏好简洁直接的回答，不要长篇大论', 'preference'),
+('用户对回答有什么格式要求？', '用户希望回答包含编号步骤和结论摘要', 'preference'),
+('用户决定用什么数据库？', '项目数据库决定：使用 PostgreSQL 作为主库', 'decision'),
+('用户今年的目标是什么？', '用户目标是三个月内通过 OSCP 认证', 'goal'),
+('用户负责什么工作？', '用户是安全运营工程师，负责漏洞排查与应急响应', 'fact'),
+('用户团队的规模？', '用户所在安全团队共 5 人，包含 2 名开发', 'fact'),
+('用户偏好的会议形式？', '用户偏好 30 分钟以内的短会，会议要有明确结论', 'preference'),
+('用户上一次的架构选择？', '决定采用微服务架构拆分安全网关模块', 'decision'),
+('用户想学习什么技能？', '用户计划下半年学习云原生安全与容器安全', 'goal'),
+('用户的客户类型？', '用户所在公司主要服务金融行业的客户', 'fact')
+ON DUPLICATE KEY UPDATE query = VALUES(query);
+
+-- =========================================
+-- Help center: tree-shaped categories + markdown documents (migration 021)
+-- =========================================
+CREATE TABLE IF NOT EXISTS help_categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    slug VARCHAR(64) NOT NULL,
+    name VARCHAR(80) NOT NULL,
+    description VARCHAR(255) NULL,
+    parent_id INT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_help_categories_slug UNIQUE (slug),
+    CONSTRAINT fk_help_categories_parent FOREIGN KEY (parent_id) REFERENCES help_categories (id) ON DELETE RESTRICT,
+    KEY idx_help_categories_parent (parent_id, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='帮助中心分类（支持 parent_id 自引用，构树形）';
+
+CREATE TABLE IF NOT EXISTS help_documents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    slug VARCHAR(96) NOT NULL,
+    category_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    summary VARCHAR(500) NULL,
+    content MEDIUMTEXT NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    version INT NOT NULL DEFAULT 1,
+    updated_by VARCHAR(50) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_help_documents_slug UNIQUE (slug),
+    CONSTRAINT fk_help_documents_category FOREIGN KEY (category_id) REFERENCES help_categories (id) ON DELETE RESTRICT,
+    KEY idx_help_documents_category (category_id, sort_order),
+    KEY idx_help_documents_active (is_active, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='帮助中心文档（Markdown 正文，管理员编辑）';
