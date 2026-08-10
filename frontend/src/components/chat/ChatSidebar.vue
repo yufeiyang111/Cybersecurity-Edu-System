@@ -202,7 +202,7 @@ const closeMenu = () => { menuOpen.value = false }
 const toggleMenu = () => { menuOpen.value = !menuOpen.value }
 const goProfile = () => { closeMenu(); router.push('/user/profile') }
 const goSettings = () => { closeMenu(); emit('open-settings') }
-const goHelp = () => { closeMenu(); router.push('/policy') }
+const goHelp = () => { closeMenu(); router.push('/help') }
 const logout = async () => {
   closeMenu()
   try {
