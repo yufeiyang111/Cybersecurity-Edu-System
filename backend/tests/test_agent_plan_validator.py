@@ -115,3 +115,66 @@ def test_non_success_edge_rejected():
     edges = [{"from": "inventory", "to": "scan", "type": "evidence_gap"}]
     with pytest.raises(PlanValidationError, match="success"):
         validate_envelope(_envelope(edges=edges), available_tools=AVAILABLE_TOOLS)
+
+# ------------------------------------------------------------------ A4
+
+_A4_TOOLS = AVAILABLE_TOOLS | {
+    "map_repository",
+    "get_route_map",
+    "get_authentication_map",
+    "search_code",
+    "find_symbol_references",
+    "get_related_files",
+    "build_call_chain",
+    "read_code_slice",
+}
+
+
+def test_repository_mapping_node_with_map_repository_passes():
+    nodes = list(_LEGAL_NODES)
+    nodes.append(
+        {
+            "key": "graph",
+            "type": "repository_mapping",
+            "title": "构建项目安全图",
+            "tool_name": "map_repository",
+        }
+    )
+    edges = list(_LEGAL_EDGES)
+    edges.append({"from": "scan", "to": "graph", "type": "success"})
+    result = validate_envelope(
+        _envelope(nodes=nodes, edges=edges), available_tools=_A4_TOOLS
+    )
+    assert any(node["type"] == "repository_mapping" for node in result["nodes"])
+
+
+def test_repository_mapping_node_with_graph_query_tool_passes():
+    nodes = list(_LEGAL_NODES)
+    nodes.append(
+        {
+            "key": "graph",
+            "type": "repository_mapping",
+            "title": "读取路由图",
+            "tool_name": "get_route_map",
+        }
+    )
+    edges = list(_LEGAL_EDGES)
+    edges.append({"from": "scan", "to": "graph", "type": "success"})
+    result = validate_envelope(
+        _envelope(nodes=nodes, edges=edges), available_tools=_A4_TOOLS
+    )
+    assert any(node["tool_name"] == "get_route_map" for node in result["nodes"])
+
+
+def test_repository_mapping_node_with_wrong_tool_rejected():
+    nodes = list(_LEGAL_NODES)
+    nodes.append(
+        {
+            "key": "graph",
+            "type": "repository_mapping",
+            "title": "t",
+            "tool_name": "run_baseline_scan",
+        }
+    )
+    with pytest.raises(PlanValidationError, match="工具与类型不匹配"):
+        validate_envelope(_envelope(nodes=nodes), available_tools=_A4_TOOLS)

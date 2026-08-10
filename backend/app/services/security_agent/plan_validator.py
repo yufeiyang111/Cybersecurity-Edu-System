@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.models.agent_runtime import AgentPlanNodeType
 
-# A2/A3 阶段可用的节点类型（与已注册确定性工具一一对应）
+# A2/A3/A4 阶段可用的节点类型（与已注册确定性工具一一对应）
 AVAILABLE_NODE_TYPES = frozenset(
     {
         AgentPlanNodeType.INVENTORY.value,
@@ -12,17 +12,32 @@ AVAILABLE_NODE_TYPES = frozenset(
         AgentPlanNodeType.COVERAGE_ANALYSIS.value,
         AgentPlanNodeType.RISK_RANKING.value,
         AgentPlanNodeType.REPORT_GENERATION.value,
+        AgentPlanNodeType.REPOSITORY_MAPPING.value,
     }
 )
 
-# 节点类型 -> 唯一允许的工具（本阶段一一对应，防止类型与工具错配）
+# 节点类型 -> 唯一允许的工具（防止类型与工具错配）
 TOOL_BY_TYPE = {
     AgentPlanNodeType.INVENTORY.value: "inventory_snapshot",
     AgentPlanNodeType.BASELINE_SCAN.value: "run_baseline_scan",
     AgentPlanNodeType.COVERAGE_ANALYSIS.value: "get_scan_coverage",
     AgentPlanNodeType.RISK_RANKING.value: "rank_findings",
     AgentPlanNodeType.REPORT_GENERATION.value: "finalize_agent_report",
+    AgentPlanNodeType.REPOSITORY_MAPPING.value: "map_repository",
 }
+
+# repository_mapping 节点可选的图浏览/代码证据工具（A4），建图后用于按图取上下文
+GRAPH_TOOLS = frozenset(
+    {
+        "get_route_map",
+        "get_authentication_map",
+        "search_code",
+        "find_symbol_references",
+        "get_related_files",
+        "build_call_chain",
+        "read_code_slice",
+    }
+)
 
 # 强制性基线节点（确定性基线不可被 Planner 绕过，spec §3.2）
 MANDATORY_NODE_TYPES = frozenset(
@@ -115,7 +130,9 @@ def _normalize_node(raw_node: object, index: int) -> dict:
         raise PlanValidationError(f"nodes[{index}] 缺少 title")
     tool_name = str(raw_node.get("tool_name") or "").strip() or None
     expected_tool = TOOL_BY_TYPE[node_type]
-    if tool_name != expected_tool:
+    if tool_name != expected_tool and not (
+        node_type == AgentPlanNodeType.REPOSITORY_MAPPING.value and tool_name in GRAPH_TOOLS
+    ):
         raise PlanValidationError(
             f"nodes[{index}] 工具与类型不匹配：{node_type} 只允许 {expected_tool}"
         )

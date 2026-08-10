@@ -205,7 +205,7 @@
             :state-version="store.stateVersion"
             :reasoning-live="store.reasoningLive"
           />
-          <AgentProviderBadge :provider="store.lastProvider" />
+          <AgentProviderBadge :provider="lastProvider" />
           <AgentPlannerPanel
             :plan="store.plan"
             :fallback-reason="planFallbackReason"
@@ -363,6 +363,17 @@ const mode = computed(() =>
 )
 
 const statusMeta = computed(() => agentStatusMeta(store.run?.status))
+
+// LLM Provider 徽章数据源：优先实时事件（store.lastProvider），
+// 事件丢失时（页面在 LLM 调用之后才打开）回退到成本接口的调用记录。
+const lastProvider = computed(() => {
+  if (store.lastProvider) return store.lastProvider
+  const latest = invocations.value?.[0]
+  if (latest?.provider_name) {
+    return { provider: latest.provider_name, model: latest.model || null }
+  }
+  return null
+})
 
 const runningProjectCount = computed(() => projects.value.filter((project) => project.is_running).length)
 const attentionProjectCount = computed(() => projects.value.filter((project) => riskTotal(project) > 0).length)
