@@ -1,6 +1,7 @@
 import { Marked, Renderer } from 'marked'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
+import { slugifyHeadingId } from './headings'
 
 const escapeHtml = (str) =>
   String(str)
@@ -10,6 +11,11 @@ const escapeHtml = (str) =>
     .replace(/"/g, '&quot;')
 
 const renderer = new Renderer()
+renderer.heading = (text, level) => {
+  const slug = slugifyHeadingId(text)
+  return `<h${level} id="${slug}">${text}</h${level}>`
+}
+
 renderer.code = (code, infostring) => {
   const lang = (infostring || '').split(/\s+/)[0]
   let highlighted = escapeHtml(code)
