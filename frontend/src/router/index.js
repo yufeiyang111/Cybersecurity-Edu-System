@@ -39,6 +39,12 @@ const routes = [
     meta: { title: '智能问答' }
   },
   {
+    path: '/help',
+    name: 'HelpCenter',
+    component: () => import('@/views/HelpCenter.vue'),
+    meta: { title: '帮助与文档' }
+  },
+  {
     path: '/security',
     component: () => import('@/views/SecurityWorkbenchLayout.vue'),
     meta: { requiresAuth: true },
@@ -191,6 +197,12 @@ const routes = [
         name: 'AdminPolicies',
         component: () => import('@/views/admin/PolicyEditor.vue'),
         meta: { title: '政策文档' }
+      },
+      {
+        path: 'help',
+        name: 'AdminHelp',
+        component: () => import('@/views/admin/HelpAdmin.vue'),
+        meta: { title: '帮助文档管理' }
       }
     ]
   },

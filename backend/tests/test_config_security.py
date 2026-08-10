@@ -31,6 +31,8 @@ def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         "app.routes.llm": "llm_bp",
         "app.routes.policies": "policies_bp",
         "app.routes.memories": "memories_bp",
+        "app.routes.help": "help_bp",
+        "app.routes.user_activity": "user_activity_bp",
     }.items():
         module = types.ModuleType(module_name)
         blueprint = Blueprint(blueprint_name, module_name)

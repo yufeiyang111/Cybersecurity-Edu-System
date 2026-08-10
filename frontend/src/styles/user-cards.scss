@@ -1,0 +1,118 @@
+// ==================== 用户中心列表卡片与操作按钮共享样式 ====================
+// 供 user/history、user/favorites 等列表页复用，统一暖灰主题。
+@use 'user-vars' as *;
+
+.user-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  background: $bg-white;
+  border: 1px solid $border-color;
+  border-radius: 10px;
+  box-shadow: $shadow-soft;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+    border-color: $brand-border;
+  }
+}
+
+.feedback-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+
+  &--good {
+    background: rgba(46, 160, 67, 0.12);
+    color: #1a7f37;
+  }
+
+  &--neutral {
+    background: $bg-inset;
+    color: $text-secondary;
+  }
+
+  &--bad {
+    background: $danger-light;
+    color: $danger-color;
+  }
+}
+
+.feedback-none {
+  color: $text-placeholder;
+  font-size: 13px;
+}
+
+.row-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border: 1px solid $border-color;
+  border-radius: 6px;
+  background: $bg-white;
+  color: $text-regular;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: $bg-hover;
+  }
+}
+
+.row-btn--primary {
+  border-color: $brand-color;
+  background: $brand-color;
+  color: #fff;
+
+  &:hover {
+    background: $brand-hover;
+    border-color: $brand-hover;
+  }
+}
+
+.row-btn--danger {
+  border-color: $danger-color;
+  color: $danger-color;
+
+  &:hover {
+    background: $danger-light;
+  }
+}
+
+.skeleton-row {
+  height: 96px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, $bg-inset 25%, $bg-hover 37%, $bg-inset 63%);
+  background-size: 400% 100%;
+  animation: user-skeleton 1.4s ease infinite;
+}
+
+@keyframes user-skeleton {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@media (max-width: 640px) {
+  .user-card {
+    padding: 14px 16px;
+  }
+
+  .row-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+}

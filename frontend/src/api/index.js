@@ -458,7 +458,29 @@ export const memoryAPI = {
   list: (params) => api.get('/memories', { params }),
   create: (data) => api.post('/memories', data),
   update: (memoryId, data) => api.put(`/memories/${memoryId}`, data),
-  remove: (memoryId) => api.delete(`/memories/${memoryId}`)
+  remove: (memoryId) => api.delete(`/memories/${memoryId}`),
+  feedback: (memoryId, rating) => api.post(`/memories/${memoryId}/feedback`, { rating }),
+  dream: (data) => api.post('/memories/dream', data),
+  dreamAudits: () => api.get('/memories/dream/audits')
+}
+
+// 用户活跃统计（个人中心热力图）
+export const userAPI = {
+  getActivity: () => api.get('/user/activity')
+}
+
+// 帮助中心相关（公开读取 + 管理员 CRUD）
+export const helpAPI = {
+  getTree: () => api.get('/help/tree'),
+  getDocument: (slug) => api.get(`/help/documents/${slug}`),
+  getAdminTree: () => api.get('/help/admin/tree'),
+  getAdminDocument: (documentId) => api.get(`/help/admin/documents/${documentId}`),
+  createCategory: (data) => api.post('/help/admin/categories', data),
+  updateCategory: (categoryId, data) => api.put(`/help/admin/categories/${categoryId}`, data),
+  deleteCategory: (categoryId) => api.delete(`/help/admin/categories/${categoryId}`),
+  createDocument: (data) => api.post('/help/admin/documents', data),
+  updateDocument: (documentId, data) => api.put(`/help/admin/documents/${documentId}`, data),
+  deleteDocument: (documentId) => api.delete(`/help/admin/documents/${documentId}`)
 }
 
 export default api

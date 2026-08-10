@@ -1,107 +1,119 @@
 <template>
   <div class="favorites-page">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>我的收藏</span>
-        </div>
-      </template>
+    <ProfileTabs
+      :questions="questions"
+      :favorites="favorites"
+    />
 
-      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+    <section class="favorites-card">
+      <div class="favorites-card__header">
+        <div>
+          <h3>我的收藏</h3>
+          <span class="favorites-card__sub">{{ activeTab === 'qa' ? '收藏的问答' : '收藏的知识' }}</span>
+        </div>
+      </div>
+
+      <el-tabs
+        v-model="activeTab"
+        class="favorites-tabs"
+        @tab-change="handleTabChange"
+      >
         <el-tab-pane label="问答收藏" name="qa">
-          <el-table :data="qaFavorites" v-loading="qaLoading" stripe>
-            <el-table-column prop="question" label="问题" min-width="200">
-              <template #default="{ row }">
-                <div class="question-cell">
-                  <span class="question-text">{{ row.qa_record?.question }}</span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column prop="answer" label="答案预览" min-width="200">
-              <template #default="{ row }">
-                <span class="answer-preview">{{ getAnswerPreview(row.qa_record?.answer) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="created_at" label="收藏时间" width="180">
-              <template #default="{ row }">
-                {{ formatDate(row.created_at) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="200" fixed="right">
-              <template #default="{ row }">
-                <el-button size="small" @click="viewQADetail(row)">查看</el-button>
-                <el-button size="small" type="danger" @click="removeQAFavorite(row)">取消</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-empty v-if="!qaLoading && !qaFavorites.length" description="暂无问答收藏" />
+          <div v-if="qaLoading" class="favorites-card__skeleton">
+            <div v-for="index in 3" :key="index" class="skeleton-row" />
+          </div>
+
+          <div v-else-if="qaFavorites.length" class="favorites-card__list">
+            <FavoriteQACard
+              v-for="favorite in qaFavorites"
+              :key="favorite.id"
+              :favorite="favorite"
+              @view="viewQADetail"
+              @continue="continueAsk"
+              @remove="removeQAFavorite"
+            />
+          </div>
+
+          <el-empty
+            v-else
+            description="暂无问答收藏"
+            :image-size="80"
+            class="favorites-card__empty"
+          />
         </el-tab-pane>
 
         <el-tab-pane label="知识收藏" name="knowledge">
-          <el-table :data="knowledgeFavorites" v-loading="knowledgeLoading" stripe>
-            <el-table-column prop="title" label="标题" min-width="200">
-              <template #default="{ row }">
-                <div class="title-cell">
-                  <span class="title-text">{{ row.title }}</span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column prop="category_name" label="分类" width="120" />
-            <el-table-column prop="summary" label="摘要" min-width="200">
-              <template #default="{ row }">
-                <span class="summary-preview">{{ getSummaryPreview(row.summary) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="view_count" label="浏览" width="80" />
-            <el-table-column label="操作" width="200" fixed="right">
-              <template #default="{ row }">
-                <el-button size="small" @click="viewKnowledgeDetail(row)">查看</el-button>
-                <el-button size="small" type="danger" @click="removeKnowledgeFavorite(row)">取消</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-empty v-if="!knowledgeLoading && !knowledgeFavorites.length" description="暂无知识收藏" />
+          <div v-if="knowledgeLoading" class="favorites-card__skeleton">
+            <div v-for="index in 3" :key="index" class="skeleton-row" />
+          </div>
+
+          <div v-else-if="knowledgeFavorites.length" class="favorites-card__list">
+            <FavoriteKnowledgeCard
+              v-for="item in knowledgeFavorites"
+              :key="item.id"
+              :item="item"
+              @view="viewKnowledgeDetail"
+              @remove="removeKnowledgeFavorite"
+            />
+          </div>
+
+          <el-empty
+            v-else
+            description="暂无知识收藏"
+            :image-size="80"
+            class="favorites-card__empty"
+          />
         </el-tab-pane>
       </el-tabs>
 
-      <div class="pagination-wrapper" v-if="total > pageSize">
-        <el-pagination
-          v-model:current-page="currentPage"
-          :page-size="pageSize"
-          :total="total"
-          layout="prev, pager, next"
-          @current-change="handlePageChange"
-        />
-      </div>
-    </el-card>
+      <UserPagination
+        v-model="currentPage"
+        :total="total"
+        :per-page="pageSize"
+        @change="handlePageChange"
+      />
+    </section>
 
-    <!-- QA详情弹窗 -->
-    <el-dialog v-model="qaDetailVisible" title="问答详情" width="700px">
+    <el-dialog v-model="qaDetailVisible" title="问答详情" width="min(700px, calc(100vw - 32px))">
       <div v-if="currentQARecord" class="qa-detail">
-        <div class="detail-section">
+        <div class="qa-detail__section">
           <h4>问题</h4>
           <p>{{ currentQARecord.qa_record?.question }}</p>
         </div>
         <el-divider />
-        <div class="detail-section">
+        <div class="qa-detail__section">
           <h4>答案</h4>
-          <div class="answer-content markdown-content" v-html="renderMarkdownSafe(currentQARecord.qa_record?.answer)"></div>
+          <div
+            class="qa-detail__answer markdown-content"
+            v-html="renderMarkdownSafe(currentQARecord.qa_record?.answer)"
+          ></div>
         </div>
       </div>
       <template #footer>
         <el-button @click="qaDetailVisible = false">关闭</el-button>
-        <el-button type="primary" @click="continueAsk">继续问</el-button>
+        <button
+          type="button"
+          class="row-btn row-btn--primary"
+          @click="continueAsk"
+        >
+          继续问
+        </button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { qaAPI, knowledgeAPI } from '@/api'
 import { ElMessage } from 'element-plus'
 import { renderMarkdown } from '@/features/markdown/renderMarkdown'
+import ProfileTabs from '@/components/user/ProfileTabs.vue'
+import FavoriteQACard from '@/components/user/FavoriteQACard.vue'
+import FavoriteKnowledgeCard from '@/components/user/FavoriteKnowledgeCard.vue'
+import UserPagination from '@/components/user/UserPagination.vue'
+import { useProfileStats } from '@/composables/user/useProfileStats'
 
 const router = useRouter()
 const activeTab = ref('qa')
@@ -115,20 +127,7 @@ const pageSize = ref(10)
 const qaDetailVisible = ref(false)
 const currentQARecord = ref(null)
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString('zh-CN')
-}
-
-const getAnswerPreview = (answer) => {
-  if (!answer) return '暂无答案'
-  return answer.length > 100 ? answer.substring(0, 100) + '...' : answer
-}
-
-const getSummaryPreview = (summary) => {
-  if (!summary) return '暂无摘要'
-  return summary.length > 100 ? summary.substring(0, 100) + '...' : summary
-}
+const { questions, favorites, load: loadStats } = useProfileStats()
 
 const renderMarkdownSafe = (content) => {
   return renderMarkdown(content)
@@ -201,6 +200,7 @@ const removeQAFavorite = async (row) => {
     await qaAPI.removeFavorite(row.id)
     ElMessage.success('已取消收藏')
     fetchQAFavorites()
+    loadStats()
   } catch (error) {
     ElMessage.error('取消收藏失败')
   }
@@ -215,6 +215,7 @@ const removeKnowledgeFavorite = async (row) => {
     await knowledgeAPI.removeFavorite(row.id)
     ElMessage.success('已取消收藏')
     fetchKnowledgeFavorites()
+    loadStats()
   } catch (error) {
     ElMessage.error('取消收藏失败')
   }
@@ -222,50 +223,114 @@ const removeKnowledgeFavorite = async (row) => {
 
 onMounted(() => {
   fetchQAFavorites()
+  loadStats()
 })
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/user-vars' as *;
+@use '@/styles/user-cards' as *;
+
 .favorites-page {
-  :deep(.el-card) {
-    .card-header {
-      font-weight: 600;
+  min-width: 0;
+}
+
+.favorites-card {
+  border: 1px solid $border-color;
+  border-radius: 10px;
+  background: $bg-white;
+  overflow: hidden;
+}
+
+.favorites-card__header {
+  display: flex;
+  align-items: center;
+  padding: 18px 20px;
+  border-bottom: 1px solid $border-lighter;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
+
+.favorites-card__sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: $text-secondary;
+}
+
+.favorites-tabs {
+  padding: 0 20px;
+
+  :deep(.el-tabs__header) {
+    margin-bottom: 16px;
+  }
+
+  :deep(.el-tabs__nav-wrap::after) {
+    background-color: $border-lighter;
+  }
+
+  :deep(.el-tabs__item) {
+    color: $text-regular;
+    font-size: 14px;
+
+    &:hover {
+      color: $brand-color;
+    }
+
+    &.is-active {
+      color: $brand-color;
     }
   }
 
-  .question-cell, .title-cell {
-    .question-text, .title-text {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
+  :deep(.el-tabs__active-bar) {
+    background-color: $brand-color;
+  }
+}
+
+.favorites-card__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+
+.favorites-card__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 0 16px;
+}
+
+.favorites-card__empty {
+  padding: 48px 0;
+}
+
+.qa-detail__section {
+  h4 {
+    margin: 0 0 12px;
+    color: $text-primary;
   }
 
-  .answer-preview, .summary-preview {
-    color: #909399;
-    font-size: 13px;
+  p {
+    margin: 0;
+    color: $text-regular;
+    line-height: 1.8;
   }
+}
 
-  .pagination-wrapper {
-    display: flex;
-    justify-content: center;
-    margin-top: 20px;
-  }
+.qa-detail__answer {
+  color: $text-regular;
+  line-height: 1.8;
+}
 
-  .qa-detail {
-    .detail-section {
-      h4 {
-        margin: 0 0 12px;
-        color: #303133;
-      }
-
-      p {
-        margin: 0;
-        color: #606266;
-        line-height: 1.8;
-      }
-    }
+@media (max-width: 640px) {
+  .favorites-tabs {
+    padding: 0 12px;
   }
 }
 </style>

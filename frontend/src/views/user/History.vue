@@ -1,19 +1,22 @@
 <template>
   <div class="history-page">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>问答历史</span>
-        </div>
-      </template>
+    <ProfileTabs
+      :questions="questions"
+      :favorites="favorites"
+    />
 
-      <div class="toolbar">
+    <section class="history-card">
+      <div class="history-card__header">
+        <div>
+          <h3>问答历史</h3>
+          <span class="history-card__sub">共 {{ total }} 条问答记录</span>
+        </div>
         <el-input
           v-model="keyword"
           placeholder="搜索问题..."
           clearable
+          class="history-card__search"
           @keyup.enter="handleSearch"
-          style="width: 300px;"
         >
           <template #prefix>
             <el-icon>
@@ -23,111 +26,95 @@
         </el-input>
       </div>
 
-      <el-table :data="records" v-loading="loading" stripe>
-        <el-table-column prop="question" label="问题" min-width="200">
-          <template #default="{ row }">
-            <div class="question-cell">
-              <span class="question-text">{{ row.question }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="answer" label="答案预览" min-width="200">
-          <template #default="{ row }">
-            <span class="answer-preview">{{ getAnswerPreview(row.answer) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="时间" width="180">
-          <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="feedback" label="反馈" width="100">
-          <template #default="{ row }">
-            <el-tag v-if="row.feedback" :type="getFeedbackType(row.feedback)" size="small">
-              {{ getFeedbackText(row.feedback) }}
-            </el-tag>
-            <span v-else class="no-feedback">未反馈</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" @click="viewDetail(row)">查看</el-button>
-            <el-button size="small" type="primary" @click="continueAsk(row)">继续问</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-if="loading" class="history-card__skeleton">
+        <div v-for="index in 3" :key="index" class="skeleton-row" />
+      </div>
 
-      <div class="pagination-wrapper" v-if="total > pageSize">
-        <el-pagination
-          v-model:current-page="currentPage"
-          :page-size="pageSize"
-          :total="total"
-          layout="prev, pager, next"
-          @current-change="handlePageChange"
+      <div v-else-if="records.length" class="history-card__list">
+        <HistoryRecordCard
+          v-for="record in records"
+          :key="record.id"
+          :record="record"
+          @view="viewDetail"
+          @continue="continueAsk"
         />
       </div>
-    </el-card>
 
-    <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="问答详情" width="700px">
+      <el-empty
+        v-else
+        description="暂无问答记录，快去提问吧"
+        :image-size="80"
+        class="history-card__empty"
+      />
+
+      <UserPagination
+        v-model="currentPage"
+        :total="total"
+        :per-page="pageSize"
+        @change="handlePageChange"
+      />
+    </section>
+
+    <el-dialog v-model="detailVisible" title="问答详情" width="min(700px, calc(100vw - 32px))">
       <div v-if="currentRecord" class="qa-detail">
-        <div class="detail-section">
+        <div class="qa-detail__section">
           <h4>问题</h4>
           <p>{{ currentRecord.question }}</p>
         </div>
         <el-divider />
-        <div class="detail-section">
+        <div class="qa-detail__section">
           <h4>答案</h4>
-          <div class="answer-content markdown-content" v-html="renderMarkdownSafe(currentRecord.answer)"></div>
+          <div
+            class="qa-detail__answer markdown-content"
+            v-html="renderMarkdownSafe(currentRecord.answer)"
+          ></div>
         </div>
         <el-divider />
-        <div class="detail-meta">
+        <div class="qa-detail__meta">
           <span>时间：{{ formatDate(currentRecord.created_at) }}</span>
           <span v-if="currentRecord.response_time">响应时间：{{ currentRecord.response_time.toFixed(2) }}秒</span>
+          <span v-if="currentRecord.model_name">模型：{{ currentRecord.model_name }}</span>
         </div>
       </div>
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
-        <el-button type="primary" @click="continueAsk(currentRecord)">继续问</el-button>
+        <button
+          type="button"
+          class="row-btn row-btn--primary"
+          @click="continueAsk(currentRecord)"
+        >
+          继续问
+        </button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { qaAPI } from '@/api'
 import { renderMarkdown } from '@/features/markdown/renderMarkdown'
+import ProfileTabs from '@/components/user/ProfileTabs.vue'
+import HistoryRecordCard from '@/components/user/HistoryRecordCard.vue'
+import UserPagination from '@/components/user/UserPagination.vue'
+import { useProfileStats } from '@/composables/user/useProfileStats'
 
 const router = useRouter()
 const loading = ref(false)
 const records = ref([])
 const total = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(5)
 const keyword = ref('')
 const detailVisible = ref(false)
 const currentRecord = ref(null)
 
-const getFeedbackType = (fb) => {
-  const types = { good: 'success', neutral: 'info', bad: 'danger' }
-  return types[fb]
-}
-
-const getFeedbackText = (fb) => {
-  const texts = { good: '满意', neutral: '一般', bad: '不满意' }
-  return texts[fb]
-}
+const { questions, favorites, load: loadStats } = useProfileStats()
 
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleString('zh-CN')
-}
-
-const getAnswerPreview = (answer) => {
-  if (!answer) return '暂无答案'
-  return answer.length > 100 ? answer.substring(0, 100) + '...' : answer
 }
 
 const renderMarkdownSafe = (content) => {
@@ -167,72 +154,114 @@ const viewDetail = (row) => {
 }
 
 const continueAsk = (row) => {
+  if (!row) return
   router.push({ path: '/qa', query: { topic: row.question } })
   detailVisible.value = false
 }
 
 onMounted(() => {
   fetchHistory()
+  loadStats()
 })
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/user-vars' as *;
+@use '@/styles/user-cards' as *;
+
 .history-page {
-  :deep(.el-card) {
-    .card-header {
-      font-weight: 600;
-    }
+  min-width: 0;
+}
+
+.history-card {
+  border: 1px solid $border-color;
+  border-radius: 10px;
+  background: $bg-white;
+  overflow: hidden;
+}
+
+.history-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid $border-lighter;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
+
+.history-card__sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: $text-secondary;
+}
+
+.history-card__search {
+  width: 260px;
+}
+
+.history-card__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+
+.history-card__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.history-card__empty {
+  padding: 48px 0;
+}
+
+.qa-detail__section {
+  h4 {
+    margin: 0 0 12px;
+    color: $text-primary;
   }
 
-  .toolbar {
-    margin-bottom: 16px;
+  p {
+    margin: 0;
+    color: $text-regular;
+    line-height: 1.8;
+  }
+}
+
+.qa-detail__answer {
+  color: $text-regular;
+  line-height: 1.8;
+}
+
+.qa-detail__meta {
+  display: flex;
+  gap: 24px;
+  color: $text-secondary;
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .history-card__header {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .question-cell {
-    .question-text {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
+  .history-card__search {
+    width: 100%;
   }
 
-  .answer-preview {
-    color: #909399;
-    font-size: 13px;
-  }
-
-  .no-feedback {
-    color: #c0c4cc;
-    font-size: 13px;
-  }
-
-  .pagination-wrapper {
-    display: flex;
-    justify-content: center;
-    margin-top: 20px;
-  }
-
-  .qa-detail {
-    .detail-section {
-      h4 {
-        margin: 0 0 12px;
-        color: #303133;
-      }
-
-      p {
-        margin: 0;
-        color: #606266;
-        line-height: 1.8;
-      }
-    }
-
-    .detail-meta {
-      display: flex;
-      gap: 24px;
-      color: #909399;
-      font-size: 14px;
-    }
+  .history-card__list {
+    padding: 12px;
   }
 }
 </style>

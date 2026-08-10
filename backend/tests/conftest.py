@@ -51,24 +51,36 @@ class TestConfig:
     }
 
 
+_ROUTE_STUB_MODULES = {
+    "app.routes.auth": "auth_bp",
+    "app.routes.auth_preferences": "auth_preferences_bp",
+    "app.routes.oauth": "oauth_bp",
+    "app.routes.knowledge": "knowledge_bp",
+    "app.routes.qa": "qa_bp",
+    "app.routes.admin": "admin_bp",
+    "app.routes.projects": "projects_bp",
+    "app.routes.llm_health": "llm_health_bp",
+    "app.routes.llm": "llm_bp",
+    "app.routes.policies": "policies_bp",
+    "app.routes.memories": "memories_bp",
+    "app.routes.help": "help_bp",
+    "app.routes.user_activity": "user_activity_bp",
+}
+
+# legacy stub 不含 projects / help，两者需从磁盘真实加载：
+# - app.routes.projects：security 路由 facade（agent 等测试依赖）
+# - app.routes.help：帮助中心路由
+_ROUTE_STUB_MODULES_LEGACY = dict(_ROUTE_STUB_MODULES)
+del _ROUTE_STUB_MODULES_LEGACY["app.routes.projects"]
+del _ROUTE_STUB_MODULES_LEGACY["app.routes.help"]
+
+
 def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
     routes_package = types.ModuleType("app.routes")
     routes_package.__path__ = []
     monkeypatch.setitem(sys.modules, "app.routes", routes_package)
 
-    for module_name, blueprint_name in {
-        "app.routes.auth": "auth_bp",
-        "app.routes.auth_preferences": "auth_preferences_bp",
-        "app.routes.oauth": "oauth_bp",
-        "app.routes.knowledge": "knowledge_bp",
-        "app.routes.qa": "qa_bp",
-        "app.routes.admin": "admin_bp",
-        "app.routes.projects": "projects_bp",
-        "app.routes.llm_health": "llm_health_bp",
-        "app.routes.llm": "llm_bp",
-        "app.routes.policies": "policies_bp",
-        "app.routes.memories": "memories_bp",
-    }.items():
+    for module_name, blueprint_name in _ROUTE_STUB_MODULES.items():
         module = types.ModuleType(module_name)
         blueprint = Blueprint(blueprint_name, module_name)
         setattr(module, blueprint_name, blueprint)
@@ -89,18 +101,7 @@ def _install_legacy_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
     routes_package.__path__ = [str(routes_dir)]
     monkeypatch.setitem(sys.modules, "app.routes", routes_package)
 
-    for module_name, blueprint_name in {
-        "app.routes.auth": "auth_bp",
-        "app.routes.auth_preferences": "auth_preferences_bp",
-        "app.routes.oauth": "oauth_bp",
-        "app.routes.knowledge": "knowledge_bp",
-        "app.routes.qa": "qa_bp",
-        "app.routes.admin": "admin_bp",
-        "app.routes.llm_health": "llm_health_bp",
-        "app.routes.llm": "llm_bp",
-        "app.routes.policies": "policies_bp",
-        "app.routes.memories": "memories_bp",
-    }.items():
+    for module_name, blueprint_name in _ROUTE_STUB_MODULES_LEGACY.items():
         module = types.ModuleType(module_name)
         blueprint = Blueprint(blueprint_name, module_name)
         setattr(module, blueprint_name, blueprint)
@@ -168,4 +169,3 @@ def app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         yield application
         db.session.remove()
         db.drop_all()
-

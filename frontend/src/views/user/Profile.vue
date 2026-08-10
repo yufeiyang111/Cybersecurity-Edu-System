@@ -6,7 +6,16 @@
     />
 
     <section class="profile-overview">
-      <ContributionHeatmap />
+      <div class="profile-heatmaps">
+        <ContributionHeatmap
+          title="问答活跃"
+          :events="qaEvents"
+        />
+        <ContributionHeatmap
+          title="任务活跃"
+          :events="taskEvents"
+        />
+      </div>
       <RecentActivityList class="profile-overview__item" />
     </section>
 
@@ -31,7 +40,7 @@ import OAuthBindingCard from '@/components/user/OAuthBindingCard.vue'
 import MemorySettingsCard from '@/components/user/MemorySettingsCard.vue'
 import { useProfileStats } from '@/composables/user/useProfileStats'
 
-const { questions, favorites, load } = useProfileStats()
+const { questions, favorites, qaEvents, taskEvents, load } = useProfileStats()
 
 onMounted(() => {
   load()
@@ -52,6 +61,18 @@ onMounted(() => {
 
   &__item {
     margin-top: 0;
+  }
+}
+
+.profile-heatmaps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@include respond-to('md') {
+  .profile-heatmaps {
+    grid-template-columns: 1fr;
   }
 }
 

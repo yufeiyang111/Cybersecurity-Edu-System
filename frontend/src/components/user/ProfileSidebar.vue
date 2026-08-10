@@ -49,6 +49,8 @@ onMounted(() => {
   gap: 12px;
   width: $sidebar-width;
   flex-shrink: 0;
+  position: sticky;
+  top: 16px;
 }
 
 .sidebar-card {
@@ -60,6 +62,7 @@ onMounted(() => {
     width: 100%;
     max-width: 400px;
     margin: 0 auto;
+    position: static;
   }
 }
 </style>
