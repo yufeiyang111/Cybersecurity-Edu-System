@@ -64,31 +64,3 @@ def get_agent_run_coverage(run_id: int):
         return jsonify({"error": str(exc)}), 403
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-
-
-@projects_bp.route("/agent-runs/<int:run_id>/messages", methods=["POST"])
-@jwt_required()
-def add_agent_run_message(run_id: int):
-    """Append a user message to the run conversation (context management lands with LLM batch A3)."""
-    try:
-        run = _agent_run_or_404(run_id, PROJECT_ROLES)
-        if run is None:
-            return jsonify({"error": "Agent 任务不存在"}), 404
-        data = request.get_json(silent=True) or {}
-        content = data.get("content")
-        if not isinstance(content, str) or not content.strip():
-            return jsonify({"error": "消息内容不能为空"}), 400
-        content = content.strip()
-        if len(content) > AGENT_GOAL_MAX_CHARS:
-            return jsonify({"error": f"消息长度不能超过 {AGENT_GOAL_MAX_CHARS} 个字符"}), 400
-        message = AgentMessage(
-            run_id=run.id,
-            role="user",
-            content=content,
-            message_type="follow_up",
-        )
-        db.session.add(message)
-        db.session.commit()
-        return jsonify({"message": message.to_dict()}), 201
-    except AuthorizationError as exc:
-        return jsonify({"error": str(exc)}), 403

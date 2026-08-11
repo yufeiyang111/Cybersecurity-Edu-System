@@ -9,12 +9,32 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from typing import Any
 
 AGENT_LOGGER_NAME = "cyberguard.agent"
+
+
+class SafeTimedRotatingFileHandler(TimedRotatingFileHandler):
+    """轮转失败兜底：文件被其他进程/编辑器占用时保留原流继续写，下次再试。
+
+    Windows 下 TimedRotatingFileHandler 轮转需要 rename 独占文件；失败时
+    super().doRollover() 已关闭 stream，后续日志会全部丢失。本类捕获异常并
+    重新打开原文件，保证"写不丢"优先于"轮转成功"。
+    """
+
+    def doRollover(self):
+        try:
+            super().doRollover()
+        except Exception:
+            if self.stream is None:
+                try:
+                    self.stream = self._open()
+                except Exception:
+                    pass
 
 # 工具 metrics 中允许进入日志的白名单键（其余 metrics 一律丢弃）
 _METRIC_SUMMARY_KEYS = frozenset(
@@ -41,11 +61,17 @@ _METRIC_SUMMARY_KEYS = frozenset(
 
 
 def configure_agent_logger(app) -> None:
-    """为 Agent 行为日志配置按天滚动的文件 handler（幂等，路径变化时重建）。"""
+    """为 Agent 行为日志配置按天滚动的文件 handler（幂等，路径变化时重建）。
+
+    多进程（后端 + RQ worker + reloader）共享同一日志文件时，Windows 上
+    TimedRotatingFileHandler 轮转 rename 会被其他进程句柄挡住（WinError 32）。
+    因此未显式配置 AGENT_LOG_FILE 时按进程分文件（agent-{pid}.log），
+    保证轮转与写入互不干扰；显式配置路径仅用于单进程场景（如测试）。
+    """
     configured = app.config.get("AGENT_LOG_FILE")
     if not configured:
         log_file = Path(str(app.config.get("LOG_FILE", "logs/app.log")))
-        configured = str(log_file.parent / "agent.log")
+        configured = str(log_file.parent / f"agent-{os.getpid()}.log")
     target = str(Path(str(configured)).resolve())
 
     logger = logging.getLogger(AGENT_LOGGER_NAME)
@@ -62,7 +88,7 @@ def configure_agent_logger(app) -> None:
             pass
 
     Path(target).parent.mkdir(parents=True, exist_ok=True)
-    handler = TimedRotatingFileHandler(
+    handler = SafeTimedRotatingFileHandler(
         target,
         when="midnight",
         backupCount=14,
@@ -136,6 +162,24 @@ class AgentLogger:
         payload["attempt"] = attempt
         payload["reason"] = _truncate(reason, 300)
         self._write(logging.WARNING, payload)
+
+    def plan_replanned(
+        self,
+        run,
+        *,
+        reason_code: str,
+        plan_version: int,
+        supersedes_version: int | None,
+        decision_type: str,
+        trace_id: str | None = None,
+    ) -> None:
+        payload = self._base(run, trace_id)
+        payload["event"] = "plan.replanned"
+        payload["reason_code"] = reason_code
+        payload["plan_version"] = plan_version
+        payload["supersedes_version"] = supersedes_version
+        payload["decision_type"] = decision_type
+        self._write(logging.INFO, payload)
 
     # ------------------------------------------------------------------ tool
 

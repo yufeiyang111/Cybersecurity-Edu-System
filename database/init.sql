@@ -572,6 +572,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     state_version INT NOT NULL DEFAULT 0,
     plan_version INT NOT NULL DEFAULT 0,
     planner_source VARCHAR(64) NULL,
+    replan_count INT NOT NULL DEFAULT 0,
     last_event_sequence INT NOT NULL DEFAULT 0,
     lease_owner VARCHAR(255) NULL,
     lease_expires_at DATETIME NULL,
@@ -641,6 +642,7 @@ CREATE TABLE IF NOT EXISTS agent_plan_nodes (
     title VARCHAR(500) NOT NULL,
     description VARCHAR(4000) NULL,
     tool_name VARCHAR(128) NULL,
+    input_json JSON NULL,
     depends_on_json JSON NULL,
     input_artifact_refs JSON NULL,
     output_artifact_refs JSON NULL,
@@ -771,6 +773,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     state_version INT NOT NULL DEFAULT 0,
     plan_version INT NOT NULL DEFAULT 0,
     planner_source VARCHAR(64) NULL,
+    replan_count INT NOT NULL DEFAULT 0,
     last_event_sequence INT NOT NULL DEFAULT 0,
     lease_owner VARCHAR(255) NULL,
     lease_expires_at DATETIME NULL,
@@ -840,6 +843,7 @@ CREATE TABLE IF NOT EXISTS agent_plan_nodes (
     title VARCHAR(500) NOT NULL,
     description VARCHAR(4000) NULL,
     tool_name VARCHAR(128) NULL,
+    input_json JSON NULL,
     depends_on_json JSON NULL,
     input_artifact_refs JSON NULL,
     output_artifact_refs JSON NULL,
@@ -1447,3 +1451,16 @@ CREATE TABLE IF NOT EXISTS kg_community_summaries (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX ix_kg_comm_sum_updated (updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='知识图谱社区摘要缓存';
+
+CREATE TABLE IF NOT EXISTS agent_decision_records (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    run_id INT NOT NULL,
+    plan_version INT NOT NULL,
+    supersedes_version INT NULL,
+    reason_code VARCHAR(64) NOT NULL,
+    decision_type VARCHAR(32) NOT NULL,
+    detail_json JSON NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_agent_decision_records_run FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON DELETE CASCADE,
+    INDEX ix_agent_decision_records_run (run_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='A5 agent replan decision records';

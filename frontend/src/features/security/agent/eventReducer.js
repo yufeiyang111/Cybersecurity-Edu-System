@@ -14,6 +14,7 @@ export function createAgentRunState() {
     events: [],
     messages: [],
     scanSummary: null,
+    decisions: [],
     lastSequence: 0,
     stateVersion: 0,
     reasoningStream: '',
@@ -29,6 +30,9 @@ export function hydrateAgentRunState(snapshot) {
   const agentAnalysis = (snapshot.messages || []).find(
     (message) => message.role === 'agent' && message.message_type === 'llm_analysis'
   )
+  const agentReasoning = (snapshot.messages || []).find(
+    (message) => message.role === 'agent' && message.message_type === 'llm_reasoning'
+  )
   const startedEvent = [...(snapshot.events || [])]
     .reverse()
     .find((event) => event.event_type === 'llm.started')
@@ -40,9 +44,10 @@ export function hydrateAgentRunState(snapshot) {
     events: snapshot.events || [],
     messages: snapshot.messages || [],
     scanSummary: snapshot.scan_summary || null,
+    decisions: snapshot.decisions || [],
     lastSequence: snapshot.last_sequence || 0,
     stateVersion: snapshot.state_version || 0,
-    reasoningStream: '',
+    reasoningStream: agentReasoning?.content || '',
     reasoningLive: false,
     llmAnalysis: agentAnalysis?.content || null,
     lastProvider: startedEvent?.payload
@@ -108,6 +113,53 @@ export function reduceAgentEvent(state, event) {
       }
       break
     }
+    case 'plan.replanned': {
+      const payload = event.payload || {}
+      next.plan = {
+        ...(next.plan || {}),
+        plan_id: payload.plan_id ?? next.plan?.plan_id,
+        plan_version: payload.plan_version ?? next.plan?.plan_version,
+        supersedes_version: payload.supersedes_version ?? null,
+        reason_code: payload.reason_code || null,
+        new_nodes: payload.new_nodes || []
+      }
+      if (next.run) {
+        next.run = { ...next.run, plan_version: payload.plan_version ?? next.run.plan_version, replan_count: (next.run.replan_count || 0) + 1 }
+      }
+      break
+    }
+    case 'decision.recorded': {
+      const payload = event.payload || {}
+      next.decisions = [
+        ...(next.decisions || []),
+        {
+          id: payload.decision_id,
+          plan_version: payload.plan_version,
+          supersedes_version: payload.supersedes_version ?? null,
+          reason_code: payload.reason_code,
+          decision_type: payload.decision_type,
+          detail: payload.detail || {},
+          occurred_at: event.occurred_at || null
+        }
+      ].slice(-20)
+      break
+    }
+    case 'strategy.switched': {
+      const payload = event.payload || {}
+      next.decisions = [
+        ...(next.decisions || []),
+        {
+          id: `strategy-${event.sequence}`,
+          plan_version: payload.to_plan_version ?? null,
+          supersedes_version: payload.from_plan_version ?? null,
+          reason_code: payload.reason_code,
+          decision_type: 'strategy_switch',
+          detail: { decision_summary: payload.decision_summary || '' },
+          occurred_at: event.occurred_at || null
+        }
+      ].slice(-20)
+      break
+    }
     case 'step.started':
     case 'step.completed':
     case 'step.failed': {
@@ -134,7 +186,9 @@ export function reduceAgentEvent(state, event) {
         tool_name: payload.tool_name,
         node_key: payload.node_key,
         status,
+        input_summary: payload.input_summary || '',
         summary: payload.summary || '',
+        output_summary: payload.output_summary || '',
         error_code: payload.error_code || null,
         latency_ms: payload.latency_ms ?? null,
         artifact_refs: payload.artifact_refs || [],
@@ -157,6 +211,7 @@ export function reduceAgentEvent(state, event) {
     case 'llm.completed': {
       const payload = event.payload || {}
       if (payload.analysis) next.llmAnalysis = payload.analysis
+      if (payload.reasoning) next.reasoningStream = payload.reasoning
       next.reasoningLive = false
       break
     }

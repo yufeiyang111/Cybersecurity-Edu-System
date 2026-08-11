@@ -115,7 +115,7 @@ class InlinePlanRunner:
                 else:
                     return
 
-                self._run_plan_nodes(run, plan, trace_id)
+                self._execute_with_replan(run, trace_id)
                 self._run_llm_analysis(run_id, trace_id)
                 self._finish_run(run_id, trace_id)
             except Exception:
@@ -141,6 +141,56 @@ class InlinePlanRunner:
     def _build_plan(self, run: AgentRun, trace_id: str) -> AgentPlan:
         """Delegate plan construction to the planner (LLM plan or honest fallback)."""
         return self._planner.generate_plan(run, trace_id=trace_id)
+
+    def _execute_with_replan(self, run: AgentRun, trace_id: str) -> None:
+        """执行 → 证据评估 → 重规划的调度循环（A5）。
+
+        每轮执行当前最新计划版本的全部可执行节点；完成后评估证据，
+        若策略目录判定需要重规划且未达硬限制，创建新计划版本继续执行。
+        """
+        from app.services.security_agent.evidence_evaluator import EvidenceEvaluator
+        from app.services.security_agent.replanner import Replanner
+        from app.services.security_agent.strategy_catalog import evaluate_evidence
+
+        evaluator = EvidenceEvaluator()
+        replanner = Replanner(self._events)
+        max_rounds = int(
+            current_app.config.get("AGENT_MAX_REPLANS", 2) + 1
+        ) if current_app is not None else 3
+
+        for _ in range(max_rounds):
+            plan = self._latest_plan(run.id)
+            if plan is None:
+                return
+            self._run_plan_nodes(run, plan, trace_id)
+
+            run = db.session.get(AgentRun, run.id)
+            if run is None:
+                return
+            status = self._status_value(run.status)
+            if status in {
+                AgentRunStatus.PAUSED.value,
+                AgentRunStatus.CANCELED.value,
+            } or self._is_terminal(run):
+                return
+
+            evidence = evaluator.evaluate(run, plan)
+            existing_keys = {node.node_key for node in plan.nodes}
+            decision = evaluate_evidence(evidence, existing_keys)
+            if not decision.should_replan:
+                return
+
+            new_plan = replanner.create_version(
+                run,
+                plan,
+                reason_code=decision.reason_code,
+                decision_type=decision.decision_type,
+                node_specs=decision.node_specs,
+                decision_summary=decision.decision_summary,
+                trace_id=trace_id,
+            )
+            if new_plan is None:
+                return
 
     def _run_plan_nodes(self, run: AgentRun, plan: AgentPlan, trace_id: str) -> None:
         restored = self._checkpoints.restore(run.id)
@@ -290,6 +340,7 @@ class InlinePlanRunner:
             step,
             actor_id=run.created_by,
             trace_id=trace_id,
+            input_payload=node.input_json or None,
         )
 
     def _run_llm_analysis(self, run_id: int, trace_id: str) -> None:

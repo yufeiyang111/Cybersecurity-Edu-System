@@ -5,7 +5,7 @@ from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 
 from app import db
-from app.models.agent_runtime import AgentRun
+from app.models.agent_runtime import AgentDecisionRecord, AgentPlan, AgentRun
 from app.models.security import ProjectSnapshot, SecurityProject
 from app.services.security_agent.contracts import AGENT_RUN_MODES
 from app.services.security_agent.cost_service import run_costs
@@ -176,3 +176,157 @@ def get_agent_run_costs(run_id: int):
         return jsonify(run_costs(run))
     except AuthorizationError as exc:
         return jsonify({"error": str(exc)}), 403
+
+
+@projects_bp.route("/agent-runs/<int:run_id>/plans", methods=["GET"])
+@jwt_required()
+def list_agent_run_plans(run_id: int):
+    """按版本列出计划 DAG（A5 计划版本选择器）。"""
+    try:
+        run = _agent_run_or_404(run_id)
+        if run is None:
+            return jsonify({"error": "Agent 任务不存在"}), 404
+        plans = (
+            AgentPlan.query.filter_by(run_id=run.id)
+            .order_by(AgentPlan.plan_version.asc())
+            .all()
+        )
+        return jsonify({"items": [plan.to_dict() for plan in plans]})
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
+
+
+@projects_bp.route("/agent-runs/<int:run_id>/decisions", methods=["GET"])
+@jwt_required()
+def list_agent_run_decisions(run_id: int):
+    """重规划决策记录（A5 决策时间线）。"""
+    try:
+        run = _agent_run_or_404(run_id)
+        if run is None:
+            return jsonify({"error": "Agent 任务不存在"}), 404
+        records = (
+            AgentDecisionRecord.query.filter_by(run_id=run.id)
+            .order_by(AgentDecisionRecord.id.asc())
+            .all()
+        )
+        return jsonify({"items": [record.to_dict() for record in records]})
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
+
+
+@projects_bp.route("/agent-runs/<int:run_id>/messages", methods=["POST"])
+@jwt_required()
+def post_agent_run_message(run_id: int):
+    """用户对运行中的 Agent 追加方向（A5）：创建新计划版本继续执行。
+
+    幂等：相同 client_message_id 重试返回既有消息与计划版本（replayed=True）。
+    Run 已终态时返回 409，由会话级接口创建新的 Turn + Run。
+    """
+    from app.models.conversation import AgentConversationMessage
+    from app.services.security_agent.conversation_service import (
+        ConversationError,
+        ConversationService,
+    )
+
+    try:
+        run = _agent_run_or_404(run_id, PROJECT_ROLES)
+        if run is None:
+            return jsonify({"error": "Agent 任务不存在"}), 404
+
+        data = _json_object()
+        content = data.get("content")
+        client_message_id = data.get("client_message_id")
+        if not isinstance(content, str) or not content.strip():
+            return jsonify({"error": "消息内容不能为空"}), 400
+        if not isinstance(client_message_id, str) or not client_message_id.strip():
+            return jsonify({"error": "缺少 client_message_id（用于防重复提交）"}), 400
+
+        from app.models.agent_runtime import AgentRunStatus
+
+        status = run.status.value if hasattr(run.status, "value") else str(run.status)
+        terminal_statuses = {
+            AgentRunStatus.COMPLETED.value,
+            AgentRunStatus.COMPLETED_WITH_WARNINGS.value,
+            AgentRunStatus.PARTIAL.value,
+            AgentRunStatus.FAILED.value,
+            AgentRunStatus.CANCELED.value,
+        }
+        if status in terminal_statuses:
+            return (
+                jsonify(
+                    {
+                        "error": "任务已结束，追加方向请通过会话消息创建新的执行",
+                        "terminal": True,
+                    }
+                ),
+                409,
+            )
+        replanable_statuses = {
+            AgentRunStatus.QUEUED.value,
+            AgentRunStatus.PREPARING.value,
+            AgentRunStatus.MAPPING_REPOSITORY.value,
+            AgentRunStatus.EXECUTING_TOOLS.value,
+            AgentRunStatus.PAUSED.value,
+        }
+        if status not in replanable_statuses:
+            return jsonify({"error": "任务正在转换阶段，请稍后重试"}), 409
+
+        existing = AgentConversationMessage.query.filter_by(
+            client_message_id=client_message_id.strip()
+        ).one_or_none()
+        if existing is not None:
+            return (
+                jsonify(
+                    {
+                        "message": existing.to_dict(),
+                        "replayed": True,
+                        "run_id": run.id,
+                        "plan_version": run.plan_version,
+                    }
+                ),
+                200,
+            )
+
+        conversation = _conversation_for_run(run)
+        if conversation is None:
+            return jsonify({"error": "该任务没有关联会话，无法追加方向"}), 409
+
+        message, new_plan = ConversationService().append_follow_up_direction(
+            conversation,
+            content=content.strip(),
+            client_message_id=client_message_id.strip(),
+            run=run,
+        )
+        return (
+            jsonify(
+                {
+                    "message": message.to_dict(),
+                    "plan_version": new_plan.plan_version,
+                    "new_nodes": [
+                        node.node_key
+                        for node in new_plan.nodes
+                        if node.node_key.startswith("direction_")
+                    ],
+                    "replayed": False,
+                }
+            ),
+            201,
+        )
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except ConversationError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+def _conversation_for_run(run: AgentRun):
+    """通过 AgentTurn 反查 run 关联的会话（run 无直接 conversation_id 列）。"""
+    from app.models.conversation import AgentTurn
+
+    turn = AgentTurn.query.filter_by(run_id=run.id).order_by(AgentTurn.id.desc()).first()
+    if turn is None:
+        return None
+    from app.models.conversation import AgentConversation
+
+    return db.session.get(AgentConversation, turn.conversation_id)

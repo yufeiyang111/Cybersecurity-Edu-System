@@ -12,6 +12,7 @@ from flask import current_app
 
 from app import db
 from app.models.agent_runtime import (
+    AgentDecisionRecord,
     AgentMessage,
     AgentPlan,
     AgentRun,
@@ -188,6 +189,14 @@ class AgentRunService:
             .order_by(AgentMessage.id.asc())
             .all()
         )
+        decisions = list(
+            reversed(
+                AgentDecisionRecord.query.filter_by(run_id=run.id)
+                .order_by(AgentDecisionRecord.id.desc())
+                .limit(20)
+                .all()
+            )
+        )
         return {
             "run": run.to_dict(),
             "plan": plan.to_dict() if plan is not None else None,
@@ -195,6 +204,7 @@ class AgentRunService:
             "tool_calls": [tool_call.to_dict() for tool_call in tool_calls],
             "events": [event.to_dict() for event in events],
             "messages": [message.to_dict() for message in messages],
+            "decisions": [record.to_dict() for record in decisions],
             "scan_summary": _scan_summary(run.snapshot_id),
             "last_sequence": run.last_event_sequence,
             "state_version": run.state_version,

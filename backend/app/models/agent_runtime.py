@@ -100,6 +100,7 @@ class AgentRun(db.Model):
     state_version = db.Column(db.Integer, nullable=False, default=0)
     plan_version = db.Column(db.Integer, nullable=False, default=0)
     planner_source = db.Column(db.String(64))
+    replan_count = db.Column(db.Integer, nullable=False, default=0)
     last_event_sequence = db.Column(db.Integer, nullable=False, default=0)
     lease_owner = db.Column(db.String(255))
     lease_expires_at = db.Column(db.DateTime)
@@ -148,6 +149,7 @@ class AgentRun(db.Model):
             "state_version": self.state_version,
             "plan_version": self.plan_version,
             "planner_source": self.planner_source,
+            "replan_count": self.replan_count,
             "last_event_sequence": self.last_event_sequence,
             "tool_call_count": self.tool_call_count,
             "llm_call_count": self.llm_call_count,
@@ -298,6 +300,7 @@ class AgentPlanNode(db.Model):
     title = db.Column(db.String(500), nullable=False)
     description = db.Column(db.String(4000))
     tool_name = db.Column(db.String(128))
+    input_json = db.Column(db.JSON)
     depends_on_json = db.Column(db.JSON)
     input_artifact_refs = db.Column(db.JSON)
     output_artifact_refs = db.Column(db.JSON)
@@ -319,6 +322,7 @@ class AgentPlanNode(db.Model):
             "title": self.title,
             "description": self.description,
             "tool_name": self.tool_name,
+            "input": self.input_json or {},
             "depends_on": self.depends_on_json or [],
             "input_artifact_refs": self.input_artifact_refs or [],
             "output_artifact_refs": self.output_artifact_refs or [],
@@ -513,5 +517,37 @@ class AgentCheckpoint(db.Model):
             "plan_version": self.plan_version,
             "state": self.state_json or {},
             "event_sequence": self.event_sequence,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class AgentDecisionRecord(db.Model):
+    """A5 重规划决策记录：每次 replan 或用户方向追加落一条，前端决策时间线可查询。"""
+
+    __tablename__ = "agent_decision_records"
+    __table_args__ = (
+        db.Index("ix_agent_decision_records_run", "run_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    run_id = db.Column(db.Integer, db.ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False)
+    plan_version = db.Column(db.Integer, nullable=False)
+    supersedes_version = db.Column(db.Integer)
+    reason_code = db.Column(db.String(64), nullable=False)
+    decision_type = db.Column(db.String(32), nullable=False)
+    detail_json = db.Column(db.JSON)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    run = db.relationship("AgentRun")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "run_id": self.run_id,
+            "plan_version": self.plan_version,
+            "supersedes_version": self.supersedes_version,
+            "reason_code": self.reason_code,
+            "decision_type": self.decision_type,
+            "detail": self.detail_json or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

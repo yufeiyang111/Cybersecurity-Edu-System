@@ -360,7 +360,13 @@ export const agentAPI = {
     api.get(`/security/agent-runs/${runId}/graph/by-file`, { params }),
   getGraphCodeSlice: (runId, params) =>
     api.get(`/security/agent-runs/${runId}/graph/code-slice`, { params }),
-  sendMessage: (runId, content) => api.post(`/security/agent-runs/${runId}/messages`, { content }),
+  sendMessage: (runId, content, clientMessageId) =>
+    api.post(`/security/agent-runs/${runId}/messages`, {
+      content,
+      client_message_id: clientMessageId
+    }),
+  getRunPlans: (runId) => api.get(`/security/agent-runs/${runId}/plans`),
+  getRunDecisions: (runId) => api.get(`/security/agent-runs/${runId}/decisions`),
   createConversation: (projectId, data) => api.post(`/security/projects/${projectId}/agent-conversations`, data || {}),
   listProjectConversations: (projectId, params) => api.get(`/security/projects/${projectId}/agent-conversations`, { params }),
   getConversation: (conversationId) => api.get(`/security/agent-conversations/${conversationId}`),
