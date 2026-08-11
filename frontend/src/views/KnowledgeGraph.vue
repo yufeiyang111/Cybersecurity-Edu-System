@@ -108,13 +108,22 @@
             <el-switch v-model="communityColorEnabled" @change="handleCommunityToggle" />
             <span class="community-control__label">按社区着色</span>
           </div>
+          <el-button
+            v-if="communityList.length"
+            size="small"
+            class="community-batch-btn"
+            :loading="communityBatchLoading"
+            @click="handleBatchSummarize"
+          >
+            预生成 Top 10 摘要
+          </el-button>
           <div v-if="communityList.length" class="community-list">
             <div
               v-for="item in communityList"
               :key="item.id"
               class="community-item"
               :class="{ active: selectedCommunity === item.id }"
-              @click="filterByCommunity(item.id)"
+              @click="handleCommunityClick(item)"
             >
               <span class="community-dot" :style="{ background: communityColor(item.id) }"></span>
               <span class="community-name">
@@ -380,6 +389,12 @@
             </div>
           </div>
         </el-dialog>
+
+        <CommunitySummaryPanel
+          v-model:visible="summaryPanelVisible"
+          :community-id="selectedCommunitySummaryId"
+          :community-sample="selectedCommunitySummarySample"
+        />
       </main>
     </div>
   </div>
@@ -393,6 +408,7 @@ import { adminAPI, knowledgeAPI } from '@/api'
 import { ElMessage } from 'element-plus'
 import { Search, Plus, Minus, Refresh, Aim, Back, Download } from '@element-plus/icons-vue'
 import ForceGraphCanvas from '@/components/graph/ForceGraphCanvas.vue'
+import CommunitySummaryPanel from '@/components/security/knowledgeGraph/CommunitySummaryPanel.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -447,6 +463,10 @@ const communityColorEnabled = ref(false)
 const communityLoading = ref(false)
 const communityData = ref(null) // { communities, node_community }
 const selectedCommunity = ref(null)
+const communityBatchLoading = ref(false)
+const summaryPanelVisible = ref(false)
+const selectedCommunitySummaryId = ref(null)
+const selectedCommunitySummarySample = ref([])
 const communityList = computed(() => {
   const data = communityData.value
   if (!data || !data.communities) return []
@@ -1090,6 +1110,30 @@ const filterByCommunity = (communityId) => {
   }
   selectedCommunity.value = communityId
   applyFilters()
+}
+
+const handleCommunityClick = (item) => {
+  // 点击社区：筛选子图 + 打开摘要面板（未生成时自动生成）
+  filterByCommunity(item.id)
+  selectedCommunitySummaryId.value = item.id
+  selectedCommunitySummarySample.value = item.sample || []
+  summaryPanelVisible.value = true
+}
+
+const handleBatchSummarize = async () => {
+  communityBatchLoading.value = true
+  try {
+    const res = await adminAPI.generateCommunitySummaries({ limit: 10, force: false })
+    const { generated, cached, failed } = res
+    ElMessage.success(
+      `批量预生成完成：新增 ${generated} 个，复用缓存 ${cached} 个${failed ? `，失败 ${failed} 个` : ''}`
+    )
+  } catch (error) {
+    console.error('批量生成社区摘要失败', error)
+    ElMessage.error('批量生成失败，请稍后重试')
+  } finally {
+    communityBatchLoading.value = false
+  }
 }
 
 const exportGraphImage = () => {
@@ -1746,6 +1790,11 @@ onMounted(() => {
     font-size: 13px;
     color: #606266;
   }
+}
+
+.community-batch-btn {
+  width: 100%;
+  margin-bottom: 10px;
 }
 
 .community-list {

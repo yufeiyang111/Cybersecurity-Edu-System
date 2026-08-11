@@ -37,6 +37,7 @@ MIGRATION_IDS = (
     "026_qa_record_reasoning",
     "027_project_security_graph",
     "028_knowledge_content_mediumtext",
+    "029_kg_community_summaries",
 )
 
 

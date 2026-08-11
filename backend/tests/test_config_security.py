@@ -35,6 +35,7 @@ def _install_route_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         "app.routes.user_activity": "user_activity_bp",
         "app.routes.admin_users": "admin_users_bp",
         "app.routes.admin_vector": "admin_vector_bp",
+        "app.routes.admin_graph": "admin_graph_bp",
     }.items():
         module = types.ModuleType(module_name)
         blueprint = Blueprint(blueprint_name, module_name)

@@ -73,6 +73,7 @@ from app.models.project_security_graph import (
     ProjectSecurityGraphEdge,
     ProjectSecurityGraphNode,
 )
+from app.models.knowledge_graph import KnowledgeGraphCommunitySummary
 
 __all__ = [
     "User", "Role", "LoginLog",
@@ -98,4 +99,5 @@ __all__ = [
     "LLMInvocation", "LLMPriceCatalog",
     "GraphNodeType", "GraphEdgeType", "GraphConfidence",
     "ProjectSecurityGraphNode", "ProjectSecurityGraphEdge",
+    "KnowledgeGraphCommunitySummary",
 ]
