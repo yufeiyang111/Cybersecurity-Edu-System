@@ -234,7 +234,7 @@
                 @click="focusNode(neighbor.node_id)"
               >
                 <span class="neighbor-id">{{ neighbor.node_id }}</span>
-                <span class="neighbor-rel">{{ neighbor.relation || '相关' }}</span>
+                <span class="neighbor-rel">{{ getRelationText(neighbor.relation) || '相关' }}</span>
               </div>
               <el-empty v-if="!neighbors.length && !loadingNeighbors" description="暂无关联节点" />
             </div>
@@ -345,7 +345,12 @@
             </div>
 
             <div class="detail-actions">
-              <el-button type="primary" @click="viewKnowledge">查看详情</el-button>
+              <el-button v-if="selectedNode.nodeType === 'knowledge'" type="primary" @click="viewKnowledge">
+                查看详情
+              </el-button>
+              <el-button v-else-if="nodeSources.length" type="primary" @click="viewKnowledge">
+                查看来源文档
+              </el-button>
               <el-button @click="startFromNode">以此节点开始</el-button>
             </div>
           </div>
@@ -445,14 +450,29 @@ const relationColors = {
   'caused_by': '#f56c6c',
   'related_to': '#909399',
   'depends_on': '#9c27b0',
-  'contrasts_with': '#ff9800'
+  'contrasts_with': '#ff9800',
+  // LLM 图谱语义关系
+  'exploits': '#f56c6c',
+  'mitigates': '#67c23a',
+  'detects': '#409eff',
+  'prerequisite': '#9c27b0',
+  'causes': '#ff9800',
+  'belongs_to': '#10b981',
+  'contains': '#c0c4cc'
 }
 
 const nodeTypeColors = {
   'vulnerability': '#f56c6c',
+  'attack_technique': '#e6a23c',
+  'defense_measure': '#67c23a',
+  'security_tool': '#409eff',
   'concept': '#10b981',
+  'regulation': '#9c27b0',
+  'threat_actor': '#ff5722',
+  'knowledge': '#00bcd4',
+  // 旧类型兼容
   'technique': '#e6a23c',
-  'tool': '#909399',
+  'tool': '#409eff',
   'protocol': '#9c27b0',
   'domain': '#67c23a'
 }
@@ -460,7 +480,14 @@ const nodeTypeColors = {
 const getNodeTypeText = (type) => {
   const texts = {
     'vulnerability': '漏洞',
+    'attack_technique': '攻击技术',
+    'defense_measure': '防御措施',
+    'security_tool': '安全工具',
     'concept': '概念',
+    'regulation': '法规标准',
+    'threat_actor': '威胁行为体',
+    'knowledge': '知识条目',
+    // 旧类型兼容
     'technique': '技术',
     'tool': '工具',
     'protocol': '协议',
@@ -472,7 +499,14 @@ const getNodeTypeText = (type) => {
 const getNodeTypeColor = (type) => {
   const colorMap = {
     'vulnerability': 'danger',
+    'attack_technique': 'warning',
+    'defense_measure': 'success',
+    'security_tool': 'primary',
     'concept': '',
+    'regulation': 'warning',
+    'threat_actor': 'danger',
+    'knowledge': 'primary',
+    // 旧类型兼容
     'technique': 'warning',
     'tool': 'info',
     'protocol': '',
@@ -489,7 +523,15 @@ const getRelationText = (rel) => {
     'caused_by': '因果关系',
     'related_to': '相关关系',
     'depends_on': '依赖关系',
-    'contrasts_with': '对比关系'
+    'contrasts_with': '对比关系',
+    // LLM 图谱语义关系
+    'exploits': '被利用于',
+    'mitigates': '缓解',
+    'detects': '检测',
+    'prerequisite': '前置知识',
+    'causes': '导致',
+    'belongs_to': '属于',
+    'contains': '包含'
   }
   return texts[rel] || rel
 }
@@ -541,8 +583,8 @@ const handleNodeClick = (node) => {
 const loadGraphData = async () => {
   try {
     const [nodesRes, edgesRes] = await Promise.all([
-      adminAPI.getGraphNodes({ limit: 1000 }),
-      adminAPI.getGraphEdges({ limit: 5000 })
+      adminAPI.getGraphNodes({ limit: 150 }),
+      adminAPI.getGraphEdges({ limit: 3000 })
     ])
 
     const nodes = (nodesRes.nodes || []).map(node => ({
@@ -649,8 +691,20 @@ const showNodeDetail = async (nodeData) => {
     ]
     nodeSources.value = []
   }
-  
+
   loadingNeighbors.value = false
+}
+
+const loadNodeSources = async (nodeId) => {
+  if (!userStore.isAdmin) return
+  try {
+    const res = await adminAPI.getRelatedNodes(nodeId, { depth: 1 })
+    nodeSources.value = res.sources || []
+    return nodeSources.value
+  } catch (error) {
+    nodeSources.value = []
+    return []
+  }
 }
 
 const focusNode = (nodeId) => {
@@ -823,23 +877,26 @@ const goToKnowledge = (id) => {
 }
 
 const viewKnowledge = () => {
-  if (selectedNode.value) {
-    const nodeId = selectedNode.value.id
-    // 实体节点优先跳转到来源文档（可能有多个，取第一个）
-    if (selectedNode.value.nodeType === 'knowledge') {
-      goToKnowledge(nodeId)
-    } else if (nodeSources.value.length) {
+  if (!selectedNode.value) return
+  const nodeId = selectedNode.value.id
+  // 知识节点直接跳转知识详情
+  if (selectedNode.value.nodeType === 'knowledge') {
+    goToKnowledge(nodeId)
+    return
+  }
+  // 实体节点：跳转到来源文档（可能有多个，取第一个；LLM 图谱实体为全局共享节点，无 source_item）
+  if (nodeSources.value.length) {
+    goToKnowledge(nodeSources.value[0].id)
+    return
+  }
+  // 来源未加载完成时，按需查询一次（避免异步竞态导致空跳转）
+  loadNodeSources(nodeId).then(() => {
+    if (nodeSources.value.length) {
       goToKnowledge(nodeSources.value[0].id)
     } else {
-      // 实体节点，提取知识ID（格式如 "11_加密" -> "11"）
-      const knowledgeId = nodeId.split('_')[0]
-      if (knowledgeId) {
-        goToKnowledge(knowledgeId)
-      } else {
-        ElMessage.error('无法跳转：该节点没有关联的知识条目')
-      }
+      ElMessage.error('无法跳转：该节点没有关联的知识条目')
     }
-  }
+  })
 }
 
 const startFromNode = async () => {

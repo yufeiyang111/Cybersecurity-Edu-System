@@ -410,19 +410,22 @@ def get_graph_stats():
 @admin_bp.route("/graph/nodes", methods=["GET"])
 @jwt_required()
 def get_graph_nodes():
-    """获取图谱节点（用于可视化）"""
+    """获取图谱节点（用于可视化；按关联度降序，展示核心节点优先）"""
     limit = request.args.get("limit", 100, type=int)
-    
+
     try:
         graph = get_knowledge_graph()
         nodes = []
 
-        print(f"[DEBUG] get_graph_nodes: use_neo4j={graph.use_neo4j}, _nx_graph is None={graph._nx_graph is None}, _neo4j_graph driver={graph._neo4j_graph.driver if graph._neo4j_graph else None}")
-
         graph_data = graph.graph
-        print(f"[DEBUG] graph_data type: {type(graph_data)}, nodes count: {len(graph_data.nodes())}")
 
-        for node_id, data in list(graph_data.nodes(data=True))[:limit]:
+        # 按 degree 降序（核心/枢纽节点优先），避免大图只取到边缘节点
+        sorted_nodes = sorted(
+            graph_data.nodes(data=True),
+            key=lambda item: graph_data.degree(item[0]),
+            reverse=True,
+        )
+        for node_id, data in sorted_nodes[:limit]:
             nodes.append({
                 "id": node_id,
                 "type": data.get("type", "unknown"),
