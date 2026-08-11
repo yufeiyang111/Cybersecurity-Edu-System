@@ -78,6 +78,28 @@ class LLMProviderClient:
         Returns:
             原始文本；所有 Provider 都失败（非额度问题）返回 None
         """
+        result = self.call_with_thinking(
+            user_content,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return result["text"] if result is not None else None
+
+    def call_with_thinking(
+        self,
+        user_content: str,
+        system_prompt: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """按 Provider 优先级生成文本，附带模型思考过程（若返回）。
+
+        Returns:
+            {"text": str, "thinking": str|None}；所有 Provider 都失败（非额度问题）
+            返回 None。thinking 为模型 reasoning 字段（MiniMax M2 / deepseek-r1
+            系返回），不支持思考的模型为 None，调用方需做空值兼容。
+        """
         prompt = system_prompt if system_prompt is not None else self.system_prompt
         temp = temperature if temperature is not None else self.temperature
         tokens = max_tokens if max_tokens is not None else self.max_tokens
@@ -85,7 +107,11 @@ class LLMProviderClient:
         last_quota_error: Optional[QuotaExhaustedError] = None
         for provider in self.providers:
             try:
-                return self._call_provider(provider, prompt, user_content, temp, tokens)
+                result = self._call_provider(provider, prompt, user_content, temp, tokens)
+                if result is not None:
+                    result["provider"] = provider["name"]
+                    result["model"] = provider["model"]
+                return result
             except QuotaExhaustedError as exc:
                 last_quota_error = exc
                 logger.warning("Provider %s 额度耗尽，切换到备用", provider["name"])
@@ -97,8 +123,8 @@ class LLMProviderClient:
     def _call_provider(
         self, provider: Dict[str, str], system_prompt: str, user_content: str,
         temperature: float, max_tokens: int,
-    ) -> Optional[str]:
-        """调用单个 Provider，返回原始文本；失败返回 None。"""
+    ) -> Optional[Dict[str, Any]]:
+        """调用单个 Provider，返回 {"text", "thinking"}；失败返回 None。"""
         if provider["endpoint"] == "chatcompletion_v2":
             url = f"{provider['api_base']}/text/chatcompletion_v2"
         else:
@@ -145,15 +171,29 @@ class LLMProviderClient:
                     )
                     provider_usage["prompt_tokens"] += int(usage.get("prompt_tokens") or 0)
                     provider_usage["completion_tokens"] += int(usage.get("completion_tokens") or 0)
+                # 提取文本与思考过程（reasoning_content/reasoning 字段，兼容两类 API）
+                message: Dict[str, Any] = {}
                 choices = data.get("choices") or []
                 if choices:
-                    return choices[0].get("message", {}).get("content", "")
+                    message = choices[0].get("message", {}) or {}
                 output = data.get("output")
                 if isinstance(output, dict):
-                    return output.get("text", "")
-                if isinstance(output, str):
-                    return output
-                return None
+                    text = output.get("text", "")
+                    thinking = output.get("reasoning_content") or output.get("reasoning")
+                elif isinstance(output, str):
+                    text = output
+                    thinking = None
+                else:
+                    text = message.get("content", "") or ""
+                    thinking = (
+                        message.get("reasoning_content")
+                        or message.get("reasoning")
+                        or None
+                    )
+                return {
+                    "text": text,
+                    "thinking": thinking if isinstance(thinking, str) and thinking.strip() else None,
+                }
             except QuotaExhaustedError:
                 raise
             except (requests.RequestException, json.JSONDecodeError) as exc:

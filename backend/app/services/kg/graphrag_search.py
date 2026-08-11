@@ -41,7 +41,8 @@ GLOBAL_SYSTEM_PROMPT = (
 GLOBAL_REDUCE_SYSTEM_PROMPT = (
     "你是一名网络安全知识图谱分析师。以下是针对同一问题的多个社区中间答案，"
     "请综合分析，产出一份完整的最终答案：\n"
-    "1. 综合各社区的相关信息，组织成条理清晰的回答（先结论，再分点展开）；\n"
+    "1. 综合各社区的相关信息，组织成条理清晰的回答（先给出结论，再用 Markdown 分点展开，"
+    "可使用 **加粗**、- 列表、1. 编号列表等 Markdown 结构）；\n"
     "2. 只使用中间答案提供的信息，禁止臆造；\n"
     "3. 若所有中间答案都不相关，直接说明知识库中没有与问题相关的内容。\n"
     "输出普通文本回答即可，无需 JSON。"
@@ -51,7 +52,8 @@ LOCAL_SYSTEM_PROMPT = (
     "你是一名网络安全知识图谱分析师。用户的问题与知识图谱中的特定实体相关。"
     "下面是图谱中匹配到的实体（含描述）、它们的关系，以及关联社区的摘要。\n"
     "请基于这些信息回答用户问题，要求：\n"
-    "1. 先给出直接结论，再引用相关实体/关系/社区证据分点说明；\n"
+    "1. 先给出直接结论，再用 Markdown 分点展开（可使用 **加粗**、- 列表、"
+    "1. 编号列表等结构），引用相关实体/关系/社区证据时在括号内标注实体名；\n"
     "2. 只使用给定信息，禁止臆造；信息不足时明确说明；\n"
     "3. 输出普通文本回答即可，无需 JSON。"
 )
@@ -101,17 +103,25 @@ class GraphRagSearcher:
                 "used_communities": [],
                 "intermediate": [],
                 "mode": "global",
+                "thinking": None,
+                "provider": None,
+                "model": None,
             }
 
         # Map：每个社区生成中间答案（一次 LLM 调用，带全部社区报告）
         intermediate = self._map_communities(query, used)
         # Reduce：汇总最终答案
-        final_answer = self._reduce_answers(query, intermediate)
+        final_result = self._reduce_answers(query, intermediate)
+        final_answer = final_result["text"]
+        thinking = final_result["thinking"]
         return {
             "answer": final_answer,
             "used_communities": used,
             "intermediate": intermediate,
             "mode": "global",
+            "thinking": thinking,
+            "provider": final_result["provider"],
+            "model": final_result["model"],
         }
 
     # ------------------------------------------------------------------
@@ -135,6 +145,9 @@ class GraphRagSearcher:
                 "relationships": [],
                 "community_summaries": [],
                 "mode": "local",
+                "thinking": None,
+                "provider": None,
+                "model": None,
             }
 
         # 2. 邻居扩展（1-2 跳，带 description 与关系）
@@ -145,20 +158,27 @@ class GraphRagSearcher:
 
         # 4. LLM 综合回答
         context = self._build_local_context(matched, relationships, community_summaries)
-        answer = self._client.call(
+        result = self._client.call_with_thinking(
             context,
             system_prompt=LOCAL_SYSTEM_PROMPT,
             temperature=0.3,
             max_tokens=2048,
         )
-        if not answer:
+        if result is None or not result.get("text"):
             answer = "LLM 生成失败，请稍后重试。"
+            thinking = None
+        else:
+            answer = result["text"]
+            thinking = result.get("thinking")
         return {
             "answer": answer,
             "entities": matched,
             "relationships": relationships,
             "community_summaries": community_summaries,
             "mode": "local",
+            "thinking": thinking,
+            "provider": result.get("provider") if result else None,
+            "model": result.get("model") if result else None,
         }
 
     # ------------------------------------------------------------------
@@ -235,22 +255,39 @@ class GraphRagSearcher:
 
     def _reduce_answers(
         self, query: str, intermediate: List[Dict[str, Any]],
-    ) -> str:
-        """Reduce 阶段：汇总中间答案为最终答案。"""
+    ) -> Dict[str, Any]:
+        """Reduce 阶段：汇总中间答案为最终答案（含思考过程与模型信息）。"""
         if not intermediate:
-            return "未找到与问题相关的社区内容，知识库中可能没有该主题。"
+            return {
+                "text": "未找到与问题相关的社区内容，知识库中可能没有该主题。",
+                "thinking": None,
+                "provider": None,
+                "model": None,
+            }
         blocks = [
             f"【社区 #{item['community_id']}】{item.get('title', '')}\n{item.get('answer', '')}"
             for item in intermediate
         ]
         user_content = f"用户问题：{query}\n\n中间答案：\n\n" + "\n\n".join(blocks)
-        answer = self._client.call(
+        result = self._client.call_with_thinking(
             user_content,
             system_prompt=GLOBAL_REDUCE_SYSTEM_PROMPT,
             temperature=0.3,
             max_tokens=2048,
         )
-        return answer or "LLM 生成失败，请稍后重试。"
+        if result is None or not result.get("text"):
+            return {
+                "text": "LLM 生成失败，请稍后重试。",
+                "thinking": None,
+                "provider": None,
+                "model": None,
+            }
+        return {
+            "text": result["text"],
+            "thinking": result.get("thinking"),
+            "provider": result.get("provider"),
+            "model": result.get("model"),
+        }
 
     def _match_entities(self, query: str, top: int) -> List[Dict[str, Any]]:
         """Neo4j 实体名 CONTAINS 匹配（按 degree 降序）。"""

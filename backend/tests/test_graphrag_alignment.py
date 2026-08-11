@@ -230,20 +230,32 @@ def test_global_search_map_reduce(app, monkeypatch):
 
     def fake_call(user_content, system_prompt=None, temperature=None, max_tokens=None):
         if system_prompt and "综合分析" in system_prompt:
-            return "最终答案：SQL注入通过在输入中拼接恶意SQL片段达成越权查询。"
+            return {
+                "text": "最终答案：SQL注入通过在输入中拼接恶意SQL片段达成越权查询。",
+                "thinking": "先看哪些社区与SQL注入相关，再合并信息。",
+                "provider": "minimax",
+                "model": "MiniMax-M2.7",
+            }
         if "社区报告" in user_content:
-            return json.dumps([{
-                "community_id": "0", "relevant": True,
-                "answer": "SQL注入是向数据库查询拼接恶意SQL的攻击手法。",
-            }], ensure_ascii=False)
+            return {
+                "text": json.dumps([{
+                    "community_id": "0", "relevant": True,
+                    "answer": "SQL注入是向数据库查询拼接恶意SQL的攻击手法。",
+                }], ensure_ascii=False),
+                "thinking": None,
+                "provider": "minimax",
+                "model": "MiniMax-M2.7",
+            }
         return None
 
-    monkeypatch.setattr(searcher._client, "call", fake_call)
+    monkeypatch.setattr(searcher._client, "call_with_thinking", fake_call)
     with app.app_context():
         result = searcher.global_search("什么是SQL注入", top_k=5)
     assert result["used_communities"], "应使用已有摘要的社区"
     assert result["intermediate"][0]["community_id"] == "0"
     assert "最终答案" in result["answer"]
+    assert result["thinking"], "应透出模型思考过程"
+    assert result["provider"] == "minimax"
 
 
 # ---------------------------------------------------------------------------
@@ -298,8 +310,13 @@ def test_local_search_with_entities(app, monkeypatch):
     )
     monkeypatch.setattr(searcher, "_community_summaries_for", lambda e: [])
     monkeypatch.setattr(
-        searcher._client, "call",
-        lambda ctx, **kw: "SQL注入通过在用户输入中拼接恶意SQL片段，配合sqlmap等工具可自动化利用。",
+        searcher._client, "call_with_thinking",
+        lambda ctx, **kw: {
+            "text": "SQL注入通过在用户输入中拼接恶意SQL片段，配合sqlmap等工具可自动化利用。",
+            "thinking": "匹配到实体SQL注入，扩展邻居找到sqlmap。",
+            "provider": "fallback",
+            "model": "deepseek-v4-flash",
+        },
     )
 
     result = searcher.local_search("SQL注入怎么利用", max_depth=2)
@@ -307,6 +324,7 @@ def test_local_search_with_entities(app, monkeypatch):
     assert result["relationships"], "应扩展到邻居关系"
     assert "sqlmap" in str(result["relationships"]), "邻居应包含 sqlmap"
     assert "SQL注入" in result["answer"]
+    assert result["thinking"], "应透出模型思考过程"
 
 
 def test_query_keywords():

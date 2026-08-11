@@ -133,8 +133,8 @@
           <template v-else-if="activePanel === 'legend'">
             <h4 class="panel-subtitle">节点类型</h4>
             <div class="node-type-legend">
-              <div v-for="(color, type) in nodeTypeColors" :key="type" class="legend-item">
-                <span class="legend-dot" :style="{ background: color }"></span>
+              <div v-for="type in legendNodeTypes" :key="type" class="legend-item">
+                <span class="legend-dot" :style="{ background: nodeTypeColors[type] }"></span>
                 <span class="legend-label">{{ getNodeTypeText(type) }}</span>
               </div>
             </div>
@@ -203,6 +203,15 @@
                   <span class="community-sample">{{ item.sample.join('、') }}</span>
                 </span>
                 <span class="community-size">{{ item.size }}</span>
+                <el-button
+                  class="community-summary-btn"
+                  size="small"
+                  text
+                  type="primary"
+                  @click.stop="handleCommunitySummary(item)"
+                >
+                  摘要
+                </el-button>
               </div>
             </div>
             <el-empty v-else-if="!communityLoading" description="暂无社区数据" :image-size="40" />
@@ -210,7 +219,7 @@
 
           <!-- 问答 -->
           <template v-else-if="activePanel === 'ask'">
-            <GraphRagSearchPanel />
+            <GraphRagSearchPanel @focus-node="focusNode" />
           </template>
 
           <!-- 维护 -->
@@ -622,6 +631,18 @@ const getNodeTypeText = (type) => {
   return texts[type] || type || '未知'
 }
 
+// 图例只展示真实存在的 8 类（旧类型兼容保留在颜色表但不展示，避免误导）
+const legendNodeTypes = [
+  'vulnerability',
+  'attack_technique',
+  'defense_measure',
+  'security_tool',
+  'concept',
+  'regulation',
+  'threat_actor',
+  'knowledge'
+]
+
 const getNodeTypeColor = (type) => {
   const colorMap = {
     'vulnerability': 'danger',
@@ -701,11 +722,16 @@ const nodeSizeOf = (node) => {
 
 const tooltipTitleOf = (node) => node.name || String(node.id)
 
-const tooltipFieldsOf = (node) => [
-  { label: '类型', value: getNodeTypeText(node.nodeType) },
-  { label: '分类', value: node.category || '未分类' },
-  { label: '关联数量', value: `${node.degree || 0} 个` }
-]
+const tooltipFieldsOf = (node) => {
+  const fields = [
+    { label: '类型', value: getNodeTypeText(node.nodeType) },
+    { label: '关联数量', value: `${node.degree || 0} 个` }
+  ]
+  if (node.nodeType === 'knowledge') {
+    fields.push({ label: '所属分类', value: node.category || '未分类' })
+  }
+  return fields
+}
 
 const handleNodeClick = (node) => {
   selectedNodeForFocus.value = node
@@ -715,8 +741,8 @@ const handleNodeClick = (node) => {
 const loadGraphData = async () => {
   try {
     const [nodesRes, edgesRes, communitiesRes] = await Promise.allSettled([
-      adminAPI.getGraphNodes({ limit: 150 }),
-      adminAPI.getGraphEdges({ limit: 3000 }),
+      adminAPI.getGraphNodes({ limit: 300 }),
+      adminAPI.getGraphEdges({ limit: 8000 }),
       adminAPI.getGraphCommunities()
     ])
 
@@ -1207,8 +1233,15 @@ const filterByCommunity = (communityId) => {
 }
 
 const handleCommunityClick = (item) => {
-  // 点击社区：筛选子图 + 打开摘要面板（未生成时自动生成）
+  // 点击社区：筛选子图（再点取消），并联动开启社区着色
   filterByCommunity(item.id)
+  if (selectedCommunity.value !== null && !communityColorEnabled.value) {
+    communityColorEnabled.value = true
+    renderTick.value++
+  }
+}
+
+const handleCommunitySummary = (item) => {
   selectedCommunitySummaryId.value = item.id
   selectedCommunitySummarySample.value = item.sample || []
   summaryPanelVisible.value = true
@@ -1695,6 +1728,13 @@ onMounted(() => {
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
     color: #8c959f;
+  }
+
+  .community-summary-btn {
+    flex-shrink: 0;
+    min-height: 20px;
+    padding: 0 4px;
+    font-size: 11px;
   }
 }
 

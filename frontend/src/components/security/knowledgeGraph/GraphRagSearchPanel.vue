@@ -1,18 +1,65 @@
 <template>
   <div class="graphrag-search">
-    <el-tabs v-model="mode" @tab-change="handleModeChange">
-      <el-tab-pane label="全局问答" name="global">
-        <p class="mode-hint">基于全部社区摘要回答整体性问题（如"知识库讲了哪些安全主题？"）</p>
-      </el-tab-pane>
-      <el-tab-pane label="实体问答" name="local">
-        <p class="mode-hint">围绕图谱实体与关系回答具体问题（如"SQL注入如何防御？"）</p>
-      </el-tab-pane>
-    </el-tabs>
+    <div class="mode-cards">
+      <div
+        class="mode-card"
+        :class="{ active: mode === 'global' }"
+        @click="switchMode('global')"
+      >
+        <div class="mode-card-head">
+          <el-icon class="mode-icon"><Files /></el-icon>
+          <span class="mode-name">全局问答</span>
+        </div>
+        <p class="mode-desc">
+          面向整个知识库的整体性问题，基于社区摘要归纳回答，适合问"有哪些主题/总体趋势"
+        </p>
+        <div class="example-tags">
+          <el-tag
+            v-for="q in globalExamples"
+            :key="q"
+            size="small"
+            type="info"
+            effect="plain"
+            class="example-tag"
+            @click.stop="fillQuery(q)"
+          >
+            {{ q }}
+          </el-tag>
+        </div>
+      </div>
+
+      <div
+        class="mode-card"
+        :class="{ active: mode === 'local' }"
+        @click="switchMode('local')"
+      >
+        <div class="mode-card-head">
+          <el-icon class="mode-icon"><Aim /></el-icon>
+          <span class="mode-name">实体问答</span>
+        </div>
+        <p class="mode-desc">
+          围绕某个具体实体/漏洞/工具提问，沿关系链展开回答，适合问"XX是什么/如何防御"
+        </p>
+        <div class="example-tags">
+          <el-tag
+            v-for="q in localExamples"
+            :key="q"
+            size="small"
+            type="warning"
+            effect="plain"
+            class="example-tag"
+            @click.stop="fillQuery(q)"
+          >
+            {{ q }}
+          </el-tag>
+        </div>
+      </div>
+    </div>
 
     <div class="search-row">
       <el-input
         v-model="query"
-        :placeholder="mode === 'global' ? '输入全局性问题...' : '输入实体相关问题...'"
+        :placeholder="mode === 'global' ? '输入全局性问题，如：知识库讲了哪些安全主题？' : '输入实体相关问题，如：SQL注入如何防御？'"
         clearable
         @keyup.enter="handleSearch"
       >
@@ -20,116 +67,81 @@
           <el-icon><Search /></el-icon>
         </template>
       </el-input>
-      <el-button type="primary" :loading="loading" @click="handleSearch">查询</el-button>
+      <el-button type="primary" :loading="loading" @click="handleSearch">
+        查询
+      </el-button>
     </div>
 
     <div v-if="loading" class="search-loading">
       <el-skeleton :rows="6" animated />
-      <p class="loading-hint">正在检索知识图谱并生成答案（LLM 分析，约 10-30 秒）...</p>
+      <p class="loading-hint">
+        <span v-if="thinkingVisible" class="loading-thinking">模型思考中...</span>
+        <span v-else>正在检索知识图谱并生成答案（约 10-30 秒）...</span>
+      </p>
     </div>
 
     <div v-else-if="error" class="search-error">
       <el-empty :description="error" :image-size="50" />
     </div>
 
-    <div v-else-if="result" class="search-result">
-      <div class="answer-block">
-        <h4>回答</h4>
-        <p class="answer-text">{{ result.answer }}</p>
-      </div>
-
-      <template v-if="mode === 'global'">
-        <div v-if="result.used_communities && result.used_communities.length" class="source-block">
-          <h4>参考社区（{{ result.used_communities.length }}）</h4>
-          <div
-            v-for="c in result.used_communities"
-            :key="c.community_id"
-            class="source-item"
-          >
-            <span class="source-title">社区 #{{ c.community_id }} {{ c.title }}</span>
-            <p class="source-desc">{{ c.summary }}</p>
-            <div v-if="c.key_topics && c.key_topics.length" class="source-topics">
-              <el-tag
-                v-for="t in c.key_topics.slice(0, 3)"
-                :key="t"
-                size="small"
-                type="info"
-                effect="plain"
-              >
-                {{ t }}
-              </el-tag>
-            </div>
-          </div>
-        </div>
-        <div v-if="result.intermediate && result.intermediate.length" class="source-block">
-          <h4>中间答案</h4>
-          <div v-for="item in result.intermediate" :key="item.community_id" class="source-item">
-            <span class="source-title">社区 #{{ item.community_id }} {{ item.title }}</span>
-            <p class="source-desc">{{ item.answer }}</p>
-          </div>
-        </div>
-      </template>
-
-      <template v-else>
-        <div v-if="result.entities && result.entities.length" class="source-block">
-          <h4>匹配实体（{{ result.entities.length }}）</h4>
-          <div v-for="e in result.entities" :key="e.id" class="source-item">
-            <span class="source-title">
-              {{ e.name }}
-              <el-tag size="small" type="warning" effect="plain">{{ typeLabel(e.type) }}</el-tag>
-            </span>
-            <p v-if="e.description" class="source-desc">{{ e.description }}</p>
-          </div>
-        </div>
-        <div v-if="result.relationships && result.relationships.length" class="source-block">
-          <h4>相关关系（{{ result.relationships.length }}）</h4>
-          <div v-for="(r, index) in result.relationships.slice(0, 12)" :key="index" class="rel-item">
-            <span class="rel-node">{{ r.source_name }}</span>
-            <span class="rel-edge">——{{ r.relation }}——></span>
-            <span class="rel-node">{{ r.target_name }}</span>
-          </div>
-        </div>
-        <div v-if="result.community_summaries && result.community_summaries.length" class="source-block">
-          <h4>关联社区</h4>
-          <div v-for="c in result.community_summaries" :key="c.community_id" class="source-item">
-            <span class="source-title">社区 #{{ c.community_id }} {{ c.title }}</span>
-            <p class="source-desc">{{ c.summary }}</p>
-          </div>
-        </div>
-      </template>
-    </div>
+    <GraphRagAnswerCard
+      v-else-if="result"
+      :mode="result.mode"
+      :answer="result.answer"
+      :thinking="result.thinking"
+      :provider="result.provider"
+      :model="result.model"
+      :entities="result.entities"
+      :relationships="result.relationships"
+      :community-summaries="result.community_summaries"
+      :used-communities="result.used_communities"
+      :intermediates="result.intermediate"
+      @focus-node="$emit('focus-node', $event)"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Files, Aim } from '@element-plus/icons-vue'
 import { adminAPI } from '@/api'
+import GraphRagAnswerCard from './GraphRagAnswerCard.vue'
 
-const mode = ref('global')
+const props = defineProps({
+  initialMode: { type: String, default: 'global' }
+})
+const emit = defineEmits(['focus-node'])
+
+const mode = ref(props.initialMode)
 const query = ref('')
 const loading = ref(false)
+const thinkingVisible = ref(false)
 const error = ref('')
 const result = ref(null)
 
-const typeLabel = (type) => {
-  const labels = {
-    vulnerability: '漏洞',
-    attack_technique: '攻击技术',
-    defense_measure: '防御措施',
-    security_tool: '安全工具',
-    concept: '概念',
-    regulation: '法规标准',
-    threat_actor: '威胁行为体',
-    knowledge: '知识条目'
-  }
-  return labels[type] || type || '未知'
-}
+const globalExamples = [
+  '知识库主要讲了哪些安全主题？',
+  '哪些漏洞类型最受关注？',
+  '知识库对防御措施有哪些总体建议？'
+]
 
-const handleModeChange = () => {
+const localExamples = [
+  'SQL注入如何防御？',
+  'mimikatz 是干什么的？',
+  '什么是票据攻击？'
+]
+
+const switchMode = (nextMode) => {
+  if (mode.value === nextMode) return
+  mode.value = nextMode
   result.value = null
   error.value = ''
+  query.value = ''
+}
+
+const fillQuery = (q) => {
+  query.value = q
 }
 
 const handleSearch = async () => {
@@ -139,9 +151,12 @@ const handleSearch = async () => {
     return
   }
   loading.value = true
+  thinkingVisible.value = false
   error.value = ''
   result.value = null
   try {
+    // 先展示"模型思考中"，LLM 调用期间保持
+    thinkingVisible.value = true
     if (mode.value === 'global') {
       result.value = await adminAPI.globalGraphSearch({ query: q, top_k: 10 })
     } else {
@@ -150,6 +165,7 @@ const handleSearch = async () => {
   } catch (err) {
     error.value = '检索失败，请稍后重试'
   } finally {
+    thinkingVisible.value = false
     loading.value = false
   }
 }
@@ -157,11 +173,66 @@ const handleSearch = async () => {
 
 <style scoped lang="scss">
 .graphrag-search {
-  .mode-hint {
-    margin: 0 0 10px;
-    font-size: 12px;
-    color: #8c959f;
-    line-height: 1.6;
+  .mode-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+
+    .mode-card {
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+
+      &:hover {
+        border-color: #93c5fd;
+      }
+
+      &.active {
+        border-color: #2563eb;
+        background: #eff6ff;
+      }
+
+      .mode-card-head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        .mode-icon {
+          color: #2563eb;
+          font-size: 15px;
+        }
+
+        .mode-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: #1f2937;
+        }
+      }
+
+      .mode-desc {
+        margin: 6px 0 8px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #6b7280;
+      }
+
+      .example-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+
+        .example-tag {
+          cursor: pointer;
+
+          &:hover {
+            opacity: 0.8;
+          }
+        }
+      }
+    }
   }
 
   .search-row {
@@ -177,99 +248,15 @@ const handleSearch = async () => {
       font-size: 12px;
       color: #8c959f;
       text-align: center;
+
+      .loading-thinking {
+        color: #2563eb;
+      }
     }
   }
 
   .search-error {
     padding: 20px 0;
-  }
-
-  .search-result {
-    margin-top: 16px;
-
-    .answer-block {
-      h4 {
-        margin: 0 0 8px;
-        font-size: 13px;
-        color: #374151;
-        border-left: 3px solid #2563eb;
-        padding-left: 8px;
-      }
-
-      .answer-text {
-        margin: 0;
-        font-size: 13px;
-        line-height: 1.9;
-        color: #1f2937;
-        background: #f0f7ff;
-        border-radius: 6px;
-        padding: 10px 12px;
-      }
-    }
-
-    .source-block {
-      margin-top: 16px;
-
-      h4 {
-        margin: 0 0 8px;
-        font-size: 13px;
-        color: #374151;
-        border-left: 3px solid #10b981;
-        padding-left: 8px;
-      }
-
-      .source-item {
-        padding: 8px 10px;
-        background: #f9fafb;
-        border-radius: 6px;
-        margin-bottom: 8px;
-
-        .source-title {
-          font-size: 13px;
-          font-weight: 600;
-          color: #1f2937;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .source-desc {
-          margin: 4px 0 0;
-          font-size: 12px;
-          line-height: 1.7;
-          color: #6b7280;
-        }
-
-        .source-topics {
-          margin-top: 6px;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-        }
-      }
-    }
-
-    .rel-item {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 4px;
-      padding: 6px 10px;
-      background: #f9fafb;
-      border-radius: 6px;
-      margin-bottom: 6px;
-      font-size: 12px;
-
-      .rel-node {
-        color: #1f2937;
-        font-weight: 500;
-      }
-
-      .rel-edge {
-        color: #2563eb;
-        font-size: 11px;
-      }
-    }
   }
 }
 </style>
