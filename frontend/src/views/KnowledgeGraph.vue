@@ -40,6 +40,14 @@
         </div>
       </div>
       <div class="toolbar-right">
+        <el-button
+          size="small"
+          :type="graphHidden ? 'primary' : 'default'"
+          :title="graphHidden ? '显示图谱' : '隐藏图谱（只看面板）'"
+          @click="graphHidden = !graphHidden"
+        >
+          <el-icon><View /></el-icon>
+        </el-button>
         <el-button-group>
           <el-button size="small" title="放大" @click="zoomIn">
             <el-icon><Plus /></el-icon>
@@ -85,7 +93,8 @@
         </button>
       </aside>
 
-      <aside v-if="activePanel" class="side-panel">
+      <aside v-if="activePanel" class="side-panel" :style="{ width: panelWidth + 'px' }">
+        <div class="panel-resizer" title="拖动调整面板宽度" @mousedown.prevent="startResize"></div>
         <div class="panel-header">
           <span class="panel-title">{{ railEntries.find(e => e.key === activePanel)?.label }}</span>
           <el-button text size="small" @click="activePanel = null">
@@ -255,7 +264,7 @@
         </div>
       </aside>
 
-      <main class="graph-main">
+      <main v-show="!graphHidden" class="graph-main">
         <div class="graph-chart-wrapper">
           <ForceGraphCanvas
             ref="graphRef"
@@ -438,7 +447,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { adminAPI, knowledgeAPI } from '@/api'
 import { ElMessage } from 'element-plus'
-import { Search, Plus, Minus, Refresh, Aim, Back, Download, Close, DataLine, Collection, Filter, Share, ChatDotRound, Setting } from '@element-plus/icons-vue'
+import { Search, Plus, Minus, Refresh, Aim, Back, Download, Close, DataLine, Collection, Filter, Share, ChatDotRound, Setting, View } from '@element-plus/icons-vue'
 import ForceGraphCanvas from '@/components/graph/ForceGraphCanvas.vue'
 import CommunitySummaryPanel from '@/components/security/knowledgeGraph/CommunitySummaryPanel.vue'
 import GraphRagSearchPanel from '@/components/security/knowledgeGraph/GraphRagSearchPanel.vue'
@@ -465,6 +474,40 @@ const railEntries = computed(() => {
 
 const togglePanel = (key) => {
   activePanel.value = activePanel.value === key ? null : key
+}
+
+// 侧边栏面板：可拖拽调宽（200-640px，持久化）+ 图区可隐藏
+const PANEL_MIN_WIDTH = 200
+const PANEL_MAX_WIDTH = 640
+const panelWidth = ref(
+  Math.min(
+    Math.max(Number(localStorage.getItem('kg-panel-width')) || 300, PANEL_MIN_WIDTH),
+    PANEL_MAX_WIDTH
+  )
+)
+const graphHidden = ref(false)
+
+const startResize = (e) => {
+  const panelEl = e.currentTarget.parentElement
+  const panelRect = panelEl.getBoundingClientRect()
+  const doResize = (ev) => {
+    const next = Math.min(
+      Math.max(ev.clientX - panelRect.left, PANEL_MIN_WIDTH),
+      PANEL_MAX_WIDTH
+    )
+    panelWidth.value = next
+  }
+  const stopResize = () => {
+    document.removeEventListener('mousemove', doResize)
+    document.removeEventListener('mouseup', stopResize)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    localStorage.setItem('kg-panel-width', String(panelWidth.value))
+  }
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  document.addEventListener('mousemove', doResize)
+  document.addEventListener('mouseup', stopResize)
 }
 
 const goBack = () => {
@@ -1479,7 +1522,24 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
   animation: panelSlideIn 0.18s ease-out;
+
+  .panel-resizer {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+    transition: background 0.15s;
+
+    &:hover,
+    &:active {
+      background: rgba(37, 99, 235, 0.35);
+    }
+  }
 
   .panel-header {
     flex-shrink: 0;
@@ -1790,6 +1850,12 @@ onMounted(() => {
       .el-button:not(:first-child):not(:last-child) {
         display: none;
       }
+    }
+  }
+
+  .side-panel {
+    .panel-resizer {
+      display: none;
     }
   }
 
