@@ -14,16 +14,20 @@ GraphRAG 查询模式（Global Search / Local Search）
 - 实体名匹配用 Neo4j 的 CONTAINS 模糊匹配（修复旧链路按 id 精确匹配
   get_neighbors(query) 不生效的问题）
 - 社区摘要未生成的社区在 global_search 中跳过（可用批量预生成补齐）
+- *stream 变体：SSE 流式输出最终答案（思考过程与答案增量实时推送），
+  max_tokens 优先取用户偏好 qa_max_tokens，并写入 llm_call_logs 审计
 """
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generator, List, Optional
 
 from app.services.graph_communities import get_community_detector
 from app.services.graph_store import get_knowledge_graph
 from app.services.kg.community_summarizer import get_community_summarizer
 from app.services.kg.llm_provider import get_llm_provider_client
+from app.services.rag_prompt_builder import resolve_qa_max_tokens
+from app.services.user_preferences import get_or_create as get_user_preferences
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +184,168 @@ class GraphRagSearcher:
             "provider": result.get("provider") if result else None,
             "model": result.get("model") if result else None,
         }
+
+    # ------------------------------------------------------------------
+    # 流式变体（SSE：思考/答案增量 + done 载荷，审计 + 用户 max_tokens）
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _resolve_max_tokens(user_id: Optional[int]) -> int:
+        """优先用户偏好的 qa_max_tokens（上下文窗口联动），否则系统默认。"""
+        if not user_id:
+            return resolve_qa_max_tokens(None)
+        try:
+            prefs = get_user_preferences(int(user_id))
+            prefs_dict = prefs.to_dict() if hasattr(prefs, "to_dict") else {}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("读取用户偏好失败 user=%s err=%s", user_id, type(exc).__name__)
+            prefs_dict = {}
+        return resolve_qa_max_tokens(prefs_dict)
+
+    def global_search_stream(
+        self, query: str, user_id: Optional[int] = None, top_k: int = 10,
+    ) -> Generator[Dict[str, Any], None, None]:
+        """全局检索流式版：Map 阶段取中间答案，Reduce 阶段 SSE 流式输出。"""
+        graph = get_knowledge_graph()
+        graph_data = graph.graph
+        detector = get_community_detector()
+        detection = detector.detect(graph_data)
+        communities = detection["communities"]
+
+        summarizer = get_community_summarizer()
+        ordered = sorted(
+            communities.items(), key=lambda kv: kv[1]["size"], reverse=True
+        )
+        used: List[Dict[str, Any]] = []
+        for cid, info in ordered:
+            if len(used) >= top_k:
+                break
+            summary = summarizer.get_cached_summary(cid, graph_data)
+            if summary is None:
+                continue
+            used.append({
+                "community_id": cid,
+                "size": info["size"],
+                "title": summary.get("title", ""),
+                "summary": summary.get("summary", ""),
+                "key_topics": summary.get("key_topics", []),
+            })
+        if not used:
+            yield {
+                "type": "done",
+                "answer": "知识库尚无社区摘要，无法进行全局检索。请先在图谱页生成社区摘要。",
+                "used_communities": [],
+                "intermediate": [],
+                "mode": "global",
+                "usage": {},
+                "provider": None,
+                "model": None,
+            }
+            return
+
+        intermediate = self._map_communities(query, used)
+        max_tokens = self._resolve_max_tokens(user_id)
+        blocks = [
+            f"【社区 #{item['community_id']}】{item.get('title', '')}\n{item.get('answer', '')}"
+            for item in intermediate
+        ]
+        user_content = f"用户问题：{query}\n\n中间答案：\n\n" + "\n\n".join(blocks)
+        answer_parts: List[str] = []
+        reasoning_parts: List[str] = []
+        done_meta: Dict[str, Any] = {}
+        for event in self._client.call_stream(
+            user_content,
+            system_prompt=GLOBAL_REDUCE_SYSTEM_PROMPT,
+            temperature=0.3,
+            max_tokens=max_tokens,
+            user_id=user_id,
+            operation="graph_global_search",
+        ):
+            if event["type"] == "reasoning":
+                reasoning_parts.append(event["text"])
+                yield {"type": "reasoning", "text": event["text"]}
+            elif event["type"] == "delta":
+                answer_parts.append(event["text"])
+                yield {"type": "delta", "text": event["text"]}
+            elif event["type"] == "done":
+                done_meta = event
+            else:
+                yield event
+        if done_meta:
+            yield {
+                "type": "done",
+                "answer": done_meta.get("text") or "".join(answer_parts),
+                "thinking": done_meta.get("thinking") or "".join(reasoning_parts) or None,
+                "used_communities": used,
+                "intermediate": intermediate,
+                "mode": "global",
+                "usage": done_meta.get("usage") or {},
+                "provider": done_meta.get("provider"),
+                "model": done_meta.get("model"),
+            }
+
+    def local_search_stream(
+        self, query: str, user_id: Optional[int] = None, max_depth: int = 2,
+    ) -> Generator[Dict[str, Any], None, None]:
+        """局部检索流式版：匹配实体/邻居/社区摘要后 SSE 流式输出回答。"""
+        graph = get_knowledge_graph()
+        graph_data = graph.graph
+
+        matched = self._match_entities(query, 8)
+        if not matched:
+            matched = self._match_entities_networkx(graph_data, query, 8)
+        if not matched:
+            yield {
+                "type": "done",
+                "answer": "图谱中没有找到与问题相关的实体，请换个问法或确认知识库内容。",
+                "entities": [],
+                "relationships": [],
+                "community_summaries": [],
+                "mode": "local",
+                "usage": {},
+                "provider": None,
+                "model": None,
+            }
+            return
+
+        relationships = self._expand_neighbors(graph_data, matched, max_depth)
+        community_summaries = self._community_summaries_for(matched)
+        context = self._build_local_context(matched, relationships, community_summaries)
+        max_tokens = self._resolve_max_tokens(user_id)
+
+        answer_parts: List[str] = []
+        reasoning_parts: List[str] = []
+        done_meta: Dict[str, Any] = {}
+        for event in self._client.call_stream(
+            context,
+            system_prompt=LOCAL_SYSTEM_PROMPT,
+            temperature=0.3,
+            max_tokens=max_tokens,
+            user_id=user_id,
+            operation="graph_local_search",
+        ):
+            if event["type"] == "reasoning":
+                reasoning_parts.append(event["text"])
+                yield {"type": "reasoning", "text": event["text"]}
+            elif event["type"] == "delta":
+                answer_parts.append(event["text"])
+                yield {"type": "delta", "text": event["text"]}
+            elif event["type"] == "done":
+                done_meta = event
+            else:
+                yield event
+        if done_meta:
+            yield {
+                "type": "done",
+                "answer": done_meta.get("text") or "".join(answer_parts),
+                "thinking": done_meta.get("thinking") or "".join(reasoning_parts) or None,
+                "entities": matched,
+                "relationships": relationships,
+                "community_summaries": community_summaries,
+                "mode": "local",
+                "usage": done_meta.get("usage") or {},
+                "provider": done_meta.get("provider"),
+                "model": done_meta.get("model"),
+            }
 
     # ------------------------------------------------------------------
     # 内部实现

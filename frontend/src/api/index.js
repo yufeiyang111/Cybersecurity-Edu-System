@@ -466,6 +466,65 @@ export const adminAPI = {
   generateCommunitySummaries: (data) => api.post('/admin/graph/communities/summaries/batch', data),
   globalGraphSearch: (data) => api.post('/admin/graph/global-search', data),
   localGraphSearch: (data) => api.post('/admin/graph/local-search', data),
+
+  // 图谱问答 SSE 流式：逐事件回调 { event, data }（reasoning/delta/done/error）
+  graphSearchStream: async (path, data, { onEvent, onError, signal } = {}) => {
+    const token = localStorage.getItem('token')
+    let res
+    try {
+      res = await fetch(`/api/admin/graph/${path}`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : {},
+        body: JSON.stringify(data),
+        signal
+      })
+    } catch (e) {
+      if (e?.name !== 'AbortError') onError?.(e)
+      return
+    }
+    if (!res.ok) {
+      let msg = '请求失败'
+      try {
+        const body = await res.json()
+        if (body?.error) msg = body.error
+      } catch (e) { /* ignore */ }
+      if (res.status === 401) {
+        handleSessionExpired()
+        return
+      }
+      onError?.(new Error(msg))
+      return
+    }
+    if (!res.body) {
+      onError?.(new Error('浏览器不支持流式响应'))
+      return
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+
+    const flush = () => {
+      let sep
+      while ((sep = buffer.indexOf('\n\n')) !== -1) {
+        const raw = buffer.slice(0, sep)
+        buffer = buffer.slice(sep + 2)
+        parseSSEEvent(raw, onEvent)
+      }
+    }
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        flush()
+      }
+      if (buffer.trim()) parseSSEEvent(buffer, onEvent)
+    } catch (e) {
+      if (e?.name !== 'AbortError') onError?.(e)
+    }
+  },
   backfillDescriptions: (data) => api.post('/admin/graph/entities/backfill-descriptions', data),
   getBackfillStatus: () => api.get('/admin/graph/entities/backfill-descriptions/status'),
   getRelatedNodes: (id, params) => api.get(`/admin/graph/related/${id}`, { params }),

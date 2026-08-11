@@ -128,7 +128,7 @@
         </el-button>
       </div>
 
-      <div v-if="loading" class="search-loading">
+      <div v-if="loading && !result" class="search-loading">
         <el-skeleton :rows="6" animated />
         <p class="loading-hint">
           <span v-if="thinkingVisible" class="loading-thinking">模型思考中...</span>
@@ -306,16 +306,50 @@ const handleSearch = async () => {
   viewingItem.value = null
   showHistory.value = false
   try {
-    // 先展示"模型思考中"，LLM 调用期间保持
-    thinkingVisible.value = true
-    if (mode.value === 'global') {
-      result.value = await adminAPI.globalGraphSearch({ query: q, top_k: 10 })
-    } else {
-      result.value = await adminAPI.localGraphSearch({ query: q, max_depth: 2 })
+    const streamPath = mode.value === 'global' ? 'global-search/stream' : 'local-search/stream'
+    const payload = mode.value === 'global'
+      ? { query: q, top_k: 10 }
+      : { query: q, max_depth: 2 }
+    // 流式累计器：reasoning/delta 增量拼接，done 补全来源与用量
+    result.value = {
+      mode: mode.value,
+      answer: '',
+      thinking: '',
+      provider: null,
+      model: null,
+      entities: [],
+      relationships: [],
+      community_summaries: [],
+      used_communities: [],
+      intermediate: [],
+      usage: {}
     }
-    saveHistory(q, result.value)
-  } catch (err) {
-    error.value = '检索失败，请稍后重试'
+    let thinkingSeen = false
+    await adminAPI.graphSearchStream(streamPath, payload, {
+      onEvent: ({ event, data }) => {
+        if (event === 'reasoning') {
+          thinkingSeen = true
+          thinkingVisible.value = true
+          result.value.thinking += data.text || ''
+        } else if (event === 'delta') {
+          thinkingVisible.value = false
+          result.value.answer += data.text || ''
+        } else if (event === 'done') {
+          thinkingVisible.value = false
+          Object.assign(result.value, data)
+        } else if (event === 'error') {
+          error.value = data?.error || '检索失败，请稍后重试'
+          result.value = null
+        }
+      },
+      onError: () => {
+        error.value = '检索失败，请稍后重试'
+        result.value = null
+      }
+    })
+    if (result.value && result.value.answer) {
+      saveHistory(q, result.value)
+    }
   } finally {
     thinkingVisible.value = false
     loading.value = false

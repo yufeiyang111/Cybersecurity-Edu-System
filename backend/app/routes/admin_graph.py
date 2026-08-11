@@ -15,11 +15,13 @@
 - POST /api/admin/graph/communities/summaries/batch   批量生成 Top N 社区摘要（admin）
 - POST /api/admin/graph/global-search                 全局检索（社区摘要 Map-Reduce）
 - POST /api/admin/graph/local-search                  局部检索（实体匹配+邻居+社区摘要）
+- POST /api/admin/graph/global-search/stream          全局检索 SSE 流式（打字机输出+用量审计）
+- POST /api/admin/graph/local-search/stream           局部检索 SSE 流式（同上）
 - POST /api/admin/graph/entities/backfill-descriptions 存量实体描述回填（admin，后台任务）
 - GET  /api/admin/graph/entities/backfill-descriptions/status 回填任务状态（admin）
 """
-from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt
+from flask import Blueprint, Response, jsonify, request, stream_with_context
+from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
 
 from app.services.graph_communities import get_community_detector
 from app.services.graph_store import get_knowledge_graph
@@ -249,6 +251,72 @@ def local_graph_search():
 
         traceback.print_exc()
         return jsonify({"error": str(exc)}), 500
+
+
+def _sse_event(event: str, data: dict) -> str:
+    """序列化 SSE 事件（event: xxx\ndata: {json}\n\n）。"""
+    import json as _json
+
+    return f"event: {event}\ndata: {_json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@admin_graph_bp.route("/graph/global-search/stream", methods=["POST"])
+@jwt_required()
+def global_graph_search_stream():
+    """GraphRAG 全局检索 SSE 流式版（打字机输出 + 用量审计）。
+
+    事件：reasoning（思考增量）/ delta（答案增量）/ done（含来源与用量）/ error
+    """
+    body = request.get_json(silent=True) or {}
+    query = (body.get("query") or "").strip()
+    if not query:
+        return jsonify({"error": "query 不能为空"}), 400
+    top_k = max(1, min(int(body.get("top_k", 10)), 30))
+    user_id = int(get_jwt_identity())
+    searcher = get_graphrag_searcher()
+
+    def generate():
+        try:
+            for event in searcher.global_search_stream(query, user_id=user_id, top_k=top_k):
+                yield _sse_event(event["type"], event)
+        except Exception:  # noqa: BLE001
+            import traceback
+
+            traceback.print_exc()
+            yield _sse_event("error", {"error": "生成答案时发生异常，请稍后重试"})
+
+    response = Response(stream_with_context(generate()), mimetype="text/event-stream")
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
+
+
+@admin_graph_bp.route("/graph/local-search/stream", methods=["POST"])
+@jwt_required()
+def local_graph_search_stream():
+    """GraphRAG 局部检索 SSE 流式版（打字机输出 + 用量审计）。"""
+    body = request.get_json(silent=True) or {}
+    query = (body.get("query") or "").strip()
+    if not query:
+        return jsonify({"error": "query 不能为空"}), 400
+    max_depth = max(1, min(int(body.get("max_depth", 2)), 4))
+    user_id = int(get_jwt_identity())
+    searcher = get_graphrag_searcher()
+
+    def generate():
+        try:
+            for event in searcher.local_search_stream(query, user_id=user_id, max_depth=max_depth):
+                yield _sse_event(event["type"], event)
+        except Exception:  # noqa: BLE001
+            import traceback
+
+            traceback.print_exc()
+            yield _sse_event("error", {"error": "生成答案时发生异常，请稍后重试"})
+
+    response = Response(stream_with_context(generate()), mimetype="text/event-stream")
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
 
 
 @admin_graph_bp.route("/graph/entities/backfill-descriptions", methods=["POST"])

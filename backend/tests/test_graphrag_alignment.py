@@ -228,7 +228,7 @@ def test_global_search_map_reduce(app, monkeypatch):
 
     searcher = GraphRagSearcher()
 
-    def fake_call(user_content, system_prompt=None, temperature=None, max_tokens=None):
+    def fake_call(user_content, system_prompt=None, temperature=None, max_tokens=None, **kwargs):
         if system_prompt and "综合分析" in system_prompt:
             return {
                 "text": "最终答案：SQL注入通过在输入中拼接恶意SQL片段达成越权查询。",
@@ -335,6 +335,126 @@ def test_query_keywords():
     kws2 = GraphRagSearcher._query_keywords("如何防御 XSS 攻击")
     assert any("XSS" in k for k in kws2)
     assert "如何" not in kws2, "停用词应被过滤"
+
+
+def test_global_search_stream_events(app, monkeypatch):
+    """全局检索流式：reasoning/delta 增量 + done 载荷结构。"""
+    from app.services.kg.community_summarizer import CommunitySummarizer
+    from app.services.kg.graphrag_search import GraphRagSearcher
+
+    g = nx.DiGraph()
+    for i in range(1, 11):
+        g.add_node(f"n{i}", type="concept", title=f"Node{i}")
+    for i in range(1, 10):
+        g.add_edge(f"n{i}", f"n{i + 1}", relation="related_to", weight=1.0)
+
+    class FakeGraph:
+        use_neo4j = False
+        _neo4j_graph = None
+        graph = g
+
+    monkeypatch.setattr(
+        "app.services.kg.graphrag_search.get_knowledge_graph", lambda: FakeGraph()
+    )
+
+    class FakeDetector:
+        def detect(self, graph_data):
+            return {
+                "communities": {
+                    "0": {"size": 10, "nodes": [f"n{i}" for i in range(1, 11)],
+                          "sample": ["n1"]},
+                },
+                "node_community": {f"n{i}": "0" for i in range(1, 11)},
+                "community_count": 1,
+                "algorithm": "leiden",
+            }
+
+    monkeypatch.setattr(
+        "app.services.kg.graphrag_search.get_community_detector",
+        lambda: FakeDetector(),
+    )
+
+    with app.app_context():
+        from app.models.knowledge_graph import KnowledgeGraphCommunitySummary
+        from app import db
+
+        row = KnowledgeGraphCommunitySummary(
+            community_id="0", graph_signature="10:9", algorithm="leiden",
+            title="SQL注入攻击", summary="该社区聚焦SQL注入攻击与防护。",
+            summary_json={"title": "SQL注入攻击", "summary": "该社区聚焦SQL注入攻击与防护。"},
+        )
+        db.session.add(row)
+        db.session.commit()
+
+    searcher = GraphRagSearcher()
+
+    def fake_stream(user_content, system_prompt=None, temperature=None, max_tokens=None, **kw):
+        yield {"type": "reasoning", "text": "先分析社区相关性。"}
+        yield {"type": "delta", "text": "SQL注入是"}
+        yield {"type": "delta", "text": "常见漏洞。"}
+        yield {"type": "done", "text": "SQL注入是常见漏洞。", "thinking": "先分析社区相关性。",
+               "usage": {"prompt_tokens": 100, "completion_tokens": 20},
+               "provider": "minimax", "model": "MiniMax-M2.7"}
+
+    monkeypatch.setattr(searcher._client, "call_stream", fake_stream)
+    with app.app_context():
+        events = list(searcher.global_search_stream("什么是SQL注入", user_id=1, top_k=5))
+    types = [e["type"] for e in events]
+    assert "reasoning" in types and "delta" in types, "应包含思考与答案增量"
+    done = events[-1]
+    assert done["type"] == "done"
+    assert done["answer"] == "SQL注入是常见漏洞。"
+    assert done["thinking"] == "先分析社区相关性。"
+    assert done["used_communities"], "done 应携带参考社区"
+    assert done["intermediate"], "done 应携带中间答案"
+    assert done["usage"]["completion_tokens"] == 20
+
+
+def test_call_stream_audit_log(app, monkeypatch):
+    """流式调用成功后写入 llm_call_logs 审计（streaming=True）。"""
+    from app.models.llm import LLMCallLog
+    from app.services.kg.llm_provider import LLMProviderClient
+
+    client = LLMProviderClient()
+    client.providers = [
+        {"name": "minimax", "api_key": "k", "api_base": "http://x",
+         "model": "m", "endpoint": "chatcompletion_v2"},
+    ]
+
+    def fake_stream_post(url, headers, json, timeout, stream):
+        class FakeResp:
+            status_code = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def iter_lines(self, decode_unicode=True):
+                yield 'data: {"choices": [{"delta": {"reasoning_content": "想。"}}]}'
+                yield 'data: {"choices": [{"delta": {"content": "答。"}}]}'
+                yield 'data: {"choices": [{"delta": {"content": "案。"}}]}'
+                yield 'data: {"choices": [{"delta": {}}], "usage": {"prompt_tokens": 30, "completion_tokens": 15}}'
+                yield "data: [DONE]"
+
+        return FakeResp()
+
+    monkeypatch.setattr(client._session, "post", fake_stream_post)
+    events = list(client.call_stream("hello", user_id=1, operation="graph_test"))
+    done = events[-1]
+    assert done["type"] == "done"
+    assert done["text"] == "答。案。"
+    assert done["thinking"] == "想。"
+    assert done["usage"]["prompt_tokens"] == 30
+
+    with app.app_context():
+        logs = LLMCallLog.query.filter_by(user_id=1, operation="graph_test").all()
+        assert len(logs) == 1, "流式成功应写入审计日志"
+        assert logs[0].streaming is True
+        assert logs[0].input_tokens == 30
+        assert logs[0].output_tokens == 15
+        assert logs[0].status == "success"
 
 
 # ---------------------------------------------------------------------------
