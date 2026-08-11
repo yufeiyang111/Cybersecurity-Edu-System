@@ -7,4 +7,5 @@ from app.routes.security.agent import conversations as _conversations  # noqa: F
 from app.routes.security.agent import coverage as _coverage  # noqa: F401
 from app.routes.security.agent import events as _events  # noqa: F401
 from app.routes.security.agent import graph as _graph  # noqa: F401
+from app.routes.security.agent import observations as _observations  # noqa: F401
 from app.routes.security.agent import runs as _runs  # noqa: F401

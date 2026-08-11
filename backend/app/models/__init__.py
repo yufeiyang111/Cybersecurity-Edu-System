@@ -45,6 +45,14 @@ from app.models.agent_runtime import (
     AgentToolCall,
 )
 from app.models.agent_events import AgentEvent
+from app.models.agent_review import (
+    AgentObservation,
+    AgentObservationCitation,
+    AgentObservationLocation,
+    ObservationConfidence,
+    ObservationSourceType,
+    ObservationStatus,
+)
 from app.models.scan_coverage import (
     CoverageKind,
     ProjectSnapshotFile,

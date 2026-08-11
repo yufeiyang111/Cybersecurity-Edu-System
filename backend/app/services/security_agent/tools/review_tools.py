@@ -1,0 +1,248 @@
+# -*- coding: utf-8 -*-
+"""run_deep_review 工具（A6）：多文件证据 + RAG 引用 → Observation 落库。
+
+编排（复用既有服务，不复制实现）：
+ContextBuilder 组装受限上下文 → select_provider 真实 Provider 调用
+（record_invocation 记账）→ parse + validate → ObservationService 落库。
+Provider 失败/解析失败 → 工具失败 + warning（不影响 run 其它节点）。
+"""
+from __future__ import annotations
+
+import logging
+
+from app import db
+from app.services.agent_observability import AgentLogger
+from app.services.llm.contracts import LLMRequest
+from app.services.llm.provider_selector import resolve_provider_max_tokens, select_provider
+from app.services.security_agent.context_builder import (
+    ContextBuilder,
+    DeepReviewContextError,
+)
+from app.services.security_agent.event_service import EventService
+from app.services.security_agent.llm_invocation import (
+    USAGE_SOURCE_PROVIDER_REPORTED,
+    record_invocation,
+)
+from app.services.security_agent.observation_service import ObservationService
+from app.services.security_agent.observation_validator import ObservationValidationError
+from app.services.security_agent.prompt_templates.deep_review_v1 import (
+    PROMPT_TEMPLATE_VERSION,
+    build_deep_review_prompt,
+    parse_observation,
+    prompt_digest,
+)
+from app.services.security_agent.tools.contracts import (
+    ToolExecutionContext,
+    ToolExecutionError,
+    ToolResult,
+)
+from app.services.security_agent.contracts import EVENT_WARNING_RAISED
+
+logger = logging.getLogger(__name__)
+
+DEEP_REVIEW_OPERATION = "deep_review"
+MAX_INPUT_FILES = 8
+MAX_FOCUS_CHARS = 500
+
+
+def build_run_deep_review_handler(events: EventService | None = None):
+    events = events or EventService()
+
+    def run_deep_review(ctx: ToolExecutionContext) -> ToolResult:
+        if ctx.cancelled():
+            return ToolResult(
+                status="failed", summary="任务已取消，未执行深度审查", error_code="AGENT_TOOL_FAILED"
+            )
+        focus = (ctx.input.get("focus") or "").strip()
+        entrypoints = _string_list(ctx.input.get("entrypoints"))
+        file_hints = tuple(_string_list(ctx.input.get("file_hints")))[:MAX_INPUT_FILES]
+
+        try:
+            review_context = ContextBuilder().build(
+                ctx.run,
+                focus=focus,
+                entrypoints=entrypoints,
+                file_hints=file_hints,
+                max_files=ctx.run.max_deep_review_files,
+            )
+        except DeepReviewContextError as exc:
+            raise ToolExecutionError(str(exc)) from exc
+
+        provider = select_provider(
+            user_id=ctx.run.created_by, operation=DEEP_REVIEW_OPERATION
+        )
+        if provider is None:
+            raise ToolExecutionError(
+                "未配置 LLM Provider，无法执行 Deep Review",
+                warning_code="AGENT_PROVIDER_NOT_CONFIGURED",
+            )
+
+        context_text = ContextBuilder().render_context_text(review_context)
+        prompt = build_deep_review_prompt(
+            focus=review_context.focus,
+            context_text=context_text,
+            max_tokens=resolve_provider_max_tokens(provider, 1500),
+        )
+        request = LLMRequest(
+            prompt=prompt["user_prompt"],
+            system_prompt=prompt["system_prompt"],
+            temperature=0.2,
+            max_tokens=prompt["max_tokens"],
+        )
+        try:
+            response = provider.generate(request)
+        except Exception as exc:
+            _record_failure(ctx, provider, context_text, trace_id=ctx.trace_id)
+            logger.warning(
+                "Deep review provider call failed (run_id=%s, error_type=%s)",
+                ctx.run.id,
+                type(exc).__name__,
+            )
+            raise ToolExecutionError(
+                "Deep Review Provider 调用失败", warning_code="AGENT_PROVIDER_UNHEALTHY"
+            ) from exc
+
+        if not response.is_success:
+            _record_failure(ctx, provider, context_text, trace_id=ctx.trace_id)
+            raise ToolExecutionError(
+                "Deep Review Provider 返回失败",
+                warning_code=response.warning_code or "AGENT_PROVIDER_UNHEALTHY",
+            )
+
+        _record_success(ctx, provider, prompt, response)
+
+        try:
+            parsed = parse_observation(response.text)
+        except ValueError as exc:
+            _raise_invalid_response(ctx, str(exc))
+            raise ToolExecutionError(
+                "Deep Review 输出无法解析为 Observation",
+                warning_code="AGENT_PROVIDER_INVALID_RESPONSE",
+            ) from exc
+
+        parsed.setdefault("locations", [])
+        parsed.setdefault("citations", [])
+        parsed.setdefault("proof_gaps", [])
+        parsed["citations"] = _attach_citations(parsed, review_context)
+
+        try:
+            observation = ObservationService(events).create(
+                ctx.run, parsed, trace_id=ctx.trace_id
+            )
+        except ObservationValidationError as exc:
+            _raise_invalid_response(ctx, str(exc))
+            raise ToolExecutionError(
+                f"Observation 校验未通过：{exc}",
+                warning_code="AGENT_PROVIDER_INVALID_RESPONSE",
+            ) from exc
+
+        return ToolResult(
+            status="succeeded",
+            summary=(
+                f"Deep Review 完成：{observation.title}（confidence={observation.confidence}，"
+                f"{len(observation.locations)} 个位置，{len(observation.citations)} 条引用）"
+            ),
+            metrics={
+                "observation_id": observation.id,
+                "title": observation.title,
+                "confidence": observation.confidence,
+                "cwe_id": observation.cwe_id,
+                "location_count": len(observation.locations),
+                "citation_count": len(observation.citations),
+                "proof_gap_count": len(parsed["proof_gaps"]),
+                "injected_docs": list(review_context.injected_doc_ids),
+            },
+        )
+
+    return run_deep_review
+
+
+# ------------------------------------------------------------------ helpers
+
+
+def _string_list(value) -> tuple[str, ...]:
+    if isinstance(value, list):
+        return tuple(str(item).strip() for item in value if str(item).strip())
+    if isinstance(value, str) and value.strip():
+        return (value.strip(),)
+    return ()
+
+
+def _attach_citations(parsed: dict, review_context) -> list[dict]:
+    """LLM 未引用或引用不完整时，附上上下文构建器产出的可信引用。"""
+    attached = list(parsed.get("citations") or [])
+    existing_docs = {
+        str(item.get("document_id")) for item in attached if item.get("document_id")
+    }
+    for citation in review_context.citations:
+        if citation.document_id in existing_docs:
+            continue
+        attached.append(
+            {
+                "source_type": "rag",
+                "document_id": citation.document_id,
+                "document_title": citation.document_title,
+                "trust_score": citation.trust_score,
+                "injection_flags": list(citation.injection_flags),
+                "content_digest": citation.content_digest,
+                "quote_preview": citation.quote_preview,
+            }
+        )
+    return attached
+
+
+def _record_success(ctx, provider, prompt: dict, response) -> None:
+    record_invocation(
+        ctx.run,
+        provider=provider,
+        operation=DEEP_REVIEW_OPERATION,
+        status="success",
+        input_tokens=int((response.usage or {}).get("prompt_tokens") or 0),
+        output_tokens=int((response.usage or {}).get("completion_tokens") or 0),
+        cached_input_tokens=int((response.usage or {}).get("cached_tokens") or 0),
+        reasoning_tokens=int((response.usage or {}).get("reasoning_tokens") or 0),
+        total_tokens=int((response.usage or {}).get("total_tokens") or 0),
+        usage_source=USAGE_SOURCE_PROVIDER_REPORTED if response.usage else "estimated",
+        latency_ms=response.latency_ms,
+        input_digest=prompt_digest(prompt["user_prompt"]),
+        output_digest=prompt_digest(response.text) if response.text else None,
+        prompt_template_version=PROMPT_TEMPLATE_VERSION,
+        step_execution_id=ctx.step_execution.id if ctx.step_execution else None,
+    )
+    db.session.commit()
+    AgentLogger().llm_event(
+        "llm.completed",
+        ctx.run,
+        operation=DEEP_REVIEW_OPERATION,
+        provider=getattr(provider, "provider_name", "unknown"),
+        model=getattr(provider, "model", None),
+        status="success",
+        total_tokens=int((response.usage or {}).get("total_tokens") or 0),
+        input_digest=prompt_digest(prompt["user_prompt"]),
+        prompt_template_version=PROMPT_TEMPLATE_VERSION,
+        trace_id=ctx.trace_id,
+    )
+
+
+def _record_failure(ctx, provider, context_text: str, *, trace_id: str | None) -> None:
+    record_invocation(
+        ctx.run,
+        provider=provider,
+        operation=DEEP_REVIEW_OPERATION,
+        status="failed",
+        warning_code="LLM_PROVIDER_REQUEST_FAILED",
+        input_digest=prompt_digest(context_text),
+        prompt_template_version=PROMPT_TEMPLATE_VERSION,
+        step_execution_id=ctx.step_execution.id if ctx.step_execution else None,
+    )
+    db.session.commit()
+
+
+def _raise_invalid_response(ctx, reason: str) -> None:
+    events = EventService()
+    events.emit(
+        ctx.run,
+        EVENT_WARNING_RAISED,
+        {"warning_codes": ["AGENT_PROVIDER_INVALID_RESPONSE"], "reason": reason[:200]},
+        trace_id=ctx.trace_id,
+    )

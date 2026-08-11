@@ -367,6 +367,10 @@ export const agentAPI = {
     }),
   getRunPlans: (runId) => api.get(`/security/agent-runs/${runId}/plans`),
   getRunDecisions: (runId) => api.get(`/security/agent-runs/${runId}/decisions`),
+  getObservations: (runId, params) =>
+    api.get(`/security/agent-runs/${runId}/observations`, { params }),
+  getObservation: (runId, observationId) =>
+    api.get(`/security/agent-runs/${runId}/observations/${observationId}`),
   createConversation: (projectId, data) => api.post(`/security/projects/${projectId}/agent-conversations`, data || {}),
   listProjectConversations: (projectId, params) => api.get(`/security/projects/${projectId}/agent-conversations`, { params }),
   getConversation: (conversationId) => api.get(`/security/agent-conversations/${conversationId}`),

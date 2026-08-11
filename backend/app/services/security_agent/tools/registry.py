@@ -192,6 +192,7 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
         build_search_code_handler,
     )
     from app.services.security_agent.tools.repository_tools import build_map_repository_handler
+    from app.services.security_agent.tools.review_tools import build_run_deep_review_handler
 
     graph_tools = [
         (
@@ -302,3 +303,29 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
     ]
     for descriptor, handler in graph_tools:
         registry.register(descriptor, handler)
+
+    registry.register(
+        ToolDescriptor(
+            name="run_deep_review",
+            version="1.0",
+            category="review",
+            description=(
+                "对指定焦点执行多文件深度审查：读取受限代码切片、检索 RAG 知识引用，"
+                "调用 LLM 生成带证据链与引用（默认 unverified）的 Observation 结论。"
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "focus": {"type": "string"},
+                    "entrypoints": {"type": "array", "items": {"type": "string"}},
+                    "file_hints": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["focus"],
+            },
+            risk_level="sensitive_read",
+            timeout_seconds=300,
+            idempotent=True,
+            produces_artifact_types=["agent_observation"],
+        ),
+        build_run_deep_review_handler(),
+    )

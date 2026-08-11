@@ -181,6 +181,24 @@ class AgentLogger:
         payload["decision_type"] = decision_type
         self._write(logging.INFO, payload)
 
+    def observation_created(
+        self,
+        run,
+        *,
+        observation_id: int,
+        confidence: str,
+        location_count: int,
+        citation_count: int,
+        trace_id: str | None = None,
+    ) -> None:
+        payload = self._base(run, trace_id)
+        payload["event"] = "observation.created"
+        payload["observation_id"] = observation_id
+        payload["confidence"] = confidence
+        payload["location_count"] = location_count
+        payload["citation_count"] = citation_count
+        self._write(logging.INFO, payload)
+
     # ------------------------------------------------------------------ tool
 
     def tool_event(

@@ -88,7 +88,7 @@ def _graph_node(key: str) -> NodeSpec:
 
 
 def related_review_nodes(high_files: tuple[str, ...]) -> list[NodeSpec]:
-    """高风险 finding 的相关文件分析节点（自动重规划路线）。"""
+    """高风险 finding 的相关文件分析 + Deep Review 节点（自动重规划路线）。"""
     specs: list[NodeSpec] = [_graph_node("related_graph_build")]
     if high_files:
         specs.append(
@@ -100,6 +100,20 @@ def related_review_nodes(high_files: tuple[str, ...]) -> list[NodeSpec]:
                 tool_name="get_related_files",
                 depends_on=("related_graph_build",),
                 input={"file_path": high_files[0], "limit": 20, "offset": 0},
+            )
+        )
+        specs.append(
+            NodeSpec(
+                key="related_deep_review",
+                node_type=AgentPlanNodeType.SEMANTIC_REVIEW.value,
+                title="高风险 finding 深度审查",
+                description=(
+                    "对高风险发现文件执行 Deep Review：读取受限代码切片、"
+                    "检索 RAG 知识引用，生成带证据链的 Observation 结论。"
+                ),
+                tool_name="run_deep_review",
+                depends_on=("related_high_finding_files",),
+                input={"focus": f"深度审查 {high_files[0]} 中的高风险安全发现", "file_hints": [high_files[0]]},
             )
         )
     specs.append(
