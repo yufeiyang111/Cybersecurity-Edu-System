@@ -75,6 +75,7 @@ def create_app(config_object: type | None = None) -> Flask:
     from app.routes.user_activity import user_activity_bp
     from app.routes.admin_users import admin_users_bp
     from app.routes.admin_vector import admin_vector_bp
+    from app.routes.admin_graph import admin_graph_bp
 
     init_oauth(app)
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
@@ -92,6 +93,7 @@ def create_app(config_object: type | None = None) -> Flask:
     app.register_blueprint(user_activity_bp, url_prefix="/api/user")
     app.register_blueprint(admin_users_bp, url_prefix="/api/admin")
     app.register_blueprint(admin_vector_bp, url_prefix="/api/admin")
+    app.register_blueprint(admin_graph_bp, url_prefix="/api/admin")
 
     # 后台预热 RAG 引擎：加载 embedding 模型耗时长且占用内存大（bge-m3 约 1.8GB），
     # 延迟启动避免加载高峰与用户请求（如登录）争抢内存，同时避免首次相关推荐请求变慢

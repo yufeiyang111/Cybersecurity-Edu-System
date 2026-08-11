@@ -103,6 +103,31 @@
         </div>
 
         <div class="sidebar-section">
+          <h3>社区视图</h3>
+          <div class="community-control">
+            <el-switch v-model="communityColorEnabled" @change="handleCommunityToggle" />
+            <span class="community-control__label">按社区着色</span>
+          </div>
+          <div v-if="communityList.length" class="community-list">
+            <div
+              v-for="item in communityList"
+              :key="item.id"
+              class="community-item"
+              :class="{ active: selectedCommunity === item.id }"
+              @click="filterByCommunity(item.id)"
+            >
+              <span class="community-dot" :style="{ background: communityColor(item.id) }"></span>
+              <span class="community-name">
+                社区 #{{ item.id }}
+                <span class="community-sample">{{ item.sample.join('、') }}</span>
+              </span>
+              <span class="community-size">{{ item.size }}</span>
+            </div>
+          </div>
+          <el-empty v-else-if="!communityLoading" description="暂无社区数据" :image-size="40" />
+        </div>
+
+        <div class="sidebar-section">
           <h3>中心性着色</h3>
           <div class="centrality-control">
             <el-switch v-model="centralityEnabled" @change="handleCentralityToggle" />
@@ -417,6 +442,37 @@ const centralityScores = ref(null)
 const centralityRange = ref({ min: 0, max: 1 })
 const renderTick = ref(0)
 
+// 社区视图
+const communityColorEnabled = ref(false)
+const communityLoading = ref(false)
+const communityData = ref(null) // { communities, node_community }
+const selectedCommunity = ref(null)
+const communityList = computed(() => {
+  const data = communityData.value
+  if (!data || !data.communities) return []
+  return Object.entries(data.communities).map(([id, info]) => ({
+    id,
+    size: info.size,
+    sample: info.sample || []
+  }))
+})
+
+const communityColor = (communityId) => {
+  // HSL 色相循环：社区 id 哈希到 0-360 色相，保证同社区同色、不同社区色差大
+  let hash = 0
+  const str = String(communityId)
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) % 360
+  }
+  return `hsl(${hash}, 65%, 55%)`
+}
+
+const nodeCommunityId = (nodeId) => {
+  const data = communityData.value
+  if (!data || !data.node_community) return null
+  return data.node_community[nodeId] || null
+}
+
 // 详情面板分类：实体节点显示其来源知识条目的分类
 const selectedNodeCategory = computed(() => {
   const node = selectedNode.value
@@ -540,6 +596,12 @@ const nodeColorOf = (node) => {
   if (centralityEnabled.value) {
     return centralityColorOf(node)
   }
+  if (communityColorEnabled.value) {
+    const cid = nodeCommunityId(node.id)
+    if (cid !== null && cid !== undefined) {
+      return communityColor(cid)
+    }
+  }
   return nodeTypeColors[node.nodeType] || '#10b981'
 }
 
@@ -582,12 +644,19 @@ const handleNodeClick = (node) => {
 
 const loadGraphData = async () => {
   try {
-    const [nodesRes, edgesRes] = await Promise.all([
+    const [nodesRes, edgesRes, communitiesRes] = await Promise.allSettled([
       adminAPI.getGraphNodes({ limit: 150 }),
-      adminAPI.getGraphEdges({ limit: 3000 })
+      adminAPI.getGraphEdges({ limit: 3000 }),
+      adminAPI.getGraphCommunities()
     ])
 
-    const nodes = (nodesRes.nodes || []).map(node => ({
+    const nodesResOk = nodesRes.status === 'fulfilled' ? nodesRes.value : { nodes: [] }
+    const edgesResOk = edgesRes.status === 'fulfilled' ? edgesRes.value : { edges: [] }
+    if (communitiesRes.status === 'fulfilled') {
+      communityData.value = communitiesRes.value || null
+    }
+
+    const nodes = (nodesResOk.nodes || []).map(node => ({
       id: node.id,
       name: node.title,
       category: node.category,
@@ -600,7 +669,7 @@ const loadGraphData = async () => {
 
     // 只保留两端节点都在当前视图内的边，避免无关边拖慢力导向布局
     const nodeIds = new Set(nodes.map(n => n.id))
-    const candidateEdges = (edgesRes.edges || []).filter(
+    const candidateEdges = (edgesResOk.edges || []).filter(
       edge => nodeIds.has(edge.source) && nodeIds.has(edge.target)
     )
 
@@ -625,6 +694,18 @@ const loadGraphData = async () => {
 
 const applyFilters = () => {
   let filteredNodes = allNodes.value
+  // 社区筛选：只保留选中社区的节点（含知识节点，若其归属社区）
+  if (selectedCommunity.value !== null) {
+    const cid = String(selectedCommunity.value)
+    filteredNodes = filteredNodes.filter(node => {
+      const nodeCid = nodeCommunityId(node.id)
+      return nodeCid === cid
+    })
+    if (!filteredNodes.length) {
+      // 知识节点可能不在 node_community 映射（只含实体），退化为原图
+      filteredNodes = allNodes.value
+    }
+  }
   if (selectedCategory.value !== null && selectedCategory.value !== '') {
     const catName = categories.value.find(
       cat => String(cat.id) === String(selectedCategory.value)
@@ -990,6 +1071,24 @@ const handleFilter = () => {
 
 const filterByRelation = (rel) => {
   selectedRelation.value = selectedRelation.value === rel ? null : rel
+  applyFilters()
+}
+
+const handleCommunityToggle = () => {
+  // 社区着色与中心性着色互斥（中心性优先级更高，关闭中心性才生效）
+  if (communityColorEnabled.value) {
+    centralityEnabled.value = false
+  }
+  renderTick.value++
+}
+
+const filterByCommunity = (communityId) => {
+  if (selectedCommunity.value === communityId) {
+    selectedCommunity.value = null
+    applyFilters()
+    return
+  }
+  selectedCommunity.value = communityId
   applyFilters()
 }
 
@@ -1635,6 +1734,74 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.community-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+
+  &__label {
+    font-size: 13px;
+    color: #606266;
+  }
+}
+
+.community-list {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .community-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #606266;
+    transition: background 0.2s ease;
+
+    &:hover {
+      background: #f5f7fa;
+    }
+
+    &.active {
+      background: #eff6ff;
+      border: 1px solid #2563eb;
+      color: #1d4ed8;
+    }
+  }
+
+  .community-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .community-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .community-sample {
+    color: #a0a6ad;
+    font-size: 11px;
+  }
+
+  .community-size {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    color: #8c959f;
+  }
 }
 
 .centrality-legend {
