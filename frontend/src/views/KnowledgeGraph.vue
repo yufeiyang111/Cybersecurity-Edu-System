@@ -1,253 +1,252 @@
 <template>
   <div class="graph-page">
-    <header class="page-header">
-      <div class="header-orb"></div>
-      <div class="header-grid"></div>
-      <div class="header-inner">
+    <header class="graph-toolbar">
+      <div class="toolbar-left">
         <button type="button" class="back-btn" @click="goBack">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 12H5" />
-            <path d="M12 19l-7-7 7-7" />
-          </svg>
+          <el-icon><Back /></el-icon>
           返回
         </button>
-        <div class="header-content">
-          <div class="header-left">
-            <div class="header-badge">
-              <span class="badge-dot"></span>
-              知识图谱
-            </div>
-            <h1 class="header-title">
-              网络安全知识图谱
-            </h1>
-            <p class="header-desc">可视化展示知识点之间的关联关系，支持节点搜索、关系筛选与分类过滤</p>
+        <div class="toolbar-title">
+          <span class="toolbar-badge"></span>
+          网络安全知识图谱
+        </div>
+      </div>
+      <div class="toolbar-search">
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索节点 / 实体，回车查看结果..."
+          clearable
+          @input="handleSearch"
+          @clear="clearSearch"
+          @focus="searchFocused = true"
+          @blur="searchFocused = false"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <div v-if="searchFocused && searchResults.length" class="search-dropdown">
+          <div
+            v-for="result in searchResults.slice(0, 8)"
+            :key="result.id"
+            class="search-dropdown-item"
+            @mousedown.prevent="focusToNode(result)"
+          >
+            <span class="result-name">{{ result.name }}</span>
+            <span class="result-type" :style="{ color: nodeTypeColors[result.nodeType] }">
+              {{ getNodeTypeText(result.nodeType) }}
+            </span>
           </div>
         </div>
       </div>
+      <div class="toolbar-right">
+        <el-button-group>
+          <el-button size="small" title="放大" @click="zoomIn">
+            <el-icon><Plus /></el-icon>
+          </el-button>
+          <el-button size="small" title="缩小" @click="zoomOut">
+            <el-icon><Minus /></el-icon>
+          </el-button>
+          <el-button size="small" title="重置视图" @click="resetZoom">
+            <el-icon><Refresh /></el-icon>
+          </el-button>
+          <el-button size="small" title="聚焦选中节点" :disabled="!selectedNodeForFocus" @click="focusSelectedNode">
+            <el-icon><Aim /></el-icon>
+          </el-button>
+        </el-button-group>
+        <el-button v-if="isSubgraphView" type="warning" size="small" @click="resetToFullGraph">
+          <el-icon><Back /></el-icon>
+          返回完整图谱
+        </el-button>
+        <el-button size="small" @click="exportGraphImage">
+          <el-icon><Download /></el-icon>
+          导出图片
+        </el-button>
+        <el-button type="primary" size="small" @click="refreshGraph">
+          <el-icon><Refresh /></el-icon>
+          刷新
+        </el-button>
+      </div>
     </header>
 
-    <div class="graph-container">
-      <aside class="graph-sidebar">
-        <div class="sidebar-section">
-          <h3>图谱统计</h3>
-          <div class="stats-grid">
-            <div class="stat-item">
-              <span class="stat-value">{{ graphStats.node_count }}</span>
-              <span class="stat-label">节点数</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-value">{{ graphStats.edge_count }}</span>
-              <span class="stat-label">边数</span>
-            </div>
-          </div>
-        </div>
+    <div class="graph-body">
+      <aside class="icon-rail">
+        <button
+          v-for="entry in railEntries"
+          :key="entry.key"
+          type="button"
+          class="rail-btn"
+          :class="{ active: activePanel === entry.key }"
+          :title="entry.label"
+          @click="togglePanel(entry.key)"
+        >
+          <el-icon :size="18"><component :is="entry.icon" /></el-icon>
+          <span class="rail-label">{{ entry.label }}</span>
+        </button>
+      </aside>
 
-        <div class="sidebar-section">
-          <h3>节点搜索</h3>
-          <el-input
-            v-model="searchQuery"
-            placeholder="搜索节点..."
-            clearable
-            @input="handleSearch"
-            @clear="clearSearch"
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
-          <div v-if="searchResults.length" class="search-results">
-            <div
-              v-for="result in searchResults"
-              :key="result.id"
-              class="search-result-item"
-              @click="focusToNode(result)"
-            >
-              <span class="result-name">{{ result.name }}</span>
-              <el-tag size="small" :type="getNodeTypeColor(result.nodeType)">{{ result.nodeType }}</el-tag>
-            </div>
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <h3>节点类型</h3>
-          <div class="node-type-legend">
-            <div v-for="(color, type) in nodeTypeColors" :key="type" class="legend-item">
-              <span class="legend-dot" :style="{ background: color }"></span>
-              <span class="legend-label">{{ getNodeTypeText(type) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <h3>关系类型</h3>
-          <div class="relation-list">
-            <div
-              v-for="(count, rel) in graphStats.relation_types"
-              :key="rel"
-              class="relation-item"
-              :class="{ active: selectedRelation === rel }"
-              @click="filterByRelation(rel)"
-            >
-              <span class="relation-dot" :style="{ background: relationColors[rel] }"></span>
-              <span class="relation-name">{{ getRelationText(rel) }}</span>
-              <span class="relation-count">{{ count }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <h3>筛选条件</h3>
-          <el-select v-model="selectedCategory" placeholder="选择分类" clearable @change="handleFilter">
-            <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
-          </el-select>
-        </div>
-
-        <div class="sidebar-section">
-          <h3>社区视图</h3>
-          <div class="community-control">
-            <el-switch v-model="communityColorEnabled" @change="handleCommunityToggle" />
-            <span class="community-control__label">按社区着色</span>
-          </div>
-          <el-button
-            v-if="communityList.length && userStore.isAdmin"
-            size="small"
-            class="community-batch-btn"
-            :loading="communityBatchLoading"
-            @click="handleBatchSummarize"
-          >
-            预生成 Top 10 摘要
+      <aside v-if="activePanel" class="side-panel">
+        <div class="panel-header">
+          <span class="panel-title">{{ railEntries.find(e => e.key === activePanel)?.label }}</span>
+          <el-button text size="small" @click="activePanel = null">
+            <el-icon><Close /></el-icon>
           </el-button>
-          <div v-if="communityList.length" class="community-list">
-            <div
-              v-for="item in communityList"
-              :key="item.id"
-              class="community-item"
-              :class="{ active: selectedCommunity === item.id }"
-              @click="handleCommunityClick(item)"
-            >
-              <span class="community-dot" :style="{ background: communityColor(item.id) }"></span>
-              <span class="community-name">
-                社区 #{{ item.id }}
-                <span class="community-sample">{{ item.sample.join('、') }}</span>
-              </span>
-              <span class="community-size">{{ item.size }}</span>
+        </div>
+        <div class="panel-body">
+          <!-- 统计 -->
+          <template v-if="activePanel === 'stats'">
+            <div class="stats-grid">
+              <div class="stat-card">
+                <span class="stat-value">{{ graphStats.node_count }}</span>
+                <span class="stat-label">节点</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-value">{{ graphStats.edge_count }}</span>
+                <span class="stat-label">关系</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-value">{{ communityList.length || '-' }}</span>
+                <span class="stat-label">社区</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-value">{{ graphStats.relation_types ? Object.keys(graphStats.relation_types).length : '-' }}</span>
+                <span class="stat-label">关系类型</span>
+              </div>
             </div>
-          </div>
-          <el-empty v-else-if="!communityLoading" description="暂无社区数据" :image-size="40" />
-        </div>
-
-        <div class="sidebar-section">
-          <h3>中心性着色</h3>
-          <div class="centrality-control">
-            <el-switch v-model="centralityEnabled" @change="handleCentralityToggle" />
-            <el-select
-              v-model="centralityMetric"
-              size="small"
-              :disabled="!centralityEnabled"
-              @change="loadCentralityScores"
-            >
-              <el-option label="PageRank 热度" value="pagerank" />
-              <el-option label="连接数量" value="degree" />
-            </el-select>
-          </div>
-          <div v-if="centralityEnabled && centralityScores" class="centrality-legend">
-            <span class="legend-text">低</span>
-            <div class="legend-gradient"></div>
-            <span class="legend-text">高</span>
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <h3>图谱问答（GraphRAG）</h3>
-          <GraphRagSearchPanel />
-        </div>
-
-        <div v-if="userStore.isAdmin" class="sidebar-section">
-          <h3>数据维护</h3>
-          <p class="dedup-hint">
-            合并同名同类型实体（如多个条目的「签名」），关系边迁移到保留节点，可减少重复节点
-          </p>
-          <el-popconfirm
-            title="确认合并所有同名实体？此操作不可撤销"
-            confirm-button-text="合并"
-            cancel-button-text="取消"
-            @confirm="runDeduplicate"
-          >
-            <template #reference>
-              <el-button
-                type="warning"
-                size="small"
-                :loading="deduplicating"
-                block
+            <h4 class="panel-subtitle">关系类型分布</h4>
+            <div class="relation-list">
+              <div
+                v-for="(count, rel) in graphStats.relation_types"
+                :key="rel"
+                class="relation-item"
+                :class="{ active: selectedRelation === rel }"
+                @click="filterByRelation(rel)"
               >
-                合并同名实体
-              </el-button>
-            </template>
-          </el-popconfirm>
-          <el-button
-            size="small"
-            class="backfill-btn"
-            :loading="backfillLoading"
-            @click="handleBackfill"
-          >
-            补全实体描述（Top 500）
-          </el-button>
-          <p v-if="backfillStatus && backfillStatus.status === 'running'" class="backfill-progress">
-            回填中：{{ backfillStatus.processed_entities || 0 }}/{{ backfillStatus.total_entities || 0 }}
-          </p>
-          <p v-else-if="backfillDone" class="backfill-progress">
-            上次回填完成：更新 {{ backfillDone.updated_entities }} 个实体
-          </p>
+                <span class="relation-dot" :style="{ background: relationColors[rel] }"></span>
+                <span class="relation-name">{{ getRelationText(rel) }}</span>
+                <span class="relation-count">{{ count }}</span>
+              </div>
+            </div>
+          </template>
+
+          <!-- 图例 -->
+          <template v-else-if="activePanel === 'legend'">
+            <h4 class="panel-subtitle">节点类型</h4>
+            <div class="node-type-legend">
+              <div v-for="(color, type) in nodeTypeColors" :key="type" class="legend-item">
+                <span class="legend-dot" :style="{ background: color }"></span>
+                <span class="legend-label">{{ getNodeTypeText(type) }}</span>
+              </div>
+            </div>
+            <el-divider />
+            <h4 class="panel-subtitle">着色模式</h4>
+            <div class="panel-row">
+              <span>按社区着色</span>
+              <el-switch v-model="communityColorEnabled" @change="handleCommunityToggle" />
+            </div>
+            <div class="panel-row">
+              <span>中心性着色</span>
+              <el-switch v-model="centralityEnabled" @change="handleCentralityToggle" />
+            </div>
+            <div v-if="centralityEnabled" class="centrality-row">
+              <el-select
+                v-model="centralityMetric"
+                size="small"
+                @change="loadCentralityScores"
+              >
+                <el-option label="PageRank 热度" value="pagerank" />
+                <el-option label="连接数量" value="degree" />
+              </el-select>
+              <div v-if="centralityScores" class="centrality-legend">
+                <span class="legend-text">低</span>
+                <div class="legend-gradient"></div>
+                <span class="legend-text">高</span>
+              </div>
+            </div>
+          </template>
+
+          <!-- 筛选 -->
+          <template v-else-if="activePanel === 'filter'">
+            <h4 class="panel-subtitle">分类筛选</h4>
+            <el-select v-model="selectedCategory" placeholder="选择分类" clearable @change="handleFilter">
+              <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
+            </el-select>
+            <p class="panel-hint">选中分类后仅展示该分类知识节点及其一阶关联实体</p>
+          </template>
+
+          <!-- 社区 -->
+          <template v-else-if="activePanel === 'community'">
+            <div class="panel-row">
+              <span>按社区着色</span>
+              <el-switch v-model="communityColorEnabled" @change="handleCommunityToggle" />
+            </div>
+            <el-button
+              v-if="communityList.length && userStore.isAdmin"
+              size="small"
+              class="community-batch-btn"
+              :loading="communityBatchLoading"
+              @click="handleBatchSummarize"
+            >
+              预生成 Top 10 摘要
+            </el-button>
+            <div v-if="communityList.length" class="community-list">
+              <div
+                v-for="item in communityList"
+                :key="item.id"
+                class="community-item"
+                :class="{ active: selectedCommunity === item.id }"
+                @click="handleCommunityClick(item)"
+              >
+                <span class="community-dot" :style="{ background: communityColor(item.id) }"></span>
+                <span class="community-name">
+                  社区 #{{ item.id }}
+                  <span class="community-sample">{{ item.sample.join('、') }}</span>
+                </span>
+                <span class="community-size">{{ item.size }}</span>
+              </div>
+            </div>
+            <el-empty v-else-if="!communityLoading" description="暂无社区数据" :image-size="40" />
+          </template>
+
+          <!-- 问答 -->
+          <template v-else-if="activePanel === 'ask'">
+            <GraphRagSearchPanel />
+          </template>
+
+          <!-- 维护 -->
+          <template v-else-if="activePanel === 'maintain' && userStore.isAdmin">
+            <p class="panel-hint">合并同名同类型实体（如多个条目的「签名」），关系边迁移到保留节点，可减少重复节点</p>
+            <el-popconfirm
+              title="确认合并所有同名实体？此操作不可撤销"
+              confirm-button-text="合并"
+              cancel-button-text="取消"
+              @confirm="runDeduplicate"
+            >
+              <template #reference>
+                <el-button type="warning" size="small" :loading="deduplicating" block>
+                  合并同名实体
+                </el-button>
+              </template>
+            </el-popconfirm>
+            <el-button
+              size="small"
+              class="backfill-btn"
+              :loading="backfillLoading"
+              @click="handleBackfill"
+            >
+              补全实体描述（Top 500）
+            </el-button>
+            <p v-if="backfillStatus && backfillStatus.status === 'running'" class="backfill-progress">
+              回填中：{{ backfillStatus.processed_entities || 0 }}/{{ backfillStatus.total_entities || 0 }}
+            </p>
+            <p v-else-if="backfillDone" class="backfill-progress">
+              上次回填完成：更新 {{ backfillDone.updated_entities }} 个实体
+            </p>
+          </template>
         </div>
       </aside>
 
       <main class="graph-main">
-        <div class="graph-toolbar">
-          <div class="toolbar-left">
-            <el-input
-              v-model="searchQuery"
-              placeholder="搜索节点..."
-              size="small"
-              class="toolbar-search"
-              clearable
-              @input="handleSearch"
-              @clear="clearSearch"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-          </div>
-          <div class="toolbar-right">
-            <el-button-group size="small">
-              <el-button @click="zoomIn" title="放大">
-                <el-icon><Plus /></el-icon>
-              </el-button>
-              <el-button @click="zoomOut" title="缩小">
-                <el-icon><Minus /></el-icon>
-              </el-button>
-              <el-button @click="resetZoom" title="重置视图">
-                <el-icon><Refresh /></el-icon>
-              </el-button>
-              <el-button @click="focusSelectedNode" title="聚焦选中节点" :disabled="!selectedNodeForFocus">
-                <el-icon><Aim /></el-icon>
-              </el-button>
-            </el-button-group>
-            <el-button v-if="isSubgraphView" type="warning" size="small" @click="resetToFullGraph">
-              <el-icon><Back /></el-icon>
-              返回完整图谱
-            </el-button>
-            <el-button size="small" @click="exportGraphImage">
-              <el-icon><Download /></el-icon>
-              导出图片
-            </el-button>
-            <el-button type="primary" size="small" @click="refreshGraph">
-              <el-icon><Refresh /></el-icon>
-              刷新
-            </el-button>
-          </div>
-        </div>
-
         <div class="graph-chart-wrapper">
           <ForceGraphCanvas
             ref="graphRef"
@@ -263,8 +262,13 @@
           />
         </div>
 
-        <!-- 节点详情弹窗 -->
-        <el-dialog v-model="nodeDialogVisible" title="节点详情" width="500px">
+        <!-- 节点详情抽屉 -->
+        <el-drawer
+          v-model="nodeDialogVisible"
+          title="节点详情"
+          size="420px"
+          :with-header="true"
+        >
           <div v-if="selectedNode" class="node-detail">
             <h3>{{ selectedNode.name }}</h3>
             <div class="detail-info">
@@ -407,7 +411,7 @@
               <el-button @click="startFromNode">以此节点开始</el-button>
             </div>
           </div>
-        </el-dialog>
+        </el-drawer>
 
         <CommunitySummaryPanel
           v-model:visible="summaryPanelVisible"
@@ -425,13 +429,34 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { adminAPI, knowledgeAPI } from '@/api'
 import { ElMessage } from 'element-plus'
-import { Search, Plus, Minus, Refresh, Aim, Back, Download } from '@element-plus/icons-vue'
+import { Search, Plus, Minus, Refresh, Aim, Back, Download, Close, DataLine, Collection, Filter, Share, ChatDotRound, Setting } from '@element-plus/icons-vue'
 import ForceGraphCanvas from '@/components/graph/ForceGraphCanvas.vue'
 import CommunitySummaryPanel from '@/components/security/knowledgeGraph/CommunitySummaryPanel.vue'
 import GraphRagSearchPanel from '@/components/security/knowledgeGraph/GraphRagSearchPanel.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+
+// 左侧图标栏与面板
+const activePanel = ref(null)
+const searchFocused = ref(false)
+const railEntries = computed(() => {
+  const entries = [
+    { key: 'stats', label: '统计', icon: DataLine },
+    { key: 'legend', label: '图例', icon: Collection },
+    { key: 'filter', label: '筛选', icon: Filter },
+    { key: 'community', label: '社区', icon: Share },
+    { key: 'ask', label: '问答', icon: ChatDotRound }
+  ]
+  if (userStore.isAdmin) {
+    entries.push({ key: 'maintain', label: '维护', icon: Setting })
+  }
+  return entries
+})
+
+const togglePanel = (key) => {
+  activePanel.value = activePanel.value === key ? null : key
+}
 
 const goBack = () => {
   if (router.options.history.state.back) {
@@ -1243,406 +1268,529 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .graph-page {
-  min-height: 100vh;
-  background: #f6f8fa;
-}
-
-/* ==================== 页头 ==================== */
-.page-header {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
-  color: #c9d1d9;
-  padding: 32px 0 52px;
-}
-
-.header-orb {
-  position: absolute;
-  width: 460px;
-  height: 460px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(46, 164, 79, 0.16), transparent 65%);
-  top: -190px;
-  right: -120px;
-  animation: kbBreathe 7s ease-in-out infinite;
-}
-
-@keyframes kbBreathe {
-  0%,
-  100% {
-    opacity: 0.7;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.12);
-  }
-}
-
-.header-grid {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(240, 246, 252, 0.05) 1px, transparent 1px);
-  background-size: 26px 26px;
-  animation: kbDrift 36s linear infinite;
-  pointer-events: none;
-}
-
-@keyframes kbDrift {
-  to {
-    transform: translateY(26px);
-  }
-}
-
-.header-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
-  position: relative;
-}
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(240, 246, 252, 0.22);
-  background: rgba(255, 255, 255, 0.06);
-  color: #c9d1d9;
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-  margin-bottom: 24px;
-  opacity: 0;
-  transform: translateY(14px);
-  animation: kbUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  transition:
-    background 0.25s,
-    border-color 0.25s,
-    color 0.25s;
-}
-
-.back-btn svg {
-  width: 14px;
-  height: 14px;
-  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.back-btn:hover {
-  background: rgba(46, 164, 79, 0.14);
-  border-color: rgba(46, 164, 79, 0.45);
-  color: #fff;
-}
-
-.back-btn:hover svg {
-  transform: translateX(-3px);
-}
-
-.header-content {
-  position: relative;
-}
-
-.header-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #7ee2a8;
-  background: rgba(46, 164, 79, 0.1);
-  border: 1px solid rgba(46, 164, 79, 0.35);
-  padding: 5px 14px;
-  border-radius: 999px;
-  margin-bottom: 16px;
-  opacity: 0;
-  transform: translateY(18px);
-  animation: kbUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
-}
-
-.badge-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #2ea44f;
-  animation: kbBadgePing 2.2s ease-out infinite;
-}
-
-@keyframes kbBadgePing {
-  0% {
-    box-shadow: 0 0 0 0 rgba(46, 164, 79, 0.55);
-  }
-  70%,
-  100% {
-    box-shadow: 0 0 0 7px rgba(46, 164, 79, 0);
-  }
-}
-
-.header-title {
-  margin: 0 0 10px;
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.3;
-  color: #f0f6fc;
-  letter-spacing: -0.01em;
-  opacity: 0;
-  transform: translateY(24px);
-  animation: kbUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards;
-}
-
-@keyframes kbUp {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.header-desc {
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.8;
-  color: #8b949e;
-  max-width: 52ch;
-  opacity: 0;
-  transform: translateY(20px);
-  animation: kbUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
-}
-
-/* ==================== 主体 ==================== */
-.graph-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px 20px 48px;
+  height: 100vh;
   display: flex;
-  gap: 24px;
+  flex-direction: column;
+  background: #f6f8fa;
+  overflow: hidden;
 }
 
-.graph-sidebar {
-  width: 280px;
+/* ==================== 顶部工具条 ==================== */
+.graph-toolbar {
+  height: 56px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  background: #fff;
+  border-bottom: 1px solid #d8dee4;
+  z-index: 10;
 
-  .sidebar-section {
-    background: #fff;
-    border: 1px solid #d8dee4;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-    transition: box-shadow 0.3s;
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
 
-    &:hover {
-      box-shadow: 0 8px 24px rgba(22, 27, 34, 0.06);
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid #d8dee4;
+      background: #f6f8fa;
+      color: #57606a;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover {
+        background: #eef1f4;
+        color: #24292f;
+      }
     }
 
-    h3 {
+    .toolbar-title {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin: 0 0 14px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #24292f;
+      white-space: nowrap;
+
+      .toolbar-badge {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #2ea44f;
+      }
+    }
+  }
+
+  .toolbar-search {
+    flex: 1;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+}
+
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #d8dee4;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(22, 27, 34, 0.12);
+  z-index: 20;
+
+  .search-dropdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover {
+      background: #f0f6ff;
+    }
+
+    .result-name {
+      flex: 1;
+      font-size: 13px;
+      color: #24292f;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .result-type {
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+  }
+}
+
+/* ==================== 主体：图标栏 + 面板 + 图区 ==================== */
+.graph-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.icon-rail {
+  width: 56px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 0;
+  background: #fff;
+  border-right: 1px solid #d8dee4;
+
+  .rail-btn {
+    width: 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #57606a;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background: #f0f6ff;
+      color: #2563eb;
+    }
+
+    &.active {
+      background: #eff6ff;
+      color: #2563eb;
+      box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.25);
+    }
+
+    .rail-label {
+      font-size: 10px;
+      line-height: 1;
+    }
+  }
+}
+
+.side-panel {
+  width: 300px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #d8dee4;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  animation: panelSlideIn 0.18s ease-out;
+
+  .panel-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 12px 12px 16px;
+    border-bottom: 1px solid #eef1f4;
+
+    .panel-title {
       font-size: 14px;
       font-weight: 600;
       color: #24292f;
     }
+  }
 
-    h3::before {
-      content: '';
-      width: 4px;
-      height: 14px;
-      border-radius: 2px;
-      background: #2ea44f;
-    }
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
 
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
+    .panel-subtitle {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      display: flex;
+      align-items: center;
+      gap: 8px;
 
-      .stat-item {
-        text-align: center;
-        padding: 8px 0;
-        border-radius: 8px;
-        transition: background 0.25s;
-
-        &:hover {
-          background: rgba(46, 164, 79, 0.06);
-        }
-
-        .stat-value {
-          display: block;
-          font-size: 24px;
-          font-weight: 600;
-          color: #2ea44f;
-          font-variant-numeric: tabular-nums;
-        }
-
-        .stat-label {
-          font-size: 12px;
-          color: #8c959f;
-        }
+      &::before {
+        content: '';
+        width: 3px;
+        height: 12px;
+        border-radius: 2px;
+        background: #2ea44f;
       }
     }
 
-    .search-results {
-      margin-top: 12px;
-      max-height: 200px;
-      overflow-y: auto;
-
-      .search-result-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: background 0.2s;
-
-        &:hover {
-          background: rgba(46, 164, 79, 0.08);
-        }
-
-        .result-name {
-          font-size: 13px;
-          color: #24292f;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-      }
+    .panel-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 13px;
+      color: #374151;
     }
 
-    .node-type-legend {
-      .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 0;
-        transition: transform 0.2s;
-
-        &:hover {
-          transform: translateX(3px);
-        }
-
-        .legend-dot {
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          transition: transform 0.2s;
-        }
-
-        &:hover .legend-dot {
-          transform: scale(1.15);
-        }
-
-        .legend-label {
-          font-size: 13px;
-          color: #57606a;
-        }
-      }
+    .panel-hint {
+      margin: 8px 0 0;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #8c959f;
     }
 
-    .relation-list {
-      .relation-item {
-        position: relative;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 9px 12px;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: background 0.25s, color 0.25s;
-
-        &:hover {
-          background: rgba(46, 164, 79, 0.08);
-        }
-
-        &.active {
-          background: rgba(46, 164, 79, 0.12);
-        }
-
-        .relation-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          flex-shrink: 0;
-          transition: transform 0.25s;
-        }
-
-        &:hover .relation-dot,
-        &.active .relation-dot {
-          transform: scale(1.2);
-        }
-
-        .relation-name {
-          flex: 1;
-          font-size: 13px;
-          color: #57606a;
-          transition: color 0.25s;
-        }
-
-        &:hover .relation-name,
-        &.active .relation-name {
-          color: #2c974b;
-          font-weight: 500;
-        }
-
-        .relation-count {
-          font-size: 12px;
-          color: #2ea44f;
-          font-weight: 600;
-          font-variant-numeric: tabular-nums;
-          background: rgba(46, 164, 79, 0.08);
-          border-radius: 999px;
-          padding: 0 8px;
-          line-height: 18px;
-        }
-      }
+    .centrality-row {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 10px 0;
     }
   }
 }
 
-.graph-main {
-  flex: 1;
-  min-width: 0;
+@keyframes panelSlideIn {
+  from {
+    transform: translateX(-8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
 
-  .graph-toolbar {
-    background: #fff;
-    border: 1px solid #d8dee4;
-    border-radius: 12px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
+/* ==================== 统计 ==================== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+
+  .stat-card {
+    text-align: center;
+    padding: 14px 8px;
+    border-radius: 8px;
+    background: #f6f8fa;
+    border: 1px solid #eef1f4;
+
+    .stat-value {
+      display: block;
+      font-size: 22px;
+      font-weight: 600;
+      color: #2ea44f;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #8c959f;
+    }
+  }
+}
+
+/* ==================== 图例 ==================== */
+.node-type-legend {
+  .legend-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 12px;
-    transition: box-shadow 0.3s;
+    gap: 8px;
+    padding: 6px 0;
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-label {
+      font-size: 13px;
+      color: #57606a;
+    }
+  }
+}
+
+.centrality-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .legend-text {
+    font-size: 12px;
+    color: #8c959f;
+  }
+
+  .legend-gradient {
+    flex: 1;
+    height: 8px;
+    border-radius: 999px;
+    background: linear-gradient(to right, #d1fae5, #065f46);
+  }
+}
+
+/* ==================== 关系 / 社区列表 ==================== */
+.relation-list {
+  .relation-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
 
     &:hover {
-      box-shadow: 0 8px 24px rgba(22, 27, 34, 0.06);
+      background: #f0f6ff;
     }
 
-    .toolbar-search {
-      width: 200px;
+    &.active {
+      background: #eff6ff;
+      box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.25);
     }
 
-    .toolbar-left,
-    .toolbar-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .relation-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .relation-name {
+      flex: 1;
+      font-size: 13px;
+      color: #57606a;
+    }
+
+    &.active .relation-name {
+      color: #1d4ed8;
+      font-weight: 500;
+    }
+
+    .relation-count {
+      font-size: 12px;
+      color: #2ea44f;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      background: rgba(46, 164, 79, 0.08);
+      border-radius: 999px;
+      padding: 0 8px;
+      line-height: 18px;
+    }
+  }
+}
+
+.community-list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .community-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #606266;
+    transition: background 0.2s ease;
+
+    &:hover {
+      background: #f5f7fa;
+    }
+
+    &.active {
+      background: #eff6ff;
+      border: 1px solid #2563eb;
+      color: #1d4ed8;
     }
   }
 
+  .community-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .community-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .community-sample {
+    color: #a0a6ad;
+    font-size: 11px;
+  }
+
+  .community-size {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    color: #8c959f;
+  }
+}
+
+.community-batch-btn {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.backfill-btn {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.backfill-progress {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #8c959f;
+}
+
+/* ==================== 图区 ==================== */
+.graph-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+
   .graph-chart-wrapper {
-    --fgc-height: 600px;
+    --fgc-height: 100%;
+    flex: 1;
+    min-height: 0;
     position: relative;
     background: #fff;
     border: 1px solid #d8dee4;
     border-radius: 12px;
-    transition: box-shadow 0.3s;
     overflow: hidden;
+    transition: box-shadow 0.3s;
 
     &:hover {
       box-shadow: 0 8px 24px rgba(22, 27, 34, 0.06);
+    }
+  }
+}
+
+/* ==================== 移动端适配 ==================== */
+@media (max-width: 768px) {
+  .graph-toolbar {
+    .toolbar-title {
+      display: none;
+    }
+
+    .toolbar-right {
+      .el-button:not(:first-child):not(:last-child) {
+        display: none;
+      }
+    }
+  }
+
+  .side-panel {
+    position: fixed;
+    top: 56px;
+    bottom: 0;
+    left: 56px;
+    z-index: 30;
+    box-shadow: 4px 0 16px rgba(22, 27, 34, 0.12);
+  }
+
+  .graph-main {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .icon-rail {
+    width: 44px;
+
+    .rail-btn {
+      width: 40px;
+    }
+  }
+
+  .side-panel {
+    left: 44px;
+    width: calc(100vw - 44px);
+  }
+
+  .graph-toolbar {
+    gap: 8px;
+    padding: 0 8px;
+
+    .toolbar-left .back-btn span {
+      display: none;
+    }
+
+    .toolbar-right .el-button-group {
+      display: none;
     }
   }
 }
@@ -1836,162 +1984,4 @@ onMounted(() => {
   }
 }
 
-.dedup-hint {
-  margin: 0 0 10px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: #8c959f;
-}
-
-.centrality-control {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.community-control {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-
-  &__label {
-    font-size: 13px;
-    color: #606266;
-  }
-}
-
-.community-batch-btn {
-  width: 100%;
-  margin-bottom: 10px;
-}
-
-.backfill-btn {
-  width: 100%;
-  margin-top: 8px;
-}
-
-.backfill-progress {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #8c959f;
-}
-
-.community-list {
-  max-height: 260px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-
-  .community-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    color: #606266;
-    transition: background 0.2s ease;
-
-    &:hover {
-      background: #f5f7fa;
-    }
-
-    &.active {
-      background: #eff6ff;
-      border: 1px solid #2563eb;
-      color: #1d4ed8;
-    }
-  }
-
-  .community-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .community-name {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .community-sample {
-    color: #a0a6ad;
-    font-size: 11px;
-  }
-
-  .community-size {
-    flex-shrink: 0;
-    font-variant-numeric: tabular-nums;
-    color: #8c959f;
-  }
-}
-
-.centrality-legend {
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  .legend-text {
-    font-size: 12px;
-    color: #8c959f;
-  }
-
-  .legend-gradient {
-    flex: 1;
-    height: 8px;
-    border-radius: 999px;
-    background: linear-gradient(to right, #d1fae5, #065f46);
-  }
-}
-
-/* ==================== 响应式 ==================== */
-@media (max-width: 1024px) {
-  .graph-container {
-    gap: 16px;
-  }
-
-  .graph-sidebar {
-    width: 220px;
-  }
-}
-
-@media (max-width: 768px) {
-  .page-header {
-    padding: 24px 0 36px;
-  }
-
-  .header-title {
-    font-size: 24px;
-  }
-
-  .graph-container {
-    flex-direction: column;
-    padding: 16px 12px 40px;
-  }
-
-  .graph-sidebar {
-    width: 100%;
-  }
-
-  .graph-toolbar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .toolbar-search {
-    width: 100%;
-  }
-
-  .graph-chart-wrapper {
-    --fgc-height: 420px;
-  }
-}
 </style>
