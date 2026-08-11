@@ -45,7 +45,7 @@
           size="small"
           :color="typeTagColor(e.type)"
           effect="dark"
-          closable="false"
+          :closable="false"
           @click="$emit('focus-node', e.id)"
         >
           {{ e.name }}

@@ -21,7 +21,7 @@
             type="info"
             effect="plain"
             class="example-tag"
-            @click.stop="fillQuery(q)"
+            @click.stop="fillQuery(q, 'global')"
           >
             {{ q }}
           </el-tag>
@@ -48,7 +48,7 @@
             type="warning"
             effect="plain"
             class="example-tag"
-            @click.stop="fillQuery(q)"
+            @click.stop="fillQuery(q, 'local')"
           >
             {{ q }}
           </el-tag>
@@ -140,7 +140,11 @@ const switchMode = (nextMode) => {
   query.value = ''
 }
 
-const fillQuery = (q) => {
+const fillQuery = (q, targetMode) => {
+  // 点示例问题：切到对应模式 + 填入问题
+  if (targetMode && mode.value !== targetMode) {
+    switchMode(targetMode)
+  }
   query.value = q
 }
 
