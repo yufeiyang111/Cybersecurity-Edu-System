@@ -5,7 +5,7 @@
         type="primary"
         :loading="starting"
         :disabled="isRunning"
-        @click="handleStart(false)"
+        @click="handleStart('vector')"
       >
         <el-icon>
           <Refresh />
@@ -13,15 +13,26 @@
         重建向量索引
       </el-button>
       <el-button
+        type="success"
+        :loading="starting"
+        :disabled="isRunning"
+        @click="handleStart('graph')"
+      >
+        <el-icon>
+          <Share />
+        </el-icon>
+        仅重建知识图谱
+      </el-button>
+      <el-button
         type="warning"
         :loading="starting"
         :disabled="isRunning"
-        @click="handleStart(true)"
+        @click="handleStart('all')"
       >
         <el-icon>
           <Refresh />
         </el-icon>
-        重建所有索引（含图谱）
+        重建全部索引（向量+图谱）
       </el-button>
       <el-button
         v-if="hasReport"
@@ -40,7 +51,7 @@
     <div v-if="isRunning" class="vector-rebuild-panel__progress">
       <div class="vector-rebuild-panel__progress-head">
         <span class="vector-rebuild-panel__progress-title">
-          {{ status.message || '正在重建向量索引…' }}
+          {{ status.message || '正在重建…' }}
         </span>
         <span class="vector-rebuild-panel__progress-percent">
           {{ progressPercent }}%
@@ -53,8 +64,14 @@
         :text-inside="true"
       />
       <div class="vector-rebuild-panel__progress-meta">
-        <span>已处理 {{ status.processed_docs || 0 }} / {{ status.total_docs || 0 }} 个文档</span>
-        <span>已写入 {{ status.vector_count || 0 }} 个向量块</span>
+        <template v-if="isVectorStage">
+          <span>已处理 {{ status.processed_docs || 0 }} / {{ status.total_docs || 0 }} 个文档</span>
+          <span>已写入 {{ status.vector_count || 0 }} 个向量块</span>
+        </template>
+        <template v-else>
+          <span>图谱构建 {{ status.graph_processed_docs || 0 }} / {{ status.total_docs || 0 }} 篇</span>
+          <span>已产出 {{ status.graph_nodes || 0 }} 节点 / {{ status.graph_edges || 0 }} 边</span>
+        </template>
       </div>
       <div v-if="recentProcessed.length" class="vector-rebuild-panel__progress-list">
         <div
@@ -134,7 +151,7 @@
 
 <script setup>
 import { ref, computed, onBeforeUnmount } from 'vue'
-import { Refresh, DataAnalysis } from '@element-plus/icons-vue'
+import { Refresh, DataAnalysis, Share } from '@element-plus/icons-vue'
 import { adminAPI } from '@/api'
 import { ElMessage } from 'element-plus'
 
@@ -145,6 +162,11 @@ let pollTimer = null
 
 const isRunning = computed(() => status.value.status === 'running')
 const isError = computed(() => status.value.status === 'error')
+const isVectorStage = computed(() => {
+  if (status.value.mode === 'graph') return false
+  if (status.value.mode === 'all') return status.value.stage !== 'graph'
+  return true
+})
 const hasReport = computed(() =>
   status.value.status === 'success' || status.value.status === 'error'
 )
@@ -202,10 +224,10 @@ const pollStatus = async () => {
   }
 }
 
-const handleStart = async (includeGraph) => {
+const handleStart = async (mode) => {
   starting.value = true
   try {
-    const res = await adminAPI.startVectorRebuildTask({ include_graph: includeGraph })
+    const res = await adminAPI.startVectorRebuildTask({ mode })
     status.value = res.status || {}
     reportVisible.value = false
     startPolling()

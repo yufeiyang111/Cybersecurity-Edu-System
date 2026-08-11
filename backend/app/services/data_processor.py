@@ -6,7 +6,7 @@ import os
 import json
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Callable, List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -462,7 +462,8 @@ class KnowledgeGraphBuilder:
     def build_knowledge_graph(
         self,
         knowledge_items: List[Dict[str, Any]],
-        build_relations: bool = True
+        build_relations: bool = True,
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> Dict[str, Any]:
         """
         从知识条目构建知识图谱
@@ -470,6 +471,7 @@ class KnowledgeGraphBuilder:
         Args:
             knowledge_items: 知识条目列表
             build_relations: 是否构建实体关系
+            progress_callback: 可选进度回调 (processed, total)，每处理一个条目调用一次
 
         Returns:
             构建统计
@@ -485,7 +487,8 @@ class KnowledgeGraphBuilder:
         # 跨条目同名实体分组（实体消歧：同名同类型实体建立关联边）
         entities_by_name: Dict[Tuple[str, str], List[str]] = {}
 
-        for item in knowledge_items:
+        total_items = len(knowledge_items)
+        for item_index, item in enumerate(knowledge_items, start=1):
             item_id = str(item["id"])
             title = item.get("title", "")
             content = item.get("content", "")
@@ -570,6 +573,10 @@ class KnowledgeGraphBuilder:
                         edges_added += 1
 
             print(f"[DEBUG] Item {item_id}: {len(all_entity_names)} unique entities")
+
+            # 进度回调（每处理完一个条目调用一次）
+            if progress_callback is not None:
+                progress_callback(item_index, total_items)
 
         # 跨条目同名实体关联：同名实体在不同知识条目中互相关联（related_to）
         cross_item_edges = 0

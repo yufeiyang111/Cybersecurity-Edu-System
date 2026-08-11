@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""向量索引重建任务服务测试：真实进度累加、量化报告、busy 互斥、失败兜底。"""
+"""索引重建任务服务测试：真实进度累加、量化报告、busy 互斥、失败兜底、三种模式。"""
 import time
 
 import pytest
@@ -92,7 +92,7 @@ def _wait_done(service):
 
 def test_start_runs_and_reports_progress(monkeypatch):
     service = _build_service(monkeypatch)
-    result = service.start(include_graph=False)
+    result = service.start(mode="vector")
     assert result["started"] is True
     assert result["busy"] is False
 
@@ -119,7 +119,7 @@ def test_progress_is_reported_during_run(monkeypatch):
             return super().upsert(ids=ids, vectors=vectors, texts=texts, metadatas=metadatas)
 
     service = _build_service(monkeypatch, backend=SlowBackend(), items=_make_items(10))
-    service.start(include_graph=False)
+    service.start(mode="vector")
     time.sleep(0.2)
     mid = service.status()
     assert mid["status"] == "running"
@@ -133,10 +133,10 @@ def test_progress_is_reported_during_run(monkeypatch):
 
 def test_busy_when_already_running(monkeypatch):
     service = _build_service(monkeypatch, items=_make_items(3))
-    result = service.start(include_graph=False)
+    result = service.start(mode="vector")
     assert result["started"] is True
 
-    second = service.start(include_graph=False)
+    second = service.start(mode="vector")
     assert second["started"] is False
     assert second["busy"] is True
 
@@ -159,7 +159,7 @@ def test_failed_doc_recorded_but_task_completes(monkeypatch):
             return super().upsert(ids=ids, vectors=vectors, texts=texts, metadatas=metadatas)
 
     service = _build_service(monkeypatch, backend=FlakyBackend())
-    service.start(include_graph=False)
+    service.start(mode="vector")
     status = _wait_done(service)
     assert status["status"] == "success"
     assert len(status["failed_docs"]) == 1
@@ -168,13 +168,80 @@ def test_failed_doc_recorded_but_task_completes(monkeypatch):
     assert status["processed_docs"] == 5
 
 
-def test_include_graph_reports_graph_counts(monkeypatch):
-    import app.services.vector_rebuild_service as module
+def test_graph_only_mode_skips_vector(monkeypatch):
+    """mode=graph 只构建图谱：不触碰向量库，进度按图谱回调增长。"""
 
-    service = _build_service(monkeypatch, items=_make_items(2))
-    monkeypatch.setattr(service, "_graph_builder", lambda: lambda items: {"nodes_added": 42, "edges_added": 7})
-    service.start(include_graph=True)
+    class RecordingBuilder:
+        def __init__(self):
+            self.progress_calls = []
+
+        def __call__(self, items, progress_callback=None):
+            for i in range(1, len(items) + 1):
+                if progress_callback is not None:
+                    progress_callback(i, len(items))
+                self.progress_calls.append((i, len(items)))
+            return {"nodes_added": 42, "edges_added": 7}
+
+    service = _build_service(monkeypatch, items=_make_items(3))
+    builder = RecordingBuilder()
+    monkeypatch.setattr(service, "_graph_builder", lambda: builder)
+    service.start(mode="graph")
     status = _wait_done(service)
     assert status["status"] == "success"
     assert status["graph_nodes"] == 42
     assert status["graph_edges"] == 7
+    assert status["processed_docs"] == 0, "graph 模式不应处理向量文档"
+    assert status["vector_count"] == 0, "graph 模式不应写入向量"
+    assert status["graph_processed_docs"] == 3
+    assert builder.progress_calls, "图谱构建应收到进度回调"
+    assert builder.progress_calls[-1] == (3, 3)
+
+
+def test_all_mode_runs_vector_then_graph(monkeypatch):
+    """mode=all 先向量后图谱，最终报告两者都有。"""
+
+    class RecordingBuilder:
+        def __init__(self):
+            self.progress_calls = []
+
+        def __call__(self, items, progress_callback=None):
+            for i in range(1, len(items) + 1):
+                if progress_callback is not None:
+                    progress_callback(i, len(items))
+            return {"nodes_added": 42, "edges_added": 7}
+
+    service = _build_service(monkeypatch, items=_make_items(2))
+    builder = RecordingBuilder()
+    monkeypatch.setattr(service, "_graph_builder", lambda: builder)
+    service.start(mode="all")
+    status = _wait_done(service)
+    assert status["status"] == "success"
+    assert status["processed_docs"] == 2
+    assert status["vector_count"] >= 2
+    assert status["graph_nodes"] == 42
+    assert status["graph_edges"] == 7
+    assert status["progress_percent"] == 100.0
+
+
+def test_graph_progress_reported_during_run(monkeypatch):
+    """graph 模式下运行中 progress_percent 由图谱回调驱动（真实进度）。"""
+
+    class SlowBuilder:
+        def __call__(self, items, progress_callback=None):
+            for i in range(1, len(items) + 1):
+                time.sleep(0.05)
+                if progress_callback is not None:
+                    progress_callback(i, len(items))
+            return {"nodes_added": 3, "edges_added": 1}
+
+    service = _build_service(monkeypatch, items=_make_items(5))
+    monkeypatch.setattr(service, "_graph_builder", lambda: SlowBuilder())
+    service.start(mode="graph")
+    time.sleep(0.15)
+    mid = service.status()
+    assert mid["status"] == "running"
+    assert 0 < mid["progress_percent"] < 100
+    assert mid["graph_processed_docs"] > 0
+    status = _wait_done(service)
+    assert status["status"] == "success"
+    assert status["progress_percent"] == 100.0
