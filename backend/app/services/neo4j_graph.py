@@ -38,7 +38,14 @@ class Neo4jKnowledgeGraph:
         "contrasts_with": "对比关系",
         "located_at": "位于关系",
         "implements": "实现关系",
-        "contains": "包含关系"
+        "contains": "包含关系",
+        # LLM 知识图谱本体关系（kg/ontology.py）
+        "exploits": "利用（漏洞 → 攻击技术）",
+        "mitigates": "缓解（防御措施 → 攻击技术）",
+        "detects": "检测（工具 → 漏洞/攻击技术）",
+        "prerequisite": "前置知识（概念 → 概念）",
+        "belongs_to": "属于（实体 → 更宏观实体）",
+        "causes": "导致（攻击技术 → 漏洞/后果）",
     }
 
     ENTITY_TYPES = [

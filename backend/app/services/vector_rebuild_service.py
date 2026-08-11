@@ -106,10 +106,10 @@ class VectorRebuildService:
         return [item.to_dict() for item in items]
 
     def _graph_builder(self):
-        """知识图谱构建器（独立方法便于测试替换）。"""
-        from app.services.data_processor import build_knowledge_graph
+        """知识图谱构建器（LLM 抽取式，独立方法便于测试替换）。"""
+        from app.services.kg.builder import build_knowledge_graph_llm
 
-        return build_knowledge_graph
+        return build_knowledge_graph_llm
 
     def _public_state(self) -> Dict[str, Any]:
         state = dict(self._state)
