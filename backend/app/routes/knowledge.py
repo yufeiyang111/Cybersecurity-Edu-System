@@ -227,6 +227,13 @@ def create_knowledge_item():
         rag_engine.index_knowledge([item.to_dict()])
     except Exception as e:
         print(f"索引更新失败: {e}")
+
+    # 增量图谱索引（后台异步，只处理本文档）
+    try:
+        from app.services.kg.incremental_indexer import get_incremental_indexer
+        get_incremental_indexer().on_knowledge_imported([item.to_dict()])
+    except Exception as e:
+        print(f"增量图谱索引失败: {e}")
     
     return jsonify({
         "message": "知识条目创建成功",
@@ -274,6 +281,13 @@ def update_knowledge_item(item_id):
         rag_engine.index_knowledge([item.to_dict()])
     except Exception as e:
         print(f"索引更新失败: {e}")
+
+    # 增量图谱索引（后台异步）
+    try:
+        from app.services.kg.incremental_indexer import get_incremental_indexer
+        get_incremental_indexer().on_knowledge_imported([item.to_dict()])
+    except Exception as e:
+        print(f"增量图谱索引失败: {e}")
     
     return jsonify({
         "message": "知识条目更新成功",
@@ -299,6 +313,13 @@ def delete_knowledge_item(item_id):
         get_vector_backend().delete(where={"doc_id": str(item_id)})
     except Exception as e:
         print(f"向量索引删除失败 item={item_id}: {e}")
+
+    # 同步清理图谱中的知识节点与孤儿实体（增量索引删除侧）
+    try:
+        from app.services.kg.incremental_indexer import get_incremental_indexer
+        get_incremental_indexer().on_knowledge_deleted(str(item_id))
+    except Exception as e:
+        print(f"图谱节点清理失败 item={item_id}: {e}")
     
     return jsonify({"message": "知识条目删除成功"}), 200
 
@@ -356,6 +377,14 @@ def import_knowledge():
             rag_engine.index_knowledge(imported)
         except Exception as e:
             print(f"批量索引失败: {e}")
+
+    # 增量图谱索引（后台异步）
+    if imported:
+        try:
+            from app.services.kg.incremental_indexer import get_incremental_indexer
+            get_incremental_indexer().on_knowledge_imported(imported)
+        except Exception as e:
+            print(f"批量增量图谱索引失败: {e}")
     
     return jsonify({
         "message": f"成功导入 {len(imported)} 条知识",
@@ -448,6 +477,13 @@ def upload_document():
             rag_engine.index_knowledge([item.to_dict()])
         except Exception as e:
             print(f"索引更新失败: {e}")
+
+        # 增量图谱索引（后台异步）
+        try:
+            from app.services.kg.incremental_indexer import get_incremental_indexer
+            get_incremental_indexer().on_knowledge_imported([item.to_dict()])
+        except Exception as e:
+            print(f"增量图谱索引失败: {e}")
 
         return jsonify({
             "message": "文档上传成功",

@@ -20,13 +20,11 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Set
 
-import requests
 from flask import current_app
 
 from app import db
-from app.config import Config
 from app.models.knowledge_graph import KnowledgeGraphCommunitySummary
-from app.services.kg.llm_extractor import QuotaExhaustedError, _is_quota_error
+from app.services.kg.llm_provider import LLMProviderClient
 
 logger = logging.getLogger(__name__)
 
@@ -66,26 +64,11 @@ class CommunitySummarizer:
     def __init__(self) -> None:
         self._inflight: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.Lock()
-        self._session = requests.Session()
-        # 直连，绕过本机系统代理（Windows 系统代理会拦截 https 导致 ProxyError）
-        self._session.trust_env = False
-        self.providers: List[Dict[str, str]] = []
-        if Config.MINIMAX_API_KEY:
-            self.providers.append({
-                "name": "minimax",
-                "api_key": Config.MINIMAX_API_KEY,
-                "api_base": Config.MINIMAX_API_BASE,
-                "model": Config.MINIMAX_MODEL,
-                "endpoint": "chatcompletion_v2",
-            })
-        if Config.KG_FALLBACK_API_KEY:
-            self.providers.append({
-                "name": "fallback",
-                "api_key": Config.KG_FALLBACK_API_KEY,
-                "api_base": Config.KG_FALLBACK_API_BASE,
-                "model": Config.KG_FALLBACK_MODEL,
-                "endpoint": "chat/completions",
-            })
+        self._client = LLMProviderClient(
+            system_prompt=SUMMARIZE_SYSTEM_PROMPT,
+            temperature=0.3,
+            max_tokens=2048,
+        )
 
     # ------------------------------------------------------------------
     # 对外接口
@@ -302,76 +285,11 @@ class CommunitySummarizer:
         )
 
     # ------------------------------------------------------------------
-    # LLM 调用（与 llm_extractor 相同 provider 机制）
+    # LLM 调用（共享 LLMProviderClient；_call_llm 保留为测试桩点）
     # ------------------------------------------------------------------
     def _call_llm(self, context: str) -> Optional[str]:
-        """按 Provider 优先级生成摘要；全部额度耗尽抛 QuotaExhaustedError。"""
-        last_quota_error: Optional[QuotaExhaustedError] = None
-        for provider in self.providers:
-            try:
-                return self._call_provider(provider, context)
-            except QuotaExhaustedError as exc:
-                last_quota_error = exc
-                logger.warning("摘要 Provider %s 额度耗尽，切换备用", provider["name"])
-        if last_quota_error is not None:
-            raise last_quota_error
-        return None
-
-    def _call_provider(self, provider: Dict[str, str], context: str) -> Optional[str]:
-        """调用单个 Provider，返回原始文本；失败返回 None。"""
-        if provider["endpoint"] == "chatcompletion_v2":
-            url = f"{provider['api_base']}/text/chatcompletion_v2"
-        else:
-            url = f"{provider['api_base']}/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {provider['api_key']}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": provider["model"],
-            "messages": [
-                {"role": "system", "content": SUMMARIZE_SYSTEM_PROMPT},
-                {"role": "user", "content": context},
-            ],
-            "temperature": 0.3,
-            "max_tokens": 2048,
-        }
-        last_error: Optional[Exception] = None
-        for attempt in range(3):
-            try:
-                resp = self._session.post(url, headers=headers, json=payload, timeout=180)
-                if resp.status_code != 200:
-                    if _is_quota_error(resp):
-                        raise QuotaExhaustedError(
-                            f"LLM 额度耗尽（HTTP {resp.status_code}，provider={provider['name']}）"
-                        )
-                    logger.warning(
-                        "摘要请求失败 provider=%s status=%d attempt=%d",
-                        provider["name"], resp.status_code, attempt,
-                    )
-                    last_error = RuntimeError(f"status={resp.status_code}")
-                    continue
-                data = resp.json()
-                choices = data.get("choices") or []
-                if choices:
-                    return choices[0].get("message", {}).get("content", "")
-                output = data.get("output")
-                if isinstance(output, dict):
-                    return output.get("text", "")
-                if isinstance(output, str):
-                    return output
-                return None
-            except QuotaExhaustedError:
-                raise
-            except (requests.RequestException, json.JSONDecodeError) as exc:
-                last_error = exc
-                logger.warning(
-                    "摘要请求异常 provider=%s type=%s attempt=%d",
-                    provider["name"], type(exc).__name__, attempt,
-                )
-        if last_error is not None:
-            logger.warning("摘要 LLM 最终失败: %s", type(last_error).__name__)
-        return None
+        """调用 LLM 生成摘要；全部额度耗尽抛 QuotaExhaustedError。"""
+        return self._client.call(context)
 
     # ------------------------------------------------------------------
     # 解析与持久化

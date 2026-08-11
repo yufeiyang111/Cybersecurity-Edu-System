@@ -96,7 +96,8 @@ class KnowledgeGraph:
                 # 查询所有 Entity 节点
                 entity_result = session.run(
                     "MATCH (e:Entity) RETURN e.id AS id, e.name AS name, e.type AS type, "
-                    "e.source_item AS source_item, e.category AS category"
+                    "e.source_item AS source_item, e.category AS category, "
+                    "e.description AS description"
                 )
                 for record in entity_result:
                     node_id = record["id"]
@@ -107,7 +108,8 @@ class KnowledgeGraph:
                         type=record.get("type") or "unknown",
                         title=record.get("name") or "",
                         source_item=record.get("source_item") or "",
-                        category=record.get("category") or ""
+                        category=record.get("category") or "",
+                        description=record.get("description") or ""
                     )
 
                 # 查询所有 Knowledge 节点
@@ -464,6 +466,35 @@ class KnowledgeGraph:
         if moved is not None and invalidate:
             self._save_nx_graph()
         return moved
+
+    def remove_knowledge_node(self, knowledge_id: str) -> bool:
+        """删除知识节点及其 contains 边，并清理失去所有关系的孤儿实体。
+
+        增量索引的删除侧：知识条目删除后同步从图谱移除，避免孤儿节点残留。
+        """
+        if self.use_neo4j and self._neo4j_graph:
+            ok = self._neo4j_graph.remove_knowledge_node(knowledge_id)
+            if ok:
+                self._invalidate_sync()
+            return ok
+        return self._remove_knowledge_node_local(knowledge_id)
+
+    def _remove_knowledge_node_local(self, knowledge_id: str) -> bool:
+        """NetworkX 实现：删除知识节点 + contains 边 + 孤儿实体（不写盘）。"""
+        graph_data = self._nx_graph
+        if not graph_data.has_node(knowledge_id):
+            return False
+        graph_data.remove_node(knowledge_id)
+        # 清理孤儿实体：degree 为 0 的实体节点（不再是任何知识条目的实体）
+        orphans = [
+            node_id for node_id, data in graph_data.nodes(data=True)
+            if data.get("type") not in ("knowledge", "unknown")
+            and graph_data.degree(node_id) == 0
+        ]
+        for node_id in orphans:
+            graph_data.remove_node(node_id)
+        self._save_nx_graph()
+        return True
 
     def _merge_nodes_local(self, source_id: str, target_id: str) -> Optional[int]:
         """NetworkX 实现：边迁移 + 删除源节点（不写盘）"""

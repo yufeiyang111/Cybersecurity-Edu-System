@@ -719,6 +719,26 @@ class Neo4jKnowledgeGraph:
             print(f"获取统计信息失败: {e}")
             return {}
 
+    def remove_knowledge_node(self, knowledge_id: str) -> bool:
+        """删除知识节点及其 contains 边，并清理失去所有关系的孤儿实体。"""
+        if self.driver is None:
+            return False
+
+        cqls = [
+            # 1. 删除知识节点（DETACH 带走 contains 等全部边）
+            "MATCH (k:Knowledge {id: $knowledge_id}) DETACH DELETE k",
+            # 2. 清理孤儿实体：无任何关系的实体节点（无 contains 入边且无语义边）
+            "MATCH (e:Entity) WHERE NOT (e)--() DETACH DELETE e",
+        ]
+        try:
+            with self.driver.session() as session:
+                for cql in cqls:
+                    session.run(cql, {"knowledge_id": knowledge_id})
+            return True
+        except Exception as e:
+            print(f"删除知识节点失败: {e}")
+            return False
+
     def delete_all(self) -> bool:
         """清空图谱"""
         if self.driver is None:

@@ -202,7 +202,10 @@ class KnowledgeGraphLLMBuilder:
                 entity_id=entity_id,
                 name=canon,
                 entity_type=info["type"],
-                properties={"ref_count": info["count"]},
+                properties={
+                    "ref_count": info["count"],
+                    "description": info.get("description", ""),
+                },
             )
             nodes_added += 1
 
@@ -260,6 +263,13 @@ class KnowledgeGraphLLMBuilder:
 def build_knowledge_graph_llm(
     items: List[Dict[str, Any]],
     progress_callback: Optional[Callable[[int, int], None]] = None,
+    checkpoint_path: Optional[str] = None,
+    resume: bool = False,
 ) -> Dict[str, Any]:
-    """便捷入口：用 LLM 构建知识图谱。"""
-    return KnowledgeGraphLLMBuilder().build(items, progress_callback=progress_callback)
+    """便捷入口：用 LLM 构建知识图谱（支持断点续传）。"""
+    return KnowledgeGraphLLMBuilder().build(
+        items,
+        progress_callback=progress_callback,
+        checkpoint_path=checkpoint_path,
+        resume=resume,
+    )

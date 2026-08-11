@@ -141,9 +141,10 @@ class EntityResolver:
                 etype = triple.get(f"{side}_type") or "concept"
                 if not name or etype not in ENTITY_TYPES:
                     continue
-                self._register(name, etype)
+                description = triple.get(f"{side}_description") or ""
+                self._register(name, etype, description)
 
-    def _register(self, name: str, entity_type: str) -> None:
+    def _register(self, name: str, entity_type: str, description: str = "") -> None:
         norm = normalize_name(name)
         canon = canonicalize(norm, entity_type)
         key = (entity_type, norm.lower())
@@ -152,6 +153,7 @@ class EntityResolver:
             self._entities[existing]["count"] += 1
             if norm not in self._entities[existing]["aliases"]:
                 self._entities[existing]["aliases"].append(norm)
+            self._merge_description(existing, description)
             return
         # 同义词映射到的规范名已是实体 → 合并到它（如 SQLi → 已有 SQL注入）
         canon_key = (entity_type, canon.lower())
@@ -161,6 +163,7 @@ class EntityResolver:
             self._entities[canon_existing]["count"] += 1
             if norm not in self._entities[canon_existing]["aliases"]:
                 self._entities[canon_existing]["aliases"].append(norm)
+            self._merge_description(canon_existing, description)
             return
         # 尝试合并到已有实体（embedding 相似度 / 编辑距离）
         merged = self._match_existing(norm, entity_type)
@@ -169,17 +172,27 @@ class EntityResolver:
             self._entities[merged]["count"] += 1
             if norm not in self._entities[merged]["aliases"]:
                 self._entities[merged]["aliases"].append(norm)
+            self._merge_description(merged, description)
             return
         # 新建实体（优先保留规范名）
         self._entities[canon] = {
             "type": entity_type,
             "aliases": [norm],
             "count": 1,
+            "description": description or "",
         }
         self._lookup[key] = canon
         # 同义词规范名与实体名不同时，也登记规范名 lookup，方便后续合并
         if canon.lower() != norm.lower():
             self._lookup.setdefault(canon_key, canon)
+
+    def _merge_description(self, canon: str, description: str) -> None:
+        """实体描述合并：已有描述优先，无描述时用新描述，避免被短描述覆盖。"""
+        if not description:
+            return
+        existing = self._entities.get(canon, {}).get("description", "")
+        if not existing or len(description) > len(existing):
+            self._entities.setdefault(canon, {})["description"] = description
 
     def _match_existing(self, norm: str, entity_type: str) -> Optional[str]:
         """与已有实体匹配：同类型内编辑距离 / embedding 相似度。"""

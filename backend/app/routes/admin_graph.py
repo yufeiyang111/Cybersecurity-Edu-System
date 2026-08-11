@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-管理员-知识图谱社区接口（社区检测/社区节点/社区摘要）
+管理员-知识图谱社区接口（社区检测/社区节点/社区摘要/GraphRAG 查询）
 
 - GET  /api/admin/graph/communities                   社区列表与节点归属（按 size 降序）
 - GET  /api/admin/graph/communities/<cid>/nodes       指定社区节点（分页）
 - GET  /api/admin/graph/communities/<cid>/summary     查询社区摘要（缓存命中返回，未生成 404）
 - POST /api/admin/graph/communities/<cid>/summary     生成/重新生成社区摘要（force 强制重生成）
 - POST /api/admin/graph/communities/summaries/batch   批量生成 Top N 社区摘要
+- POST /api/admin/graph/global-search                 全局检索（社区摘要 Map-Reduce）
+- POST /api/admin/graph/local-search                  局部检索（实体匹配+邻居+社区摘要）
+- POST /api/admin/graph/entities/backfill-descriptions 存量实体描述回填（后台任务）
+- GET  /api/admin/graph/entities/backfill-descriptions/status 回填任务状态
 """
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt
@@ -17,6 +21,8 @@ from app.services.kg.community_summarizer import (
     CommunitySummaryError,
     get_community_summarizer,
 )
+from app.services.kg.description_backfill import get_description_backfill_service
+from app.services.kg.graphrag_search import get_graphrag_searcher
 
 admin_graph_bp = Blueprint("admin_graph", __name__)
 
@@ -203,6 +209,86 @@ def generate_community_summaries_batch():
             "cached": total_cached,
             "failed": total_failed,
         }), 200
+    except Exception as exc:  # noqa: BLE001
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"error": str(exc)}), 500
+
+
+@admin_graph_bp.route("/graph/global-search", methods=["POST"])
+@jwt_required()
+def global_graph_search():
+    """GraphRAG 全局检索：基于社区摘要 Map-Reduce 回答全局性问题。"""
+    if not _require_admin():
+        return jsonify({"error": "权限不足"}), 403
+
+    body = request.get_json(silent=True) or {}
+    query = (body.get("query") or "").strip()
+    if not query:
+        return jsonify({"error": "query 不能为空"}), 400
+    top_k = max(1, min(int(body.get("top_k", 10)), 30))
+    try:
+        searcher = get_graphrag_searcher()
+        return jsonify(searcher.global_search(query, top_k=top_k)), 200
+    except Exception as exc:  # noqa: BLE001
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"error": str(exc)}), 500
+
+
+@admin_graph_bp.route("/graph/local-search", methods=["POST"])
+@jwt_required()
+def local_graph_search():
+    """GraphRAG 局部检索：实体匹配 + 邻居扩展 + 社区摘要。"""
+    if not _require_admin():
+        return jsonify({"error": "权限不足"}), 403
+
+    body = request.get_json(silent=True) or {}
+    query = (body.get("query") or "").strip()
+    if not query:
+        return jsonify({"error": "query 不能为空"}), 400
+    max_depth = max(1, min(int(body.get("max_depth", 2)), 4))
+    try:
+        searcher = get_graphrag_searcher()
+        return jsonify(searcher.local_search(query, max_depth=max_depth)), 200
+    except Exception as exc:  # noqa: BLE001
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"error": str(exc)}), 500
+
+
+@admin_graph_bp.route("/graph/entities/backfill-descriptions", methods=["POST"])
+@jwt_required()
+def backfill_entity_descriptions():
+    """启动存量实体描述回填任务（后台，body: {limit, force}）。"""
+    if not _require_admin():
+        return jsonify({"error": "权限不足"}), 403
+
+    body = request.get_json(silent=True) or {}
+    limit = max(1, min(int(body.get("limit", 500)), 5000))
+    force = bool(body.get("force", False))
+    try:
+        service = get_description_backfill_service()
+        return jsonify(service.start(limit=limit, force=force)), 200
+    except Exception as exc:  # noqa: BLE001
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"error": str(exc)}), 500
+
+
+@admin_graph_bp.route("/graph/entities/backfill-descriptions/status", methods=["GET"])
+@jwt_required()
+def backfill_entity_descriptions_status():
+    """查询实体描述回填任务状态。"""
+    if not _require_admin():
+        return jsonify({"error": "权限不足"}), 403
+    try:
+        service = get_description_backfill_service()
+        return jsonify(service.status()), 200
     except Exception as exc:  # noqa: BLE001
         import traceback
 

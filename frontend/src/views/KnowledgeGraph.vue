@@ -157,6 +157,11 @@
           </div>
         </div>
 
+        <div class="sidebar-section">
+          <h3>图谱问答（GraphRAG）</h3>
+          <GraphRagSearchPanel />
+        </div>
+
         <div v-if="userStore.isAdmin" class="sidebar-section">
           <h3>数据维护</h3>
           <p class="dedup-hint">
@@ -179,6 +184,20 @@
               </el-button>
             </template>
           </el-popconfirm>
+          <el-button
+            size="small"
+            class="backfill-btn"
+            :loading="backfillLoading"
+            @click="handleBackfill"
+          >
+            补全实体描述（Top 500）
+          </el-button>
+          <p v-if="backfillStatus && backfillStatus.status === 'running'" class="backfill-progress">
+            回填中：{{ backfillStatus.processed_entities || 0 }}/{{ backfillStatus.total_entities || 0 }}
+          </p>
+          <p v-else-if="backfillDone" class="backfill-progress">
+            上次回填完成：更新 {{ backfillDone.updated_entities }} 个实体
+          </p>
         </div>
       </aside>
 
@@ -409,6 +428,7 @@ import { ElMessage } from 'element-plus'
 import { Search, Plus, Minus, Refresh, Aim, Back, Download } from '@element-plus/icons-vue'
 import ForceGraphCanvas from '@/components/graph/ForceGraphCanvas.vue'
 import CommunitySummaryPanel from '@/components/security/knowledgeGraph/CommunitySummaryPanel.vue'
+import GraphRagSearchPanel from '@/components/security/knowledgeGraph/GraphRagSearchPanel.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -450,6 +470,11 @@ const pathLoading = ref(false)
 const mergeTargetId = ref(null)
 const mergeLoading = ref(false)
 const deduplicating = ref(false)
+
+// 实体描述回填
+const backfillLoading = ref(false)
+const backfillStatus = ref(null)
+const backfillDone = ref(null)
 
 // 中心性着色
 const centralityEnabled = ref(false)
@@ -916,6 +941,50 @@ const runDeduplicate = async () => {
     console.error('合并同名实体失败', error)
   } finally {
     deduplicating.value = false
+  }
+}
+
+const pollBackfillStatus = () => {
+  clearInterval(window.__backfillTimer)
+  window.__backfillTimer = setInterval(async () => {
+    try {
+      const res = await adminAPI.getBackfillStatus()
+      backfillStatus.value = res
+      if (res.status === 'success' || res.status === 'error') {
+        clearInterval(window.__backfillTimer)
+        backfillDone.value = res
+        backfillLoading.value = false
+        if (res.status === 'success') {
+          ElMessage.success(
+            `描述回填完成：更新 ${res.updated_entities || 0} 个实体`
+          )
+          communityData.value = null
+          loadGraphData()
+        } else {
+          ElMessage.error(res.message || '描述回填失败')
+        }
+      }
+    } catch (error) {
+      clearInterval(window.__backfillTimer)
+      backfillLoading.value = false
+    }
+  }, 3000)
+}
+
+const handleBackfill = async () => {
+  backfillLoading.value = true
+  try {
+    const res = await adminAPI.backfillDescriptions({ limit: 500, force: false })
+    if (res.busy) {
+      ElMessage.info('回填任务已在运行')
+    } else {
+      ElMessage.success('实体描述回填已启动（后台运行，完成后自动提示）')
+    }
+    pollBackfillStatus()
+  } catch (error) {
+    console.error('启动描述回填失败', error)
+    ElMessage.error('启动回填失败，请检查 Neo4j 是否可用')
+    backfillLoading.value = false
   }
 }
 
@@ -1795,6 +1864,17 @@ onMounted(() => {
 .community-batch-btn {
   width: 100%;
   margin-bottom: 10px;
+}
+
+.backfill-btn {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.backfill-progress {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #8c959f;
 }
 
 .community-list {

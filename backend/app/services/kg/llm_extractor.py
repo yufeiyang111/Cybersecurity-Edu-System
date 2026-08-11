@@ -48,10 +48,14 @@ EXTRACTION_SYSTEM_PROMPT = (
     "1. 只抽取文档中**明确出现且有实际含义**的实体，禁止臆造不在文本中的实体；\n"
     "2. 实体名称使用文本中的原文（可去掉多余修饰，保留核心技术名词）；\n"
     "3. 实体和关系都要落在给定类型内，无法归类时用 concept / related_to；\n"
-    "4. 忽略纯格式性内容（导航、示例代码中的变量名、无意义的连接词）；\n"
-    "5. 输出必须是合法的 JSON 数组，每个元素格式为：\n"
-    '   {"source": "实体1", "source_type": "类型", "relation": "关系", "target": "实体2", "target_type": "类型", "confidence": 0.0-1.0}\n'
-    "6. 只输出 JSON 数组本身，不要输出解释、markdown 代码块或多余文字。"
+    "4. 每个实体必须附带 description（一句话、15-40 字，说明该实体在文档语境中的含义/作用），\n"
+    "   无描述空间的边缘实体可省略；\n"
+    "5. 忽略纯格式性内容（导航、示例代码中的变量名、无意义的连接词）；\n"
+    "6. 输出必须是合法的 JSON 数组，每个元素格式为：\n"
+    '   {"source": "实体1", "source_type": "类型", "source_description": "实体1的一句话说明", '
+    '"relation": "关系", "target": "实体2", "target_type": "类型", '
+    '"target_description": "实体2的一句话说明", "confidence": 0.0-1.0}\n'
+    "7. 只输出 JSON 数组本身，不要输出解释、markdown 代码块或多余文字。"
 )
 
 USER_TEMPLATE = "请从以下安全技术文档文本中抽取知识图谱三元组：\n\n{chunk_text}"
