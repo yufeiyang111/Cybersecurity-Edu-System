@@ -2,15 +2,21 @@
 """
 管理员-知识图谱社区接口（社区检测/社区节点/社区摘要/GraphRAG 查询）
 
+权限划分（与 /admin/graph/nodes 等图谱接口一致：登录即可）：
+- 只读与按需生成（所有登录用户）：社区列表/社区节点/摘要查询/摘要按需生成/
+  Global Search/Local Search（图谱页是公开浏览功能，社区视图与图谱问答
+  属于浏览体验的一部分）
+- 批量与回填（仅 admin）：批量预生成摘要、实体描述回填（大量消耗 LLM 额度）
+
 - GET  /api/admin/graph/communities                   社区列表与节点归属（按 size 降序）
 - GET  /api/admin/graph/communities/<cid>/nodes       指定社区节点（分页）
 - GET  /api/admin/graph/communities/<cid>/summary     查询社区摘要（缓存命中返回，未生成 404）
 - POST /api/admin/graph/communities/<cid>/summary     生成/重新生成社区摘要（force 强制重生成）
-- POST /api/admin/graph/communities/summaries/batch   批量生成 Top N 社区摘要
+- POST /api/admin/graph/communities/summaries/batch   批量生成 Top N 社区摘要（admin）
 - POST /api/admin/graph/global-search                 全局检索（社区摘要 Map-Reduce）
 - POST /api/admin/graph/local-search                  局部检索（实体匹配+邻居+社区摘要）
-- POST /api/admin/graph/entities/backfill-descriptions 存量实体描述回填（后台任务）
-- GET  /api/admin/graph/entities/backfill-descriptions/status 回填任务状态
+- POST /api/admin/graph/entities/backfill-descriptions 存量实体描述回填（admin，后台任务）
+- GET  /api/admin/graph/entities/backfill-descriptions/status 回填任务状态（admin）
 """
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt
@@ -48,9 +54,6 @@ def _community_members(community_id: str, graph_data) -> list:
 @jwt_required()
 def get_graph_communities():
     """社区检测结果：community 列表 + 节点归属映射。"""
-    if not _require_admin():
-        return jsonify({"error": "权限不足"}), 403
-
     try:
         graph = get_knowledge_graph()
         detector = get_community_detector()
@@ -81,9 +84,6 @@ def get_graph_communities():
 @jwt_required()
 def get_community_nodes(community_id):
     """指定社区内的节点（带 title/type/degree）。"""
-    if not _require_admin():
-        return jsonify({"error": "权限不足"}), 403
-
     limit = request.args.get("limit", 100, type=int)
     limit = max(1, min(limit, 500))
     offset = request.args.get("offset", 0, type=int)
@@ -128,9 +128,6 @@ def get_community_nodes(community_id):
 @jwt_required()
 def get_community_summary(community_id):
     """查询社区摘要（已有缓存直接返回；未生成返回 404 由前端触发生成）。"""
-    if not _require_admin():
-        return jsonify({"error": "权限不足"}), 403
-
     try:
         graph = get_knowledge_graph()
         graph_data = graph.graph
@@ -154,9 +151,6 @@ def get_community_summary(community_id):
 @jwt_required()
 def generate_community_summary(community_id):
     """生成/重新生成社区摘要（body.force=true 强制重生成，默认复用缓存）。"""
-    if not _require_admin():
-        return jsonify({"error": "权限不足"}), 403
-
     force = bool((request.get_json(silent=True) or {}).get("force", False))
     try:
         graph = get_knowledge_graph()
@@ -182,7 +176,10 @@ def generate_community_summary(community_id):
 @admin_graph_bp.route("/graph/communities/summaries/batch", methods=["POST"])
 @jwt_required()
 def generate_community_summaries_batch():
-    """批量生成 Top N 社区摘要（body: {limit, force}），逐个报告状态。"""
+    """批量生成 Top N 社区摘要（body: {limit, force}），逐个报告状态。
+
+    批量消耗 LLM 额度较多，仅管理员可用。
+    """
     if not _require_admin():
         return jsonify({"error": "权限不足"}), 403
 
@@ -220,9 +217,6 @@ def generate_community_summaries_batch():
 @jwt_required()
 def global_graph_search():
     """GraphRAG 全局检索：基于社区摘要 Map-Reduce 回答全局性问题。"""
-    if not _require_admin():
-        return jsonify({"error": "权限不足"}), 403
-
     body = request.get_json(silent=True) or {}
     query = (body.get("query") or "").strip()
     if not query:
@@ -242,9 +236,6 @@ def global_graph_search():
 @jwt_required()
 def local_graph_search():
     """GraphRAG 局部检索：实体匹配 + 邻居扩展 + 社区摘要。"""
-    if not _require_admin():
-        return jsonify({"error": "权限不足"}), 403
-
     body = request.get_json(silent=True) or {}
     query = (body.get("query") or "").strip()
     if not query:
@@ -263,7 +254,10 @@ def local_graph_search():
 @admin_graph_bp.route("/graph/entities/backfill-descriptions", methods=["POST"])
 @jwt_required()
 def backfill_entity_descriptions():
-    """启动存量实体描述回填任务（后台，body: {limit, force}）。"""
+    """启动存量实体描述回填任务（后台，body: {limit, force}）。
+
+    批量消耗 LLM 额度，仅管理员可用。
+    """
     if not _require_admin():
         return jsonify({"error": "权限不足"}), 403
 

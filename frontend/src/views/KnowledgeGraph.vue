@@ -109,7 +109,7 @@
             <span class="community-control__label">按社区着色</span>
           </div>
           <el-button
-            v-if="communityList.length"
+            v-if="communityList.length && userStore.isAdmin"
             size="small"
             class="community-batch-btn"
             :loading="communityBatchLoading"
