@@ -112,6 +112,24 @@ class InlinePlanRunner:
                 elif status == AgentRunStatus.EXECUTING_TOOLS.value:
                     if plan is None:
                         plan = self._build_plan(run, trace_id)
+                elif status == AgentRunStatus.AWAITING_APPROVAL.value:
+                    from app.services.security_agent.approval_service import ApprovalService
+
+                    if ApprovalService(self._events).has_pending(run.id):
+                        return
+                    plan = self._latest_plan(run.id)
+                    if plan is None:
+                        plan = self._build_plan(run, trace_id)
+                    try:
+                        self._state.transition(
+                            run,
+                            AgentRunStatus.EXECUTING_TOOLS,
+                            actor_id=run.created_by,
+                            reason="审批已处理，恢复执行",
+                            trace_id=trace_id,
+                        )
+                    except AgentStateError:
+                        return
                 else:
                     return
 
@@ -354,6 +372,9 @@ class InlinePlanRunner:
         if self._is_terminal(run):
             return
         budget = budget_status(run)
+        if budget["exhausted"] and self._plan_incomplete(run.id):
+            self._request_budget_approval(run, budget, trace_id)
+            return
         if budget["exhausted"]:
             self._emit_budget_events(run, budget, trace_id)
             return
@@ -399,6 +420,54 @@ class InlinePlanRunner:
             ratios=budget["ratios"],
             trace_id=trace_id,
         )
+
+    def _request_budget_approval(self, run: AgentRun, budget: dict, trace_id: str) -> None:
+        """预算硬限且计划未完成：发起审批并转入 awaiting_approval（A7）。"""
+        from app.services.security_agent.approval_service import ApprovalService
+
+        proposed_budget = {
+            "max_llm_calls": (run.max_llm_calls or 0) * 2 or 8,
+            "max_total_tokens": (run.max_total_tokens or 0) * 2 or 100000,
+            "max_estimated_cost": float(run.max_estimated_cost or 0) * 2 or 2.0,
+        }
+        scope = {
+            "reached_codes": budget["reached_codes"],
+            "ratios": budget["ratios"],
+            "plan_nodes": len(self._latest_plan(run.id).nodes) if self._latest_plan(run.id) else 0,
+        }
+        approval = ApprovalService(self._events).request(
+            run,
+            operation_type="budget_increase",
+            reason="LLM 预算已耗尽且计划尚未完成，需要批准追加预算后继续",
+            affected_scope=scope,
+            proposed={"budget": proposed_budget},
+            requester_id=run.created_by,
+            trace_id=trace_id,
+        )
+        self._emit_budget_events(run, budget, trace_id)
+        try:
+            self._state.transition(
+                run,
+                AgentRunStatus.AWAITING_APPROVAL,
+                actor_id=run.created_by,
+                reason="预算超限，等待审批（approval_id={})".format(approval.id),
+                trace_id=trace_id,
+            )
+        except AgentStateError:
+            db.session.rollback()
+            return
+        db.session.commit()
+
+    def _plan_incomplete(self, run_id: int) -> bool:
+        plan = self._latest_plan(run_id)
+        if plan is None:
+            return False
+        unfinished = {
+            AgentPlanNodeStatus.PENDING.value,
+            AgentPlanNodeStatus.READY.value,
+            AgentPlanNodeStatus.RUNNING.value,
+        }
+        return any(node.status in unfinished for node in plan.nodes)
 
     def _finish_run(self, run_id: int, trace_id: str) -> None:
         run = db.session.get(AgentRun, run_id)

@@ -45,6 +45,12 @@ from app.models.agent_runtime import (
     AgentToolCall,
 )
 from app.models.agent_events import AgentEvent
+from app.models.agent_approval import (
+    AgentApproval,
+    ApprovalOperationType,
+    ApprovalRiskLevel,
+    ApprovalStatus,
+)
 from app.models.agent_review import (
     AgentObservation,
     AgentObservationCitation,

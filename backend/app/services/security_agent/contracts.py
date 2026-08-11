@@ -34,6 +34,7 @@ EVENT_DECISION_RECORDED = "decision.recorded"
 EVENT_APPROVAL_REQUESTED = "approval.requested"
 EVENT_APPROVAL_RESOLVED = "approval.resolved"
 EVENT_OBSERVATION_CREATED = "observation.created"
+EVENT_OBSERVATION_REVIEWED = "observation.reviewed"
 EVENT_BUDGET_UPDATED = "budget.updated"
 EVENT_WARNING_RAISED = "warning.raised"
 EVENT_HEARTBEAT = "heartbeat"
@@ -65,6 +66,7 @@ AGENT_EVENT_TYPES = frozenset(
         EVENT_APPROVAL_REQUESTED,
         EVENT_APPROVAL_RESOLVED,
         EVENT_OBSERVATION_CREATED,
+        EVENT_OBSERVATION_REVIEWED,
         EVENT_BUDGET_UPDATED,
         EVENT_WARNING_RAISED,
         EVENT_HEARTBEAT,

@@ -17,6 +17,62 @@
 
       <p class="obs-detail__summary">{{ observation.summary }}</p>
 
+      <div v-if="reviewable" class="obs-detail__review">
+        <el-input
+          v-model="reviewComment"
+          size="small"
+          placeholder="审核意见（可选）"
+          class="obs-detail__review-comment"
+        />
+        <el-button
+          size="small"
+          type="success"
+          plain
+          :loading="reviewing"
+          @click="$emit('review', observation, 'confirmed', reviewComment)"
+        >
+          确认
+        </el-button>
+        <el-button
+          size="small"
+          type="warning"
+          plain
+          :loading="reviewing"
+          @click="$emit('review', observation, 'needs_more_evidence', reviewComment)"
+        >
+          待补证据
+        </el-button>
+        <el-button
+          size="small"
+          type="danger"
+          plain
+          :loading="reviewing"
+          @click="$emit('review', observation, 'rejected', reviewComment)"
+        >
+          驳回
+        </el-button>
+      </div>
+
+      <div v-if="observation.status === 'confirmed'" class="obs-detail__remediation">
+        <el-button
+          size="small"
+          type="primary"
+          plain
+          :loading="generatingDiff"
+          @click="$emit('generate-diff', observation)"
+        >
+          生成修复 Diff
+        </el-button>
+      </div>
+
+      <div v-if="remediationDiff" class="obs-detail__diff">
+        <div class="obs-detail__diff-head">
+          <span class="obs-detail__label">修复建议（只读，不自动应用）</span>
+          <el-button size="small" text type="primary" @click="copyDiff">复制</el-button>
+        </div>
+        <pre class="obs-detail__diff-pre">{{ remediationDiff }}</pre>
+      </div>
+
       <el-alert
         v-if="injectionCount > 0"
         title="部分检索知识被注入检测剔除，未进入上下文"
@@ -79,15 +135,43 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { ElMessage } from '@/features/security/feedback'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
   observation: { type: Object, default: null },
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
+  reviewing: { type: Boolean, default: false },
+  generatingDiff: { type: Boolean, default: false }
 })
 
-defineEmits(['close'])
+const emit = defineEmits(['close', 'review', 'generate-diff'])
+
+const reviewComment = ref('')
+const remediationDiff = ref('')
+
+watch(
+  () => props.observation?.id,
+  () => {
+    reviewComment.value = ''
+    remediationDiff.value = props.observation?.detail?.remediation_diff?.diff || ''
+  }
+)
+
+const reviewable = computed(() => {
+  const status = props.observation?.status
+  return status === 'unverified' || status === 'needs_more_evidence'
+})
+
+async function copyDiff() {
+  try {
+    await navigator.clipboard.writeText(remediationDiff.value)
+    ElMessage.success('Diff 已复制')
+  } catch (error) {
+    ElMessage.error('复制失败，请手动选择复制')
+  }
+}
 
 const STATUS_LABELS = {
   unverified: '未验证',
@@ -264,5 +348,47 @@ function roleLabel(role) {
   border-radius: 6px;
   padding: 6px 8px;
   background: #fffbeb;
+}
+
+.obs-detail__review {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+
+.obs-detail__review-comment {
+  flex: 1;
+  min-width: 160px;
+}
+
+.obs-detail__remediation {
+  margin: 10px 0;
+}
+
+.obs-detail__diff {
+  margin-top: 12px;
+}
+
+.obs-detail__diff-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.obs-detail__diff-pre {
+  margin: 0;
+  padding: 10px;
+  background: #0f172a;
+  color: #a5f3fc;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 </style>

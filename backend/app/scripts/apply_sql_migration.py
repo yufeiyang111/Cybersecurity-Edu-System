@@ -40,6 +40,7 @@ MIGRATION_IDS = (
     "029_kg_community_summaries",
     "030_agent_replan_decisions",
     "031_agent_observations",
+    "032_agent_approvals",
 )
 
 

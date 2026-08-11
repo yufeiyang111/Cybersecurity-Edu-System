@@ -56,6 +56,7 @@ TRANSITIONS: dict[str, frozenset[str]] = {
     AgentRunStatus.EXECUTING_TOOLS.value: frozenset(
         {
             AgentRunStatus.EVALUATING_EVIDENCE.value,
+            AgentRunStatus.AWAITING_APPROVAL.value,
             AgentRunStatus.PAUSED.value,
             AgentRunStatus.COMPLETED.value,
             AgentRunStatus.COMPLETED_WITH_WARNINGS.value,

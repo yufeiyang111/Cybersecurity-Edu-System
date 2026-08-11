@@ -371,6 +371,14 @@ export const agentAPI = {
     api.get(`/security/agent-runs/${runId}/observations`, { params }),
   getObservation: (runId, observationId) =>
     api.get(`/security/agent-runs/${runId}/observations/${observationId}`),
+  reviewObservation: (runId, observationId, data) =>
+    api.post(`/security/agent-runs/${runId}/observations/${observationId}/review`, data),
+  generateRemediationDiff: (runId, observationId) =>
+    api.post(`/security/agent-runs/${runId}/observations/${observationId}/remediation-diff`),
+  getApprovals: (params) => api.get(`/security/agent-approvals`, { params }),
+  getRunApprovals: (runId) => api.get(`/security/agent-runs/${runId}/approvals`),
+  resolveApproval: (runId, approvalId, data) =>
+    api.post(`/security/agent-runs/${runId}/approvals/${approvalId}/resolve`, data),
   createConversation: (projectId, data) => api.post(`/security/projects/${projectId}/agent-conversations`, data || {}),
   listProjectConversations: (projectId, params) => api.get(`/security/projects/${projectId}/agent-conversations`, { params }),
   getConversation: (conversationId) => api.get(`/security/agent-conversations/${conversationId}`),
