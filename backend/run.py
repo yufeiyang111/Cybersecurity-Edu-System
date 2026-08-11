@@ -1,5 +1,7 @@
 ﻿"""CyberGuard backend entrypoint."""
 
+import os
+
 import click
 
 from app import create_app, db
@@ -99,8 +101,13 @@ def reindex_knowledge_command() -> None:
 
 
 if __name__ == "__main__":
+    # 默认关闭热重载（FLASK_USE_RELOADER=1 开启）：Windows venv 重定向机制会让
+    # reloader 子进程命令行显示为 base 解释器（如 D:\Python\python.exe run.py），
+    # 造成"系统 Python 启动"的误判与进程树混乱。关闭后改代码需手动重启后端。
+    use_reloader = os.getenv("FLASK_USE_RELOADER", "0") == "1"
     app.run(
         host="0.0.0.0",
         port=5001,
         debug=bool(app.config.get("DEBUG", False)),
+        use_reloader=use_reloader,
     )
