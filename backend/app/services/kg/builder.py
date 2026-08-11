@@ -20,8 +20,9 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.services.graph_store import get_knowledge_graph
+from app.services.kg.checkpoint import CheckpointStore
 from app.services.kg.entity_resolution import resolve_triples
-from app.services.kg.llm_extractor import LLMExtractor
+from app.services.kg.llm_extractor import LLMExtractor, QuotaExhaustedError
 from app.services.kg.ontology import ALL_RELATION_TYPES, ENTITY_TYPES
 from app.services.secbert_embedding import get_embedding_service
 
@@ -82,30 +83,73 @@ class KnowledgeGraphLLMBuilder:
         self,
         knowledge_items: List[Dict[str, Any]],
         progress_callback: Optional[Callable[[int, int], None]] = None,
+        checkpoint_path: Optional[str] = None,
+        resume: bool = False,
     ) -> Dict[str, Any]:
-        """构建图谱：返回量化报告（节点/边/三元组/抽取统计）。"""
+        """构建图谱：分片 LLM 抽取 + 断点续传 + 消歧入库。
+
+        Args:
+            knowledge_items: 全部知识条目
+            progress_callback: 进度回调 (processed, total)（按文档计数）
+            checkpoint_path: 断点文件路径；None 表示不落盘
+            resume: True 时读取断点跳过已完成文档（False 时忽略旧断点）
+
+        Returns:
+            量化报告；额度耗尽时抛 QuotaExhaustedError（断点已保存）
+        """
         start = time.time()
         total = len(knowledge_items)
 
-        # ---------- 1. 分块 ----------
+        store = CheckpointStore(checkpoint_path) if checkpoint_path else None
+        checkpoint = None
+        if resume and store is not None and store.exists():
+            checkpoint = store.load()
+        checkpoint = checkpoint or store._empty() if store else {
+            "completed_docs": [],
+            "triples": [],
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0},
+        }
+        completed_docs = set(checkpoint["completed_docs"])
+        resumed_docs = len(completed_docs)  # 本次从断点跳过的文档数
+        all_triples: List[Dict[str, Any]] = list(checkpoint["triples"])
+        usage = dict(checkpoint["usage"])
+
+        # ---------- 1. 分块（跳过已完成文档） ----------
         doc_chunks: List[Tuple[str, str, str]] = []  # (doc_id, title, chunk_text)
+        pending_items = []
         for item in knowledge_items:
             doc_id = str(item["id"])
+            if doc_id in completed_docs:
+                continue
+            pending_items.append(item)
             title = item.get("title", "") or ""
             text = f"{title}。{item.get('content', '')}"
             for chunk in _split_text(text):
                 doc_chunks.append((doc_id, title, chunk))
 
-        # ---------- 2. LLM 抽取（分批并发，批内 6 路并发） ----------
-        all_triples: List[Dict[str, Any]] = []
+        # ---------- 2. LLM 抽取（分批并发，批内并发；每片落盘断点） ----------
         extraction_stats = {"llm": 0, "regex": 0, "failed_chunks": 0}
-        docs_done = 0
+        docs_done = len(completed_docs)
         last_doc_id = None
-        BATCH_SIZE = 18
+        BATCH_SIZE = 18  # 每批块数（批内 6 路并发）
+        SLICE_DOCS = 30  # 每落盘一次的文档数（约 3-5 分钟/片）
+        slice_completed: List[str] = []
+
+        def _persist_slice() -> None:
+            if store is not None and slice_completed:
+                completed_docs.update(slice_completed)
+                store.save(sorted(completed_docs), all_triples, usage)
+                slice_completed.clear()
+
         for start_idx in range(0, len(doc_chunks), BATCH_SIZE):
             batch = doc_chunks[start_idx : start_idx + BATCH_SIZE]
             batch_texts = [chunk_text for _doc_id, _title, chunk_text in batch]
-            batch_results = self.extractor.extract_batch(batch_texts)
+            try:
+                batch_results = self.extractor.extract_batch(batch_texts)
+            except QuotaExhaustedError:
+                # 额度耗尽：先落盘已完成部分再抛出（断点保留，恢复后跳过）
+                _persist_slice()
+                raise
             for (_doc_id, title, _chunk_text), triples in zip(batch, batch_results):
                 for t in triples:
                     t["_doc_id"] = _doc_id
@@ -119,8 +163,17 @@ class KnowledgeGraphLLMBuilder:
                 if _doc_id != last_doc_id:
                     docs_done += 1
                     last_doc_id = _doc_id
+                    slice_completed.append(_doc_id)
                     if progress_callback is not None:
                         progress_callback(docs_done, total)
+            # 每片落盘断点（额度耗尽时已完成的片不浪费）
+            if len(slice_completed) >= SLICE_DOCS:
+                _persist_slice()
+        _persist_slice()
+
+        usage = getattr(self.extractor, "usage", {"prompt_tokens": 0, "completion_tokens": 0})
+        if store is not None:
+            store.save(sorted(completed_docs), all_triples, usage)
 
         # ---------- 3. 实体消歧 ----------
         cleaned, resolver = resolve_triples(all_triples, embedding_service=self.embedding_service)
@@ -130,7 +183,7 @@ class KnowledgeGraphLLMBuilder:
         graph = self.graph
         nodes_added = 0
         edges_added = 0
-        # 知识节点 + contains 边
+        # 知识节点 + contains 边（全部文档，resume 时未抽取文档仍建知识节点）
         for item in knowledge_items:
             doc_id = str(item["id"])
             graph.add_knowledge_node(
@@ -184,6 +237,9 @@ class KnowledgeGraphLLMBuilder:
             edges_added += 1
 
         elapsed = round(time.time() - start, 2)
+        # 任务完成：清理断点（全部文档已入库）
+        if store is not None:
+            store.clear()
         return {
             "nodes_added": nodes_added,
             "edges_added": edges_added,
@@ -194,6 +250,9 @@ class KnowledgeGraphLLMBuilder:
             "chunks_processed": len(doc_chunks),
             "extraction_stats": extraction_stats,
             "relation_counts": relation_counts,
+            "usage_tokens": usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0),
+            "usage": usage,
+            "resumed_docs": resumed_docs,
             "elapsed_seconds": elapsed,
         }
 

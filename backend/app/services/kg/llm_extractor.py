@@ -21,6 +21,25 @@ from app.services.kg.ontology import build_ontology_prompt
 
 logger = logging.getLogger(__name__)
 
+# 额度耗尽/余额不足的错误信号（HTTP 状态码或响应体关键词）
+_QUOTA_HTTP_CODES = (429, 402, 403)
+_QUOTA_KEYWORDS = ("quota", "balance", "insufficient", "额度", "余额", "limit reached", "out of credits")
+
+
+class QuotaExhaustedError(RuntimeError):
+    """LLM 额度/余额耗尽，任务应暂停等待恢复（不降级正则）。"""
+
+
+def _is_quota_error(resp: requests.Response) -> bool:
+    if resp.status_code in _QUOTA_HTTP_CODES:
+        return True
+    body = ""
+    try:
+        body = (resp.text or "")[:2000].lower()
+    except Exception:  # noqa: BLE001
+        return False
+    return any(kw in body for kw in _QUOTA_KEYWORDS)
+
 EXTRACTION_SYSTEM_PROMPT = (
     "你是一名资深网络安全知识工程师，负责把安全技术文档转化为结构化知识图谱三元组。\n"
     + build_ontology_prompt()
@@ -71,23 +90,51 @@ def _extract_json_array(text: str) -> Optional[List[Dict[str, Any]]]:
 
 
 class LLMExtractor:
-    """LLM 三元组抽取器（MiniMax 主路径 + 正则降级）。"""
+    """LLM 三元组抽取器（多 Provider 自动切换 + 正则降级）。
+
+    Provider 顺序：主（MiniMax）→ fallback（备用，如 deepseek-v4-flash）。
+    主 Provider 额度耗尽时自动切换到 fallback 继续抽取；
+    所有 Provider 都额度耗尽时才抛 QuotaExhaustedError 暂停任务。
+    """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         api_base: Optional[str] = None,
         model: Optional[str] = None,
+        fallback_api_key: Optional[str] = None,
+        fallback_api_base: Optional[str] = None,
+        fallback_model: Optional[str] = None,
         max_workers: int = 6,
         max_retries: int = 2,
         max_tokens: int = 16000,
     ) -> None:
-        self.api_key = api_key if api_key is not None else Config.MINIMAX_API_KEY
-        self.api_base = api_base if api_base is not None else Config.MINIMAX_API_BASE
-        self.model = model if model is not None else Config.MINIMAX_MODEL
         self.max_workers = max_workers
         self.max_retries = max_retries
         self.max_tokens = max_tokens
+        # Provider 列表（按优先级）
+        self.providers: List[Dict[str, str]] = []
+        if api_key or Config.MINIMAX_API_KEY:
+            self.providers.append({
+                "name": "minimax",
+                "api_key": api_key if api_key is not None else Config.MINIMAX_API_KEY,
+                "api_base": api_base if api_base is not None else Config.MINIMAX_API_BASE,
+                "model": model if model is not None else Config.MINIMAX_MODEL,
+                "endpoint": "chatcompletion_v2",
+            })
+        fallback_key = fallback_api_key if fallback_api_key is not None else Config.KG_FALLBACK_API_KEY
+        if fallback_key:
+            self.providers.append({
+                "name": "fallback",
+                "api_key": fallback_key,
+                "api_base": fallback_api_base if fallback_api_base is not None else Config.KG_FALLBACK_API_BASE,
+                "model": fallback_model if fallback_model is not None else Config.KG_FALLBACK_MODEL,
+                "endpoint": "chat/completions",
+            })
+        # token 用量统计（跨线程累计，按 provider 拆分）
+        self.usage: Dict[str, int] = {"prompt_tokens": 0, "completion_tokens": 0}
+        self.usage_by_provider: Dict[str, Dict[str, int]] = {}
+        self._usage_lock = threading.Lock()
         self._session = requests.Session()
         # 直连，绕过本机系统代理（Windows 系统代理会拦截 https 导致 ProxyError）
         self._session.trust_env = False
@@ -97,14 +144,31 @@ class LLMExtractor:
     # 主路径：LLM 抽取
     # ------------------------------------------------------------------
     def _call_llm(self, chunk_text: str) -> Optional[str]:
-        """调用 MiniMax 抽取三元组，返回原始文本；失败返回 None。"""
-        url = f"{self.api_base}/text/chatcompletion_v2"
+        """按 Provider 优先级调用抽取三元组；全部额度耗尽抛 QuotaExhaustedError。"""
+        last_quota_error: Optional[QuotaExhaustedError] = None
+        for provider in self.providers:
+            try:
+                return self._call_provider(provider, chunk_text)
+            except QuotaExhaustedError as exc:
+                # 当前 Provider 额度耗尽：切换到下一个
+                last_quota_error = exc
+                logger.warning("Provider %s 额度耗尽，切换到备用 Provider", provider["name"])
+        if last_quota_error is not None:
+            raise last_quota_error
+        return None
+
+    def _call_provider(self, provider: Dict[str, str], chunk_text: str) -> Optional[str]:
+        """调用单个 Provider 抽取三元组，返回原始文本；失败返回 None。"""
+        if provider["endpoint"] == "chatcompletion_v2":
+            url = f"{provider['api_base']}/text/chatcompletion_v2"
+        else:
+            url = f"{provider['api_base']}/chat/completions"
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {provider['api_key']}",
             "Content-Type": "application/json",
         }
         payload = {
-            "model": self.model,
+            "model": provider["model"],
             "messages": [
                 {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
                 {"role": "user", "content": USER_TEMPLATE.format(chunk_text=chunk_text[:24000])},
@@ -115,12 +179,30 @@ class LLMExtractor:
         last_error: Optional[Exception] = None
         for attempt in range(self.max_retries + 1):
             try:
-                resp = self._session.post(url, headers=headers, json=payload, timeout=120)
+                resp = self._session.post(url, headers=headers, json=payload, timeout=180)
                 if resp.status_code != 200:
-                    logger.warning("LLM 抽取请求失败 status=%d attempt=%d", resp.status_code, attempt)
+                    # 额度耗尽：抛异常（由 _call_llm 决定切换 Provider 或暂停）
+                    if _is_quota_error(resp):
+                        raise QuotaExhaustedError(
+                            f"LLM 额度耗尽（HTTP {resp.status_code}，provider={provider['name']}）"
+                        )
+                    logger.warning(
+                        "LLM 抽取请求失败 provider=%s status=%d attempt=%d",
+                        provider["name"], resp.status_code, attempt,
+                    )
                     last_error = RuntimeError(f"status={resp.status_code}")
                     continue
                 data = resp.json()
+                # 记录 token 用量（跨线程安全）
+                usage = data.get("usage") or {}
+                with self._usage_lock:
+                    self.usage["prompt_tokens"] += int(usage.get("prompt_tokens") or 0)
+                    self.usage["completion_tokens"] += int(usage.get("completion_tokens") or 0)
+                    provider_usage = self.usage_by_provider.setdefault(
+                        provider["name"], {"prompt_tokens": 0, "completion_tokens": 0}
+                    )
+                    provider_usage["prompt_tokens"] += int(usage.get("prompt_tokens") or 0)
+                    provider_usage["completion_tokens"] += int(usage.get("completion_tokens") or 0)
                 choices = data.get("choices") or []
                 if choices:
                     return choices[0].get("message", {}).get("content", "")
@@ -130,9 +212,14 @@ class LLMExtractor:
                 if isinstance(output, str):
                     return output
                 return None
+            except QuotaExhaustedError:
+                raise
             except (requests.RequestException, json.JSONDecodeError) as exc:
                 last_error = exc
-                logger.warning("LLM 抽取请求异常 type=%s attempt=%d", type(exc).__name__, attempt)
+                logger.warning(
+                    "LLM 抽取请求异常 provider=%s type=%s attempt=%d",
+                    provider["name"], type(exc).__name__, attempt,
+                )
         if last_error is not None:
             logger.warning("LLM 抽取最终失败: %s", type(last_error).__name__)
         return None
@@ -141,7 +228,7 @@ class LLMExtractor:
         """单块抽取：LLM 优先，解析失败/调用失败降级为正则。"""
         triples: List[Dict[str, Any]] = []
         used_llm = False
-        if self.api_key:
+        if self.providers:
             raw = self._call_llm(chunk_text)
             if raw:
                 parsed = _extract_json_array(raw)

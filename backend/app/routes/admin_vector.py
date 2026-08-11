@@ -36,9 +36,10 @@ def start_vector_rebuild():
     mode = data.get("mode", "vector")
     if mode not in REBUILD_MODES:
         return jsonify({"error": f"mode 必须是 {list(REBUILD_MODES)} 之一"}), 400
+    resume = bool(data.get("resume", False))
 
     service = get_vector_rebuild_service()
-    result = service.start(mode=mode)
+    result = service.start(mode=mode, resume=resume)
     if result.get("busy"):
         return jsonify({"error": "已有重建任务正在运行，请等待其完成", "status": result}), 409
     return jsonify({"message": "重建任务已启动", "status": result}), 202

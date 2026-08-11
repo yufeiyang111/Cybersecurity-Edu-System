@@ -59,12 +59,19 @@ class _FakeEngine:
 
 
 def _build_service(monkeypatch, backend=None, items=None):
+    import tempfile
+
     import app.services.vector_rebuild_service as module
 
     engine = _FakeEngine(backend)
     monkeypatch.setattr(module, "get_rag_engine", lambda: engine)
     service = VectorRebuildService()
     monkeypatch.setattr(service, "_load_published_items", lambda: items or _make_items())
+    monkeypatch.setattr(
+        service, "_checkpoint_path",
+        lambda: str(tempfile.gettempdir()) + "/kg_test_ckpt.json",
+    )
+    monkeypatch.setattr(service, "_checkpoint_docs", lambda: 0)
 
     class FakeApp:
         class _Ctx:
@@ -175,12 +182,17 @@ def test_graph_only_mode_skips_vector(monkeypatch):
         def __init__(self):
             self.progress_calls = []
 
-        def __call__(self, items, progress_callback=None):
+        def __call__(self, items, progress_callback=None, checkpoint_path=None, resume=False):
             for i in range(1, len(items) + 1):
                 if progress_callback is not None:
                     progress_callback(i, len(items))
                 self.progress_calls.append((i, len(items)))
-            return {"nodes_added": 42, "edges_added": 7}
+            return {
+                "nodes_added": 42,
+                "edges_added": 7,
+                "usage_tokens": 1234,
+                "resumed_docs": 0,
+            }
 
     service = _build_service(monkeypatch, items=_make_items(3))
     builder = RecordingBuilder()
@@ -204,11 +216,11 @@ def test_all_mode_runs_vector_then_graph(monkeypatch):
         def __init__(self):
             self.progress_calls = []
 
-        def __call__(self, items, progress_callback=None):
+        def __call__(self, items, progress_callback=None, checkpoint_path=None, resume=False):
             for i in range(1, len(items) + 1):
                 if progress_callback is not None:
                     progress_callback(i, len(items))
-            return {"nodes_added": 42, "edges_added": 7}
+            return {"nodes_added": 42, "edges_added": 7, "usage_tokens": 100, "resumed_docs": 0}
 
     service = _build_service(monkeypatch, items=_make_items(2))
     builder = RecordingBuilder()
@@ -227,12 +239,12 @@ def test_graph_progress_reported_during_run(monkeypatch):
     """graph 模式下运行中 progress_percent 由图谱回调驱动（真实进度）。"""
 
     class SlowBuilder:
-        def __call__(self, items, progress_callback=None):
+        def __call__(self, items, progress_callback=None, checkpoint_path=None, resume=False):
             for i in range(1, len(items) + 1):
                 time.sleep(0.05)
                 if progress_callback is not None:
                     progress_callback(i, len(items))
-            return {"nodes_added": 3, "edges_added": 1}
+            return {"nodes_added": 3, "edges_added": 1, "usage_tokens": 100, "resumed_docs": 0}
 
     service = _build_service(monkeypatch, items=_make_items(5))
     monkeypatch.setattr(service, "_graph_builder", lambda: SlowBuilder())

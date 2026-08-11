@@ -143,6 +143,11 @@ class Config:
     MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMax-M2.7")
     MINIMAX_API_BASE = os.getenv("MINIMAX_API_BASE", "https://api.minimaxi.com/v1")
 
+    # LLM 图谱抽取备用 Provider（MiniMax 额度耗尽时自动切换）
+    KG_FALLBACK_API_KEY = os.getenv("KG_FALLBACK_API_KEY", "")
+    KG_FALLBACK_MODEL = os.getenv("KG_FALLBACK_MODEL", "deepseek-v4-flash")
+    KG_FALLBACK_API_BASE = os.getenv("KG_FALLBACK_API_BASE", "https://opencode.ai/zen/go/v1")
+
     LLM_PROVIDER_ENCRYPTION_KEY = os.getenv("LLM_PROVIDER_ENCRYPTION_KEY", "").strip()
     LLM_PROVIDER_ALLOWED_HOSTS = _env_list("LLM_PROVIDER_ALLOWED_HOSTS", ())
     LLM_PROVIDER_CONNECT_TIMEOUT_SECONDS = _env_float(

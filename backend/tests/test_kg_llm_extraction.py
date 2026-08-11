@@ -78,6 +78,91 @@ def test_llm_parse_failure_falls_back_to_regex(monkeypatch):
 
 
 # ------------------------------------------------------------------
+# 多 Provider 自动切换
+# ------------------------------------------------------------------
+def test_provider_switch_on_quota(monkeypatch):
+    """MiniMax 额度耗尽时自动切换到 fallback provider。"""
+    from app.services.kg.llm_extractor import QuotaExhaustedError
+
+    extractor = LLMExtractor(
+        api_key="minimax-key", api_base="http://x", model="m",
+        fallback_api_key="fb-key", fallback_api_base="http://y", fallback_model="fb-model",
+    )
+    assert len(extractor.providers) == 2
+
+    calls = {"minimax": 0, "fallback": 0}
+
+    def fake_call(provider, chunk):
+        calls[provider["name"]] += 1
+        if provider["name"] == "minimax":
+            raise QuotaExhaustedError("额度耗尽")
+        return '[{"source": "A", "relation": "related_to", "target": "B"}]'
+
+    monkeypatch.setattr(extractor, "_call_provider", fake_call)
+    raw = extractor._call_llm("text")
+    assert calls["minimax"] == 1
+    assert calls["fallback"] == 1
+    assert raw is not None
+
+
+def test_all_providers_quota_raises(monkeypatch):
+    """所有 provider 都额度耗尽时抛 QuotaExhaustedError（任务暂停）。"""
+    from app.services.kg.llm_extractor import QuotaExhaustedError
+
+    extractor = LLMExtractor(
+        api_key="minimax-key", api_base="http://x", model="m",
+        fallback_api_key="fb-key", fallback_api_base="http://y", fallback_model="fb-model",
+    )
+    monkeypatch.setattr(
+        extractor, "_call_provider",
+        lambda provider, chunk: (_ for _ in ()).throw(QuotaExhaustedError("额度耗尽")),
+    )
+    with pytest.raises(QuotaExhaustedError):
+        extractor._call_llm("text")
+
+
+def test_fallback_provider_used_without_quota_issue(monkeypatch):
+    """MiniMax 正常时不调用 fallback。"""
+    extractor = LLMExtractor(
+        api_key="minimax-key", api_base="http://x", model="m",
+        fallback_api_key="fb-key", fallback_api_base="http://y", fallback_model="fb-model",
+    )
+    calls = []
+
+    def fake_call(provider, chunk):
+        calls.append(provider["name"])
+        return '[{"source": "A", "relation": "related_to", "target": "B"}]'
+
+    monkeypatch.setattr(extractor, "_call_provider", fake_call)
+    extractor._call_llm("text")
+    assert calls == ["minimax"]
+
+
+def test_usage_recorded_per_provider(monkeypatch):
+    """usage 按 provider 拆分累计。"""
+    extractor = LLMExtractor(
+        api_key="minimax-key", api_base="http://x", model="m",
+        fallback_api_key="fb-key", fallback_api_base="http://y", fallback_model="fb-model",
+    )
+
+    def fake_call(provider, chunk):
+        extractor.usage["prompt_tokens"] += 100
+        extractor.usage["completion_tokens"] += 20
+        provider_usage = extractor.usage_by_provider.setdefault(
+            provider["name"], {"prompt_tokens": 0, "completion_tokens": 0}
+        )
+        provider_usage["prompt_tokens"] += 100
+        provider_usage["completion_tokens"] += 20
+        return '[{"source": "A", "relation": "related_to", "target": "B"}]'
+
+    monkeypatch.setattr(extractor, "_call_provider", fake_call)
+    extractor._call_llm("text")
+    extractor._call_llm("text")
+    assert extractor.usage["prompt_tokens"] == 200
+    assert extractor.usage_by_provider["minimax"]["prompt_tokens"] == 200
+
+
+# ------------------------------------------------------------------
 # 名称规范化
 # ------------------------------------------------------------------
 def test_normalize_name():

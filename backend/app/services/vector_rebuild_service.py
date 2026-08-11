@@ -52,10 +52,11 @@ class VectorRebuildService:
         # 可注入：后台线程获取 Flask app 的工厂（测试可替换为假 app）
         self._flask_app_factory = get_flask_app
 
-    def start(self, mode: str = "vector") -> Dict[str, Any]:
+    def start(self, mode: str = "vector", resume: bool = False) -> Dict[str, Any]:
         """启动重建任务；已在运行时返回 busy 状态。
 
         mode: "vector" 仅向量 / "graph" 仅图谱 / "all" 向量+图谱
+        resume: 是否从断点继续（仅 graph 模式有效，跳过已完成文档）
         """
         if mode not in REBUILD_MODES:
             raise ValueError(f"mode 必须是 {REBUILD_MODES} 之一，收到: {mode!r}")
@@ -69,6 +70,7 @@ class VectorRebuildService:
                 "finished_at": None,
                 "elapsed_seconds": 0.0,
                 "mode": mode,
+                "resume": resume,
                 "stage": "",
                 "total_docs": 0,
                 "processed_docs": 0,
@@ -80,10 +82,12 @@ class VectorRebuildService:
                 "chunks_per_doc_avg": 0.0,
                 "failed_docs": [],
                 "recent_processed": [],
+                "usage_tokens": 0,
+                "checkpoint_docs": 0,
             }
             self._worker = threading.Thread(
                 target=self._run,
-                args=(mode,),
+                args=(mode, resume),
                 name="index-rebuild-worker",
                 daemon=True,
             )
@@ -111,6 +115,24 @@ class VectorRebuildService:
 
         return build_knowledge_graph_llm
 
+    def _checkpoint_path(self) -> str:
+        """图谱抽取断点文件路径（DATA_DIR 下，额度耗尽时保留供 resume）。"""
+        from app.config import DATA_DIR
+
+        return str(DATA_DIR / "kg_llm_checkpoint.json")
+
+    def _checkpoint_docs(self) -> int:
+        """当前断点中已完成的文档数（0 表示无断点）。"""
+        try:
+            from app.services.kg.checkpoint import CheckpointStore
+
+            store = CheckpointStore(self._checkpoint_path())
+            if not store.exists():
+                return 0
+            return len(store.load().get("completed_docs", []))
+        except Exception:  # noqa: BLE001
+            return 0
+
     def _public_state(self) -> Dict[str, Any]:
         state = dict(self._state)
         total = state["total_docs"] or 1
@@ -132,11 +154,11 @@ class VectorRebuildService:
         with self._lock:
             self._state.update(kwargs)
 
-    def _run(self, mode: str) -> None:
+    def _run(self, mode: str, resume: bool = False) -> None:
         try:
             app = self._flask_app_factory()
             with app.app_context():
-                self._run_with_context(mode)
+                self._run_with_context(mode, resume)
         except Exception as exc:  # noqa: BLE001
             elapsed = 0.0
             if self._state.get("started_at"):
@@ -148,7 +170,7 @@ class VectorRebuildService:
                 elapsed_seconds=elapsed,
             )
 
-    def _run_with_context(self, mode: str) -> None:
+    def _run_with_context(self, mode: str, resume: bool = False) -> None:
         try:
             items_data = self._load_published_items()
             total = len(items_data)
@@ -159,23 +181,38 @@ class VectorRebuildService:
             chunk_counts: List[int] = []
             graph_nodes = 0
             graph_edges = 0
+            usage_tokens = 0
 
             # ---------- 阶段一：向量索引 ----------
             if mode in ("vector", "all"):
                 self._set_state(stage="vector", message=f"正在重建向量索引（{total} 篇）…")
                 vector_count, chunk_counts, failed = self._run_vector(items_data, failed)
 
-            # ---------- 阶段二：知识图谱 ----------
+            # ---------- 阶段二：知识图谱（LLM 抽取，分片断点续传） ----------
             if mode in ("graph", "all"):
                 self._set_state(stage="graph", message=f"正在构建知识图谱（{total} 篇）…")
                 try:
+                    from app.services.kg.llm_extractor import QuotaExhaustedError
+
                     builder = self._graph_builder()
                     graph_result = builder(
                         items_data,
                         progress_callback=self._graph_progress,
+                        checkpoint_path=self._checkpoint_path(),
+                        resume=resume,
                     )
                     graph_nodes = int(graph_result.get("nodes_added", 0))
                     graph_edges = int(graph_result.get("edges_added", 0))
+                    usage_tokens = int(graph_result.get("usage_tokens", 0))
+                except QuotaExhaustedError as exc:
+                    # 额度耗尽：任务暂停（断点已保存），等待恢复后继续
+                    self._set_state(
+                        status="quota_exhausted",
+                        message=f"LLM 额度已耗尽：{str(exc)}。请等待额度恢复后点击「继续」",
+                        finished_at=time.time(),
+                        elapsed_seconds=round(time.time() - self._state["started_at"], 2),
+                    )
+                    return
                 except Exception as exc:  # noqa: BLE001
                     failed.append({
                         "id": "-",
@@ -190,6 +227,9 @@ class VectorRebuildService:
             chunks_per_doc_max = max(chunk_counts) if chunk_counts else 0
 
             elapsed = round(time.time() - self._state["started_at"], 2)
+            checkpoint_docs = 0
+            if mode in ("graph", "all"):
+                checkpoint_docs = self._checkpoint_docs()
             self._set_state(
                 status="success",
                 message=f"重建完成：{total} 个文档，{vector_count} 个向量块，{graph_nodes} 个图节点",
@@ -200,6 +240,8 @@ class VectorRebuildService:
                 chunks_per_doc_avg=chunks_per_doc_avg,
                 chunks_per_doc_max=chunks_per_doc_max,
                 failed_docs=failed,
+                usage_tokens=usage_tokens,
+                checkpoint_docs=checkpoint_docs,
                 stage="",
             )
         except Exception as exc:  # noqa: BLE001

@@ -95,6 +95,31 @@
       class="vector-rebuild-panel__alert"
     />
 
+    <!-- 额度耗尽提示：暂停等待恢复，可继续 -->
+    <el-alert
+      v-if="isQuotaExhausted"
+      :title="status.message || 'LLM 额度已耗尽'"
+      type="warning"
+      show-icon
+      :closable="false"
+      class="vector-rebuild-panel__alert"
+    >
+      <template #default>
+        <div class="vector-rebuild-panel__quota-meta">
+          <span>已完成 {{ status.graph_processed_docs || 0 }} / {{ status.total_docs || 0 }} 篇（已保存断点）</span>
+          <span>已消耗 {{ formatTokens(status.usage_tokens) }} tokens</span>
+          <el-button
+            type="warning"
+            size="small"
+            :loading="starting"
+            @click="handleResume"
+          >
+            额度恢复后继续
+          </el-button>
+        </div>
+      </template>
+    </el-alert>
+
     <!-- 量化报告 -->
     <div v-if="hasReport && reportVisible" class="vector-rebuild-panel__report">
       <div class="vector-rebuild-panel__report-grid">
@@ -135,6 +160,14 @@
           </span>
           <span class="vector-rebuild-panel__report-label">失败文档</span>
         </div>
+        <div class="vector-rebuild-panel__report-item">
+          <span class="vector-rebuild-panel__report-value">{{ formatTokens(status.usage_tokens) }}</span>
+          <span class="vector-rebuild-panel__report-label">LLM 消耗</span>
+        </div>
+        <div class="vector-rebuild-panel__report-item">
+          <span class="vector-rebuild-panel__report-value">{{ status.checkpoint_docs || 0 }}</span>
+          <span class="vector-rebuild-panel__report-label">断点续传文档</span>
+        </div>
       </div>
 
       <div v-if="failedList.length" class="vector-rebuild-panel__failed">
@@ -162,14 +195,21 @@ let pollTimer = null
 
 const isRunning = computed(() => status.value.status === 'running')
 const isError = computed(() => status.value.status === 'error')
+const isQuotaExhausted = computed(() => status.value.status === 'quota_exhausted')
 const isVectorStage = computed(() => {
   if (status.value.mode === 'graph') return false
   if (status.value.mode === 'all') return status.value.stage !== 'graph'
   return true
 })
 const hasReport = computed(() =>
-  status.value.status === 'success' || status.value.status === 'error'
+  status.value.status === 'success' || status.value.status === 'error' || status.value.status === 'quota_exhausted'
 )
+const formatTokens = (tokens) => {
+  const n = Number(tokens || 0)
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
+  return String(n)
+}
 const progressPercent = computed(() =>
   Math.min(Number(status.value.progress_percent || 0), 100)
 )
@@ -224,10 +264,10 @@ const pollStatus = async () => {
   }
 }
 
-const handleStart = async (mode) => {
+const handleStart = async (mode, resume = false) => {
   starting.value = true
   try {
-    const res = await adminAPI.startVectorRebuildTask({ mode })
+    const res = await adminAPI.startVectorRebuildTask({ mode, resume })
     status.value = res.status || {}
     reportVisible.value = false
     startPolling()
@@ -240,6 +280,10 @@ const handleStart = async (mode) => {
   } finally {
     starting.value = false
   }
+}
+
+const handleResume = () => {
+  handleStart('graph', true)
 }
 
 onBeforeUnmount(stopPolling)
@@ -322,6 +366,16 @@ onBeforeUnmount(stopPolling)
 
   &__alert {
     margin-top: 2px;
+  }
+
+  &__quota-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-top: 6px;
+    font-size: 13px;
+    color: #b45309;
   }
 
   &__report {
