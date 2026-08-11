@@ -48,6 +48,17 @@ def list_projects():
         return jsonify({"error": str(exc)}), 403
 
 
+@projects_bp.route("/my-workspace", methods=["GET"])
+@jwt_required()
+def my_workspace():
+    """当前用户的个人工作区（A9 运维视图等需要 workspace_id）。"""
+    try:
+        workspace = get_or_create_personal_workspace(_current_user_id())
+        return jsonify({"workspace": workspace.to_dict()})
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
+
+
 def _project_or_404_checked(project_id: int) -> SecurityProject | None:
     """按写角色获取项目并校验归属。"""
     project = db.session.get(SecurityProject, project_id)

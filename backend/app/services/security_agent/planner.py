@@ -85,6 +85,7 @@ class PlanPlanner:
             )
 
         envelope = self._llm_plan(run, provider, trace_id)
+
         if envelope is None:
             return self._build_plan(
                 run,
@@ -156,6 +157,9 @@ class PlanPlanner:
     def _call_planner(
         self, run: AgentRun, provider: object, prompt: str, trace_id: str
     ) -> LLMResponse | None:
+        """按候选链调用规划 Provider（A8 failover）：首选失败自动切换备用。"""
+        from app.services.security_agent.providers.router import AgentProviderRouter
+
         request = LLMRequest(
             prompt=prompt,
             system_prompt=(
@@ -165,13 +169,29 @@ class PlanPlanner:
             temperature=0.2,
             max_tokens=resolve_provider_max_tokens(provider, 1500),
         )
-        try:
-            response = provider.generate(request)
-        except Exception as exc:
+        router = AgentProviderRouter(self._events)
+        candidates = router.candidates(
+            user_id=run.created_by,
+            workspace_id=run.workspace_id,
+            operation=PLANNER_OPERATION,
+        )
+        ordered = [provider] + [
+            candidate
+            for candidate in candidates
+            if getattr(candidate, "provider_name", None)
+            != getattr(provider, "provider_name", None)
+        ]
+        response, used, _ = router.generate_with_failover(
+            run=run,
+            candidates=ordered,
+            request=request,
+            trace_id=trace_id,
+            operation=PLANNER_OPERATION,
+        )
+        if response is None:
             logger.warning(
-                "Agent planner provider call failed (run_id=%s, error_type=%s)",
+                "Agent planner provider chain failed (run_id=%s)",
                 run.id,
-                type(exc).__name__,
             )
             record_invocation(
                 run,
@@ -200,7 +220,7 @@ class PlanPlanner:
             return None
         record_invocation(
             run,
-            provider=provider,
+            provider=used,
             operation=PLANNER_OPERATION,
             status="success" if response.is_success else "failed",
             warning_code=response.warning_code,
@@ -223,8 +243,8 @@ class PlanPlanner:
             "llm.completed" if response.is_success else "llm.failed",
             run,
             operation=PLANNER_OPERATION,
-            provider=getattr(provider, "provider_name", "unknown"),
-            model=getattr(provider, "model", None),
+            provider=getattr(used, "provider_name", "unknown"),
+            model=getattr(used, "model", None),
             status="success" if response.is_success else "failed",
             warning_code=response.warning_code,
             input_tokens=int((response.usage or {}).get("prompt_tokens") or 0),

@@ -53,6 +53,13 @@
           >
             <el-icon><Promotion /></el-icon><span>Agent 工作台</span>
           </router-link>
+          <router-link
+            class="side-item"
+            :class="{ 'side-item--active': route.path.startsWith('/security/agent-observability') }"
+            to="/security/agent-observability"
+          >
+            <el-icon><Odometer /></el-icon><span>Agent 运维</span>
+          </router-link>
           <router-link class="side-item" :class="{ 'side-item--active': route.path.startsWith('/security/knowledge') }" to="/security/knowledge">
             <el-icon><Collection /></el-icon><span>知识库</span>
           </router-link>
@@ -120,7 +127,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Box, Collection, DataLine, Document, Grid, Key, List, Menu, Monitor, Promotion, Setting, User, Warning } from '@element-plus/icons-vue'
+import { Box, Collection, DataLine, Document, Grid, Key, List, Menu, Monitor, Odometer, Promotion, Setting, User, Warning } from '@element-plus/icons-vue'
 import { securityAPI } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { DocumentIcon, GithubIcon, PlusIcon } from '@/components/icons'

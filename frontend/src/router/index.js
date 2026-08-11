@@ -77,14 +77,20 @@ const routes = [
       {
         path: 'agent-runs/:runId',
         name: 'SecurityAgentRun',
-        component: () => import('@/views/security/AgentWorkbench.vue'),
+        component: () => import('@/views/security/AgentChat.vue'),
         meta: { title: 'Agent 任务' }
       },
       {
         path: 'agent-conversations/:conversationId',
         name: 'SecurityAgentConversation',
-        component: () => import('@/views/security/AgentWorkbench.vue'),
+        component: () => import('@/views/security/AgentChat.vue'),
         meta: { title: 'Agent 会话' }
+      },
+      {
+        path: 'agent-observability',
+        name: 'SecurityAgentObservability',
+        component: () => import('@/views/security/AgentObservability.vue'),
+        meta: { title: 'Agent 运维' }
       },
       {
         path: 'knowledge',

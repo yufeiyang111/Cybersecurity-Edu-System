@@ -147,6 +147,10 @@ def create_app(config_object: type | None = None) -> Flask:
         payload = readiness_payload(app.config)
         return payload, 200 if payload["status"] == "ready" else 503
 
+    from app.services.security_agent.watchdog import register_watchdog_commands
+
+    register_watchdog_commands(app)
+
     return app
 
 

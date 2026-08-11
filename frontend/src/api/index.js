@@ -277,6 +277,7 @@ export const securityAPI = {
   deleteExclusion: (projectId, ruleId) => api.delete(`/security/projects/${projectId}/exclusions/items/${ruleId}`),
   getTasks: (projectId) => api.get(`/security/projects/${projectId}/tasks`),
   getWorkbenchOverview: () => api.get('/security/workbench/overview'),
+  getMyWorkspace: () => api.get('/security/my-workspace'),
   getTask: (taskId) => api.get(`/security/tasks/${taskId}`),
   getFindings: (taskId, params) => api.get(`/security/tasks/${taskId}/findings`, { params }),
   cancelTask: (taskId) => api.post(`/security/tasks/${taskId}/cancel`),
@@ -379,6 +380,14 @@ export const agentAPI = {
   getRunApprovals: (runId) => api.get(`/security/agent-runs/${runId}/approvals`),
   resolveApproval: (runId, approvalId, data) =>
     api.post(`/security/agent-runs/${runId}/approvals/${approvalId}/resolve`, data),
+  getProviderPolicy: (workspaceId) =>
+    api.get(`/security/workspaces/${workspaceId}/agent-provider-policy`),
+  updateProviderPolicy: (workspaceId, data) =>
+    api.put(`/security/workspaces/${workspaceId}/agent-provider-policy`, data),
+  getObservabilityOverview: (params) =>
+    api.get(`/security/agent/observability/overview`, { params }),
+  getObservabilityRuns: (params) =>
+    api.get(`/security/agent/observability/runs`, { params }),
   createConversation: (projectId, data) => api.post(`/security/projects/${projectId}/agent-conversations`, data || {}),
   listProjectConversations: (projectId, params) => api.get(`/security/projects/${projectId}/agent-conversations`, { params }),
   getConversation: (conversationId) => api.get(`/security/agent-conversations/${conversationId}`),

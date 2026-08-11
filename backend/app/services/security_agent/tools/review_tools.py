@@ -89,19 +89,33 @@ def build_run_deep_review_handler(events: EventService | None = None):
             temperature=0.2,
             max_tokens=prompt["max_tokens"],
         )
-        try:
-            response = provider.generate(request)
-        except Exception as exc:
+
+        from app.services.security_agent.providers.router import AgentProviderRouter
+
+        router = AgentProviderRouter(events)
+        candidates = router.candidates(
+            user_id=ctx.run.created_by,
+            workspace_id=ctx.run.workspace_id,
+            operation=DEEP_REVIEW_OPERATION,
+        )
+        ordered = [provider] + [
+            candidate
+            for candidate in candidates
+            if getattr(candidate, "provider_name", None)
+            != getattr(provider, "provider_name", None)
+        ]
+        response, used, _ = router.generate_with_failover(
+            run=ctx.run,
+            candidates=ordered,
+            request=request,
+            trace_id=ctx.trace_id,
+            operation=DEEP_REVIEW_OPERATION,
+        )
+        if response is None:
             _record_failure(ctx, provider, context_text, trace_id=ctx.trace_id)
-            logger.warning(
-                "Deep review provider call failed (run_id=%s, error_type=%s)",
-                ctx.run.id,
-                type(exc).__name__,
-            )
             raise ToolExecutionError(
                 "Deep Review Provider 调用失败", warning_code="AGENT_PROVIDER_UNHEALTHY"
-            ) from exc
-
+            )
         if not response.is_success:
             _record_failure(ctx, provider, context_text, trace_id=ctx.trace_id)
             raise ToolExecutionError(
@@ -109,7 +123,7 @@ def build_run_deep_review_handler(events: EventService | None = None):
                 warning_code=response.warning_code or "AGENT_PROVIDER_UNHEALTHY",
             )
 
-        _record_success(ctx, provider, prompt, response)
+        _record_success(ctx, used, prompt, response)
 
         try:
             parsed = parse_observation(response.text)

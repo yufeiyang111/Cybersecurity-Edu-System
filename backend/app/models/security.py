@@ -83,6 +83,8 @@ class Workspace(db.Model):
     name = db.Column(db.String(120), nullable=False)
     slug = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text)
+    provider_allowlist = db.Column(db.JSON)
+    preferred_provider = db.Column(db.String(64))
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -105,6 +107,8 @@ class Workspace(db.Model):
             "name": self.name,
             "slug": self.slug,
             "description": self.description,
+            "provider_allowlist": self.provider_allowlist or [],
+            "preferred_provider": self.preferred_provider,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
