@@ -136,6 +136,9 @@ class AgentLoopEngine:
                 if self._is_terminal(run):
                     return self._status_value(run.status)
                 self._leases.refresh(run_id, owner, lease_seconds=lease_seconds)
+                boot = self._bootstrap_run(run, trace_id)
+                if boot != "continue":
+                    return boot
                 result = self.advance_once(run, trace_id)
                 if result != "continue":
                     return result
@@ -144,6 +147,61 @@ class AgentLoopEngine:
                 self._leases.release(run_id, owner)
             except Exception:
                 db.session.rollback()
+
+    def _bootstrap_run(self, run: AgentRun, trace_id: str) -> str:
+        """T08：v2 起点兼容——QUEUED 先前移到 PREPARING/EXECUTING_TOOLS，
+        并确保存在已持久化的策略计划（与 v1 runner 的 _build_plan 对齐）。
+        """
+        status = self._status_value(run.status)
+        if status == AgentRunStatus.QUEUED.value:
+            try:
+                self._state.transition(
+                    run,
+                    AgentRunStatus.PREPARING,
+                    actor_id=run.created_by,
+                    reason="v2 工作进程开始执行",
+                    trace_id=trace_id,
+                )
+            except Exception:
+                db.session.rollback()
+                run = db.session.get(AgentRun, run.id)
+                if run is None or self._status_value(run.status) != AgentRunStatus.QUEUED.value:
+                    return "interrupted"
+        if self._status_value(run.status) == AgentRunStatus.PREPARING.value:
+            try:
+                self._state.transition(
+                    run,
+                    AgentRunStatus.EXECUTING_TOOLS,
+                    actor_id=run.created_by,
+                    reason="计划就绪，开始执行节点",
+                    trace_id=trace_id,
+                )
+            except Exception:
+                db.session.rollback()
+                run = db.session.get(AgentRun, run.id)
+                if run is None or self._status_value(run.status) != AgentRunStatus.PREPARING.value:
+                    return "interrupted"
+        plan = self._latest_plan(run.id)
+        if plan is None:
+            from app.services.security_agent.event_service import EventService
+            from app.services.security_agent.planner import PlanPlanner
+
+            try:
+                PlanPlanner(events=self._events or EventService()).generate_plan(
+                    run, trace_id=trace_id
+                )
+            except Exception:
+                logger.warning(
+                    "plan bootstrap failed (run_id=%s, trace_id=%s)",
+                    run.id,
+                    trace_id,
+                    exc_info=True,
+                )
+                db.session.rollback()
+                return self._finalize(
+                    run, "failed", ["AGENT_PLAN_MISSING"], trace_id
+                )
+        return "continue"
 
     def advance_once(self, run: AgentRun, trace_id: str) -> str:
         """单轮推进：控制输入 → 硬限制 → 上下文 → 模型 → 动作 → 检查点。"""
@@ -161,8 +219,7 @@ class AgentLoopEngine:
         if limit:
             return limit
 
-        if self._status_value(run.mode) == "baseline" and not self._baseline_done:
-            self._run_baseline_dag(run, trace_id)
+        if not self._baseline_done and not self._run_baseline_dag(run, trace_id):
             return "continue"
 
         request = self._build_request(run)
@@ -548,11 +605,18 @@ class AgentLoopEngine:
 
     # ---------------------------------------------------------------- baseline
 
-    def _run_baseline_dag(self, run: AgentRun, trace_id: str) -> None:
-        """baseline 显式"策略工作流"：Controller 固定执行强制 DAG。"""
+    def _run_baseline_dag(self, run: AgentRun, trace_id: str) -> bool:
+        """Controller 固定执行强制 DAG（所有模式的第一阶段，spec F-06）。
+
+        返回 True 表示 DAG 已执行（含无 plan 时标记完成）；False 表示没有
+        plan 或执行中断，调用方应推进到下一轮重试。
+        """
         plan = self._latest_plan(run.id)
         if plan is None:
-            return
+            # bootstrap 阶段已确保 plan 存在；此处仅防御异常路径，
+            # 标记 DAG 完成避免无限重试，由后续模型轮给出终态。
+            self._baseline_done = True
+            return True
         while True:
             schedule = self._scheduler.compute(plan)
             if not schedule.ready:
@@ -586,7 +650,7 @@ class AgentLoopEngine:
                 )
                 node = db.session.get(AgentPlanNode, node.id)
                 if node is None:
-                    return
+                    return True
                 node.status = (
                     AgentPlanNodeStatus.SUCCEEDED.value
                     if result.status == "succeeded"
@@ -594,6 +658,7 @@ class AgentLoopEngine:
                 )
                 db.session.commit()
         self._baseline_done = True
+        return True
 
     def _baseline_fallback_summary(self, run: AgentRun) -> str:
         """确定性基线摘要（模型拒绝生成摘要时的安全降级，不伪装模型分析）。"""

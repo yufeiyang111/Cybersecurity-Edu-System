@@ -398,3 +398,152 @@ def test_parallel_tool_calls_executed_serially(app):
         ]
         assert len(assistant_messages) == 1
         assert len(assistant_messages[0].tool_calls) == 3
+
+
+def test_queued_run_without_plan_bootstraps_plan(app, monkeypatch):
+    """真实起点（QUEUED + 无 plan）必须 bootstrap 策略计划后才进入模型轮；
+    否则 QUEUED→FAILED 被状态机拒绝，run 会永久卡在 QUEUED（真实验收复现）。"""
+    from app.services.security_agent.planner import PlanPlanner
+
+    run_id = _make_run(app)
+    with app.app_context():
+        run = db.session.get(AgentRun, run_id)
+        run.status = AgentRunStatus.QUEUED.value
+        db.session.query(AgentPlanNode).filter(AgentPlanNode.plan_id.in_(
+            db.session.query(AgentPlan.id).filter_by(run_id=run_id)
+        )).delete(synchronize_session=False)
+        db.session.query(AgentPlan).filter_by(run_id=run_id).delete()
+        db.session.commit()
+
+        def _fake_generate_plan(self, run, *, trace_id):
+            plan = AgentPlan(
+                run_id=run.id,
+                plan_version=run.plan_version + 1,
+                planner_source="rule_based_policy",
+                objective=run.goal_text,
+            )
+            db.session.add(plan)
+            db.session.flush()
+            db.session.add_all(
+                [
+                    AgentPlanNode(
+                        plan_id=plan.id,
+                        node_key=key,
+                        node_type=node_type,
+                        status=AgentPlanNodeStatus.SUCCEEDED.value,
+                        title=key,
+                        tool_name=key,
+                    )
+                    for key, node_type in (
+                        ("inventory", AgentPlanNodeType.INVENTORY.value),
+                        ("baseline_scan", AgentPlanNodeType.BASELINE_SCAN.value),
+                        ("coverage_analysis", AgentPlanNodeType.COVERAGE_ANALYSIS.value),
+                        ("risk_ranking", AgentPlanNodeType.RISK_RANKING.value),
+                    )
+                ]
+            )
+            run.plan_version = plan.plan_version
+            db.session.commit()
+            return plan
+
+        monkeypatch.setattr(PlanPlanner, "generate_plan", _fake_generate_plan)
+        provider = _VerticalProvider()
+        engine = AgentLoopEngine(
+            provider=provider,
+            registry=_registry(),
+            events=EventService(),
+        )
+        result = engine.run_until_interrupt(run_id, "t-bootstrap")
+        run = db.session.get(AgentRun, run_id)
+        assert result == "completed", f"QUEUED 起点应 bootstrap 后完成，实际 {result}"
+        assert run.status == AgentRunStatus.COMPLETED.value
+        assert run.tool_call_count == 2
+        assert len(provider.requests) == 3
+        events = (
+            AgentEvent.query.filter_by(run_id=run_id)
+            .order_by(AgentEvent.sequence.asc())
+            .all()
+        )
+        types = [event.event_type for event in events]
+        assert AgentPlan.query.filter_by(run_id=run_id).first() is not None, \
+            "bootstrap 必须持久化策略计划"
+        assert "item.tool_call.started" in types
+
+
+def test_hybrid_mode_controller_executes_mandatory_dag_first(app, monkeypatch):
+    """F-06：hybrid 模式第一阶段必须由 Controller 执行强制基线 DAG，
+    模型轮不得跳过/伪造强制节点成功（真实验收复现：此前模型绕过 DAG
+    直接调工具，完成度显示 0/15 节点）。"""
+    from app.services.security_agent.planner import PlanPlanner
+
+    run_id = _make_run(app)
+    with app.app_context():
+        run = db.session.get(AgentRun, run_id)
+        run.status = AgentRunStatus.QUEUED.value
+        db.session.query(AgentPlanNode).filter(AgentPlanNode.plan_id.in_(
+            db.session.query(AgentPlan.id).filter_by(run_id=run_id)
+        )).delete(synchronize_session=False)
+        db.session.query(AgentPlan).filter_by(run_id=run_id).delete()
+        db.session.commit()
+
+        def _fake_generate_plan(self, run, *, trace_id):
+            plan = AgentPlan(
+                run_id=run.id,
+                plan_version=run.plan_version + 1,
+                planner_source="rule_based_policy",
+                objective=run.goal_text,
+            )
+            db.session.add(plan)
+            db.session.flush()
+            db.session.add_all(
+                [
+                    AgentPlanNode(
+                        plan_id=plan.id,
+                        node_key=key,
+                        node_type=node_type,
+                        status=AgentPlanNodeStatus.READY.value,
+                        title=key,
+                        tool_name=tool_name,
+                    )
+                    for key, node_type, tool_name in (
+                        ("inventory", AgentPlanNodeType.INVENTORY.value, "tool_a"),
+                        ("baseline_scan", AgentPlanNodeType.BASELINE_SCAN.value, "tool_b"),
+                        ("coverage_analysis", AgentPlanNodeType.COVERAGE_ANALYSIS.value, "tool_a"),
+                        ("risk_ranking", AgentPlanNodeType.RISK_RANKING.value, "tool_b"),
+                    )
+                ]
+            )
+            run.plan_version = plan.plan_version
+            db.session.commit()
+            return plan
+
+        monkeypatch.setattr(PlanPlanner, "generate_plan", _fake_generate_plan)
+        provider = _VerticalProvider()
+        engine = AgentLoopEngine(
+            provider=provider,
+            registry=_registry(),
+            events=EventService(),
+        )
+        result = engine.run_until_interrupt(run_id, "t-hybrid-dag")
+        run = db.session.get(AgentRun, run_id)
+        assert result == "completed"
+        plan = AgentPlan.query.filter_by(run_id=run_id).order_by(
+            AgentPlan.plan_version.desc()
+        ).first()
+        assert plan is not None
+        node_statuses = {
+            node.node_key: node.status for node in plan.nodes
+        }
+        succeeded = AgentPlanNodeStatus.SUCCEEDED.value
+        for key in ("inventory", "baseline_scan", "coverage_analysis", "risk_ranking"):
+            assert node_statuses[key] == succeeded, \
+                f"强制节点 {key} 必须由 Controller 执行成功"
+        first_tool_event = (
+            AgentEvent.query.filter_by(run_id=run_id, event_type="tool.started")
+            .order_by(AgentEvent.sequence.asc())
+            .first()
+        )
+        assert first_tool_event is not None
+        payload = first_tool_event.payload_json or first_tool_event.payload or {}
+        assert payload.get("node_key") == "inventory", \
+            "DAG 阶段第一个工具必须是强制节点 inventory（由 Controller 调度）"
