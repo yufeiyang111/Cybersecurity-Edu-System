@@ -2,6 +2,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
 import { useUserStore } from '@/stores/user'
+import { parseSseFrame } from '@/features/security/agent/sseParser'
 
 const api = axios.create({
   baseURL: '/api',
@@ -316,36 +317,10 @@ export const llmAPI = {
 }
 
 // Agent 工作台：持久化 Run、暂停/恢复/取消、可重放 SSE 事件流
+// T11：单一 parser 来自 features/security/agent/sseParser（Node 可测的纯函数）。
 function parseAgentSSE(raw, onEvent) {
-  let frame = { event: 'message', id: null, data: null }
-  let dataText = ''
-  let hasContent = false
-  for (const line of raw.split('\n')) {
-    if (line.startsWith('event:')) {
-      frame.event = line.slice(6).trim()
-      hasContent = true
-    } else if (line.startsWith('id:')) {
-      frame.id = Number(line.slice(3).trim())
-      hasContent = true
-    } else if (line.startsWith('data:')) {
-      dataText += line.slice(5).trim()
-      hasContent = true
-    }
-  }
-  if (!hasContent) {
-    // 纯注释帧（如服务端心跳 ": ping"）：无业务数据，但仍代表连接存活，
-    // 回调 ping 事件让心跳机制重置，避免长任务期间被误判断线
-    onEvent({ event: 'ping', id: null, data: null })
-    return
-  }
-  if (dataText) {
-    try {
-      frame.data = JSON.parse(dataText)
-    } catch (e) {
-      console.error('Agent SSE 数据解析失败', e)
-      return
-    }
-  }
+  const frame = parseSseFrame(raw)
+  if (!frame) return
   onEvent(frame)
 }
 

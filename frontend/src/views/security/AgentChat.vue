@@ -82,6 +82,16 @@
           @resolve="resolveApproval"
         />
         <AgentProviderSelector :workspace-id="store.run?.workspace_id || null" />
+        <BasePanel
+          title="统一时间线"
+          subtitle="按事件 sequence 顺序（v2）"
+          class="ac-timeline-panel"
+        >
+          <AgentTimeline
+            :items="store.timelineItems"
+            :loading="loading"
+          />
+        </BasePanel>
 
         <el-collapse v-model="moreOpen" class="ac-more">
           <el-collapse-item name="more" title="更多数据">
@@ -176,6 +186,8 @@ import AgentPlannerPanel from '@/components/security/agent/AgentPlannerPanel.vue
 import AgentProviderSelector from '@/components/security/agent/AgentProviderSelector.vue'
 import AgentProgressCard from '@/components/security/agent/AgentProgressCard.vue'
 import AgentProviderBadge from '@/components/security/agent/AgentProviderBadge.vue'
+import AgentTimeline from '@/components/security/agent/timeline/AgentTimeline.vue'
+import { BasePanel } from '@/components/ui'
 import CallChainPanel from '@/components/security/agent/CallChainPanel.vue'
 import CodeEvidenceViewer from '@/components/security/agent/CodeEvidenceViewer.vue'
 import ProjectSecurityGraph from '@/components/security/agent/ProjectSecurityGraph.vue'
