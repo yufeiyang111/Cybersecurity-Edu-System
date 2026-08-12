@@ -46,6 +46,7 @@ class AgentModelMessage:
     content: str | None = None
     tool_calls: tuple[AgentModelToolCall, ...] = ()
     tool_call_id: str | None = None
+    reasoning_content: str | None = None
 
     def __post_init__(self) -> None:
         if self.role not in _AGENT_ROLES:
@@ -93,6 +94,7 @@ class AgentModelResponse:
     model: str | None = None
     usage: dict[str, Any] = field(default_factory=dict)
     warning_code: str | None = None
+    reasoning_content: str | None = None
 
     def __post_init__(self) -> None:
         self.validate()

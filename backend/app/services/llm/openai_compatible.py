@@ -602,6 +602,9 @@ def _agent_payload(request: "AgentModelRequest", model: str, *, stream: bool) ->
                 }
                 for call in message.tool_calls
             ]
+        if message.role == "assistant" and message.reasoning_content:
+            # DeepSeek thinking 模式协议要求：上一轮 reasoning_content 必须回传
+            item["reasoning_content"] = message.reasoning_content
         if message.role == "tool":
             item["tool_call_id"] = message.tool_call_id
         messages.append(item)
@@ -670,6 +673,12 @@ def _agent_success(
     if not content and not tool_calls:
         return _agent_failure(provider, "LLM_OUTPUT_INVALID", started)
     usage = normalize_usage(body.get("usage") or {}) or {}
+    reasoning_content = message.get("reasoning_content")
+    reasoning_content = (
+        reasoning_content
+        if isinstance(reasoning_content, str) and reasoning_content
+        else None
+    )
     return AgentModelResponse(
         content=content,
         tool_calls=tuple(tool_calls),
@@ -677,7 +686,7 @@ def _agent_success(
         provider_name=provider.provider_name,
         model=str(body.get("model") or provider.model),
         usage=usage,
-        latency_ms=_latency_ms(started),
+        reasoning_content=reasoning_content,
     )
 
 

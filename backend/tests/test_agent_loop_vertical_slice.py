@@ -304,3 +304,97 @@ def test_baseline_model_tool_calls_are_rejected(app):
         assert (
             AgentRun.query.get(run_id).tool_call_count == 0
         ), "baseline 模型请求的工具调用不得执行"
+
+
+def test_baseline_falls_back_to_deterministic_summary(app):
+    """模型持续拒绝生成摘要时，baseline 安全降级为确定性摘要并终态完成。"""
+    run_id = _make_run(app, mode="baseline")
+
+    class _StubbornProvider(_BaselineSummaryProvider):
+        def generate_agent(self, request):
+            self.requests.append(request)
+            return AgentModelResponse(
+                content=None,
+                tool_calls=(
+                    AgentModelToolCall(
+                        call_id=f"call-{len(self.requests)}",
+                        name="tool_a",
+                        arguments={},
+                    ),
+                ),
+                finish_reason="tool_calls",
+                provider_name=self.provider_name,
+                model=self.model,
+            )
+
+    provider = _StubbornProvider()
+    with app.app_context():
+        engine = AgentLoopEngine(
+            provider=provider,
+            registry=_registry(),
+            events=EventService(),
+        )
+        result = engine.run_until_interrupt(run_id, "t-baseline-fallback")
+        run = db.session.get(AgentRun, run_id)
+        assert result == "completed_with_warnings"
+        assert "AGENT_BASELINE_MODEL_SUMMARY_FALLBACK" in (run.warning_codes or [])
+        assert run.tool_call_count == 0, "降级路径不得执行任何工具"
+        from app.models.agent_items import AgentItem
+
+        assistant = AgentItem.query.filter_by(
+            run_id=run_id, item_type="assistant_message"
+        ).all()
+        assert len(assistant) == 1
+        assert "确定性基线摘要" in assistant[0].content_redacted
+
+
+def test_parallel_tool_calls_executed_serially(app):
+    """模型返回多个并行工具调用时按稳定顺序串行执行并全部回填。"""
+    run_id = _make_run(app)
+
+    class _ParallelProvider(_VerticalProvider):
+        def generate_agent(self, request):
+            self.requests.append(request)
+            self._stage += 1
+            if self._stage == 1:
+                return AgentModelResponse(
+                    content=None,
+                    tool_calls=(
+                        AgentModelToolCall(call_id="p-1", name="tool_a", arguments={}),
+                        AgentModelToolCall(call_id="p-2", name="tool_b", arguments={}),
+                        AgentModelToolCall(call_id="p-3", name="tool_a", arguments={}),
+                    ),
+                    finish_reason="tool_calls",
+                    provider_name=self.provider_name,
+                    model=self.model,
+                )
+            return AgentModelResponse(
+                content="并行调用完成",
+                tool_calls=(),
+                finish_reason="stop",
+                provider_name=self.provider_name,
+                model=self.model,
+            )
+
+    provider = _ParallelProvider()
+    with app.app_context():
+        engine = AgentLoopEngine(
+            provider=provider,
+            registry=_registry(),
+            events=EventService(),
+        )
+        result = engine.run_until_interrupt(run_id, "t-parallel")
+        run = db.session.get(AgentRun, run_id)
+        assert result == "completed"
+        assert run.tool_call_count == 3
+        assert len(provider.requests) == 2
+        second = provider.requests[1]
+        tool_roles = [message.role for message in second.messages]
+        assert tool_roles.count("tool") == 3, "3 个并行调用结果全部回填"
+        assistant_messages = [
+            message
+            for message in second.messages
+            if message.role == "assistant"
+        ]
+        assert len(assistant_messages) == 1
+        assert len(assistant_messages[0].tool_calls) == 3

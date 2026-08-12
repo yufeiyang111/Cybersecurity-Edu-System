@@ -107,9 +107,12 @@ class AgentLoopEngine:
         self._consecutive_model_errors = 0
         self._same_tool_calls: dict[str, int] = {}
         self._tool_results: list[dict] = []
-        self._assistant_tool_calls: list[AgentModelToolCall] = []
+        self._pending_calls: list[AgentModelToolCall] = []
+        self._pending_assistant_message: AgentModelMessage | None = None
+        self._last_reasoning_content: str | None = None
         self._feedback: list[str] = []
         self._baseline_done = False
+        self._baseline_summary_attempts = 0
 
     def supported_actions(self) -> set[str]:
         return {kind.value for kind in ActionKind}
@@ -172,6 +175,40 @@ class AgentLoopEngine:
         try:
             action = response.to_action()
         except ContractValidationError as exc:
+            tool_calls = response.tool_calls
+            if tool_calls:
+                if self._status_value(run.mode) == "baseline":
+                    # baseline 为显式策略工作流：模型不得请求工具
+                    self._baseline_summary_attempts += 1
+                    if self._baseline_summary_attempts >= 2:
+                        run.warning_codes = list(
+                            dict.fromkeys(
+                                (run.warning_codes or [])
+                                + ["AGENT_BASELINE_MODEL_SUMMARY_FALLBACK"]
+                            )
+                        )
+                        db.session.commit()
+                        return self._handle_final_answer(
+                            run, self._baseline_fallback_summary(run), trace_id
+                        )
+                    self._feedback.append(
+                        "baseline 模式为显式策略工作流：模型仅可生成最终摘要"
+                    )
+                    return "continue"
+                # 并行工具调用：按稳定顺序串行执行（数量受工具预算与
+                # max_same_tool_same_args 约束），全部结果回填下一轮；
+                # 存在依赖时由模型自行拆分轮次。
+                for call in tool_calls:
+                    terminal = self._execute_tool_call(run, call, trace_id)
+                    if terminal != "continue":
+                        return terminal
+                self._flush_assistant_message()
+                run = db.session.get(AgentRun, run.id)
+                if run is None:
+                    return "failed"
+                run.context_watermark = run.last_event_sequence
+                db.session.commit()
+                return "continue"
             logger.warning(
                 "Agent model returned invalid action (run_id=%s, error=%s)",
                 run.id,
@@ -190,6 +227,7 @@ class AgentLoopEngine:
             run.context_watermark = run.last_event_sequence
             db.session.commit()
             return terminal
+        self._flush_assistant_message()
 
         run = db.session.get(AgentRun, run.id)
         if run is None:
@@ -233,8 +271,8 @@ class AgentLoopEngine:
                 ) and None
             return None
         self._consecutive_model_errors = 0
+        self._last_reasoning_content = response.reasoning_content
         return response
-
     def _enter_awaiting_approval(self, run: AgentRun, trace_id: str) -> str:
         """审批中断：转入 AWAITING_APPROVAL 并让出 Worker，不占用轮询。"""
         try:
@@ -258,14 +296,9 @@ class AgentLoopEngine:
             AgentModelMessage(role="system", content=SYSTEM_SECURITY_BOUNDARY),
             AgentModelMessage(role="user", content=context_text),
         ]
-        if self._assistant_tool_calls:
-            messages.append(
-                AgentModelMessage(
-                    role="assistant",
-                    content=None,
-                    tool_calls=tuple(self._assistant_tool_calls),
-                )
-            )
+        if self._pending_assistant_message is not None:
+            messages.append(self._pending_assistant_message)
+            self._pending_assistant_message = None
         if self._tool_results:
             messages = append_tool_results(messages, self._tool_results)
             self._tool_results = []
@@ -304,6 +337,20 @@ class AgentLoopEngine:
         kind = action.kind
         if self._status_value(run.mode) == "baseline":
             if kind != ActionKind.FINAL_ANSWER:
+                self._baseline_summary_attempts += 1
+                if self._baseline_summary_attempts >= 2:
+                    # baseline 是可靠降级路径：模型连续拒绝生成摘要时，
+                    # 使用确定性摘要作为最终回答（不伪装模型分析）。
+                    run.warning_codes = list(
+                        dict.fromkeys(
+                            (run.warning_codes or [])
+                            + ["AGENT_BASELINE_MODEL_SUMMARY_FALLBACK"]
+                        )
+                    )
+                    db.session.commit()
+                    return self._handle_final_answer(
+                        run, self._baseline_fallback_summary(run), trace_id
+                    )
                 self._feedback.append(
                     "baseline 模式为显式策略工作流：模型仅可生成最终摘要，"
                     "工具与计划更新由 Controller 固定执行"
@@ -403,7 +450,7 @@ class AgentLoopEngine:
                 "error_code": result.error_code,
             }
         )
-        self._assistant_tool_calls.append(
+        self._pending_calls.append(
             AgentModelToolCall(
                 call_id=call.call_id,
                 name=call.name,
@@ -411,6 +458,19 @@ class AgentLoopEngine:
             )
         )
         return "continue"
+
+    def _flush_assistant_message(self) -> None:
+        """把本轮全部工具调用固化为一条 assistant 消息（协议要求每轮独立）。"""
+        if not self._pending_calls:
+            return
+        self._pending_assistant_message = AgentModelMessage(
+            role="assistant",
+            content=None,
+            tool_calls=tuple(self._pending_calls),
+            reasoning_content=self._last_reasoning_content,
+        )
+        self._pending_calls = []
+        self._last_reasoning_content = None
 
     def _apply_plan_update(self, run: AgentRun, action, trace_id: str) -> str:
         from app.services.security_agent.planning.plan_service import (
@@ -534,6 +594,22 @@ class AgentLoopEngine:
                 )
                 db.session.commit()
         self._baseline_done = True
+
+    def _baseline_fallback_summary(self, run: AgentRun) -> str:
+        """确定性基线摘要（模型拒绝生成摘要时的安全降级，不伪装模型分析）。"""
+        plan = self._latest_plan(run.id)
+        node_lines = []
+        if plan is not None:
+            for node in plan.nodes:
+                node_lines.append(
+                    f"{node.node_key}={_status_value(node.status)}"
+                )
+        return (
+            "【确定性基线摘要（模型未生成最终摘要，已安全降级）】\n"
+            f"运行模式：baseline（策略工作流）\n"
+            f"强制节点状态：{'、'.join(node_lines) or '（无）'}\n"
+            "结论由确定性工具证据产生，非模型分析。"
+        )
 
     # ---------------------------------------------------------------- control / limits
 
