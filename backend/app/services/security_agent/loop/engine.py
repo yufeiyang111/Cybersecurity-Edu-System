@@ -452,11 +452,36 @@ class AgentLoopEngine:
             run, plan, evidence=evidence, model_final=content
         )
         if verdict.accepted:
+            self._persist_final_answer(run, content, trace_id)
             return self._finalize_verdict(run, verdict, trace_id)
         self._feedback.append(
             "最终回答未被接受，缺失条件：" + "、".join(verdict.missing_requirements)
         )
         return "continue"
+
+    def _persist_final_answer(self, run: AgentRun, content: str, trace_id: str) -> None:
+        """T10：最终回答以 assistant_message Item 固化（started → completed）。"""
+        from app.services.security_agent.timeline.item_service import ItemService
+
+        public_id = f"asst_final_{run.iteration_count}"
+        service = ItemService()
+        service.start(
+            run,
+            public_id=public_id,
+            item_type="assistant_message",
+            event_type="item.assistant_message.started",
+            iteration=run.iteration_count,
+            sensitive_level="internal",
+            trace_id=trace_id,
+        )
+        service.complete(
+            run,
+            public_id,
+            content=content,
+            summary_json={"mode": self._status_value(run.mode)},
+            event_type="item.assistant_message.completed",
+            trace_id=trace_id,
+        )
 
     # ---------------------------------------------------------------- baseline
 

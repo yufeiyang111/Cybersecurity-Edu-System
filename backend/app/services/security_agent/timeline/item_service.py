@@ -23,6 +23,9 @@ class ItemStateError(ValueError):
 
 
 class ItemService:
+    """T10：单条 delta 大小上限（安全合并留待客户端，语义顺序不变）。"""
+
+    MAX_DELTA_CHARS = 12000
     def __init__(self, writer: EventWriter | None = None) -> None:
         self._writer = writer or EventWriter()
 
@@ -94,6 +97,12 @@ class ItemService:
         if item.status in _TERMINAL_ITEM_STATUSES:
             raise ItemStateError(
                 f"Item {public_id} 已处于终态 {item.status}，拒绝追加 delta"
+            )
+        if not isinstance(delta, str):
+            raise ItemStateError("delta 必须是字符串")
+        if len(delta) > self.MAX_DELTA_CHARS:
+            raise ItemStateError(
+                f"delta 超过单条上限 {self.MAX_DELTA_CHARS} 字符"
             )
         item.content_redacted = (item.content_redacted or "") + delta
         event = self._writer.emit(
