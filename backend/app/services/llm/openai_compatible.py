@@ -349,6 +349,224 @@ class OpenAICompatibleProvider:
             "Accept": "text/event-stream" if stream else "application/json",
         }
 
+    # ---------------------------------------------------------------- agent v2
+
+    def agent_capabilities(self) -> "ProviderCapabilities":
+        """Agent 能力协商（T04）：OpenAI-compatible 默认支持原生工具调用。"""
+        from app.services.security_agent.model.contracts import ProviderCapabilities
+
+        return ProviderCapabilities(
+            supports_native_tools=True,
+            supports_streaming=True,
+            supports_parallel_tool_calls=True,
+            supports_reasoning_channel=True,
+            supports_reasoning_tokens_usage=True,
+        )
+
+    def generate_agent(self, request: "AgentModelRequest") -> "AgentModelResponse":
+        """原生 Tool Calling 非流式调用（T04）；旧 generate 完全不受影响。"""
+        from app.services.security_agent.model.contracts import (
+            AgentModelRequest,
+            AgentModelResponse,
+        )
+
+        started = perf_counter()
+        payload = _agent_payload(request, self.model, stream=False)
+        max_retries = _max_retries()
+        for attempt in range(max_retries + 1):
+            try:
+                response = self._http_client.post(
+                    self.base_url,
+                    headers=self._headers(stream=False),
+                    json=payload,
+                    timeout=_timeout(),
+                    allow_redirects=False,
+                )
+            except requests.Timeout:
+                if attempt < max_retries:
+                    time.sleep(_retry_delay(attempt))
+                    continue
+                return _agent_failure(self, "LLM_PROVIDER_TIMEOUT", started)
+            except requests.RequestException:
+                if attempt < max_retries:
+                    time.sleep(_retry_delay(attempt))
+                    continue
+                return _agent_failure(self, "LLM_PROVIDER_REQUEST_FAILED", started)
+            status_code = _status_code(response)
+            if status_code is not None and status_code != 200:
+                if _should_retry_status(status_code) and attempt < max_retries:
+                    time.sleep(_retry_delay(attempt))
+                    continue
+                return _agent_failure(
+                    self,
+                    "LLM_PROVIDER_NON_SUCCESS",
+                    started,
+                    status_code=status_code,
+                )
+            try:
+                body = response.json()
+            except (TypeError, ValueError):
+                return _agent_failure(self, "LLM_OUTPUT_INVALID", started)
+            return _agent_success(self, body, started)
+        return _agent_failure(self, "LLM_PROVIDER_REQUEST_FAILED", started)
+
+    def generate_agent_stream(
+        self, request: "AgentModelRequest"
+    ) -> "Iterator[AgentModelStreamEvent]":
+        """原生 Tool Calling 流式调用（T04）：参数 delta 按 index 合并。"""
+        from app.services.security_agent.model.contracts import (
+            AgentModelRequest,
+            AgentModelStreamEvent,
+            AgentStreamEventType,
+        )
+
+        payload = _agent_payload(request, self.model, stream=True)
+        max_retries = _max_retries()
+        response = None
+        for attempt in range(max_retries + 1):
+            try:
+                response = self._http_client.post(
+                    self.base_url,
+                    headers=self._headers(stream=True),
+                    json=payload,
+                    timeout=_timeout(),
+                    allow_redirects=False,
+                    stream=True,
+                )
+            except requests.Timeout:
+                if attempt < max_retries:
+                    time.sleep(_retry_delay(attempt))
+                    continue
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.FAILED.value,
+                    payload={"warning_code": "LLM_PROVIDER_TIMEOUT"},
+                )
+                return
+            except requests.RequestException:
+                if attempt < max_retries:
+                    time.sleep(_retry_delay(attempt))
+                    continue
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.FAILED.value,
+                    payload={"warning_code": "LLM_PROVIDER_REQUEST_FAILED"},
+                )
+                return
+            status_code = _status_code(response)
+            if status_code is not None and status_code != 200:
+                if _should_retry_status(status_code) and attempt < max_retries:
+                    time.sleep(_retry_delay(attempt))
+                    continue
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.FAILED.value,
+                    payload={"warning_code": "LLM_PROVIDER_NON_SUCCESS"},
+                )
+                return
+            break
+
+        tool_slots: dict[int, dict] = {}
+        try:
+            for raw_line in response.iter_lines(decode_unicode=False):
+                line = safe_decode(raw_line)
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if not data or data == "[DONE]":
+                    continue
+                try:
+                    body = json.loads(data)
+                except (TypeError, ValueError):
+                    continue
+                if body.get("error"):
+                    yield AgentModelStreamEvent(
+                        event_type=AgentStreamEventType.FAILED.value,
+                        payload={"warning_code": "LLM_PROVIDER_NON_SUCCESS"},
+                    )
+                    return
+                usage = body.get("usage")
+                if isinstance(usage, dict):
+                    normalized = normalize_usage(usage)
+                    if normalized:
+                        yield AgentModelStreamEvent(
+                            event_type=AgentStreamEventType.USAGE.value,
+                            payload=normalized,
+                        )
+                choice = _first_choice(body)
+                delta = choice.get("delta") if isinstance(choice, dict) else {}
+                delta = delta if isinstance(delta, dict) else {}
+                text = delta.get("content")
+                if isinstance(text, str) and text:
+                    yield AgentModelStreamEvent(
+                        event_type=AgentStreamEventType.OUTPUT_TEXT_DELTA.value,
+                        item_id="assistant",
+                        delta=text,
+                    )
+                reasoning = delta.get("reasoning_content")
+                if isinstance(reasoning, str) and reasoning:
+                    yield AgentModelStreamEvent(
+                        event_type=AgentStreamEventType.REASONING_SUMMARY_DELTA.value,
+                        item_id="reasoning",
+                        delta=reasoning,
+                        payload={"sensitive_level": "internal"},
+                    )
+                raw_calls = delta.get("tool_calls")
+                if not isinstance(raw_calls, list):
+                    continue
+                for raw in raw_calls:
+                    if not isinstance(raw, dict):
+                        continue
+                    index = raw.get("index", 0)
+                    slot = tool_slots.setdefault(
+                        index, {"id": "", "name": "", "arguments": ""}
+                    )
+                    if isinstance(raw.get("id"), str):
+                        slot["id"] = raw["id"]
+                    function = (
+                        raw.get("function")
+                        if isinstance(raw.get("function"), dict)
+                        else {}
+                    )
+                    if isinstance(function.get("name"), str):
+                        slot["name"] = function["name"]
+                    if isinstance(function.get("arguments"), str):
+                        slot["arguments"] += function["arguments"]
+                    if not slot.get("started_emitted", False):
+                        yield AgentModelStreamEvent(
+                            event_type=AgentStreamEventType.TOOL_CALL_STARTED.value,
+                            call_id=slot["id"] or f"call-{index}",
+                            payload={"name": slot["name"]},
+                        )
+                        slot["started_emitted"] = True
+            for index, slot in sorted(tool_slots.items()):
+                arguments: dict = {}
+                try:
+                    arguments = (
+                        json.loads(slot["arguments"])
+                        if slot["arguments"]
+                        else {}
+                    )
+                except (TypeError, ValueError):
+                    arguments = {}
+                if not isinstance(arguments, dict):
+                    arguments = {}
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.TOOL_CALL_COMPLETED.value,
+                    call_id=slot["id"] or f"call-{index}",
+                    payload={"name": slot["name"], "arguments": arguments},
+                )
+            yield AgentModelStreamEvent(
+                event_type=AgentStreamEventType.COMPLETED.value
+            )
+        except requests.Timeout:
+            yield AgentModelStreamEvent(
+                event_type=AgentStreamEventType.FAILED.value,
+                payload={"warning_code": "LLM_PROVIDER_TIMEOUT"},
+            )
+        except requests.RequestException:
+            yield AgentModelStreamEvent(
+                event_type=AgentStreamEventType.FAILED.value,
+                payload={"warning_code": "LLM_PROVIDER_REQUEST_FAILED"},
+            )
+
 
 def _completion_url(base_url: str) -> str:
     normalized = str(base_url or "").rstrip("/")
@@ -374,6 +592,125 @@ def _payload(request: LLMRequest, model: str, *, stream: bool) -> dict[str, Any]
     if request.prompt_cache_key:
         body["prompt_cache_key"] = request.prompt_cache_key
     return body
+
+
+def _agent_payload(request: "AgentModelRequest", model: str, *, stream: bool) -> dict[str, Any]:
+    """Agent 请求 → OpenAI-compatible chat payload（tools/tool_choice/tool_calls）。"""
+    messages: list[dict[str, Any]] = []
+    for message in request.messages:
+        item: dict[str, Any] = {
+            "role": message.role,
+            "content": message.content or "",
+        }
+        if message.role == "assistant" and message.tool_calls:
+            item["tool_calls"] = [
+                {
+                    "id": call.call_id,
+                    "type": "function",
+                    "function": {
+                        "name": call.name,
+                        "arguments": json.dumps(call.arguments, ensure_ascii=False),
+                    },
+                }
+                for call in message.tool_calls
+            ]
+        if message.role == "tool":
+            item["tool_call_id"] = message.tool_call_id
+        messages.append(item)
+    body: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "temperature": request.temperature,
+        "max_tokens": request.max_tokens,
+        "stream": stream,
+    }
+    if request.tool_choice:
+        body["tool_choice"] = request.tool_choice
+    if request.tools:
+        body["tools"] = [
+            {
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.input_schema
+                    or {"type": "object", "properties": {}},
+                },
+            }
+            for tool in request.tools
+        ]
+    if stream:
+        body["stream_options"] = {"include_usage": True}
+    return body
+
+
+def _agent_success(
+    provider: OpenAICompatibleProvider, body: dict[str, Any], started: float
+) -> "AgentModelResponse":
+    """解析非流式响应；文本与工具调用混合时只保留工具调用（不冒充最终回答）。"""
+    from app.services.security_agent.model.contracts import (
+        AgentModelResponse,
+        AgentModelToolCall,
+    )
+
+    choice = _first_choice(body)
+    message = choice.get("message") if isinstance(choice, dict) else {}
+    message = message if isinstance(message, dict) else {}
+    tool_calls: list[AgentModelToolCall] = []
+    raw_calls = message.get("tool_calls")
+    if isinstance(raw_calls, list):
+        for raw in raw_calls:
+            if not isinstance(raw, dict):
+                continue
+            function = raw.get("function") if isinstance(raw.get("function"), dict) else {}
+            call_id = str(raw.get("id") or "")
+            name = str(function.get("name") or "")
+            arguments = function.get("arguments") or "{}"
+            try:
+                parsed = json.loads(arguments) if isinstance(arguments, str) else arguments
+            except (TypeError, ValueError):
+                parsed = {}
+            if call_id and name and isinstance(parsed, dict):
+                tool_calls.append(
+                    AgentModelToolCall(call_id=call_id, name=name, arguments=parsed)
+                )
+    raw_content = message.get("content") or ""
+    content = None
+    if raw_content and not tool_calls:
+        visible, _ = project(raw_content, None)
+        content = visible or None
+    if not content and not tool_calls:
+        return _agent_failure(provider, "LLM_OUTPUT_INVALID", started)
+    usage = normalize_usage(body.get("usage") or {}) or {}
+    return AgentModelResponse(
+        content=content,
+        tool_calls=tuple(tool_calls),
+        finish_reason=choice.get("finish_reason") if isinstance(choice, dict) else None,
+        provider_name=provider.provider_name,
+        model=str(body.get("model") or provider.model),
+        usage=usage,
+        latency_ms=_latency_ms(started),
+    )
+
+
+def _agent_failure(
+    provider: OpenAICompatibleProvider,
+    warning_code: str,
+    started: float,
+    *,
+    status_code: int | None = None,
+) -> "AgentModelResponse":
+    from app.services.security_agent.model.contracts import AgentModelResponse
+
+    return AgentModelResponse(
+        content=None,
+        tool_calls=(),
+        finish_reason=None,
+        provider_name=provider.provider_name,
+        model=provider.model,
+        usage={},
+        warning_code=warning_code,
+    )
 
 
 def _success_response(provider: OpenAICompatibleProvider, body: object, started: float) -> LLMResponse:
