@@ -298,6 +298,8 @@ def test_phase_three_schema_is_in_init_sql_and_ordered_migration_runner():
         "031_agent_observations",
         "032_agent_approvals",
         "033_workspace_provider_policy",
+        "034_analytics_preferences",
+        "035_agent_loop_items",
     )
     assert len(_statements(migration_sql)) == 3
     for table_name in (
