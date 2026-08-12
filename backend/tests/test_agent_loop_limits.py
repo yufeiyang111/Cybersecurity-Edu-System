@@ -199,12 +199,41 @@ def test_consecutive_model_errors_degrade_loop(app):
 
 
 def test_same_tool_same_arguments_repeated_stops_loop(app):
+    """C-07 死循环保护对非幂等/有副作用工具必须生效（safe_read 幂等工具
+    由 ToolExecutor 去重，不在此列；真实验收修正）。"""
     run_id = _make_run(app)
     provider = _ToolLoopProvider()
+
+    def _non_idempotent_registry() -> ToolRegistry:
+        from app.services.security_agent.tools.contracts import (
+            ToolDescriptor,
+            ToolResult,
+        )
+
+        registry = ToolRegistry()
+
+        def handler(ctx):
+            return ToolResult(status="succeeded", summary="echo")
+
+        registry.register(
+            ToolDescriptor(
+                name="echo_tool",
+                version="1.0",
+                category="test",
+                description="echo",
+                input_schema={"type": "object", "properties": {}},
+                risk_level="state_changing",
+                timeout_seconds=5,
+                idempotent=False,
+            ),
+            handler,
+        )
+        return registry
+
     with app.app_context():
         engine = AgentLoopEngine(
             provider=provider,
-            registry=_echo_registry(),
+            registry=_non_idempotent_registry(),
             events=EventService(),
             max_same_tool_same_args=2,
         )

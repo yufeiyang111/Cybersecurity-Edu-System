@@ -673,3 +673,189 @@ def test_multiround_parallel_calls_do_not_collide_node_keys(app):
         assert len(keys) == len(set(keys)), f"loop_* 节点 key 必须唯一，实际 {keys}"
         assert run.iteration_count >= 3, \
             f"三组并行调用应递增至少 3 次 iteration，实际 {run.iteration_count}"
+
+
+def test_safe_read_repeats_do_not_trigger_dead_loop_guard(app, monkeypatch):
+    """C-07 防死循环只针对非幂等/有副作用工具：safe_read 工具多轮复查
+    是真实模型的正常行为，不应误判为死循环（run 47/49/53/54 真实验收复现）。"""
+    from app.services.security_agent.planner import PlanPlanner
+
+    run_id = _make_run(app)
+    with app.app_context():
+        db.session.query(AgentPlanNode).filter(AgentPlanNode.plan_id.in_(
+            db.session.query(AgentPlan.id).filter_by(run_id=run_id)
+        )).delete(synchronize_session=False)
+        db.session.query(AgentPlan).filter_by(run_id=run_id).delete()
+        db.session.commit()
+
+        def _fake_generate_plan(self, run, *, trace_id):
+            plan = AgentPlan(
+                run_id=run.id,
+                plan_version=run.plan_version + 1,
+                planner_source="rule_based_policy",
+                objective=run.goal_text,
+            )
+            db.session.add(plan)
+            db.session.flush()
+            db.session.add_all(
+                [
+                    AgentPlanNode(
+                        plan_id=plan.id,
+                        node_key=key,
+                        node_type=node_type,
+                        status=AgentPlanNodeStatus.SUCCEEDED.value,
+                        title=key,
+                        tool_name=tool_name,
+                    )
+                    for key, node_type, tool_name in (
+                        ("inventory", AgentPlanNodeType.INVENTORY.value, "tool_a"),
+                        ("baseline_scan", AgentPlanNodeType.BASELINE_SCAN.value, "tool_b"),
+                        ("coverage_analysis", AgentPlanNodeType.COVERAGE_ANALYSIS.value, "tool_a"),
+                        ("risk_ranking", AgentPlanNodeType.RISK_RANKING.value, "tool_b"),
+                    )
+                ]
+            )
+            run.plan_version = plan.plan_version
+            db.session.commit()
+            return plan
+
+        monkeypatch.setattr(PlanPlanner, "generate_plan", _fake_generate_plan)
+
+        class _RepeatedSafeReadProvider(_VerticalProvider):
+            def generate_agent(self, request):
+                self.requests.append(request)
+                self._stage += 1
+                if self._stage <= 5:
+                    return AgentModelResponse(
+                        content=None,
+                        tool_calls=(
+                            AgentModelToolCall(
+                                call_id=f"c{self._stage}", name="tool_a", arguments={}
+                            ),
+                        ),
+                        finish_reason="tool_calls",
+                        provider_name=self.provider_name,
+                        model=self.model,
+                    )
+                return AgentModelResponse(
+                    content="审查完成",
+                    tool_calls=(),
+                    finish_reason="stop",
+                    provider_name=self.provider_name,
+                    model=self.model,
+                )
+
+        provider = _RepeatedSafeReadProvider()
+        engine = AgentLoopEngine(
+            provider=provider,
+            registry=_registry(),
+            events=EventService(),
+        )
+        result = engine.run_until_interrupt(run_id, "t-safe-read-repeats")
+        run = db.session.get(AgentRun, run_id)
+        assert result == "completed", \
+            f"safe_read 工具重复调用不应触发死循环保护，实际 {result}"
+        assert "AGENT_REPEATED_TOOL_CALL" not in (run.warning_codes or [])
+
+
+def test_non_idempotent_repeats_still_trigger_dead_loop_guard(app, monkeypatch):
+    """C-07 死循环保护必须保留：非幂等/有副作用工具重复调用仍触发拦截。"""
+    from app.services.security_agent.planner import PlanPlanner
+    from app.services.security_agent.tools.contracts import (
+        ToolDescriptor,
+        ToolResult,
+    )
+
+    run_id = _make_run(app)
+    with app.app_context():
+        db.session.query(AgentPlanNode).filter(AgentPlanNode.plan_id.in_(
+            db.session.query(AgentPlan.id).filter_by(run_id=run_id)
+        )).delete(synchronize_session=False)
+        db.session.query(AgentPlan).filter_by(run_id=run_id).delete()
+        db.session.commit()
+
+        def _fake_generate_plan(self, run, *, trace_id):
+            plan = AgentPlan(
+                run_id=run.id,
+                plan_version=run.plan_version + 1,
+                planner_source="rule_based_policy",
+                objective=run.goal_text,
+            )
+            db.session.add(plan)
+            db.session.flush()
+            db.session.add_all(
+                [
+                    AgentPlanNode(
+                        plan_id=plan.id,
+                        node_key=key,
+                        node_type=node_type,
+                        status=AgentPlanNodeStatus.SUCCEEDED.value,
+                        title=key,
+                        tool_name=tool_name,
+                    )
+                    for key, node_type, tool_name in (
+                        ("inventory", AgentPlanNodeType.INVENTORY.value, "tool_a"),
+                        ("baseline_scan", AgentPlanNodeType.BASELINE_SCAN.value, "tool_b"),
+                        ("coverage_analysis", AgentPlanNodeType.COVERAGE_ANALYSIS.value, "tool_a"),
+                        ("risk_ranking", AgentPlanNodeType.RISK_RANKING.value, "tool_b"),
+                    )
+                ]
+            )
+            run.plan_version = plan.plan_version
+            db.session.commit()
+            return plan
+
+        monkeypatch.setattr(PlanPlanner, "generate_plan", _fake_generate_plan)
+
+        registry = _registry()
+        registry.register(
+            ToolDescriptor(
+                name="state_changer",
+                version="1.0",
+                category="test",
+                description="有副作用工具",
+                input_schema={"type": "object", "properties": {}},
+                risk_level="state_changing",
+                timeout_seconds=5,
+                idempotent=False,
+            ),
+            lambda ctx: ToolResult(status="succeeded", summary="changed"),
+        )
+
+        class _RepeatedStateChangingProvider(_VerticalProvider):
+            def generate_agent(self, request):
+                self.requests.append(request)
+                self._stage += 1
+                if self._stage <= 4:
+                    return AgentModelResponse(
+                        content=None,
+                        tool_calls=(
+                            AgentModelToolCall(
+                                call_id=f"s{self._stage}",
+                                name="state_changer",
+                                arguments={},
+                            ),
+                        ),
+                        finish_reason="tool_calls",
+                        provider_name=self.provider_name,
+                        model=self.model,
+                    )
+                return AgentModelResponse(
+                    content="审查完成",
+                    tool_calls=(),
+                    finish_reason="stop",
+                    provider_name=self.provider_name,
+                    model=self.model,
+                )
+
+        provider = _RepeatedStateChangingProvider()
+        engine = AgentLoopEngine(
+            provider=provider,
+            registry=registry,
+            events=EventService(),
+        )
+        result = engine.run_until_interrupt(run_id, "t-state-changer-repeats")
+        run = db.session.get(AgentRun, run_id)
+        assert result == "partial", \
+            f"非幂等工具重复调用必须触发死循环保护，实际 {result}"
+        assert "AGENT_REPEATED_TOOL_CALL" in (run.warning_codes or [])

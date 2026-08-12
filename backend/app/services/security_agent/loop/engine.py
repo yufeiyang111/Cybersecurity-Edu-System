@@ -103,7 +103,9 @@ class AgentLoopEngine:
         self.max_iterations = max_iterations
         self.max_tool_calls = max_tool_calls
         self.max_consecutive_model_errors = max_consecutive_model_errors
-        self.max_same_tool_same_args = max_same_tool_same_args
+        self.max_same_tool_same_args = _config_int(
+            "AGENT_LOOP_MAX_SAME_TOOL_SAME_ARGS", max_same_tool_same_args
+        )
         self._consecutive_model_errors = 0
         self._same_tool_calls: dict[str, int] = {}
         self._tool_results: list[dict] = []
@@ -447,11 +449,25 @@ class AgentLoopEngine:
 
     def _execute_tool_call(self, run: AgentRun, call, trace_id: str) -> str:
         repeat_key = f"{call.name}:{json.dumps(call.arguments, sort_keys=True)}"
-        self._same_tool_calls[repeat_key] = self._same_tool_calls.get(repeat_key, 0) + 1
-        if self._same_tool_calls[repeat_key] > self.max_same_tool_same_args:
-            return self._finalize(
-                run, "partial", ["AGENT_REPEATED_TOOL_CALL"], trace_id
+        # C-07 防死循环只针对非幂等/有副作用工具：safe_read 与敏感只读
+        # 工具由 ToolExecutor 幂等去重（G-07），模型多轮复查是正常审查行为，
+        # 不应被误判为死循环（真实验收：真实模型反复 get_authentication_map
+        # 导致 run 47/49/53/54 全部 partial）。
+        descriptor = next(
+            (d for d in self._registry.descriptors() if d.name == call.name),
+            None,
+        )
+        risk_level = getattr(descriptor, "risk_level", "safe_read")
+        idempotent = getattr(descriptor, "idempotent", True)
+        enforce_repeat_limit = not (idempotent and risk_level in {"safe_read", "sensitive_read"})
+        if enforce_repeat_limit:
+            self._same_tool_calls[repeat_key] = (
+                self._same_tool_calls.get(repeat_key, 0) + 1
             )
+            if self._same_tool_calls[repeat_key] > self.max_same_tool_same_args:
+                return self._finalize(
+                    run, "partial", ["AGENT_REPEATED_TOOL_CALL"], trace_id
+                )
 
         plan = self._latest_plan(run.id)
         if plan is None:
