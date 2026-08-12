@@ -119,3 +119,59 @@ def test_preferences_qa_max_tokens_reject_invalid(preferences_app):
             headers=headers,
         )
         assert response.status_code == 400, f"qa_max_tokens={invalid!r} 应被拒绝"
+
+
+def test_preferences_analytics_defaults_and_validation(preferences_app):
+    user_id = _make_user(preferences_app)
+    client = preferences_app.test_client()
+    headers = _auth_headers(preferences_app, user_id)
+
+    initial = client.get("/api/auth/preferences", headers=headers)
+    assert initial.status_code == 200
+    prefs = initial.json["preferences"]
+    assert prefs["analytics_time_range"] == "1d"
+    assert prefs["analytics_time_granularity"] == "hour"
+    assert prefs["analytics_chart_type"] == "bar"
+    assert prefs["analytics_model_chart"] == "trend"
+
+    updated = client.put(
+        "/api/auth/preferences",
+        json={
+            "analytics_time_range": "7d",
+            "analytics_time_granularity": "day",
+            "analytics_chart_type": "area",
+            "analytics_model_chart": "ranking",
+        },
+        headers=headers,
+    )
+    assert updated.status_code == 200
+    prefs = updated.json["preferences"]
+    assert prefs["analytics_time_range"] == "7d"
+    assert prefs["analytics_time_granularity"] == "day"
+    assert prefs["analytics_chart_type"] == "area"
+    assert prefs["analytics_model_chart"] == "ranking"
+
+    with preferences_app.app_context():
+        stored = UserPreference.query.filter_by(user_id=user_id).one()
+        assert stored.analytics_time_range == "7d"
+        assert stored.analytics_time_granularity == "day"
+        assert stored.analytics_chart_type == "area"
+        assert stored.analytics_model_chart == "ranking"
+
+
+def test_preferences_analytics_reject_invalid_values(preferences_app):
+    user_id = _make_user(preferences_app)
+    headers = _auth_headers(preferences_app, user_id)
+    for payload in (
+        {"analytics_time_range": "2w"},
+        {"analytics_time_range": "30d"},
+        {"analytics_time_granularity": "quarter"},
+        {"analytics_chart_type": "pie"},
+        {"analytics_model_chart": "table"},
+    ):
+        response = preferences_app.test_client().put(
+            "/api/auth/preferences",
+            json=payload,
+            headers=headers,
+        )
+        assert response.status_code == 400, f"{payload!r} 应被拒绝"

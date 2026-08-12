@@ -120,6 +120,10 @@ class UserPreference(db.Model):
     show_security_warnings = db.Column(db.Boolean, nullable=False, default=True)
     persistent_memory_enabled = db.Column(db.Boolean, nullable=False, default=False)
     qa_max_tokens = db.Column(db.Integer, nullable=True)
+    analytics_time_range = db.Column(db.String(20), nullable=False, default="1d")
+    analytics_time_granularity = db.Column(db.String(20), nullable=False, default="hour")
+    analytics_chart_type = db.Column(db.String(20), nullable=False, default="bar")
+    analytics_model_chart = db.Column(db.String(20), nullable=False, default="trend")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -143,6 +147,10 @@ class UserPreference(db.Model):
             "show_security_warnings": self.show_security_warnings,
             "persistent_memory_enabled": bool(self.persistent_memory_enabled),
             "qa_max_tokens": self.qa_max_tokens,
+            "analytics_time_range": self.analytics_time_range,
+            "analytics_time_granularity": self.analytics_time_granularity,
+            "analytics_chart_type": self.analytics_chart_type,
+            "analytics_model_chart": self.analytics_model_chart,
         }
 
 

@@ -19,7 +19,6 @@ def list_logs(user_id: int, params: dict):
         error_out=False,
     )
 
-
 def summary(user_id: int, params: dict) -> dict:
     query = _filtered_query(user_id, params)
     calls, tokens, cost, input_tokens, output_tokens, cached_input_tokens = query.with_entities(
@@ -75,7 +74,7 @@ def analytics(user_id: int, params: dict) -> dict:
         .order_by(func.count(LLMCallLog.id).desc())
         .all()
     )
-    bucket = func.date(LLMCallLog.created_at).label("bucket")
+    bucket = _trend_bucket(params)
     trend_model = LLMCallLog.model.label("model")
     trend_rows = (
         query.with_entities(
@@ -125,11 +124,26 @@ def _filtered_query(user_id: int, params: dict):
         query = query.filter(LLMCallLog.provider_config_id == provider_id)
     start = _parse_datetime(params.get("start"))
     end = _parse_datetime(params.get("end"))
+    if start is None:
+        start = _start_from_time_range(params.get("time_range"))
     if start:
         query = query.filter(LLMCallLog.created_at >= start)
     if end:
         query = query.filter(LLMCallLog.created_at <= end)
     return query
+
+
+TIME_RANGE_OPTIONS = {"1d": 24, "7d": 24 * 7, "14d": 24 * 14, "29d": 24 * 29}
+
+
+def _start_from_time_range(value: object) -> datetime | None:
+    if not value:
+        return None
+    key = str(value).strip()
+    hours = TIME_RANGE_OPTIONS.get(key)
+    if hours is None:
+        raise ValueError("time_range 必须是 1d/7d/14d/29d 之一")
+    return datetime.utcnow() - timedelta(hours=hours)
 
 
 def _pagination(params: dict) -> tuple[int, int]:
@@ -154,6 +168,36 @@ def _parse_datetime(value: object) -> datetime | None:
     except ValueError as exc:
         raise ValueError("日期参数格式无效") from exc
     return parsed.replace(tzinfo=None)
+
+
+def _trend_bucket(params: dict) -> object:
+    """按请求的粒度参数构造时间分桶表达式（MySQL 与 SQLite 兼容）。
+
+    支持 hour/day/week/month 四种粒度：
+    - hour:  %Y-%m-%d %H:00
+    - day:   %Y-%m-%d
+    - week:  ISO 周年（%x-%v）
+    - month: %Y-%m
+    """
+    granularity = str(params.get("granularity", "hour") or "hour")
+    if granularity not in {"hour", "day", "week", "month"}:
+        raise ValueError("granularity 必须是 hour/day/week/month 之一")
+    dialect = db.engine.dialect.name
+    column = LLMCallLog.created_at
+    formats = {
+        "hour": "%Y-%m-%d %H:00",
+        "day": "%Y-%m-%d",
+        "week": "%x-%v",
+        "month": "%Y-%m",
+    }
+    fmt = formats[granularity]
+    if dialect == "mysql":
+        return func.date_format(column, fmt).label("bucket")
+    if dialect == "sqlite":
+        if granularity == "week":
+            return func.strftime("%Y-W%W", column).label("bucket")
+        return func.strftime(fmt, column).label("bucket")
+    return func.date(column).label("bucket")
 
 
 def _window_minutes(params: dict) -> float:

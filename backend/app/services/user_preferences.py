@@ -19,6 +19,10 @@ DEFAULTS = {
     "show_security_warnings": True,
     "persistent_memory_enabled": False,
     "qa_max_tokens": None,
+    "analytics_time_range": "1d",
+    "analytics_time_granularity": "hour",
+    "analytics_chart_type": "bar",
+    "analytics_model_chart": "trend",
 }
 OPTIONS = {
     "theme": {"system", "light", "dark", "sepia"},
@@ -33,6 +37,10 @@ OPTIONS = {
     "content_width": {"narrow", "standard", "wide"},
     "language": {"zh-CN", "en", "fr", "ru", "ja", "vi", "zh-TW"},
     "response_style": {"professional", "concise", "teaching", "analytical"},
+    "analytics_time_range": {"1d", "7d", "14d", "29d"},
+    "analytics_time_granularity": {"hour", "day", "week", "month"},
+    "analytics_chart_type": {"bar", "area"},
+    "analytics_model_chart": {"trend", "distribution", "ranking"},
 }
 TEXT_LIMITS = {"about_user": 1000, "response_preferences": 2000, "custom_prompt": 4000}
 BOOLEAN_FIELDS = ("show_citations", "show_security_warnings", "persistent_memory_enabled")

@@ -238,6 +238,103 @@ def test_analytics_cache_hit_rate_is_null_when_no_input_tokens(llm_api_app):
     assert analytics.json["models"][0]["cache_hit_rate"] is None
 
 
+def test_analytics_trend_supports_hour_and_day_granularity(llm_api_app):
+    user_id = _make_user(llm_api_app, "llm-granularity-user")
+    with llm_api_app.app_context():
+        now = datetime.utcnow()
+        db.session.add_all(
+            [
+                LLMCallLog(
+                    user_id=user_id,
+                    provider_name="private",
+                    model="qwen",
+                    operation="qa",
+                    status="success",
+                    total_tokens=10,
+                    created_at=now,
+                ),
+                LLMCallLog(
+                    user_id=user_id,
+                    provider_name="private",
+                    model="qwen",
+                    operation="qa",
+                    status="success",
+                    total_tokens=20,
+                    created_at=now - timedelta(hours=3),
+                ),
+            ]
+        )
+        db.session.commit()
+
+    client = llm_api_app.test_client()
+    headers = _headers(llm_api_app, user_id)
+
+    hourly = client.get("/api/llm/analytics?granularity=hour", headers=headers)
+    assert hourly.status_code == 200
+    assert len(hourly.json["trend"]) == 2
+    assert all(" " in item["bucket"] for item in hourly.json["trend"])
+
+    daily = client.get("/api/llm/analytics?granularity=day", headers=headers)
+    assert daily.status_code == 200
+    assert len(daily.json["trend"]) == 1
+    assert " " not in daily.json["trend"][0]["bucket"]
+
+    weekly = client.get("/api/llm/analytics?granularity=week", headers=headers)
+    assert weekly.status_code == 200
+    assert len(weekly.json["trend"]) == 1
+
+    monthly = client.get("/api/llm/analytics?granularity=month", headers=headers)
+    assert monthly.status_code == 200
+    assert len(monthly.json["trend"]) == 1
+
+    invalid = client.get("/api/llm/analytics?granularity=quarter", headers=headers)
+    assert invalid.status_code == 400
+
+
+def test_analytics_time_range_filters_logs(llm_api_app):
+    user_id = _make_user(llm_api_app, "llm-time-range-user")
+    with llm_api_app.app_context():
+        now = datetime.utcnow()
+        db.session.add_all(
+            [
+                LLMCallLog(
+                    user_id=user_id,
+                    provider_name="private",
+                    model="qwen",
+                    operation="qa",
+                    status="success",
+                    total_tokens=10,
+                    created_at=now,
+                ),
+                LLMCallLog(
+                    user_id=user_id,
+                    provider_name="private",
+                    model="qwen",
+                    operation="qa",
+                    status="success",
+                    total_tokens=20,
+                    created_at=now - timedelta(days=15),
+                ),
+            ]
+        )
+        db.session.commit()
+
+    client = llm_api_app.test_client()
+    headers = _headers(llm_api_app, user_id)
+
+    week = client.get("/api/llm/analytics?time_range=7d", headers=headers)
+    assert week.status_code == 200
+    assert week.json["summary"]["total_calls"] == 1
+    assert week.json["summary"]["total_tokens"] == 10
+
+    month = client.get("/api/llm/analytics?time_range=29d", headers=headers)
+    assert month.status_code == 200
+    assert month.json["summary"]["total_calls"] == 2
+
+    invalid = client.get("/api/llm/analytics?time_range=2w", headers=headers)
+    assert invalid.status_code == 400
+
+
 def test_provider_delete_is_user_scoped(llm_api_app):
     owner_id = _make_user(llm_api_app, "llm-delete-owner")
     outsider_id = _make_user(llm_api_app, "llm-delete-outsider")
