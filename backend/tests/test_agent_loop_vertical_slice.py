@@ -547,3 +547,73 @@ def test_hybrid_mode_controller_executes_mandatory_dag_first(app, monkeypatch):
         payload = first_tool_event.payload_json or first_tool_event.payload or {}
         assert payload.get("node_key") == "inventory", \
             "DAG 阶段第一个工具必须是强制节点 inventory（由 Controller 调度）"
+
+
+def test_model_loop_nodes_marked_succeeded(app, monkeypatch):
+    """模型轮工具执行成功后，其 loop_* 节点必须标记 SUCCEEDED（真实验收发现：
+    此前节点永远停在 READY，导致 UI 完成度错误显示 31%、评估器误判缺失）。"""
+    from app.services.security_agent.planner import PlanPlanner
+
+    run_id = _make_run(app)
+    with app.app_context():
+        db.session.query(AgentPlanNode).filter(AgentPlanNode.plan_id.in_(
+            db.session.query(AgentPlan.id).filter_by(run_id=run_id)
+        )).delete(synchronize_session=False)
+        db.session.query(AgentPlan).filter_by(run_id=run_id).delete()
+        db.session.commit()
+
+        def _fake_generate_plan(self, run, *, trace_id):
+            plan = AgentPlan(
+                run_id=run.id,
+                plan_version=run.plan_version + 1,
+                planner_source="rule_based_policy",
+                objective=run.goal_text,
+            )
+            db.session.add(plan)
+            db.session.flush()
+            db.session.add_all(
+                [
+                    AgentPlanNode(
+                        plan_id=plan.id,
+                        node_key=key,
+                        node_type=node_type,
+                        status=AgentPlanNodeStatus.SUCCEEDED.value,
+                        title=key,
+                        tool_name=tool_name,
+                    )
+                    for key, node_type, tool_name in (
+                        ("inventory", AgentPlanNodeType.INVENTORY.value, "tool_a"),
+                        ("baseline_scan", AgentPlanNodeType.BASELINE_SCAN.value, "tool_b"),
+                        ("coverage_analysis", AgentPlanNodeType.COVERAGE_ANALYSIS.value, "tool_a"),
+                        ("risk_ranking", AgentPlanNodeType.RISK_RANKING.value, "tool_b"),
+                    )
+                ]
+            )
+            run.plan_version = plan.plan_version
+            db.session.commit()
+            return plan
+
+        monkeypatch.setattr(PlanPlanner, "generate_plan", _fake_generate_plan)
+        provider = _VerticalProvider()
+        engine = AgentLoopEngine(
+            provider=provider,
+            registry=_registry(),
+            events=EventService(),
+        )
+        result = engine.run_until_interrupt(run_id, "t-model-nodes")
+        run = db.session.get(AgentRun, run_id)
+        assert result == "completed"
+        plan = AgentPlan.query.filter_by(run_id=run_id).order_by(
+            AgentPlan.plan_version.desc()
+        ).first()
+        assert plan is not None
+        loop_nodes = [node for node in plan.nodes if node.node_key.startswith("loop_")]
+        assert loop_nodes, "模型轮必须创建 loop_* 节点"
+        succeeded = AgentPlanNodeStatus.SUCCEEDED.value
+        for node in loop_nodes:
+            assert node.status == succeeded, \
+                f"模型轮节点 {node.node_key} 执行成功但状态仍是 {node.status}"
+
+
+def _status_value(value) -> str:
+    return value.value if hasattr(value, "value") else str(value)

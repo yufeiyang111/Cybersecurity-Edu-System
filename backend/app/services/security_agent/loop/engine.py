@@ -496,6 +496,18 @@ class AgentLoopEngine:
             },
             trace_id=trace_id,
         )
+        node = db.session.get(AgentPlanNode, node.id)
+        if node is not None:
+            node.status = (
+                AgentPlanNodeStatus.SUCCEEDED.value
+                if result.status == "succeeded"
+                else AgentPlanNodeStatus.FAILED.value
+            )
+        step = db.session.get(AgentStepExecution, step.id)
+        if step is not None:
+            step.status = (
+                "succeeded" if result.status == "succeeded" else "failed"
+            )
         db.session.commit()
 
         self._tool_results.append(
