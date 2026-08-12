@@ -454,6 +454,9 @@ class AgentLoopEngine:
         if verdict.accepted:
             self._persist_final_answer(run, content, trace_id)
             return self._finalize_verdict(run, verdict, trace_id)
+        if verdict.terminal_status == "failed":
+            # 强制节点失败：不可通过 feedback 修复，直接终态
+            return self._finalize_verdict(run, verdict, trace_id)
         self._feedback.append(
             "最终回答未被接受，缺失条件：" + "、".join(verdict.missing_requirements)
         )
