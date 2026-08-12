@@ -65,6 +65,22 @@ class EventService:
         return list(reversed(rows))
 
     def _next_sequence(self, run_id: int) -> int:
+        """原子递增 sequence（T03）：UPDATE 行锁 + refresh，禁止无锁 MAX+1。
+
+        run 行不存在时（非持久化测试 stub）退回 MAX+1 兼容路径；
+        生产路径 run 行一定存在，始终走原子策略。
+        """
+        from sqlalchemy import update
+
+        result = db.session.execute(
+            update(AgentRun)
+            .where(AgentRun.id == run_id)
+            .values(last_event_sequence=AgentRun.last_event_sequence + 1)
+        )
+        if result.rowcount == 1:
+            run = db.session.get(AgentRun, run_id)
+            db.session.refresh(run, attribute_names=["last_event_sequence"])
+            return int(run.last_event_sequence)
         maximum = (
             db.session.query(func.coalesce(func.max(AgentEvent.sequence), 0))
             .filter(AgentEvent.run_id == run_id)

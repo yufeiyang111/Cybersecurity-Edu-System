@@ -91,9 +91,54 @@ def get_agent_run(run_id: int):
         run = _agent_run_or_404(run_id)
         if run is None:
             return jsonify({"error": "Agent 任务不存在"}), 404
-        return jsonify(_service.get_run_payload(run))
+        from app.services.security_agent.timeline.snapshot_service import SnapshotService
+
+        payload = _service.get_run_payload(run)
+        snapshot = SnapshotService().build_snapshot(run.id)
+        payload["items"] = snapshot["items"]
+        payload["snapshot_watermark"] = snapshot["snapshot_watermark"]
+        return jsonify(payload)
     except AuthorizationError as exc:
         return jsonify({"error": str(exc)}), 403
+
+
+@projects_bp.route("/agent-runs/<int:run_id>/items", methods=["GET"])
+@jwt_required()
+def list_agent_run_items(run_id: int):
+    """v2 Items 服务端分页（Route 只鉴权、校验参数并调用 Service）。"""
+    try:
+        run = _agent_run_or_404(run_id)
+        if run is None:
+            return jsonify({"error": "Agent 任务不存在"}), 404
+        page = request.args.get("page", 1, type=int)
+        page_size = request.args.get("page_size", 50, type=int)
+        item_type = request.args.get("item_type")
+        if page < 1 or not 1 <= page_size <= 200:
+            return jsonify({"error": "page 必须大于 0，page_size 必须在 1 至 200 之间"}), 400
+        if item_type is not None and (not isinstance(item_type, str) or not item_type.strip()):
+            return jsonify({"error": "item_type 必须是字符串"}), 400
+        from app.services.security_agent.timeline.snapshot_service import SnapshotService
+
+        rows, total = SnapshotService().list_items(
+            run.id,
+            page=page,
+            page_size=page_size,
+            item_type=(item_type or "").strip() or None,
+        )
+        return jsonify(
+            {
+                "items": [item.to_dict() for item in rows],
+                "pagination": {
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                },
+            }
+        )
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
 
 @projects_bp.route("/agent-runs/<int:run_id>/pause", methods=["POST"])
