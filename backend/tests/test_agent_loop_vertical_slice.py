@@ -617,3 +617,59 @@ def test_model_loop_nodes_marked_succeeded(app, monkeypatch):
 
 def _status_value(value) -> str:
     return value.value if hasattr(value, "value") else str(value)
+
+
+def test_multiround_parallel_calls_do_not_collide_node_keys(app):
+    """多轮并行工具调用必须递增 iteration_count，否则 node_key（loop_{iter}_{call_id}）
+    跨轮相同导致唯一约束冲突、worker 线程裸死、run 永久卡死（run 48/50 真实验收复现）。"""
+    run_id = _make_run(app)
+
+    class _MultiRoundParallelProvider(_VerticalProvider):
+        def generate_agent(self, request):
+            self.requests.append(request)
+            self._stage += 1
+            if self._stage <= 3:
+                return AgentModelResponse(
+                    content=None,
+                    tool_calls=(
+                        AgentModelToolCall(
+                            call_id=f"same-id-{self._stage}",
+                            name="tool_a",
+                            arguments={"round": self._stage},
+                        ),
+                        AgentModelToolCall(
+                            call_id=f"same-id-{self._stage}",
+                            name="tool_b",
+                            arguments={"round": self._stage},
+                        ),
+                    ),
+                    finish_reason="tool_calls",
+                    provider_name=self.provider_name,
+                    model=self.model,
+                )
+            return AgentModelResponse(
+                content="审查完成",
+                tool_calls=(),
+                finish_reason="stop",
+                provider_name=self.provider_name,
+                model=self.model,
+            )
+
+    provider = _MultiRoundParallelProvider()
+    with app.app_context():
+        engine = AgentLoopEngine(
+            provider=provider,
+            registry=_registry(),
+            events=EventService(),
+        )
+        result = engine.run_until_interrupt(run_id, "t-multiround-parallel")
+        run = db.session.get(AgentRun, run_id)
+        assert result == "completed", f"多轮并行调用应正常完成，实际 {result}"
+        assert run.tool_call_count == 6
+        plan = AgentPlan.query.filter_by(run_id=run_id).order_by(
+            AgentPlan.plan_version.desc()
+        ).first()
+        keys = [node.node_key for node in plan.nodes if node.node_key.startswith("loop_")]
+        assert len(keys) == len(set(keys)), f"loop_* 节点 key 必须唯一，实际 {keys}"
+        assert run.iteration_count >= 3, \
+            f"三组并行调用应递增至少 3 次 iteration，实际 {run.iteration_count}"

@@ -136,12 +136,29 @@ class AgentLoopEngine:
                 if self._is_terminal(run):
                     return self._status_value(run.status)
                 self._leases.refresh(run_id, owner, lease_seconds=lease_seconds)
-                boot = self._bootstrap_run(run, trace_id)
-                if boot != "continue":
-                    return boot
-                result = self.advance_once(run, trace_id)
-                if result != "continue":
-                    return result
+                try:
+                    boot = self._bootstrap_run(run, trace_id)
+                    if boot != "continue":
+                        return boot
+                    result = self.advance_once(run, trace_id)
+                    if result != "continue":
+                        return result
+                except Exception as exc:
+                    # 单轮异常不得让 worker 线程裸死：回滚后显式进入
+                    # partial 并记录安全警告，由 watchdog/恢复入口接管。
+                    logger.exception(
+                        "agent loop iteration failed (run_id=%s, trace_id=%s, error_type=%s)",
+                        run_id,
+                        trace_id,
+                        type(exc).__name__,
+                    )
+                    db.session.rollback()
+                    run = db.session.get(AgentRun, run_id)
+                    if run is None:
+                        return "failed"
+                    return self._finalize(
+                        run, "partial", ["AGENT_LOOP_ITERATION_FAILED"], trace_id
+                    )
         finally:
             try:
                 self._leases.release(run_id, owner)
@@ -255,6 +272,8 @@ class AgentLoopEngine:
                 # 并行工具调用：按稳定顺序串行执行（数量受工具预算与
                 # max_same_tool_same_args 约束），全部结果回填下一轮；
                 # 存在依赖时由模型自行拆分轮次。
+                run.iteration_count = (run.iteration_count or 0) + 1
+                db.session.commit()
                 for call in tool_calls:
                     terminal = self._execute_tool_call(run, call, trace_id)
                     if terminal != "continue":
@@ -437,9 +456,18 @@ class AgentLoopEngine:
         plan = self._latest_plan(run.id)
         if plan is None:
             return self._finalize(run, "failed", ["AGENT_PLAN_MISSING"], trace_id)
+        existing_keys = {
+            node.node_key for node in plan.nodes
+        }
+        base_key = f"loop_{run.iteration_count}_{call.call_id}"
+        node_key = base_key
+        counter = 1
+        while node_key in existing_keys:
+            node_key = f"{base_key}_{counter}"
+            counter += 1
         node = AgentPlanNode(
             plan_id=plan.id,
-            node_key=f"loop_{run.iteration_count}_{call.call_id}",
+            node_key=node_key,
             node_type=AgentPlanNodeType.REPOSITORY_MAPPING.value,
             status=AgentPlanNodeStatus.READY.value,
             title=call.name,
