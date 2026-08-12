@@ -3,6 +3,10 @@ from __future__ import annotations
 
 from app.services.security_agent.tools.contracts import ToolDescriptor, ToolHandler
 
+# 全部内置工具显式声明允许的运行模式与治理字段，不使用危险默认值
+_ALL_MODES = ("baseline", "hybrid", "deep_audit")
+_BASELINE_MODES = ("baseline", "hybrid", "deep_audit")
+
 
 class ToolRegistry:
     """Registers and resolves tools by name; rejects unknown names."""
@@ -11,6 +15,7 @@ class ToolRegistry:
         self._tools: dict[str, tuple[ToolDescriptor, ToolHandler]] = {}
 
     def register(self, descriptor: ToolDescriptor, handler: ToolHandler) -> None:
+        descriptor.validate()
         if descriptor.name in self._tools:
             raise ValueError(f"工具重复注册：{descriptor.name}")
         self._tools[descriptor.name] = (descriptor, handler)
@@ -68,6 +73,9 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
             timeout_seconds=60,
             idempotent=True,
             produces_artifact_types=["inventory_report"],
+            retry_policy=None,
+            allowed_modes=_ALL_MODES,
+            result_schema_version=1,
         ),
         build_inventory_handler(),
     )
@@ -82,6 +90,9 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
             timeout_seconds=600,
             idempotent=True,
             produces_artifact_types=["finding_set"],
+            retry_policy=None,
+            allowed_modes=_BASELINE_MODES,
+            result_schema_version=1,
         ),
         build_baseline_scan_handler(),
     )
@@ -95,6 +106,9 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
             risk_level="safe_read",
             timeout_seconds=30,
             idempotent=True,
+            retry_policy=None,
+            allowed_modes=_ALL_MODES,
+            result_schema_version=1,
         ),
         build_dependency_inventory_handler(),
     )
@@ -115,11 +129,15 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
                     }
                 },
                 "required": ["scanner_names"],
+                "additionalProperties": False,
             },
             risk_level="safe_read",
             timeout_seconds=600,
             idempotent=True,
             produces_artifact_types=["finding_set"],
+            retry_policy=None,
+            allowed_modes=_ALL_MODES,
+            result_schema_version=1,
         ),
         build_run_scanner_handler(),
     )
@@ -134,6 +152,9 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
             timeout_seconds=30,
             idempotent=True,
             produces_artifact_types=["coverage_report"],
+            retry_policy=None,
+            allowed_modes=_ALL_MODES,
+            result_schema_version=1,
         ),
         build_coverage_handler(),
     )
@@ -148,6 +169,9 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
             timeout_seconds=30,
             idempotent=True,
             produces_artifact_types=["risk_ranking"],
+            retry_policy=None,
+            allowed_modes=_ALL_MODES,
+            result_schema_version=1,
         ),
         build_rank_findings_handler(),
     )
@@ -161,6 +185,9 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
             risk_level="safe_read",
             timeout_seconds=30,
             idempotent=True,
+            retry_policy=None,
+            allowed_modes=_ALL_MODES,
+            result_schema_version=1,
         ),
         build_findings_handler(),
     )
@@ -175,6 +202,9 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
             timeout_seconds=10,
             idempotent=True,
             produces_artifact_types=["agent_report"],
+            retry_policy=None,
+            allowed_modes=_ALL_MODES,
+            result_schema_version=1,
         ),
         build_report_handler(),
     )
@@ -206,6 +236,9 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
                 timeout_seconds=600,
                 idempotent=True,
                 produces_artifact_types=["security_graph"],
+                retry_policy=None,
+                allowed_modes=_ALL_MODES,
+                result_schema_version=1,
             ),
             build_map_repository_handler(),
         ),
@@ -219,6 +252,9 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
                 risk_level="safe_read",
                 timeout_seconds=30,
                 idempotent=True,
+                retry_policy=None,
+                allowed_modes=_ALL_MODES,
+                result_schema_version=1,
             ),
             build_get_route_map_handler(),
         ),
@@ -232,6 +268,9 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
                 risk_level="safe_read",
                 timeout_seconds=30,
                 idempotent=True,
+                retry_policy=None,
+                allowed_modes=_ALL_MODES,
+                result_schema_version=1,
             ),
             build_get_authentication_map_handler(),
         ),
@@ -245,6 +284,9 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
                 risk_level="safe_read",
                 timeout_seconds=30,
                 idempotent=True,
+                retry_policy=None,
+                allowed_modes=_ALL_MODES,
+                result_schema_version=1,
             ),
             build_search_code_handler(),
         ),
@@ -258,6 +300,9 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
                 risk_level="safe_read",
                 timeout_seconds=30,
                 idempotent=True,
+                retry_policy=None,
+                allowed_modes=_ALL_MODES,
+                result_schema_version=1,
             ),
             build_find_symbol_references_handler(),
         ),
@@ -271,6 +316,9 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
                 risk_level="safe_read",
                 timeout_seconds=30,
                 idempotent=True,
+                retry_policy=None,
+                allowed_modes=_ALL_MODES,
+                result_schema_version=1,
             ),
             build_get_related_files_handler(),
         ),
@@ -284,6 +332,9 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
                 risk_level="safe_read",
                 timeout_seconds=60,
                 idempotent=True,
+                retry_policy=None,
+                allowed_modes=_ALL_MODES,
+                result_schema_version=1,
             ),
             build_call_chain_handler(),
         ),
@@ -297,6 +348,9 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
                 risk_level="sensitive_read",
                 timeout_seconds=30,
                 idempotent=True,
+                retry_policy=None,
+                allowed_modes=_ALL_MODES,
+                result_schema_version=1,
             ),
             build_read_code_slice_handler(),
         ),
@@ -321,11 +375,15 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
                     "file_hints": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": ["focus"],
+                "additionalProperties": False,
             },
             risk_level="sensitive_read",
             timeout_seconds=300,
             idempotent=True,
             produces_artifact_types=["agent_observation"],
+            retry_policy=None,
+            allowed_modes=_ALL_MODES,
+            result_schema_version=1,
         ),
         build_run_deep_review_handler(),
     )

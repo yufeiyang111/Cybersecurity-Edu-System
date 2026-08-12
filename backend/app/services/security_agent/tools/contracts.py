@@ -10,10 +10,16 @@ TOOL_RISK_LEVELS = frozenset(
     {"safe_read", "sensitive_read", "costly_external", "state_changing", "prohibited"}
 )
 
+AGENT_RUN_MODES = frozenset({"baseline", "hybrid", "deep_audit"})
+
 
 @dataclass(frozen=True)
 class ToolDescriptor:
-    """Declarative contract for one deterministic tool."""
+    """Declarative contract for one deterministic tool.
+
+    T05：安全关键字段缺省时注册失败（registry.register 调用 validate），
+    不使用危险默认值；retry_policy 为 None 表示永不自动重试。
+    """
 
     name: str
     version: str
@@ -25,6 +31,57 @@ class ToolDescriptor:
     idempotent: bool = True
     produces_artifact_types: list[str] = field(default_factory=list)
     requires_approval: bool = False
+    retry_policy: dict[str, Any] | None = None
+    allowed_modes: tuple[str, ...] = ("baseline", "hybrid", "deep_audit")
+    result_schema_version: int = 1
+    max_output_chars: int = 4000
+
+    def validate(self) -> None:
+        """注册前校验：非法值直接拒绝注册（拒绝危险默认值）。"""
+        if not isinstance(self.name, str) or not self.name.strip():
+            raise ValueError("工具 name 必须是非空字符串")
+        if self.risk_level not in TOOL_RISK_LEVELS:
+            raise ValueError(f"未知风险等级：{self.risk_level}")
+        if (
+            not isinstance(self.timeout_seconds, int)
+            or isinstance(self.timeout_seconds, bool)
+            or self.timeout_seconds <= 0
+        ):
+            raise ValueError("timeout_seconds 必须是正整数")
+        if not isinstance(self.idempotent, bool):
+            raise ValueError("idempotent 必须是布尔值")
+        if not isinstance(self.requires_approval, bool):
+            raise ValueError("requires_approval 必须是布尔值")
+        if not self.allowed_modes or any(
+            mode not in AGENT_RUN_MODES for mode in self.allowed_modes
+        ):
+            raise ValueError(
+                f"allowed_modes 必须是非空模式白名单：{', '.join(sorted(AGENT_RUN_MODES))}"
+            )
+        if (
+            not isinstance(self.result_schema_version, int)
+            or isinstance(self.result_schema_version, bool)
+            or self.result_schema_version < 1
+        ):
+            raise ValueError("result_schema_version 必须是正整数")
+        if not isinstance(self.max_output_chars, int) or self.max_output_chars <= 0:
+            raise ValueError("max_output_chars 必须是正整数")
+        if self.retry_policy is not None:
+            if not isinstance(self.retry_policy, dict):
+                raise ValueError("retry_policy 必须是对象")
+            max_attempts = self.retry_policy.get("max_attempts")
+            if (
+                not isinstance(max_attempts, int)
+                or isinstance(max_attempts, bool)
+                or max_attempts < 1
+            ):
+                raise ValueError("retry_policy.max_attempts 必须是正整数")
+            codes = self.retry_policy.get("retryable_warning_codes")
+            if codes is not None and (
+                not isinstance(codes, list)
+                or any(not isinstance(code, str) for code in codes)
+            ):
+                raise ValueError("retry_policy.retryable_warning_codes 必须是字符串列表")
 
 
 @dataclass

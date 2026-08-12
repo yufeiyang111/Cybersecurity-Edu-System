@@ -107,11 +107,13 @@ def test_executor_idempotency_key_prevents_duplicate_execution(run_with_node, ap
         assert run.tool_call_count == 1
 
 
-def test_unknown_tool_raises(run_with_node, app):
+def test_unknown_tool_rejected_with_structured_failure(run_with_node, app):
+    """T05 门禁：未注册工具返回结构化失败（AGENT_TOOL_FAILED），不再裸抛 KeyError。"""
     with app.app_context():
         run, node, step = run_with_node
         node.tool_name = "not_registered_tool"
         db.session.commit()
         executor = ToolExecutor(get_tool_registry(), EventService())
-        with pytest.raises(KeyError):
-            executor.execute(run, node, step, actor_id=run.created_by, trace_id="t")
+        result = executor.execute(run, node, step, actor_id=run.created_by, trace_id="t")
+        assert result.status == "failed"
+        assert result.error_code == "AGENT_TOOL_FAILED"
