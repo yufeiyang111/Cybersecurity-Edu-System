@@ -1,57 +1,112 @@
 <template>
   <div class="knowledge-admin-page">
-    <h2 class="page-title">知识管理</h2>
+    <div class="page-heading animate-fadeIn">
+      <h2>知识管理</h2>
+      <el-button
+        type="primary"
+        @click="scrollToUpload"
+      >
+        <el-icon>
+          <Upload />
+        </el-icon>
+        上传文档
+      </el-button>
+    </div>
 
-    <!-- 上传文档区域 -->
-    <el-card class="upload-card">
+    <el-card
+      ref="uploadCardRef"
+      class="panel-card upload-card animate-fadeIn"
+      shadow="never"
+      style="animation-delay: 0.08s"
+    >
       <template #header>
-        <div class="card-header">
+        <div class="panel-card__header">
           <span>文档上传</span>
+          <span class="panel-card__header-tip">支持 PDF、Word(.docx/.doc)、HTML、Markdown、TXT</span>
         </div>
       </template>
+
       <el-upload
         ref="uploadRef"
+        class="upload-drop"
+        drag
         :auto-upload="false"
         :on-change="handleChange"
         :before-remove="beforeRemove"
         multiple
         accept=".pdf,.docx,.doc,.html,.htm,.md,.txt"
       >
-        <template #trigger>
-          <el-button type="primary">
-            <el-icon><Upload /></el-icon> 选择文件
-          </el-button>
-        </template>
-        <el-button type="success" @click="submitUpload" :loading="uploading">
-          <el-icon><UploadFilled /></el-icon> 开始上传
-        </el-button>
+        <el-icon class="upload-drop__icon">
+          <UploadFilled />
+        </el-icon>
+        <div class="el-upload__text">
+          将文件拖到此处，或 <em>点击选择文件</em>
+        </div>
         <template #tip>
           <div class="el-upload__tip">
-            支持 PDF、Word(.docx/.doc)、HTML、Markdown、TXT 格式，单文件不超过 10MB
+            单文件不超过 10MB
           </div>
         </template>
       </el-upload>
 
       <div class="upload-options">
-        <el-select v-model="uploadCategoryId" placeholder="选择分类（可选）" clearable size="small" style="width: 200px;">
-          <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
+        <span class="upload-options__label">上传设置</span>
+        <el-select
+          v-model="uploadCategoryId"
+          placeholder="选择分类（可选）"
+          clearable
+          size="default"
+          style="width: 200px"
+        >
+          <el-option
+            v-for="cat in categories"
+            :key="cat.id"
+            :label="cat.name"
+            :value="cat.id"
+          />
         </el-select>
-        <el-select v-model="uploadDifficulty" placeholder="难度" size="small" style="width: 120px;">
+        <el-select
+          v-model="uploadDifficulty"
+          placeholder="难度"
+          size="default"
+          style="width: 140px"
+        >
           <el-option label="入门" value="easy" />
           <el-option label="进阶" value="medium" />
           <el-option label="高级" value="hard" />
         </el-select>
+        <el-button
+          type="success"
+          :loading="uploading"
+          @click="submitUpload"
+        >
+          <el-icon>
+            <UploadFilled />
+          </el-icon>
+          开始上传（{{ selectedFiles.length }}）
+        </el-button>
       </div>
     </el-card>
 
-    <el-card>
+    <el-card
+      class="panel-card list-card animate-fadeIn"
+      shadow="never"
+      style="animation-delay: 0.16s"
+    >
+      <template #header>
+        <div class="panel-card__header">
+          <span>知识列表</span>
+          <span class="panel-card__header-count">共 {{ total }} 条</span>
+        </div>
+      </template>
+
       <div class="toolbar">
         <el-input
           v-model="keyword"
           placeholder="搜索标题..."
           clearable
+          class="toolbar__search"
           @keyup.enter="handleSearch"
-          style="width: 300px;"
         >
           <template #prefix>
             <el-icon>
@@ -59,47 +114,160 @@
             </el-icon>
           </template>
         </el-input>
-        <el-select v-model="filterStatus" placeholder="筛选状态" clearable @change="handleSearch">
-          <el-option label="已发布" value="published" />
-          <el-option label="草稿" value="draft" />
-          <el-option label="已归档" value="archived" />
-        </el-select>
+
+        <div class="toolbar__filters">
+          <button
+            v-for="option in statusOptions"
+            :key="option.value"
+            type="button"
+            class="filter-chip"
+            :class="{ 'filter-chip--active': filterStatus === option.value }"
+            @click="handleFilterChange(option.value)"
+          >
+            <span
+              class="filter-chip__dot"
+              :style="{ background: option.color }"
+            />
+            {{ option.label }}
+          </button>
+        </div>
       </div>
 
-      <el-table :data="items" v-loading="loading" stripe>
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="title" label="标题" min-width="200" />
-        <el-table-column prop="category_name" label="分类" width="120" />
-        <el-table-column prop="difficulty" label="难度" width="80">
+      <el-table
+        :data="items"
+        v-loading="loading"
+        stripe
+        class="knowledge-table"
+        @row-click="handleView"
+      >
+        <template #empty>
+          <div class="table-empty">暂无知识文档</div>
+        </template>
+        <el-table-column label="标题" min-width="240">
           <template #default="{ row }">
-            <el-tag :type="getDifficultyType(row.difficulty)" size="small">
-              {{ getDifficultyText(row.difficulty) }}
-            </el-tag>
+            <div class="title-cell">
+              <span class="title-cell__icon">
+                <el-icon>
+                  <Document />
+                </el-icon>
+              </span>
+              <span class="title-cell__text">{{ row.title }}</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="category_name" label="分类" width="120">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
+            <span v-if="row.category_name" class="category-tag">{{ row.category_name }}</span>
+            <span v-else class="muted-text">未分类</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="难度" width="90">
+          <template #default="{ row }">
+            <span
+              class="difficulty-dots"
+              :class="`difficulty-dots--${row.difficulty || 'medium'}`"
+              :title="getDifficultyText(row.difficulty)"
+            >
+              <i
+                v-for="n in 3"
+                :key="n"
+                :class="{ 'is-active': n <= difficultyLevel(row.difficulty) }"
+              />
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <span class="status-text" :class="`status-text--${row.status}`">
+              <i class="status-text__dot" />
               {{ getStatusText(row.status) }}
-            </el-tag>
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="view_count" label="浏览" width="80" />
-        <el-table-column prop="created_at" label="创建时间" width="180">
+        <el-table-column label="浏览" width="80" align="center">
+          <template #default="{ row }">
+            <span class="view-count">
+              <el-icon>
+                <View />
+              </el-icon>
+              {{ row.view_count || 0 }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="150">
           <template #default="{ row }">
             {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
-            <el-button size="small" @click="handleAudit(row, 'approve')" v-if="row.status === 'draft'">
-              通过
-            </el-button>
-            <el-button size="small" type="warning" @click="handleAudit(row, 'reject')" v-if="row.status === 'draft'">
-              拒绝
-            </el-button>
+            <div class="action-buttons">
+              <el-tooltip content="查看" placement="top">
+                <el-button
+                  size="small"
+                  circle
+                  class="action-btn"
+                  @click.stop="handleView(row)"
+                >
+                  <el-icon>
+                    <View />
+                  </el-icon>
+                </el-button>
+              </el-tooltip>
+              <el-tooltip content="编辑" placement="top">
+                <el-button
+                  size="small"
+                  circle
+                  class="action-btn"
+                  @click.stop="handleEdit(row)"
+                >
+                  <el-icon>
+                    <Edit />
+                  </el-icon>
+                </el-button>
+              </el-tooltip>
+              <template v-if="row.status === 'draft'">
+                <el-tooltip content="审核通过" placement="top">
+                  <el-button
+                    size="small"
+                    circle
+                    type="success"
+                    class="action-btn"
+                    @click.stop="handleAudit(row, 'approve')"
+                  >
+                    <el-icon>
+                      <CircleCheck />
+                    </el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="审核拒绝" placement="top">
+                  <el-button
+                    size="small"
+                    circle
+                    type="warning"
+                    class="action-btn"
+                    @click.stop="handleAudit(row, 'reject')"
+                  >
+                    <el-icon>
+                      <Close />
+                    </el-icon>
+                  </el-button>
+                </el-tooltip>
+              </template>
+              <el-tooltip content="删除" placement="top">
+                <el-button
+                  size="small"
+                  circle
+                  type="danger"
+                  class="action-btn"
+                  @click.stop="handleDelete(row)"
+                >
+                  <el-icon>
+                    <Delete />
+                  </el-icon>
+                </el-button>
+              </el-tooltip>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -120,13 +288,14 @@
       <div v-if="currentItem" class="item-detail">
         <h3>{{ currentItem.title }}</h3>
         <div class="detail-meta">
-          <el-tag>{{ currentItem.category_name }}</el-tag>
-          <el-tag :type="getDifficultyType(currentItem.difficulty)">
-            {{ getDifficultyText(currentItem.difficulty) }}
-          </el-tag>
-          <el-tag :type="getStatusType(currentItem.status)">
+          <span v-if="currentItem.category_name" class="category-tag">{{ currentItem.category_name }}</span>
+          <span class="difficulty-dots" :class="`difficulty-dots--${currentItem.difficulty || 'medium'}`">
+            <i v-for="n in 3" :key="n" :class="{ 'is-active': n <= difficultyLevel(currentItem.difficulty) }" />
+          </span>
+          <span class="status-text" :class="`status-text--${currentItem.status}`">
+            <i class="status-text__dot" />
             {{ getStatusText(currentItem.status) }}
-          </el-tag>
+          </span>
         </div>
         <el-divider />
         <div class="detail-content markdown-content" v-html="renderContent"></div>
@@ -162,7 +331,7 @@
           <el-input v-model="editForm.source" />
         </el-form-item>
         <el-form-item label="内容">
-          <el-input v-model="editForm.content" type="textarea" :rows="15" />
+          <el-input v-model="editForm.content" type="textarea" :rows="32" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -177,7 +346,17 @@
 import { ref, computed, onMounted } from 'vue'
 import { adminAPI, knowledgeAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Upload, UploadFilled } from '@element-plus/icons-vue'
+import {
+  Upload,
+  UploadFilled,
+  Search,
+  View,
+  Edit,
+  Delete,
+  CircleCheck,
+  Close,
+  Document
+} from '@element-plus/icons-vue'
 import { renderMarkdown } from '@/features/markdown/renderMarkdown'
 
 const loading = ref(false)
@@ -192,6 +371,7 @@ const currentItem = ref(null)
 const categories = ref([])
 const uploading = ref(false)
 const uploadRef = ref(null)
+const uploadCardRef = ref(null)
 const uploadCategoryId = ref(null)
 const uploadDifficulty = ref('medium')
 const selectedFiles = ref([])
@@ -201,9 +381,21 @@ const editVisible = ref(false)
 const editLoading = ref(false)
 const editForm = ref(null)
 
+const statusOptions = [
+  { value: '', label: '全部', color: '#909399' },
+  { value: 'published', label: '已发布', color: '#2ea44f' },
+  { value: 'draft', label: '草稿', color: '#d29922' },
+  { value: 'archived', label: '已归档', color: '#6e7781' }
+]
+
 const renderContent = computed(() => {
   return renderMarkdown(currentItem.value?.content)
 })
+
+const difficultyLevel = (difficulty) => {
+  const levels = { easy: 1, medium: 2, hard: 3 }
+  return levels[difficulty] || 2
+}
 
 const getDifficultyType = (difficulty) => {
   const types = { easy: 'success', medium: 'warning', hard: 'danger' }
@@ -227,7 +419,9 @@ const getStatusText = (status) => {
 
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString('zh-CN')
+  const date = new Date(dateStr)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 const fetchItems = async () => {
@@ -236,7 +430,8 @@ const fetchItems = async () => {
     const res = await adminAPI.getAllKnowledge({
       page: currentPage.value,
       per_page: pageSize.value,
-      status: filterStatus.value || undefined
+      status: filterStatus.value || undefined,
+      keyword: keyword.value.trim() || undefined
     })
     items.value = res.items || []
     total.value = res.total || 0
@@ -250,6 +445,11 @@ const fetchItems = async () => {
 const handleSearch = () => {
   currentPage.value = 1
   fetchItems()
+}
+
+const handleFilterChange = (status) => {
+  filterStatus.value = status
+  handleSearch()
 }
 
 const handlePageChange = (page) => {
@@ -278,6 +478,12 @@ const fetchCategories = async () => {
     categories.value = res.categories || []
   } catch (error) {
     console.error('获取分类失败')
+  }
+}
+
+const scrollToUpload = () => {
+  if (uploadCardRef.value) {
+    uploadCardRef.value.$el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 }
 
@@ -329,7 +535,7 @@ const handleEdit = (row) => {
   editForm.value = {
     id: row.id,
     title: row.title,
-    content: row.content,
+    content: row.content || '',
     category_id: row.category_id,
     difficulty: row.difficulty,
     status: row.status,
@@ -383,56 +589,340 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .knowledge-admin-page {
-  .page-title {
-    margin: 0 0 24px;
-    font-size: 24px;
+  // ==================== 页面标题行 ====================
+  .page-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: #1f2937;
+    }
+  }
+
+  // ==================== 内容卡片 ====================
+  .panel-card {
+    border-radius: 12px;
+    border: 1px solid #e6e8eb;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+
+    :deep(.el-card__header) {
+      background: #fff;
+      border-bottom-color: #e6e8eb;
+    }
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    }
+  }
+
+  .panel-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
     color: #303133;
   }
 
+  .panel-card__header-tip {
+    font-size: 12px;
+    font-weight: 400;
+    color: #909399;
+  }
+
+  .panel-card__header-count {
+    font-size: 12px;
+    font-weight: 400;
+    color: #909399;
+  }
+
+  // ==================== 上传区 ====================
   .upload-card {
     margin-bottom: 20px;
 
-    .card-header {
-      font-weight: 600;
-      color: #303133;
-    }
-
     :deep(.el-upload) {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
       width: 100%;
     }
+  }
 
-    :deep(.el-upload__tip) {
-      width: 100%;
-      margin-top: 8px;
-      color: #909399;
-      font-size: 12px;
+  .upload-drop {
+    :deep(.el-upload-dragger) {
+      border: 2px dashed #d0d7de;
+      border-radius: 12px;
+      padding: 28px 0;
+      transition: border-color 0.25s ease, background 0.25s ease;
+
+      &:hover {
+        border-color: #2ea44f;
+        background: rgba(46, 164, 79, 0.04);
+      }
     }
+  }
 
-    .upload-options {
-      margin-top: 16px;
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      flex-wrap: wrap;
+  .upload-drop__icon {
+    font-size: 44px;
+    color: #c8d2dd;
+    margin-bottom: 10px;
+    transition: color 0.25s ease, transform 0.25s ease;
+  }
+
+  .upload-drop:hover .upload-drop__icon {
+    color: #2ea44f;
+    transform: translateY(-3px);
+  }
+
+  .upload-options {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+
+  .upload-options__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #606266;
+  }
+
+  // ==================== 列表区 ====================
+  .list-card {
+    :deep(.el-card__body) {
+      padding: 0;
     }
   }
 
   .toolbar {
     display: flex;
-    gap: 12px;
-    margin-bottom: 16px;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e6e8eb;
+  }
+
+  .toolbar__search {
+    width: 280px;
+  }
+
+  .toolbar__filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid #e6e8eb;
+    border-radius: 999px;
+    background: #fff;
+    color: #606266;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      border-color: #2ea44f;
+      color: #2ea44f;
+    }
+
+    &--active {
+      background: rgba(46, 164, 79, 0.08);
+      border-color: #2ea44f;
+      color: #2ea44f;
+      font-weight: 600;
+    }
+  }
+
+  .filter-chip__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  // ==================== 表格 ====================
+  .knowledge-table {
+    min-height: 620px;
+
+    :deep(th.el-table__cell) {
+      background: #fafbfc;
+    }
+
+    :deep(tbody tr) {
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    :deep(tbody tr:hover > td.el-table__cell) {
+      background: #f6f8fa;
+    }
+  }
+
+  .table-empty {
+    padding: 80px 0;
+    color: #909399;
+    font-size: 13px;
+  }
+
+  .title-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .title-cell__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #eef2ff;
+    color: #4f46e5;
+    flex-shrink: 0;
+  }
+
+  .title-cell__text {
+    color: #303133;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: #2ea44f;
+    }
+  }
+
+  .category-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #f0f2f5;
+    color: #57606a;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .muted-text {
+    color: #c8d2dd;
+    font-size: 12px;
+  }
+
+  // 难度点（●●●）
+  .difficulty-dots {
+    display: inline-flex;
+    gap: 4px;
+
+    i {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #e6e8eb;
+      transition: background 0.2s ease;
+    }
+
+    &--easy i.is-active {
+      background: #2ea44f;
+    }
+
+    &--medium i.is-active {
+      background: #d29922;
+    }
+
+    &--hard i.is-active {
+      background: #cf222e;
+    }
+  }
+
+  // 状态点 + 文字
+  .status-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+
+    &__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    &--published {
+      color: #2ea44f;
+
+      .status-text__dot {
+        background: #2ea44f;
+      }
+    }
+
+    &--draft {
+      color: #d29922;
+
+      .status-text__dot {
+        background: #d29922;
+      }
+    }
+
+    &--archived {
+      color: #6e7781;
+
+      .status-text__dot {
+        background: #6e7781;
+      }
+    }
+  }
+
+  .view-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #909399;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  // 操作按钮
+  .action-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .action-btn {
+    border-color: #e6e8eb;
+    color: #606266;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+      border-color: #2ea44f;
+      color: #2ea44f;
+    }
   }
 
   .pagination-wrapper {
     display: flex;
     justify-content: center;
-    margin-top: 20px;
+    padding: 16px 0;
   }
 
+  // ==================== 详情 ====================
   .item-detail {
     h3 {
       margin: 0 0 16px;
@@ -441,7 +931,9 @@ onMounted(() => {
 
     .detail-meta {
       display: flex;
-      gap: 8px;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     .detail-content {
@@ -450,108 +942,59 @@ onMounted(() => {
       line-height: 1.8;
       color: #606266;
       font-size: 14px;
+    }
+  }
+}
 
-      h1, h2, h3, h4, h5, h6 {
-        margin-top: 1.5em;
-        margin-bottom: 0.5em;
-        font-weight: 600;
-        color: #303133;
-      }
+@media (max-width: 768px) {
+  .knowledge-admin-page {
+    .page-heading {
+      flex-wrap: wrap;
 
-      h1 { font-size: 1.8em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
-      h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
-      h3 { font-size: 1.3em; }
-      h4 { font-size: 1.1em; }
-
-      p {
-        margin: 1em 0;
-      }
-
-      code {
-        background: #f0f0f0;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-family: 'Courier New', monospace;
-        font-size: 0.9em;
-        color: #e83e8c;
-      }
-
-      pre {
-        background: #1e1e1e;
-        color: #d4d4d4;
-        padding: 16px;
-        border-radius: 8px;
-        overflow-x: auto;
-        margin: 1em 0;
-
-        code {
-          background: transparent;
-          padding: 0;
-          color: inherit;
-        }
-      }
-
-      blockquote {
-        margin: 1em 0;
-        padding: 0.5em 1em;
-        border-left: 4px solid #409eff;
-        background: #f5f7fa;
-        color: #606266;
-
-        p {
-          margin: 0.5em 0;
-        }
-      }
-
-      ul, ol {
-        padding-left: 2em;
-        margin: 1em 0;
-
-        li {
-          margin: 0.5em 0;
-        }
-      }
-
-      table {
+      .el-button {
         width: 100%;
-        border-collapse: collapse;
-        margin: 1em 0;
+      }
+    }
 
-        th, td {
-          border: 1px solid #dcdfe6;
-          padding: 8px 12px;
-          text-align: left;
-        }
+    .toolbar__search {
+      width: 100%;
+    }
 
-        th {
-          background: #f5f7fa;
-          font-weight: 600;
-        }
-
-        tr:nth-child(even) {
-          background: #fafafa;
-        }
+    .upload-options {
+      .el-select {
+        width: 100% !important;
       }
 
-      a {
-        color: #409eff;
-        text-decoration: none;
-
-        &:hover {
-          text-decoration: underline;
-        }
+      .el-button {
+        width: 100%;
       }
+    }
 
-      img {
-        max-width: 100%;
-        border-radius: 8px;
-      }
+    .panel-card__header-tip {
+      display: none;
+    }
+  }
+}
 
-      hr {
-        border: none;
-        border-top: 1px solid #eee;
-        margin: 2em 0;
-      }
+@media (prefers-reduced-motion: reduce) {
+  .knowledge-admin-page {
+    .panel-card {
+      transition: none;
+    }
+
+    .panel-card:hover {
+      transform: none;
+    }
+
+    .upload-drop__icon {
+      transition: none;
+    }
+
+    .filter-chip,
+    .action-btn,
+    .difficulty-dots i,
+    .title-cell__text {
+      transition: none;
     }
   }
 }

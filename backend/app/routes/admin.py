@@ -280,6 +280,7 @@ def get_all_knowledge():
     per_page = request.args.get("per_page", 10, type=int)
     status = request.args.get("status", "")
     category_id = request.args.get("category_id", type=int)
+    keyword = request.args.get("keyword", "").strip()
     
     query = KnowledgeItem.query
     
@@ -287,6 +288,8 @@ def get_all_knowledge():
         query = query.filter_by(status=status)
     if category_id:
         query = query.filter_by(category_id=category_id)
+    if keyword:
+        query = query.filter(KnowledgeItem.title.ilike(f"%{keyword}%"))
     
     pagination = query.order_by(KnowledgeItem.created_at.desc())\
         .paginate(page=page, per_page=per_page, error_out=False)

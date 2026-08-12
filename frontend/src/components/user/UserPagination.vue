@@ -1,5 +1,5 @@
 <template>
-  <nav v-if="total > perPage" class="user-pagination">
+  <nav class="user-pagination">
     <button
       type="button"
       class="user-pagination__btn"

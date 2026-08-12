@@ -19,59 +19,74 @@
         @tab-change="handleTabChange"
       >
         <el-tab-pane label="问答收藏" name="qa">
-          <div v-if="qaLoading" class="favorites-card__skeleton">
-            <div v-for="index in 3" :key="index" class="skeleton-row" />
-          </div>
+          <div class="favorites-pane">
+            <div class="favorites-pane__body">
+              <div v-if="qaLoading" class="favorites-card__skeleton">
+                <div v-for="index in 3" :key="index" class="skeleton-row" />
+              </div>
 
-          <div v-else-if="qaFavorites.length" class="favorites-card__list">
-            <FavoriteQACard
-              v-for="favorite in qaFavorites"
-              :key="favorite.id"
-              :favorite="favorite"
-              @view="viewQADetail"
-              @continue="continueAsk"
-              @remove="removeQAFavorite"
+              <div v-else-if="qaFavorites.length" class="favorites-card__list">
+                <FavoriteQACard
+                  v-for="favorite in qaFavorites"
+                  :key="favorite.id"
+                  :favorite="favorite"
+                  @view="viewQADetail"
+                  @continue="continueAsk"
+                  @remove="removeQAFavorite"
+                />
+              </div>
+
+              <el-empty
+                v-else
+                description="暂无问答收藏"
+                :image-size="80"
+                class="favorites-card__empty"
+              />
+            </div>
+
+            <UserPagination
+              v-model="qaPage"
+              :total="qaTotal"
+              :per-page="qaPageSize"
+              @change="fetchQAFavorites"
             />
           </div>
-
-          <el-empty
-            v-else
-            description="暂无问答收藏"
-            :image-size="80"
-            class="favorites-card__empty"
-          />
         </el-tab-pane>
 
         <el-tab-pane label="知识收藏" name="knowledge">
-          <div v-if="knowledgeLoading" class="favorites-card__skeleton">
-            <div v-for="index in 3" :key="index" class="skeleton-row" />
-          </div>
+          <div class="favorites-pane">
+            <div class="favorites-pane__body">
+              <div v-if="knowledgeLoading" class="favorites-card__skeleton">
+                <div v-for="index in 3" :key="index" class="skeleton-row" />
+              </div>
 
-          <div v-else-if="knowledgeFavorites.length" class="favorites-card__list">
-            <FavoriteKnowledgeCard
-              v-for="item in knowledgeFavorites"
-              :key="item.id"
-              :item="item"
-              @view="viewKnowledgeDetail"
-              @remove="removeKnowledgeFavorite"
+              <div v-else-if="knowledgeFavorites.length" class="favorites-card__list">
+                <FavoriteKnowledgeCard
+                  v-for="item in knowledgeFavorites"
+                  :key="item.id"
+                  :item="item"
+                  @view="viewKnowledgeDetail"
+                  @remove="removeKnowledgeFavorite"
+                />
+              </div>
+
+              <el-empty
+                v-else
+                description="暂无知识收藏"
+                :image-size="80"
+                class="favorites-card__empty"
+              />
+            </div>
+
+            <UserPagination
+              v-model="knowledgePage"
+              :total="knowledgeTotal"
+              :per-page="knowledgePageSize"
+              @change="fetchKnowledgeFavorites"
             />
           </div>
-
-          <el-empty
-            v-else
-            description="暂无知识收藏"
-            :image-size="80"
-            class="favorites-card__empty"
-          />
         </el-tab-pane>
       </el-tabs>
-
-      <UserPagination
-        v-model="currentPage"
-        :total="total"
-        :per-page="pageSize"
-        @change="handlePageChange"
-      />
     </section>
 
     <el-dialog v-model="qaDetailVisible" title="问答详情" width="min(700px, calc(100vw - 32px))">
@@ -121,9 +136,12 @@ const qaLoading = ref(false)
 const knowledgeLoading = ref(false)
 const qaFavorites = ref([])
 const knowledgeFavorites = ref([])
-const total = ref(0)
-const currentPage = ref(1)
-const pageSize = ref(10)
+const qaTotal = ref(0)
+const qaPage = ref(1)
+const qaPageSize = ref(10)
+const knowledgeTotal = ref(0)
+const knowledgePage = ref(1)
+const knowledgePageSize = ref(10)
 const qaDetailVisible = ref(false)
 const currentQARecord = ref(null)
 
@@ -137,11 +155,11 @@ const fetchQAFavorites = async () => {
   qaLoading.value = true
   try {
     const res = await qaAPI.getFavorites({
-      page: currentPage.value,
-      per_page: pageSize.value
+      page: qaPage.value,
+      per_page: qaPageSize.value
     })
     qaFavorites.value = res.favorites || []
-    total.value = res.total || 0
+    qaTotal.value = res.total || 0
   } catch (error) {
     console.error('获取收藏失败')
   } finally {
@@ -153,11 +171,11 @@ const fetchKnowledgeFavorites = async () => {
   knowledgeLoading.value = true
   try {
     const res = await knowledgeAPI.getMyFavorites({
-      page: currentPage.value,
-      per_page: pageSize.value
+      page: knowledgePage.value,
+      per_page: knowledgePageSize.value
     })
     knowledgeFavorites.value = res.items || []
-    total.value = res.total || 0
+    knowledgeTotal.value = res.total || 0
   } catch (error) {
     console.error('获取知识收藏失败')
   } finally {
@@ -166,17 +184,7 @@ const fetchKnowledgeFavorites = async () => {
 }
 
 const handleTabChange = (tabName) => {
-  currentPage.value = 1
   if (tabName === 'qa') {
-    fetchQAFavorites()
-  } else {
-    fetchKnowledgeFavorites()
-  }
-}
-
-const handlePageChange = (page) => {
-  currentPage.value = page
-  if (activeTab.value === 'qa') {
     fetchQAFavorites()
   } else {
     fetchKnowledgeFavorites()
@@ -292,6 +300,18 @@ onMounted(() => {
   }
 }
 
+.favorites-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
+}
+
+.favorites-pane__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .favorites-card__skeleton {
   display: flex;
   flex-direction: column;
@@ -307,6 +327,7 @@ onMounted(() => {
 }
 
 .favorites-card__empty {
+  margin: auto;
   padding: 48px 0;
 }
 

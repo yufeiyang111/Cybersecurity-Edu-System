@@ -1,24 +1,23 @@
 <template>
   <div class="help-admin">
-    <div class="help-admin__header">
-      <div>
-        <h2 class="page-title">帮助文档管理</h2>
-        <p class="page-desc">管理公开帮助中心的分类与文档。文档内容为 Markdown，支持多级标题、表格、代码块等结构。</p>
-      </div>
+    <div class="page-heading animate-fadeIn">
+      <h2>帮助文档管理</h2>
       <BaseButton variant="primary" @click="openCreateCategory">新建分类</BaseButton>
     </div>
 
     <div class="help-admin__layout">
-      <HelpDocumentList
-        :tree="adminTree"
-        :loading="loading"
-        :active-document-id="activeDocumentId"
-        @select-document="selectDocument"
-        @edit-category="openEditCategory"
-        @delete-category="confirmDeleteCategory"
-      />
+      <div class="help-admin__list animate-fadeIn" style="animation-delay: 0.1s">
+        <HelpDocumentList
+          :tree="adminTree"
+          :loading="loading"
+          :active-document-id="activeDocumentId"
+          @select-document="selectDocument"
+          @edit-category="openEditCategory"
+          @delete-category="confirmDeleteCategory"
+        />
+      </div>
 
-      <div class="help-admin__editor">
+      <div class="help-admin__editor animate-fadeIn" style="animation-delay: 0.18s">
         <HelpDocumentEditor
           :document="editingDocument"
           :tree="adminTree"
@@ -176,42 +175,44 @@ onMounted(loadTree)
 
 <style scoped lang="scss">
 .help-admin {
-  padding: 24px 0 48px;
-
-  &__header {
+  // ==================== 页面标题行 ====================
+  .page-heading {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: flex-start;
     gap: 16px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: #1f2937;
+    }
   }
 
+  // ==================== 布局 ====================
   &__layout {
     display: grid;
     grid-template-columns: 300px minmax(0, 1fr);
     gap: 16px;
-    align-items: start;
+    align-items: stretch;
+  }
+
+  &__list {
+    min-width: 0;
+  }
+
+  &__editor {
+    min-width: 0;
   }
 }
 
-.page-title {
-  margin: 0 0 6px;
-  font-size: 22px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.page-desc {
-  margin: 0;
-  font-size: 13px;
-  color: #64748b;
-  max-width: 640px;
-  line-height: 1.6;
-}
-
 @media (max-width: 1000px) {
-  .help-admin__layout {
-    grid-template-columns: 1fr;
+  .help-admin {
+    &__layout {
+      grid-template-columns: 1fr;
+    }
   }
 }
 </style>
