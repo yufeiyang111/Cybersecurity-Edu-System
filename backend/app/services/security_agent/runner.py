@@ -69,6 +69,11 @@ class InlinePlanRunner:
 
     def run(self, run_id: int, trace_id: str, app) -> None:
         with app.app_context():
+            if bool(app.config.get("AGENT_LOOP_V2_ENABLED", False)):
+                from app.services.security_agent.loop.engine import AgentLoopEngine
+
+                AgentLoopEngine().run_until_interrupt(run_id, trace_id)
+                return
             try:
                 run = db.session.get(AgentRun, run_id)
                 if run is None:
