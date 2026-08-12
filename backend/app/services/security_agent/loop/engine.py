@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 from app import db
 from app.models.agent_runtime import (
@@ -32,6 +33,7 @@ from app.services.security_agent.loop.context_assembler import (
     ContextAssembler,
 )
 from app.services.security_agent.loop.control_inputs import ControlInputService
+from app.services.security_agent.loop.lease_service import LeaseService
 from app.services.security_agent.model.contracts import (
     AgentModelMessage,
     AgentModelRequest,
@@ -80,6 +82,7 @@ class AgentLoopEngine:
         assembler: ContextAssembler | None = None,
         evaluator: CompletionEvaluator | None = None,
         state: AgentStateMachine | None = None,
+        leases=None,
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
         max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS,
         max_consecutive_model_errors: int = DEFAULT_MAX_CONSECUTIVE_MODEL_ERRORS,
@@ -95,6 +98,7 @@ class AgentLoopEngine:
         self._assembler = assembler or ContextAssembler()
         self._evaluator = evaluator or CompletionEvaluator()
         self._state = state or AgentStateMachine()
+        self._leases = leases or LeaseService()
         self._tools = ToolExecutor(self._registry, events or EventServiceLike())
         self.max_iterations = max_iterations
         self.max_tool_calls = max_tool_calls
@@ -113,16 +117,30 @@ class AgentLoopEngine:
     # ---------------------------------------------------------------- loop
 
     def run_until_interrupt(self, run_id: int, trace_id: str) -> str:
-        """推进到中断或终态；返回终态名或 interrupted。"""
-        while True:
-            run = db.session.get(AgentRun, run_id)
-            if run is None:
-                return "failed"
-            if self._is_terminal(run):
-                return self._status_value(run.status)
-            result = self.advance_once(run, trace_id)
-            if result != "continue":
-                return result
+        """推进到中断或终态；返回终态名或 interrupted。
+
+        先原子获取 Lease（失败说明另一 Worker 在跑，立即让出，不重复执行）。
+        """
+        owner = f"loop-{os.getpid()}"
+        lease_seconds = _config_int("AGENT_LOOP_LEASE_SECONDS", 60)
+        if not self._leases.acquire(run_id, owner, lease_seconds=lease_seconds):
+            return "interrupted"
+        try:
+            while True:
+                run = db.session.get(AgentRun, run_id)
+                if run is None:
+                    return "failed"
+                if self._is_terminal(run):
+                    return self._status_value(run.status)
+                self._leases.refresh(run_id, owner, lease_seconds=lease_seconds)
+                result = self.advance_once(run, trace_id)
+                if result != "continue":
+                    return result
+        finally:
+            try:
+                self._leases.release(run_id, owner)
+            except Exception:
+                db.session.rollback()
 
     def advance_once(self, run: AgentRun, trace_id: str) -> str:
         """单轮推进：控制输入 → 硬限制 → 上下文 → 模型 → 动作 → 检查点。"""
@@ -146,6 +164,8 @@ class AgentLoopEngine:
 
         request = self._build_request(run)
         response = self._next_model_turn(run, request, trace_id)
+        if response == "interrupted":
+            return "interrupted"
         if response is None:
             return "continue"
 
@@ -203,6 +223,8 @@ class AgentLoopEngine:
             run=run,
             trace_id=trace_id,
         )
+        if response.warning_code == "AGENT_APPROVAL_REQUIRED":
+            return self._enter_awaiting_approval(run, trace_id)
         if response.warning_code:
             self._consecutive_model_errors += 1
             if self._consecutive_model_errors >= self.max_consecutive_model_errors:
@@ -212,6 +234,20 @@ class AgentLoopEngine:
             return None
         self._consecutive_model_errors = 0
         return response
+
+    def _enter_awaiting_approval(self, run: AgentRun, trace_id: str) -> str:
+        """审批中断：转入 AWAITING_APPROVAL 并让出 Worker，不占用轮询。"""
+        try:
+            self._state.transition(
+                run,
+                AgentRunStatus.AWAITING_APPROVAL,
+                actor_id=run.created_by,
+                reason="模型请求审批，等待人工决策",
+                trace_id=trace_id,
+            )
+        except Exception:
+            db.session.rollback()
+        return "interrupted"
 
     def _build_request(self, run: AgentRun) -> AgentModelRequest:
         context = self._assembler.build(
@@ -662,6 +698,17 @@ def _render_context(context: dict) -> str:
 
 def _status_value(value) -> str:
     return value.value if hasattr(value, "value") else str(value)
+
+
+def _config_int(key: str, default: int) -> int:
+    from flask import current_app
+
+    if current_app is None:
+        return default
+    try:
+        return int(current_app.config.get(key, default))
+    except (TypeError, ValueError):
+        return default
 
 
 def _plan_node(plan: AgentPlan, node_key: str) -> AgentPlanNode | None:

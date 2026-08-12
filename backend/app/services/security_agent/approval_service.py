@@ -217,6 +217,7 @@ class ApprovalService:
 
         if decision == ApprovalStatus.APPROVED.value:
             self._apply_proposed(run, approval)
+            self._enqueue_approval_result(run, approval, decision, trace_id=trace_id)
             self._resume_run(run, trace_id=trace_id)
         else:
             self._reject_run(run, approval, trace_id=trace_id)
@@ -297,20 +298,43 @@ class ApprovalService:
             run.updated_at = datetime.utcnow()
 
     def _resume_run(self, run: AgentRun, *, trace_id: str | None) -> None:
+        """T09：只做状态转换；Loop 由 Control Input 唤醒，不在 HTTP 线程同步推进。"""
         try:
             self._state.transition(
                 run,
                 AgentRunStatus.EXECUTING_TOOLS,
                 actor_id=run.created_by,
-                reason="审批通过，继续执行",
+                reason="审批通过，等待 Loop 唤醒继续执行",
                 trace_id=trace_id,
             )
         except AgentStateError:
             return
-        db.session.flush()
-        from app.services.security_agent.service import AgentRunService
 
-        AgentRunService().execute_open_run(run.id, trace_id or "approval-resume")
+    def _enqueue_approval_result(
+        self,
+        run: AgentRun,
+        approval: AgentApproval,
+        decision: str,
+        *,
+        trace_id: str | None,
+    ) -> None:
+        """审批结果以 Control Input 入队（幂等），Loop 在安全边界读取应用。"""
+        from app.services.security_agent.loop.control_inputs import (
+            ControlInputService,
+        )
+
+        ControlInputService().enqueue(
+            run,
+            input_type="approval_result",
+            payload={
+                "approval_id": approval.id,
+                "decision": decision,
+                "operation_type": approval.operation_type,
+            },
+            client_request_id=f"approval-{approval.id}",
+            created_by=approval.resolver_id,
+            trace_id=trace_id,
+        )
 
     def _reject_run(self, run: AgentRun, approval: AgentApproval, *, trace_id: str | None) -> None:
         try:

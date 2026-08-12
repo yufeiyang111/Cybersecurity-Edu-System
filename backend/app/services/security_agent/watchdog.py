@@ -21,6 +21,7 @@ from app.services.security_agent.state_machine import AgentStateMachine
 logger = logging.getLogger(__name__)
 
 DEFAULT_STALE_SECONDS = 1800
+DEFAULT_MAX_RECOVERIES = 20
 
 _ACTIVE_STATUSES = {
     AgentRunStatus.QUEUED.value,
@@ -89,13 +90,28 @@ def watch_open_runs(*, stale_seconds: int = DEFAULT_STALE_SECONDS) -> dict:
     return {"failed": failed, "resumed": resumed}
 
 
-def recover_open_runs() -> dict:
-    """进程重启后把开放 run 重新入队（幂等：已终态跳过）。"""
+def recover_open_runs(*, max_recoveries: int = DEFAULT_MAX_RECOVERIES) -> dict:
+    """T09：进程重启后按 lease/checkpoint/recovery policy 恢复开放 run。
+
+    - 只恢复 lease 已过期或从未获取 lease 的 run（另一 Worker 持有 lease 时跳过）；
+    - 超过恢复上限显式停止并保留证据（不盲目全量重跑）；
+    - 幂等：终态 run 跳过。
+    """
+    from app.services.security_agent.loop.lease_service import LeaseService
     from app.services.security_agent.service import AgentRunService
 
+    leases = LeaseService()
     runs = AgentRun.query.filter(AgentRun.status.in_(list(_RECOVERABLE_STATUSES))).all()
     recovered: list[int] = []
+    skipped_leased: list[int] = []
     for run in runs:
+        if len(recovered) >= max_recoveries:
+            logger.warning(
+                "Recovery limit reached (%s), stopping before run=%s",
+                max_recoveries,
+                run.id,
+            )
+            break
         status = run.status.value if hasattr(run.status, "value") else str(run.status)
         if status == AgentRunStatus.AWAITING_APPROVAL.value:
             pending = (
@@ -106,14 +122,22 @@ def recover_open_runs() -> dict:
             )
             if pending:
                 continue
+        owner, expires_at = leases.current(run.id)
+        if owner is not None and expires_at is not None and expires_at > datetime.utcnow():
+            skipped_leased.append(run.id)
+            continue
         run.lease_owner = None
         run.lease_expires_at = None
         db.session.flush()
         AgentRunService().execute_open_run(run.id, "recover-open-runs")
         recovered.append(run.id)
     db.session.commit()
-    logger.info("Recover open runs: %s", recovered)
-    return {"recovered": recovered}
+    logger.info(
+        "Recover open runs: %s (skipped leased: %s)",
+        recovered,
+        skipped_leased,
+    )
+    return {"recovered": recovered, "skipped_leased": skipped_leased}
 
 
 def _resume_or_fail(run: AgentRun, state: AgentStateMachine) -> None:
