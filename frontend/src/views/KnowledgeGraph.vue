@@ -258,7 +258,7 @@
               回填中：{{ backfillStatus.processed_entities || 0 }}/{{ backfillStatus.total_entities || 0 }}
             </p>
             <p v-else-if="backfillDone" class="backfill-progress">
-              上次回填完成：更新 {{ backfillDone.updated_entities }} 个实体
+              上次回填完成：更新 {{ backfillDone.updated_entities || 0 }} 个实体
             </p>
           </template>
         </div>
@@ -608,7 +608,7 @@ const selectedNodeCategory = computed(() => {
 
 const selectedNodeCategorySource = computed(() => {
   const node = selectedNode.value
-  if (!node || node.nodeType === 'knowledge') return ''
+  if (!node || node.nodeType === 'knowledge' || !node.id) return ''
   return String(node.id).split('_')[0]
 })
 
@@ -879,7 +879,12 @@ const applyFilters = () => {
 const loadGraphStats = async () => {
   try {
     const res = await adminAPI.getGraphStats()
-    graphStats.value = res.stats || { node_count: 0, edge_count: 0, relation_types: {} }
+    const stats = res.stats || {}
+    graphStats.value = {
+      node_count: stats.node_count || 0,
+      edge_count: stats.edge_count || 0,
+      relation_types: stats.relation_types || {}
+    }
   } catch (error) {
     console.error('加载图谱统计失败')
   }
@@ -1009,7 +1014,7 @@ const runMerge = async () => {
       source_id: selectedNode.value.id,
       target_id: mergedId
     })
-    ElMessage.success(`合并成功，迁移 ${res.moved_edges} 条关系`)
+    ElMessage.success(`合并成功，迁移 ${res.moved_edges || 0} 条关系`)
     nodeDialogVisible.value = false
     clearPath()
     await refreshGraph()
@@ -1027,7 +1032,7 @@ const runDeduplicate = async () => {
   try {
     const res = await adminAPI.deduplicateGraph()
     ElMessage.success(
-      `合并完成：${res.groups} 组同名实体，移除 ${res.removed_nodes} 个重复节点，迁移 ${res.merged_edges} 条关系`
+      `合并完成：${res.groups || 0} 组同名实体，移除 ${res.removed_nodes || 0} 个重复节点，迁移 ${res.merged_edges || 0} 条关系`
     )
     isSubgraphView.value = false
     await loadGraphData()
@@ -1112,7 +1117,7 @@ const handleSearch = () => {
   }
   const query = searchQuery.value.toLowerCase()
   searchResults.value = allNodes.value.filter(n =>
-    n.name.toLowerCase().includes(query) ||
+    (n.name || '').toLowerCase().includes(query) ||
     (n.category && n.category.toLowerCase().includes(query))
   ).slice(0, 10)
 }
@@ -1294,7 +1299,7 @@ const handleBatchSummarize = async () => {
   communityBatchLoading.value = true
   try {
     const res = await adminAPI.generateCommunitySummaries({ limit: 10, force: false })
-    const { generated, cached, failed } = res
+    const { generated = 0, cached = 0, failed = 0 } = res
     ElMessage.success(
       `批量预生成完成：新增 ${generated} 个，复用缓存 ${cached} 个${failed ? `，失败 ${failed} 个` : ''}`
     )

@@ -30,13 +30,13 @@
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
             <circle cx="12" cy="12" r="3" />
           </svg>
-          {{ item.view_count }}
+          {{ item.view_count || 0 }}
         </span>
         <span class="meta-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z" />
           </svg>
-          {{ item.favorite_count }}
+          {{ item.favorite_count || 0 }}
         </span>
       </div>
     </footer>

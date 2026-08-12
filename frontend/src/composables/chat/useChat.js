@@ -107,6 +107,10 @@ export function useChat(threadRef) {
   const createConversation = async () => {
     try {
       const res = await qaAPI.createConversation({ title: '新会话' })
+      if (!res?.conversation) {
+        ElMessage.error('创建会话失败：响应缺少会话数据')
+        return
+      }
       conversations.value.unshift(res.conversation)
       currentConversationId.value = res.conversation.id
       resetMessages()
@@ -362,12 +366,17 @@ export function useChat(threadRef) {
     }
     try {
       const res = await qaAPI.getConversation(conversationId)
+      const conv = res?.conversation
+      if (!conv) {
+        ElMessage.error('会话不存在或无权访问')
+        return
+      }
       conversations.value.unshift({
-        id: res.conversation.id,
-        title: res.conversation.title,
-        is_archived: res.conversation.is_archived
+        id: conv.id,
+        title: conv.title || '新会话',
+        is_archived: conv.is_archived
       })
-      await selectConversation(res.conversation.id)
+      await selectConversation(conv.id)
     } catch (e) {
       ElMessage.error('会话不存在或无权访问')
     }

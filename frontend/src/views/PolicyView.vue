@@ -30,7 +30,7 @@
             <p class="policy-view__eyebrow">CyberGuard · 政策文档</p>
             <h1 class="policy-view__title">{{ policy.title }}</h1>
             <p class="policy-view__meta">
-              版本 {{ policy.version }} ·
+              版本 {{ policy.version || '1.0' }} ·
               {{ formatDate(policy.updated_at) }} 更新
             </p>
           </header>

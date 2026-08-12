@@ -8,10 +8,10 @@
   >
     <div v-if="slice" class="evidence">
       <div class="evidence__head">
-        <span class="evidence__file">{{ slice.file_path }}</span>
-        <span class="evidence__range">第 {{ slice.start_line }}-{{ slice.end_line }} 行</span>
+        <span class="evidence__file">{{ slice.file_path || '未知文件' }}</span>
+        <span class="evidence__range">第 {{ slice.start_line ?? '?' }}-{{ slice.end_line ?? '?' }} 行</span>
       </div>
-      <pre class="evidence__code"><code v-for="(line, index) in slice.lines" :key="index">{{ slice.start_line + index }}  {{ line }}
+      <pre class="evidence__code"><code v-for="(line, index) in slice.lines || []" :key="index">{{ (slice.start_line || 0) + index }}  {{ line }}
 </code></pre>
     </div>
     <div v-else class="evidence__empty">没有可显示的源码片段</div>

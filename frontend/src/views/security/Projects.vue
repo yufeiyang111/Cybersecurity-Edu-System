@@ -404,7 +404,7 @@ const submitScan = async () => {
     const formData = new FormData()
     formData.append('archive', selectedArchive.value)
     const response = await securityAPI.uploadSnapshot(selectedProject.value.id, formData)
-    ElMessage.success(`扫描任务 #${response.data?.task?.id ?? response.task.id} 已创建`)
+    ElMessage.success(`扫描任务 #${response.data?.task?.id ?? response.task?.id ?? ''} 已创建`)
     showUploadDialog.value = false
     openProject(selectedProject.value.id)
   } catch (error) {

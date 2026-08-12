@@ -239,7 +239,7 @@
               </span>
             </div>
           </template>
-          <el-table :data="qaStats.hot_records" stripe>
+          <el-table :data="qaStats.hot_records || []" stripe>
             <template #empty>
               <div class="table-empty">暂无数据</div>
             </template>

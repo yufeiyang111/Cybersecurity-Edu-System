@@ -61,6 +61,11 @@ const handleBind = async (key) => {
   bindingKey.value = key
   try {
     const res = await authAPI.bindOAuth(key)
+    if (!res?.url) {
+      bindingKey.value = ''
+      ElMessage.error('绑定失败：未获取到授权跳转地址')
+      return
+    }
     window.location.href = res.url
   } catch (error) {
     bindingKey.value = ''

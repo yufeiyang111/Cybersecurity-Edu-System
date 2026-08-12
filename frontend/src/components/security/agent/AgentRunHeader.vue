@@ -1,5 +1,5 @@
 <template>
-  <header class="agent-header">
+  <header v-if="run" class="agent-header">
     <div class="agent-header__main">
       <div class="agent-header__title">
         <h1>Agent 任务 #{{ run.id }}</h1>

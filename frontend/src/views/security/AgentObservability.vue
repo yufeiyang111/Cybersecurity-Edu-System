@@ -185,12 +185,35 @@ async function loadAll() {
         page_size: 20
       })
     ])
-    overview.value = overviewResponse.overview
+    overview.value = normalizeOverview(overviewResponse.overview)
     runs.value = runsResponse.items || []
   } catch (error) {
     errorMessage.value = securityApiErrorMessage(error, '加载运维数据失败')
   } finally {
     loading.value = false
+  }
+}
+
+// 后端字段缺省时归一化，避免模板链式访问崩溃（run_counts/llm/tools 可能整体缺失）
+function normalizeOverview(raw) {
+  const source = raw || {}
+  const runCounts = source.run_counts || {}
+  const llm = source.llm || {}
+  const tools = source.tools || {}
+  return {
+    run_counts: {
+      total: Number(runCounts.total || 0),
+      by_status: runCounts.by_status || {}
+    },
+    llm: {
+      total_cost: Number(llm.total_cost || 0),
+      total_tokens: Number(llm.total_tokens || 0)
+    },
+    pending_approvals: Number(source.pending_approvals || 0),
+    observations: Number(source.observations || 0),
+    tools: {
+      tools: tools.tools || []
+    }
   }
 }
 

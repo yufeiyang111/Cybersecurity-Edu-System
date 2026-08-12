@@ -15,7 +15,7 @@
 
     <div class="question-content">
       <div class="q-label">问题</div>
-      <div class="q-text">{{ question.question }}</div>
+      <div class="q-text">{{ question.question || '（无问题内容）' }}</div>
     </div>
 
     <el-divider v-if="question.answer" />

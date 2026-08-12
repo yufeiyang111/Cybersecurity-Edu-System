@@ -72,7 +72,7 @@
         <el-divider />
         <div class="qa-detail__meta">
           <span>时间：{{ formatDate(currentRecord.created_at) }}</span>
-          <span v-if="currentRecord.response_time">响应时间：{{ currentRecord.response_time.toFixed(2) }}秒</span>
+          <span v-if="currentRecord.response_time">响应时间：{{ Number(currentRecord.response_time || 0).toFixed(2) }}秒</span>
           <span v-if="currentRecord.model_name">模型：{{ currentRecord.model_name }}</span>
         </div>
       </div>

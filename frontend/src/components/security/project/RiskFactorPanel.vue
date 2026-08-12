@@ -7,11 +7,11 @@
         <span class="factor-bar" :aria-hidden="true">
           <span
             class="factor-fill"
-            :style="{ width: fillPercent(factor), background: scoreColor(factor.contribution * 100) }"
+            :style="{ width: fillPercent(factor), background: scoreColor(Number(factor.contribution || 0) * 100) }"
           />
         </span>
-        <span class="factor-contribution">{{ (factor.contribution * 100).toFixed(1) }}</span>
-        <span class="factor-weight">w{{ (factor.weight * 100).toFixed(0) }}%</span>
+        <span class="factor-contribution">{{ (Number(factor.contribution || 0) * 100).toFixed(1) }}</span>
+        <span class="factor-weight">w{{ (Number(factor.weight || 0) * 100).toFixed(0) }}%</span>
         <p class="factor-explanation">{{ factor.explanation }}</p>
       </div>
     </div>
@@ -27,7 +27,7 @@ defineProps({
 
 const factorLabel = riskFactorLabel
 const scoreColor = riskScoreColor
-const fillPercent = (factor) => `${Math.max(0, Math.min(100, factor.contribution * 100))}%`
+const fillPercent = (factor) => `${Math.max(0, Math.min(100, Number(factor.contribution || 0) * 100))}%`
 </script>
 
 <style scoped lang="scss">

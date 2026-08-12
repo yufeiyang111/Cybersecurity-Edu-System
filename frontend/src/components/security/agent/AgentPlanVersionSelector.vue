@@ -23,7 +23,7 @@
         <span class="version-item__badge">v{{ plan.plan_version }}</span>
         <div class="version-item__body">
           <span class="version-item__source">{{ sourceLabel(plan.planner_source) }}</span>
-          <span class="version-item__nodes">{{ plan.nodes.length }} 节点</span>
+          <span class="version-item__nodes">{{ (plan.nodes || []).length }} 节点</span>
           <span v-if="plan.decision_summary" class="version-item__summary">
             {{ plan.decision_summary }}
           </span>

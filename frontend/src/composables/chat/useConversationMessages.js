@@ -77,10 +77,10 @@ export function useConversationMessages(threadRef) {
     loading.value = true
     try {
       const res = await qaAPI.getConversation(id, { limit: PAGE_SIZE })
-      messages.value = buildMessages(res.conversation.records || [])
+      messages.value = buildMessages(res?.conversation?.records || [])
       const meta = res.record_meta
       hasMore.value = meta ? !!meta.has_more : false
-      totalRecords.value = meta ? meta.total : loadedRecords.value
+      totalRecords.value = meta?.total ?? loadedRecords.value
       scrollToBottom()
       return res.conversation
     } finally {
@@ -99,13 +99,13 @@ export function useConversationMessages(threadRef) {
         limit: PAGE_SIZE,
         before_id: messages.value[0].recordId
       })
-      const earlier = buildMessages(res.conversation.records || [])
+      const earlier = buildMessages(res?.conversation?.records || [])
       if (earlier.length) {
         messages.value.unshift(...earlier)
       }
       const meta = res.record_meta
       hasMore.value = meta ? !!meta.has_more : false
-      totalRecords.value = meta ? meta.total : totalRecords.value
+      totalRecords.value = meta?.total ?? totalRecords.value
       await nextTick()
       if (threadRef.value) {
         const grown = threadRef.value.scrollHeight - beforeHeight

@@ -13,7 +13,7 @@
       <article v-if="item" class="knowledge-article">
         <header class="article-header">
           <div class="tags">
-            <el-tag>{{ item.category_name }}</el-tag>
+            <el-tag>{{ item.category_name || '未分类' }}</el-tag>
             <el-tag :type="getDifficultyType(item.difficulty)">
               {{ getDifficultyText(item.difficulty) }}
             </el-tag>
@@ -21,8 +21,8 @@
           <h1>{{ item.title }}</h1>
           <div class="meta">
             <span v-if="item.author">作者：{{ item.author }}</span>
-            <span>浏览：{{ item.view_count }}</span>
-            <span>收藏：{{ item.favorite_count }}</span>
+            <span>浏览：{{ item.view_count || 0 }}</span>
+            <span>收藏：{{ item.favorite_count || 0 }}</span>
             <span>发布时间：{{ formatDate(item.created_at) }}</span>
           </div>
           <div class="source" v-if="item.source">

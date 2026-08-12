@@ -50,10 +50,11 @@ async function load() {
   loading.value = true
   try {
     const response = await agentAPI.getProviderPolicy(props.workspaceId)
-    policy.value = response.policy
-    allowlist.value = [...(response.policy.allowlist || [])]
-    preferred.value = response.policy.preferred_provider || null
-    knownProviders.value = response.policy.known_providers || []
+    const policyData = response?.policy || {}
+    policy.value = policyData
+    allowlist.value = [...(policyData.allowlist || [])]
+    preferred.value = policyData.preferred_provider || null
+    knownProviders.value = policyData.known_providers || []
   } catch (error) {
     ElMessage.error('加载 Provider 策略失败')
   } finally {

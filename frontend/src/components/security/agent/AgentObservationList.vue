@@ -29,10 +29,10 @@
         <p class="observation-item__title">{{ item.title }}</p>
         <p class="observation-item__summary">{{ item.summary }}</p>
         <div class="observation-item__meta">
-          <span>{{ item.locations.length }} 个位置</span>
-          <span>{{ item.citations.length }} 条引用</span>
-          <span v-if="item.proof_gaps.length" class="observation-item__gaps">
-            {{ item.proof_gaps.length }} 个证据缺口
+          <span>{{ (item.locations || []).length }} 个位置</span>
+          <span>{{ (item.citations || []).length }} 条引用</span>
+          <span v-if="(item.proof_gaps || []).length" class="observation-item__gaps">
+            {{ (item.proof_gaps || []).length }} 个证据缺口
           </span>
         </div>
       </li>

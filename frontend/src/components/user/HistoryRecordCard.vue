@@ -25,7 +25,7 @@
       <div class="history-card__meta">
         <span v-if="record.response_time" class="meta-item">
           <BaseIcon name="clock" :size="13" />
-          {{ record.response_time.toFixed(2) }}s
+          {{ Number(record.response_time || 0).toFixed(2) }}s
         </span>
         <span v-if="record.model_name" class="meta-item">
           {{ record.model_name }}

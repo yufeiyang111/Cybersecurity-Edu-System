@@ -24,7 +24,7 @@
             </template>
           </el-dropdown>
         </div>
-        <div v-for="child in category.children" :key="child.id" class="doc-subgroup">
+        <div v-for="child in category.children || []" :key="child.id" class="doc-subgroup">
           <div class="doc-subgroup__title">{{ child.name }}</div>
           <button
             v-for="doc in child.documents"
@@ -41,9 +41,9 @@
             </span>
           </button>
         </div>
-        <template v-if="category.children.length === 0">
+        <template v-if="!(category.children || []).length">
           <button
-            v-for="doc in category.documents"
+            v-for="doc in category.documents || []"
             :key="doc.id"
             type="button"
             class="doc-item"

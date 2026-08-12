@@ -28,7 +28,7 @@
           {{ formatDate(favorite.created_at) }}
         </span>
         <span v-if="record.response_time" class="meta-item">
-          {{ record.response_time.toFixed(2) }}s
+          {{ Number(record.response_time || 0).toFixed(2) }}s
         </span>
       </div>
 

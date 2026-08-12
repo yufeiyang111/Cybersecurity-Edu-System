@@ -34,7 +34,7 @@
           </svg>
         </span>
         <span class="item-name">{{ cat.name }}</span>
-        <span class="item-count">{{ cat.item_count }}</span>
+        <span class="item-count">{{ cat.item_count || 0 }}</span>
       </button>
     </nav>
   </aside>

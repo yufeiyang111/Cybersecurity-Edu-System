@@ -25,8 +25,8 @@ const dialogVisible = ref(false)
 const selectedProvider = ref(null)
 const submitting = ref(false)
 const filteredProviders = computed(() => providers.value.filter((provider) => {
-  const nameMatch = !searchName.value || provider.name.toLowerCase().includes(searchName.value.toLowerCase())
-  const urlMatch = !searchUrl.value || provider.base_url.toLowerCase().includes(searchUrl.value.toLowerCase())
+  const nameMatch = !searchName.value || (provider.name || '').toLowerCase().includes(searchName.value.toLowerCase())
+  const urlMatch = !searchUrl.value || (provider.base_url || '').toLowerCase().includes(searchUrl.value.toLowerCase())
   const statusMatch = !statusFilter.value || (statusFilter.value === 'enabled' ? provider.is_enabled : !provider.is_enabled)
   return nameMatch && urlMatch && statusMatch
 }))

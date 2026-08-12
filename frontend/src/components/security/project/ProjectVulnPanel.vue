@@ -21,7 +21,7 @@
         <div class="finding-head">
           <span class="sev-badge" :class="`sev-${finding.severity}`">{{ severityLabel(finding.severity) }}</span>
           <span class="finding-rule">{{ finding.rule_id }}</span>
-          <span class="finding-loc">{{ finding.file_path }}:{{ finding.start_line }}</span>
+          <span class="finding-loc">{{ finding.file_path || '—' }}:{{ finding.start_line ?? '' }}</span>
         </div>
         <p class="vp-desc">{{ finding.message }}</p>
 
@@ -34,7 +34,7 @@
               class="code-line"
               :class="{ 'code-line--hl': isVulnLine(finding, evidenceFor(finding), index) }"
             >
-              <span class="code-ln">{{ evidenceFor(finding).start_line + index }}</span>
+              <span class="code-ln">{{ (evidenceFor(finding).start_line || 0) + index }}</span>
               <span class="code-text">{{ line }}</span>
             </div>
           </div>

@@ -94,18 +94,18 @@
         </ol>
       </div>
 
-      <div v-if="observation.locations.length" class="obs-detail__block">
+      <div v-if="(observation.locations || []).length" class="obs-detail__block">
         <span class="obs-detail__label">受影响位置</span>
         <ul class="obs-detail__locations">
           <li v-for="location in observation.locations" :key="location.id">
             <code>{{ location.file_path }}</code>
-            第 {{ location.start_line }}-{{ location.end_line ?? location.start_line }} 行
+            第 {{ location.start_line ?? '?' }}-{{ location.end_line ?? location.start_line ?? '?' }} 行
             <el-tag size="small" type="info">{{ roleLabel(location.role) }}</el-tag>
           </li>
         </ul>
       </div>
 
-      <div v-if="observation.citations.length" class="obs-detail__block">
+      <div v-if="(observation.citations || []).length" class="obs-detail__block">
         <span class="obs-detail__label">知识引用</span>
         <ul class="obs-detail__citations">
           <li v-for="citation in observation.citations" :key="citation.id">
@@ -116,7 +116,7 @@
             <span v-if="citation.injection_flags?.length" class="obs-detail__cite-flag">
               注入标记
             </span>
-            <span class="obs-detail__cite-digest">{{ citation.content_digest.slice(0, 12) }}…</span>
+            <span class="obs-detail__cite-digest">{{ (citation.content_digest || '').slice(0, 12) }}…</span>
             <p v-if="citation.quote_preview" class="obs-detail__cite-quote">
               {{ citation.quote_preview }}
             </p>
@@ -124,7 +124,7 @@
         </ul>
       </div>
 
-      <div v-if="observation.proof_gaps.length" class="obs-detail__block">
+      <div v-if="(observation.proof_gaps || []).length" class="obs-detail__block">
         <span class="obs-detail__label">证据缺口</span>
         <ul class="obs-detail__gaps">
           <li v-for="(gap, index) in observation.proof_gaps" :key="index">{{ gap }}</li>
