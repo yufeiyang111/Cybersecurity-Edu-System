@@ -117,7 +117,10 @@ def _make_active_run(application, user_id, workspace_id, project_id, snapshot_id
         return run.id, plan.id, conversation.id
 
 
-def test_post_message_to_active_run_creates_plan_v2(agent_api_app, tmp_path):
+def test_post_message_to_active_run_enqueues_control_input(agent_api_app, tmp_path):
+    """T07：追加消息只入队 Control Input，不再直接创建新计划版本。"""
+    from app.models.agent_control import AgentControlInput
+
     user_id, workspace_id = _make_user(agent_api_app)
     project_id, snapshot_id = _make_project_snapshot(agent_api_app, user_id, workspace_id, tmp_path)
     run_id, _, _ = _make_active_run(
@@ -136,18 +139,23 @@ def test_post_message_to_active_run_creates_plan_v2(agent_api_app, tmp_path):
         )
         assert response.status_code == 201
         data = response.get_json()
-        assert data["plan_version"] == 2
         assert data["replayed"] is False
-        assert "direction_focused_review" in data["new_nodes"]
+        assert data["control_input"]["input_type"] == "user_message"
+        assert data["control_input"]["status"] == "pending"
+        assert data["plan_version"] == 1, "HTTP 线程不得创建新计划版本"
         run = db.session.get(AgentRun, run_id)
-        assert run.plan_version == 2
-        assert run.replan_count == 1
-        record = AgentDecisionRecord.query.filter_by(run_id=run_id).one()
-        assert record.reason_code == "user_direction_extends_plan"
+        assert run.plan_version == 1
+        assert run.replan_count == 0
+        assert AgentDecisionRecord.query.filter_by(run_id=run_id).count() == 0
         message = AgentConversationMessage.query.filter_by(
             client_message_id="msg-replan-0001"
         ).one()
         assert message.message_type == "follow_up"
+        control = AgentControlInput.query.filter_by(
+            run_id=run_id, client_request_id="msg-replan-0001"
+        ).one()
+        assert control.input_type == "user_message"
+        assert control.status == "pending"
 
 
 def test_post_message_idempotent_retry(agent_api_app, tmp_path):
@@ -172,7 +180,11 @@ def test_post_message_idempotent_retry(agent_api_app, tmp_path):
     assert retry.status_code == 200
     assert retry.get_json()["replayed"] is True
     with agent_api_app.app_context():
-        assert AgentDecisionRecord.query.filter_by(run_id=run_id).count() == 1
+        from app.models.agent_control import AgentControlInput
+
+        assert AgentControlInput.query.filter_by(
+            run_id=run_id, client_request_id="msg-replan-0002"
+        ).count() == 1
         assert AgentConversationMessage.query.filter_by(
             client_message_id="msg-replan-0002"
         ).count() == 1
@@ -251,13 +263,11 @@ def test_list_plans_and_decisions(agent_api_app, tmp_path):
     plans = client.get(f"/api/security/agent-runs/{run_id}/plans", headers=headers)
     assert plans.status_code == 200
     items = plans.get_json()["items"]
-    assert [plan["plan_version"] for plan in items] == [1, 2]
+    assert [plan["plan_version"] for plan in items] == [1], "追加消息不创建新计划版本"
     decisions = client.get(f"/api/security/agent-runs/{run_id}/decisions", headers=headers)
     assert decisions.status_code == 200
     records = decisions.get_json()["items"]
-    assert len(records) == 1
-    assert records[0]["reason_code"] == "user_direction_extends_plan"
-    assert records[0]["plan_version"] == 2
+    assert len(records) == 0, "追加消息不写决策记录（未重规划）"
 
 
 def test_conversation_message_replans_active_run_instead_of_new_run(agent_api_app, tmp_path):
@@ -280,8 +290,13 @@ def test_conversation_message_replans_active_run_instead_of_new_run(agent_api_ap
     data = response.get_json()
     assert data["run"]["id"] == run_id, "活跃 Run 存在时不应创建新 Run"
     with agent_api_app.app_context():
+        from app.models.agent_control import AgentControlInput
+
         run = db.session.get(AgentRun, run_id)
-        assert run.plan_version == 2
-        assert AgentDecisionRecord.query.filter_by(run_id=run_id).count() == 1
+        assert run.plan_version == 1, "会话消息不得直接触发重规划"
+        assert AgentControlInput.query.filter_by(
+            run_id=run_id, client_request_id="msg-conv-0001"
+        ).count() == 1
+        assert AgentDecisionRecord.query.filter_by(run_id=run_id).count() == 0
         turns = AgentTurn.query.filter_by(conversation_id=conversation_id).all()
         assert len(turns) == 1, "活跃 Run 下追加方向不应创建新 Turn"

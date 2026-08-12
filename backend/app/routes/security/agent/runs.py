@@ -262,9 +262,10 @@ def list_agent_run_decisions(run_id: int):
 @projects_bp.route("/agent-runs/<int:run_id>/messages", methods=["POST"])
 @jwt_required()
 def post_agent_run_message(run_id: int):
-    """用户对运行中的 Agent 追加方向（A5）：创建新计划版本继续执行。
+    """用户对运行中的 Agent 追加方向（T07）：只幂等写入 Message + Control
+    Input + 事件并唤醒，不同步创建计划或执行工具。
 
-    幂等：相同 client_message_id 重试返回既有消息与计划版本（replayed=True）。
+    幂等：相同 client_message_id 重试返回既有消息与控制输入（replayed=True）。
     Run 已终态时返回 409，由会话级接口创建新的 Turn + Run。
     """
     from app.models.conversation import AgentConversationMessage
@@ -336,7 +337,7 @@ def post_agent_run_message(run_id: int):
         if conversation is None:
             return jsonify({"error": "该任务没有关联会话，无法追加方向"}), 409
 
-        message, new_plan = ConversationService().append_follow_up_direction(
+        message, control = ConversationService().append_follow_up_direction(
             conversation,
             content=content.strip(),
             client_message_id=client_message_id.strip(),
@@ -346,12 +347,8 @@ def post_agent_run_message(run_id: int):
             jsonify(
                 {
                     "message": message.to_dict(),
-                    "plan_version": new_plan.plan_version,
-                    "new_nodes": [
-                        node.node_key
-                        for node in new_plan.nodes
-                        if node.node_key.startswith("direction_")
-                    ],
+                    "control_input": control.to_dict(),
+                    "plan_version": run.plan_version,
                     "replayed": False,
                 }
             ),
@@ -362,6 +359,53 @@ def post_agent_run_message(run_id: int):
     except ConversationError as exc:
         return jsonify({"error": str(exc)}), 400
     except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@projects_bp.route("/agent-runs/<int:run_id>/control-inputs", methods=["POST"])
+@jwt_required()
+def post_agent_run_control_input(run_id: int):
+    """统一控制输入端点（T07，spec §16.2）：HTTP 线程只幂等入队，不执行动作。"""
+    from app.services.security_agent.loop.control_inputs import (
+        ALLOWED_INPUT_TYPES,
+        ControlInputError,
+        ControlInputService,
+    )
+
+    try:
+        run = _agent_run_or_404(run_id, PROJECT_ROLES)
+        if run is None:
+            return jsonify({"error": "Agent 任务不存在"}), 404
+
+        data = _json_object()
+        client_request_id = data.get("client_request_id")
+        input_type = data.get("type")
+        payload = data.get("payload") or {}
+        if not isinstance(client_request_id, str) or not client_request_id.strip():
+            return jsonify({"error": "缺少 client_request_id（用于防重复提交）"}), 400
+        if input_type not in ALLOWED_INPUT_TYPES:
+            return (
+                jsonify(
+                    {
+                        "error": f"type 必须是 {'、'.join(sorted(ALLOWED_INPUT_TYPES))} 之一"
+                    }
+                ),
+                400,
+            )
+        if not isinstance(payload, dict):
+            return jsonify({"error": "payload 必须是对象"}), 400
+
+        control = ControlInputService().enqueue(
+            run,
+            input_type=input_type,
+            payload=payload,
+            client_request_id=client_request_id.strip(),
+            created_by=_current_user_id(),
+        )
+        return jsonify({"control_input": control.to_dict()}), 201
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except ControlInputError as exc:
         return jsonify({"error": str(exc)}), 400
 
 

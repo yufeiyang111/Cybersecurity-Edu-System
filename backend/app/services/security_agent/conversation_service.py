@@ -113,7 +113,7 @@ class ConversationService:
 
         active_run = self._active_replanable_run(conversation)
         if active_run is not None:
-            message, plan = self.append_follow_up_direction(
+            message, control = self.append_follow_up_direction(
                 conversation,
                 content=normalized,
                 client_message_id=client_message_id,
@@ -175,16 +175,14 @@ class ConversationService:
         content: str,
         client_message_id: str,
         run: AgentRun,
-    ) -> tuple[AgentConversationMessage, "object | None"]:
-        """A5 方向追加：消息落库到活跃 Turn，并创建新计划版本（含方向节点）。
+    ) -> tuple[AgentConversationMessage, "object"]:
+        """T07（spec §8.4）：活跃 Run 的消息只幂等写入 Message + Control Input
+        + v2 Event，绝不直接创建新计划版本或执行工具；Loop 在安全边界读取。
 
-        返回 (message, new_plan)；new_plan 为 None 表示达到重规划上限。
+        返回 (message, control_input)。
         """
-        from app.models.agent_runtime import AgentPlan
-        from app.services.security_agent.event_service import EventService
-        from app.services.security_agent.replanner import Replanner
-        from app.services.security_agent.strategy_catalog import (
-            normalize_user_direction_nodes,
+        from app.services.security_agent.loop.control_inputs import (
+            ControlInputService,
         )
 
         normalized = content.strip()
@@ -200,27 +198,18 @@ class ConversationService:
         if active_turn is not None:
             message.turn_id = active_turn.id
 
-        latest_plan = (
-            AgentPlan.query.filter_by(run_id=run.id)
-            .order_by(AgentPlan.plan_version.desc())
-            .first()
-        )
-        if latest_plan is None:
-            raise ConversationError("任务还没有计划，无法追加方向")
-        replanner = Replanner(EventService())
-        new_plan = replanner.create_version(
+        control = ControlInputService().enqueue(
             run,
-            latest_plan,
-            reason_code="user_direction_extends_plan",
-            decision_type="user_direction",
-            node_specs=normalize_user_direction_nodes(normalized),
-            decision_summary=f"用户追加方向：{normalized[:200]}",
+            input_type="user_message",
+            payload={"content": normalized[:4000]},
+            client_request_id=client_message_id,
+            conversation_id=conversation.id,
+            turn_id=message.turn_id,
+            created_by=conversation.created_by,
+            trace_id="follow-up",
         )
-        if new_plan is None:
-            db.session.rollback()
-            raise ConversationError("已达到重规划上限，无法追加新方向")
         db.session.commit()
-        return message, new_plan
+        return message, control
 
     def _active_replanable_run(self, conversation: AgentConversation) -> AgentRun | None:
         """最新活跃 Turn 的 Run 且处于可追加方向状态时返回，否则 None。"""
