@@ -58,11 +58,14 @@ def validate_envelope(
     available_tools: set[str] | frozenset[str],
     max_nodes: int = DEFAULT_MAX_NODES,
     max_depth: int = DEFAULT_MAX_DEPTH,
+    tool_allowed_modes: dict[str, set[str]] | None = None,
+    run_mode: str | None = None,
 ) -> dict:
     """Validate a raw PlanEnvelope and return a normalized copy.
 
     Raises PlanValidationError with a reason; never returns a partially valid
     plan. Conditions DSL is not evaluated here (A5), only structure is checked.
+    T06：可选 tool_allowed_modes + run_mode，模式禁止的工具被拒绝。
     """
     if not isinstance(envelope, dict):
         raise PlanValidationError("计划必须是 JSON 对象")
@@ -105,6 +108,15 @@ def validate_envelope(
     for tool_name in (node.get("tool_name") for node in normalized_nodes):
         if tool_name is not None and tool_name not in available_tools:
             raise PlanValidationError(f"工具未注册或不允许：{tool_name}")
+        if (
+            tool_name is not None
+            and run_mode is not None
+            and tool_allowed_modes is not None
+            and run_mode not in tool_allowed_modes.get(tool_name, set())
+        ):
+            raise PlanValidationError(
+                f"运行模式 {run_mode} 禁止使用工具：{tool_name}"
+            )
 
     return {
         "objective": objective[:4000],

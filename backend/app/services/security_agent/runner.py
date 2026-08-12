@@ -211,141 +211,193 @@ class InlinePlanRunner:
                 return
 
     def _run_plan_nodes(self, run: AgentRun, plan: AgentPlan, trace_id: str) -> None:
+        """按依赖调度执行（T06）：Scheduler 计算 READY 集合，不再按 ID 排序。
+
+        FAILED/BLOCKED/CANCELED 上游使下游进入 BLOCKED，不进入 Executor；
+        FAILED 节点绝不加入完成集合，Checkpoint 只记录 SUCCEEDED/SKIPPED。
+        """
+        from app.services.security_agent.planning.scheduler import PlanScheduler
+
+        scheduler = PlanScheduler()
         restored = self._checkpoints.restore(run.id)
         completed_keys = set(restored.get("completed_node_keys", []))
 
-        for node in sorted(plan.nodes, key=lambda item: item.id):
-            if node.node_key in completed_keys:
-                continue
-            current = db.session.get(AgentRun, run.id)
-            if current is None:
+        while True:
+            run = db.session.get(AgentRun, run.id)
+            if run is None:
                 return
-            status = self._status_value(current.status)
-            if status == AgentRunStatus.PAUSED.value:
-                return
-            if status == AgentRunStatus.CANCELED.value:
-                node.status = AgentPlanNodeStatus.CANCELED.value
-                db.session.commit()
-                continue
+            status = self._status_value(run.status)
             if status != AgentRunStatus.EXECUTING_TOOLS.value:
                 return
 
-            attempt_number = self._next_attempt(node.id)
-            step = AgentStepExecution(
-                plan_node_id=node.id,
-                run_id=run.id,
-                attempt_number=attempt_number,
-                worker_id=self._worker_id(),
-                status="running",
-                started_at=datetime.utcnow(),
-            )
-            node.status = AgentPlanNodeStatus.RUNNING.value
-            db.session.add(step)
-            db.session.flush()
-            self._events.emit(
-                current,
-                EVENT_STEP_STARTED,
-                {
-                    "step_execution_id": step.id,
-                    "node_key": node.node_key,
-                    "node_type": self._enum_value(node.node_type),
-                    "attempt_number": attempt_number,
-                    "tool_name": node.tool_name,
-                },
-                trace_id=trace_id,
-            )
-            db.session.commit()
-
-            result = self._run_node_tool(current, node, step, trace_id)
-
-            node = db.session.get(AgentPlanNode, node.id)
-            step = db.session.get(AgentStepExecution, step.id)
-            current = db.session.get(AgentRun, run.id)
-            if node is None or step is None or current is None:
+            plan = self._latest_plan(run.id)
+            if plan is None:
                 return
 
-            if result.status == "succeeded":
-                node.status = AgentPlanNodeStatus.SUCCEEDED.value
-                step.status = "completed"
-                step.finished_at = datetime.utcnow()
-                node.output_artifact_refs = [
-                    {"artifact_type": ref["artifact_type"], "summary": ref.get("summary", "")}
-                    for ref in result.artifact_refs
-                ]
-                self._materialize_artifacts(current, node, step, result)
+            schedule = scheduler.compute(plan)
+            if not schedule.ready:
+                for key in schedule.blocked:
+                    node = self._plan_node(plan, key)
+                    if node is not None and _status_value(node.status) in {
+                        AgentPlanNodeStatus.PENDING.value,
+                        AgentPlanNodeStatus.READY.value,
+                    }:
+                        node.status = AgentPlanNodeStatus.BLOCKED.value
+                db.session.commit()
+                break
+
+            progressed = False
+            for node in schedule.ready:
+                if node.node_key in completed_keys:
+                    continue
+                current = db.session.get(AgentRun, run.id)
+                if current is None:
+                    return
+                status = self._status_value(current.status)
+                if status == AgentRunStatus.PAUSED.value:
+                    return
+                if status == AgentRunStatus.CANCELED.value:
+                    node.status = AgentPlanNodeStatus.CANCELED.value
+                    db.session.commit()
+                    continue
+                if status != AgentRunStatus.EXECUTING_TOOLS.value:
+                    return
+
+                attempt_number = self._next_attempt(node.id)
+                step = AgentStepExecution(
+                    plan_node_id=node.id,
+                    run_id=run.id,
+                    attempt_number=attempt_number,
+                    worker_id=self._worker_id(),
+                    status="running",
+                    started_at=datetime.utcnow(),
+                )
+                node.status = AgentPlanNodeStatus.RUNNING.value
+                db.session.add(step)
+                db.session.flush()
                 self._events.emit(
                     current,
-                    EVENT_STEP_COMPLETED,
+                    EVENT_STEP_STARTED,
                     {
                         "step_execution_id": step.id,
                         "node_key": node.node_key,
-                        "summary": result.summary,
-                        "artifact_refs": result.artifact_refs,
+                        "node_type": self._enum_value(node.node_type),
+                        "attempt_number": attempt_number,
+                        "tool_name": node.tool_name,
                     },
                     trace_id=trace_id,
                 )
-                self._agent_log.tool_event(
-                    "tool.completed",
-                    current,
-                    node_key=node.node_key,
-                    tool_name=node.tool_name,
-                    status="succeeded",
-                    latency_ms=_elapsed_ms(step.started_at, step.finished_at),
-                    step_execution_id=step.id,
-                    summary=result.summary,
-                    metrics=result.metrics,
-                    artifact_refs=[ref.get("artifact_type") for ref in result.artifact_refs],
-                    trace_id=trace_id,
-                )
-            else:
-                node.status = AgentPlanNodeStatus.FAILED.value
-                step.status = "failed"
-                step.finished_at = datetime.utcnow()
-                step.warning_codes = result.warning_codes
-                self._events.emit(
-                    current,
-                    EVENT_STEP_FAILED,
-                    {
-                        "step_execution_id": step.id,
-                        "node_key": node.node_key,
-                        "error_code": result.error_code,
-                        "summary": result.summary,
-                    },
-                    trace_id=trace_id,
-                )
-                self._agent_log.tool_event(
-                    "tool.failed",
-                    current,
-                    node_key=node.node_key,
-                    tool_name=node.tool_name,
-                    status="failed",
-                    latency_ms=_elapsed_ms(step.started_at, step.finished_at),
-                    step_execution_id=step.id,
-                    summary=result.summary,
-                    metrics=result.metrics,
-                    warning_codes=result.warning_codes,
-                    error_code=result.error_code,
-                    trace_id=trace_id,
-                )
-                if result.warning_codes:
+                db.session.commit()
+
+                result = self._run_node_tool(current, node, step, trace_id)
+
+                node = db.session.get(AgentPlanNode, node.id)
+                step = db.session.get(AgentStepExecution, step.id)
+                current = db.session.get(AgentRun, run.id)
+                if node is None or step is None or current is None:
+                    return
+
+                if result.status == "succeeded":
+                    node.status = AgentPlanNodeStatus.SUCCEEDED.value
+                    step.status = "completed"
+                    step.finished_at = datetime.utcnow()
+                    node.output_artifact_refs = [
+                        {"artifact_type": ref["artifact_type"], "summary": ref.get("summary", "")}
+                        for ref in result.artifact_refs
+                    ]
+                    self._materialize_artifacts(current, node, step, result)
                     self._events.emit(
                         current,
-                        EVENT_WARNING_RAISED,
-                        {"warning_codes": result.warning_codes, "node_key": node.node_key},
+                        EVENT_STEP_COMPLETED,
+                        {
+                            "step_execution_id": step.id,
+                            "node_key": node.node_key,
+                            "summary": result.summary,
+                            "artifact_refs": result.artifact_refs,
+                        },
                         trace_id=trace_id,
                     )
+                    self._agent_log.tool_event(
+                        "tool.completed",
+                        current,
+                        node_key=node.node_key,
+                        tool_name=node.tool_name,
+                        status="succeeded",
+                        latency_ms=_elapsed_ms(step.started_at, step.finished_at),
+                        step_execution_id=step.id,
+                        summary=result.summary,
+                        metrics=result.metrics,
+                        artifact_refs=[ref.get("artifact_type") for ref in result.artifact_refs],
+                        trace_id=trace_id,
+                    )
+                else:
+                    node.status = AgentPlanNodeStatus.FAILED.value
+                    step.status = "failed"
+                    step.finished_at = datetime.utcnow()
+                    step.warning_codes = result.warning_codes
+                    self._events.emit(
+                        current,
+                        EVENT_STEP_FAILED,
+                        {
+                            "step_execution_id": step.id,
+                            "node_key": node.node_key,
+                            "error_code": result.error_code,
+                            "summary": result.summary,
+                        },
+                        trace_id=trace_id,
+                    )
+                    self._agent_log.tool_event(
+                        "tool.failed",
+                        current,
+                        node_key=node.node_key,
+                        tool_name=node.tool_name,
+                        status="failed",
+                        latency_ms=_elapsed_ms(step.started_at, step.finished_at),
+                        step_execution_id=step.id,
+                        summary=result.summary,
+                        metrics=result.metrics,
+                        warning_codes=result.warning_codes,
+                        error_code=result.error_code,
+                        trace_id=trace_id,
+                    )
+                    if result.warning_codes:
+                        self._events.emit(
+                            current,
+                            EVENT_WARNING_RAISED,
+                            {"warning_codes": result.warning_codes, "node_key": node.node_key},
+                            trace_id=trace_id,
+                        )
 
-            completed_keys.add(node.node_key)
-            self._checkpoints.save(
-                current,
-                completed_node_keys=sorted(completed_keys),
-                artifact_refs=node.output_artifact_refs or [],
-            )
-            db.session.commit()
+                if node.status == AgentPlanNodeStatus.SUCCEEDED.value:
+                    completed_keys.add(node.node_key)
+                self._checkpoints.save(
+                    current,
+                    completed_node_keys=sorted(completed_keys),
+                    artifact_refs=node.output_artifact_refs or [],
+                )
+                db.session.commit()
+                progressed = True
 
-            interval = float(current_app.config.get("AGENT_MIN_STEP_INTERVAL_SECONDS", 0.8))
-            if interval > 0:
-                time.sleep(interval)
+                interval = float(current_app.config.get("AGENT_MIN_STEP_INTERVAL_SECONDS", 0.8))
+                if interval > 0:
+                    time.sleep(interval)
+
+            if not progressed:
+                for key in scheduler.compute(
+                    self._latest_plan(run.id)
+                ).blocked:
+                    node = self._plan_node(self._latest_plan(run.id), key)
+                    if node is not None:
+                        node.status = AgentPlanNodeStatus.BLOCKED.value
+                db.session.commit()
+                break
+
+    @staticmethod
+    def _plan_node(plan: AgentPlan, node_key: str) -> AgentPlanNode | None:
+        for node in plan.nodes:
+            if node.node_key == node_key:
+                return node
+        return None
 
     def _run_node_tool(
         self, run: AgentRun, node: AgentPlanNode, step: AgentStepExecution, trace_id: str
@@ -486,6 +538,8 @@ class InlinePlanRunner:
                 AgentPlanNodeStatus.PENDING.value,
                 AgentPlanNodeStatus.READY.value,
                 AgentPlanNodeStatus.RUNNING.value,
+                AgentPlanNodeStatus.FAILED.value,
+                AgentPlanNodeStatus.BLOCKED.value,
             }
         ]
         if unfinished:

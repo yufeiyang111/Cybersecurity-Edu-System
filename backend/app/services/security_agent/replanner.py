@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Replanner：基于证据与用户方向创建新计划版本（A5）。
+"""Replanner（A5，T06）：基于证据与用户方向创建新计划版本。
 
-- 新版本复制上一版全部节点与边（状态保留：已完成节点由 checkpoint 跳过、
-  失败节点保持失败不重试），再追加新节点。
-- 创建后更新 run.plan_version / replan_count，写决策记录并发出
-  plan.replanned / strategy.switched / decision.recorded 事件。
-- 硬限制：max_replans、max_plan_nodes、同一 reason_code 触发次数；
-  达到限制时返回 None 并发出 AGENT_REPLAN_LIMIT_REACHED 警告（不静默）。
+v1.1/T06：创建逻辑委托给 PlanService（版本上限、digest 幂等、Decision Record
+与 v2 事件由 PlanService 统一负责）；本模块保留为固定规则 fallback 的入口，
+不再是唯一"多轮策略"。
 """
 from __future__ import annotations
 
@@ -14,21 +11,12 @@ import logging
 
 from flask import current_app
 
-from app import db
-from app.models.agent_runtime import (
-    AgentPlan,
-    AgentPlanEdge,
-    AgentPlanEdgeType,
-    AgentPlanNode,
-    AgentPlanNodeStatus,
-    AgentRun,
-)
-from app.services.security_agent.contracts import (
-    EVENT_PLAN_REPLANNED,
-    EVENT_WARNING_RAISED,
-)
-from app.services.security_agent.decision_records import DecisionRecords
+from app.models.agent_runtime import AgentPlan, AgentRun
 from app.services.security_agent.event_service import EventService
+from app.services.security_agent.planning.plan_service import (
+    DEFAULT_MAX_PLAN_VERSIONS,
+    PlanService,
+)
 from app.services.security_agent.strategy_catalog import NodeSpec
 
 logger = logging.getLogger(__name__)
@@ -43,9 +31,8 @@ class ReplanLimitReached(Exception):
 
 
 class Replanner:
-    def __init__(self, events: EventService, decisions: DecisionRecords | None = None) -> None:
-        self._events = events
-        self._decisions = decisions or DecisionRecords(events)
+    def __init__(self, events: EventService | None = None) -> None:
+        self._service = PlanService(events or EventService())
 
     # ------------------------------------------------------------------ public
 
@@ -60,117 +47,18 @@ class Replanner:
         decision_summary: str = "",
         trace_id: str | None = None,
     ) -> AgentPlan | None:
-        """创建新计划版本；达到硬限制时返回 None（并发警告事件）。"""
+        """创建新计划版本（委托 PlanService）；达到硬限制时返回 None。"""
         if not self._limits_allow(run, supersedes, reason_code, trace_id):
             return None
-
-        new_version = supersedes.plan_version + 1
-        plan = AgentPlan(
-            run_id=run.id,
-            plan_version=new_version,
-            planner_source=run.planner_source or "rule_based_policy",
-            objective=supersedes.objective,
-            decision_summary=decision_summary or supersedes.decision_summary,
-            hypotheses_json=supersedes.hypotheses_json or [],
-            completion_criteria_json=supersedes.completion_criteria_json or [],
-        )
-        db.session.add(plan)
-        db.session.flush()
-
-        existing_keys: set[str] = set()
-        for node in supersedes.nodes:
-            existing_keys.add(node.node_key)
-            db.session.add(
-                AgentPlanNode(
-                    plan_id=plan.id,
-                    node_key=node.node_key,
-                    node_type=node.node_type,
-                    status=node.status,
-                    title=node.title,
-                    description=node.description,
-                    tool_name=node.tool_name,
-                    input_json=node.input_json,
-                    depends_on_json=node.depends_on_json,
-                    input_artifact_refs=node.input_artifact_refs,
-                    output_artifact_refs=node.output_artifact_refs,
-                    retry_count=node.retry_count,
-                )
-            )
-        for edge in supersedes.edges:
-            db.session.add(
-                AgentPlanEdge(
-                    plan_id=plan.id,
-                    from_node=edge.from_node,
-                    to_node=edge.to_node,
-                    edge_type=edge.edge_type,
-                    condition_json=edge.condition_json,
-                )
-            )
-        db.session.flush()
-
-        added: list[AgentPlanNode] = []
-        for spec in node_specs:
-            if spec.key in existing_keys:
-                continue
-            depends = [key for key in spec.depends_on if key in existing_keys] or None
-            node = AgentPlanNode(
-                plan_id=plan.id,
-                node_key=spec.key,
-                node_type=spec.node_type,
-                status=AgentPlanNodeStatus.PENDING.value,
-                title=spec.title,
-                description=spec.description,
-                tool_name=spec.tool_name,
-                input_json=spec.input or None,
-                depends_on_json=depends,
-            )
-            db.session.add(node)
-            added.append(node)
-            existing_keys.add(spec.key)
-            if depends:
-                db.session.add(
-                    AgentPlanEdge(
-                        plan_id=plan.id,
-                        from_node=depends[0],
-                        to_node=spec.key,
-                        edge_type=AgentPlanEdgeType.SUCCESS.value,
-                    )
-                )
-        db.session.flush()
-
-        if added:
-            added[0].status = AgentPlanNodeStatus.READY.value
-
-        run.plan_version = plan.plan_version
-        run.replan_count = (run.replan_count or 0) + 1
-        self._decisions.record(
+        return self._service.create_version(
             run,
-            plan_version=plan.plan_version,
-            supersedes_version=supersedes.plan_version,
+            supersedes,
+            node_specs=node_specs,
             reason_code=reason_code,
             decision_type=decision_type,
-            detail={
-                "decision_summary": decision_summary,
-                "new_nodes": [node.node_key for node in added],
-            },
+            decision_summary=decision_summary,
             trace_id=trace_id,
         )
-        self._events.emit(
-            run,
-            EVENT_PLAN_REPLANNED,
-            {
-                "plan_id": plan.id,
-                "plan_version": plan.plan_version,
-                "supersedes_version": supersedes.plan_version,
-                "reason_code": reason_code,
-                "decision_type": decision_type,
-                "new_nodes": [node.node_key for node in added],
-                "decision_summary": decision_summary,
-            },
-            trace_id=trace_id,
-        )
-        db.session.commit()
-        return plan
 
     # ------------------------------------------------------------------ limits
 
@@ -183,47 +71,34 @@ class Replanner:
     ) -> bool:
         max_replans = _config_int("AGENT_MAX_REPLANS", DEFAULT_MAX_REPLANS)
         if (run.replan_count or 0) >= max_replans:
-            self._raise_limit(run, "AGENT_REPLAN_LIMIT_REACHED", "重规划次数已达上限", trace_id)
+            self._service._raise_limit(run, "AGENT_REPLAN_LIMIT_REACHED", trace_id)
             return False
 
+        from app.services.security_agent.decision_records import DecisionRecords
+
+        decisions = DecisionRecords(self._service._events)
         max_same_route = _config_int(
             "AGENT_MAX_SAME_FAILURE_ROUTE", DEFAULT_MAX_SAME_FAILURE_ROUTE
         )
-        if self._decisions.count_by_reason(run.id, reason_code) >= max_same_route:
-            self._raise_limit(
-                run,
-                "AGENT_REPLAN_LIMIT_REACHED",
-                f"同一决策路线 {reason_code} 触发次数已达上限",
-                trace_id,
+        if decisions.count_by_reason(run.id, reason_code) >= max_same_route:
+            self._service._raise_limit(
+                run, "AGENT_REPLAN_LIMIT_REACHED", trace_id
             )
             return False
 
         max_nodes = _config_int("AGENT_MAX_PLAN_NODES", DEFAULT_MAX_PLAN_NODES)
         if len(supersedes.nodes) >= max_nodes:
-            self._raise_limit(
-                run,
-                "AGENT_REPLAN_LIMIT_REACHED",
-                f"计划节点数已达上限（{max_nodes}）",
-                trace_id,
+            self._service._raise_limit(
+                run, "AGENT_REPLAN_LIMIT_REACHED", trace_id
             )
             return False
         return True
-
-    def _raise_limit(self, run: AgentRun, code: str, reason: str, trace_id: str | None) -> None:
-        logger.warning("Replan limit reached (run_id=%s, %s)", run.id, reason)
-        self._events.emit(
-            run,
-            EVENT_WARNING_RAISED,
-            {"warning_codes": [code], "reason": reason},
-            trace_id=trace_id,
-        )
 
 
 def _config_int(key: str, default: int) -> int:
     if current_app is None:
         return default
-    value = current_app.config.get(key, default)
     try:
-        return int(value)
+        return int(current_app.config.get(key, default))
     except (TypeError, ValueError):
         return default
