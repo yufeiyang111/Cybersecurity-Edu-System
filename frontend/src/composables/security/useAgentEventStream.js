@@ -3,6 +3,7 @@ import { agentAPI } from '@/api'
 const RECONNECT_BACKOFF_MS = [1000, 2000, 4000, 8000, 15000]
 const RECONNECT_JITTER_MS = 300
 const HEARTBEAT_TIMEOUT_MS = 45000
+const MAX_RECONNECT_ATTEMPTS = 5
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -41,6 +42,7 @@ export function useAgentEventStream() {
           onEvent: (frame) => {
             attempt = 0
             armHeartbeat(onStateChange)
+            if (frame.event === 'ping') return
             onEvent?.(frame)
           }
         })
@@ -52,8 +54,17 @@ export function useAgentEventStream() {
       } catch (error) {
         clearHeartbeat()
         if (error?.name === 'AbortError' || generationId !== generation) return
+        // run 已删除等持久性错误：直接终止，不无限重连
+        if (error?.response?.status === 404) {
+          onStateChange?.('error')
+          return
+        }
       }
       if (generationId !== generation) return
+      if (attempt >= MAX_RECONNECT_ATTEMPTS) {
+        onStateChange?.('error')
+        return
+      }
       onStateChange?.('reconnecting')
       const delay = RECONNECT_BACKOFF_MS[Math.min(attempt, RECONNECT_BACKOFF_MS.length - 1)]
       attempt += 1

@@ -47,7 +47,9 @@ logger = logging.getLogger(__name__)
 AGENT_OPERATION = "agent"
 INVOCATION_OPERATION = "agent_analysis"
 ANALYSIS_MESSAGE_TYPE = "llm_analysis"
+REASONING_MESSAGE_TYPE = "llm_reasoning"
 MAX_ANALYSIS_CHARS = 6000
+MAX_REASONING_CHARS = 6000
 MAX_EVIDENCE_CHARS = 12000
 STOP_POLL_EVERY_CHUNKS = 10
 
@@ -146,6 +148,7 @@ class AgentLlmAnalysisService:
         trace_id: str,
     ) -> dict:
         analysis_parts: list[str] = []
+        reasoning_parts: list[str] = []
         usage: dict[str, Any] = {}
         warning_code: str | None = None
         chunk_index = 0
@@ -156,6 +159,7 @@ class AgentLlmAnalysisService:
                 # 思维链直通前必须脱敏；无法安全脱敏的增量直接丢弃
                 safe_delta = redact_reasoning(chunk.reasoning_delta)
                 if safe_delta:
+                    reasoning_parts.append(safe_delta)
                     self._events.emit(
                         run,
                         EVENT_LLM_REASONING_DELTA,
@@ -253,8 +257,22 @@ class AgentLlmAnalysisService:
                 message_type=ANALYSIS_MESSAGE_TYPE,
             )
         )
+        reasoning = "".join(reasoning_parts).strip()[:MAX_REASONING_CHARS]
+        if reasoning:
+            # join 后再整体脱敏一次：流式 delta 单块过小，密钥可被拆分跨块绕过逐块脱敏
+            reasoning = redact_reasoning(reasoning) or ""
+        if reasoning:
+            db.session.add(
+                AgentMessage(
+                    run_id=run.id,
+                    role="agent",
+                    content=reasoning,
+                    message_type=REASONING_MESSAGE_TYPE,
+                )
+            )
         payload = {
             "analysis": summary,
+            "reasoning": reasoning,
             "provider": getattr(provider, "provider_name", "unknown"),
             "model": getattr(provider, "model", None),
             "degraded": False,
@@ -362,6 +380,7 @@ class AgentLlmAnalysisService:
         )
         payload = {
             "analysis": summary,
+            "reasoning": "",
             "provider": None,
             "model": None,
             "degraded": True,

@@ -20,6 +20,12 @@ _SENSITIVE_PATTERNS = (
     re.compile(r"(?i)\b(api[_-]?key|access[_-]?token|secret|password|passwd|pwd)\s*[:=]\s*['\"]?[^\s'\"]{8,}"),
     # private key blocks
     re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----", re.DOTALL),
+    # AWS access key id (20 chars, streaming chunks are too small for {32,})
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    # GitHub personal access tokens (ghp_/gho_/ghu_/ghs_/ghr_)
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
+    # JWT (header.payload.signature)
+    re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b"),
     # long high-entropy hex/base64-looking strings (>= 32 chars)
     re.compile(r"\b[0-9a-fA-F]{32,}\b"),
     re.compile(r"\b[A-Za-z0-9+/]{40,}={0,2}\b"),

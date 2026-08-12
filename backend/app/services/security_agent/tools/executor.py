@@ -74,6 +74,7 @@ class ToolExecutor:
                 "tool_version": descriptor.version,
                 "node_key": node.node_key,
                 "risk_level": descriptor.risk_level,
+                "input_summary": tool_call.input_summary or "",
             },
             trace_id=trace_id,
         )
@@ -130,6 +131,7 @@ class ToolExecutor:
                     "tool_name": descriptor.name,
                     "node_key": node.node_key,
                     "summary": result.summary,
+                    "output_summary": result.summary,
                     "latency_ms": latency_ms,
                     "metrics": result.metrics,
                     "artifact_refs": result.artifact_refs,
@@ -146,6 +148,7 @@ class ToolExecutor:
                     "node_key": node.node_key,
                     "error_code": result.error_code,
                     "summary": result.summary,
+                    "output_summary": result.summary,
                 },
                 trace_id=trace_id,
             )

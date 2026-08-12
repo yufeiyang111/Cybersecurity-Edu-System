@@ -332,7 +332,12 @@ function parseAgentSSE(raw, onEvent) {
       hasContent = true
     }
   }
-  if (!hasContent) return
+  if (!hasContent) {
+    // 纯注释帧（如服务端心跳 ": ping"）：无业务数据，但仍代表连接存活，
+    // 回调 ping 事件让心跳机制重置，避免长任务期间被误判断线
+    onEvent({ event: 'ping', id: null, data: null })
+    return
+  }
   if (dataText) {
     try {
       frame.data = JSON.parse(dataText)

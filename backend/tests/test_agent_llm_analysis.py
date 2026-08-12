@@ -319,6 +319,11 @@ def test_stream_analysis_collects_reasoning_usage_and_persists_events(app, monke
         )
         assert completed.payload_json["analysis"] == result["analysis"]
 
+        reasoning_message = AgentMessage.query.filter_by(
+            run_id=run.id, message_type="llm_reasoning"
+        ).one()
+        assert reasoning_message.content == "先核对扫描证据", "思考链必须持久化，刷新页面后仍可回看"
+
         message = AgentMessage.query.filter_by(
             run_id=run.id, message_type=ANALYSIS_MESSAGE_TYPE
         ).one()
@@ -331,6 +336,41 @@ def test_stream_analysis_collects_reasoning_usage_and_persists_events(app, monke
         assert reloaded.output_tokens == 12
         assert reloaded.reasoning_tokens == 5
         assert reloaded.total_tokens == 42
+
+
+def test_stream_analysis_redacts_key_split_across_deltas(app, monkeypatch):
+    with app.app_context():
+        run = _make_run(with_turn=True)
+        secret = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+        chunks = [
+            LLMStreamChunk(reasoning_delta=secret[i:i + 16])
+            for i in range(0, len(secret), 16)
+        ]
+        chunks += [
+            LLMStreamChunk(delta="结论：扫描发现硬编码密钥。"),
+            LLMStreamChunk(
+                finished=True,
+                usage={"prompt_tokens": 10, "completion_tokens": 4, "total_tokens": 14},
+            ),
+        ]
+        _patch_provider(monkeypatch, _FakeStreamProvider(chunks))
+
+        result = AgentLlmAnalysisService(EventService()).analyze(run, trace_id="t-split")
+
+        assert result["degraded"] is False
+        assert secret not in result["reasoning"], "跨 delta 拼接的密钥必须在 join 后整体脱敏"
+        assert result["reasoning"] == "[REDACTED]"
+
+        reasoning_message = AgentMessage.query.filter_by(
+            run_id=run.id, message_type="llm_reasoning"
+        ).one()
+        assert secret not in reasoning_message.content
+        assert reasoning_message.content == "[REDACTED]"
+
+        completed = next(
+            item for item in _events(run.id) if item.event_type == "llm.completed"
+        )
+        assert secret not in completed.payload_json.get("reasoning", "")
 
 
 def test_agent_analysis_records_call_log(app, monkeypatch):
