@@ -33,6 +33,7 @@ def legacy_item_from_event(event: AgentEvent) -> dict:
         "public_id": f"legacy-ev-{event.id}",
         "sequence": event.sequence,
         "schema_version": 1,
+        "item_type": _item_type_from_event(event.event_type),
         "event_type": event.event_type,
         "status": "completed",
         "payload": event.payload_json or {},
@@ -41,3 +42,27 @@ def legacy_item_from_event(event: AgentEvent) -> dict:
         else None,
         "source": "legacy_event",
     }
+
+
+def _item_type_from_event(event_type: str) -> str:
+    """旧事件类型 → legacy item_type（尽力映射，未知归为 observation）。"""
+    mapping = {
+        "run.created": "plan",
+        "plan.created": "plan",
+        "plan.replanned": "plan",
+        "step.started": "tool_call",
+        "step.completed": "tool_call",
+        "step.failed": "tool_call",
+        "tool.started": "tool_call",
+        "tool.completed": "tool_call",
+        "tool.failed": "tool_call",
+        "llm.completed": "assistant_message",
+        "decision.recorded": "decision_summary",
+        "strategy.switched": "decision_summary",
+        "warning.raised": "warning",
+        "approval.requested": "approval",
+        "approval.resolved": "approval",
+        "observation.created": "observation",
+        "budget.updated": "controller_feedback",
+    }
+    return mapping.get(event_type, "observation")

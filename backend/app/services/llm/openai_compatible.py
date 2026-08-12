@@ -44,18 +44,6 @@ def _log(method, msg, *args, **kwargs) -> None:
         method(msg, *args, **kwargs)
 
 
-def _raw_log(provider: OpenAICompatibleProvider, response_text: str) -> None:
-    """打印 provider 返回的原始文本，用于诊断格式差异。"""
-    _log(
-        current_app.logger.warning if has_app_context() else None,
-        "[DIAG] MiniMax raw response from %s (base_url=%s, model=%s):\n%s",
-        provider.provider_name,
-        provider.base_url,
-        provider.model,
-        response_text[:2000],
-    )
-
-
 class _ThinkStreamFilter:
     """Stream-safe stripper for <think>...</think> blocks split across chunks.
 
@@ -734,11 +722,6 @@ def _success_response(provider: OpenAICompatibleProvider, body: object, started:
     message = message if isinstance(message, dict) else {}
     raw_content = message.get("content") or body.get("text") or ""
     reasoning_content = message.get("reasoning_content") if isinstance(message.get("reasoning_content"), str) else None
-    _log(
-        current_app.logger.warning if has_app_context() else None,
-        "[DIAG] project input raw_content=%r, reasoning_content=%r",
-        raw_content[:500], reasoning_content,
-    )
     visible, reasoning = project(raw_content, reasoning_content)
     if not visible.strip():
         finish_reason = choice.get("finish_reason") if isinstance(choice, dict) else None

@@ -35,13 +35,13 @@ class LoggedLLMProvider:
         try:
             response = self._provider.generate(request)
             logger.info(
-                "LoggedLLMProvider.generate raw response (provider=%s, operation=%s, "
-                "is_success=%s, warning_code=%s, text=%r, status_code=%s)",
+                "LoggedLLMProvider.generate (provider=%s, operation=%s, "
+                "is_success=%s, warning_code=%s, text_len=%s, status_code=%s)",
                 getattr(self._provider, "provider_name", "?"),
                 self.operation,
                 response.is_success if isinstance(response, LLMResponse) else "NOT_LLMRESPONSE",
                 response.warning_code if isinstance(response, LLMResponse) else "N/A",
-                response.text[:50] if isinstance(response, LLMResponse) and response.text else None,
+                len(response.text) if isinstance(response, LLMResponse) and response.text else 0,
                 response.status_code if isinstance(response, LLMResponse) else "N/A",
             )
         except Exception as exc:
