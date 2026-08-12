@@ -20,6 +20,12 @@ class AgentEvent(db.Model):
     event_type = db.Column(db.String(64), nullable=False)
     schema_version = db.Column(db.Integer, nullable=False, default=1)
     trace_id = db.Column(db.String(64))
+    conversation_id = db.Column(db.Integer)
+    turn_id = db.Column(db.Integer)
+    iteration = db.Column(db.Integer, nullable=False, default=0)
+    item_public_id = db.Column(db.String(64))
+    parent_item_public_id = db.Column(db.String(64))
+    dedupe_key = db.Column(db.String(255))
     occurred_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     payload_json = db.Column(db.JSON)
 
@@ -35,6 +41,12 @@ class AgentEvent(db.Model):
             "event_type": self.event_type,
             "schema_version": self.schema_version,
             "trace_id": self.trace_id,
+            "conversation_id": self.conversation_id,
+            "turn_id": self.turn_id,
+            "iteration": self.iteration,
+            "item_public_id": self.item_public_id,
+            "parent_item_public_id": self.parent_item_public_id,
+            "dedupe_key": self.dedupe_key,
             "occurred_at": self.occurred_at.isoformat() if self.occurred_at else None,
             "payload": self.payload_json or {},
         }

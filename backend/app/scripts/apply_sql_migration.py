@@ -43,6 +43,7 @@ MIGRATION_IDS = (
     "032_agent_approvals",
     "033_workspace_provider_policy",
     "034_analytics_preferences",
+    "035_agent_loop_items",
 )
 
 

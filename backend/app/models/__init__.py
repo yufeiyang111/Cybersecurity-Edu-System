@@ -45,6 +45,8 @@ from app.models.agent_runtime import (
     AgentToolCall,
 )
 from app.models.agent_events import AgentEvent
+from app.models.agent_items import AgentItem
+from app.models.agent_control import AgentControlInput, AgentConversationSummary
 from app.models.agent_approval import (
     AgentApproval,
     ApprovalOperationType,
@@ -106,6 +108,7 @@ __all__ = [
     "AgentMessage", "AgentPlan", "AgentPlanNode", "AgentPlanNodeStatus", "AgentPlanNodeType",
     "AgentPlanEdge", "AgentStepExecution", "AgentToolCall",
     "AgentArtifact", "AgentCheckpoint", "AgentEvent",
+    "AgentItem", "AgentControlInput", "AgentConversationSummary",
     "CoverageKind", "ProjectSnapshotFile", "ScanFileReceipt",
     "AgentConversation", "AgentConversationMessage", "AgentTurn",
     "ConversationStatus", "TurnStatus",
