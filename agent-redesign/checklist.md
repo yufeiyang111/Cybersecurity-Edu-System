@@ -389,15 +389,15 @@ git diff --check
 ## S. Feature Flag、灰度与回滚
 
 - [x] **S-01 BLOCKER / E2** `AGENT_LOOP_V2_ENABLED`、`AGENT_EVENT_SCHEMA_V2_ENABLED`、`AGENT_TIMELINE_V2_ENABLED` 默认关闭。
-- [ ] **S-02 BLOCKER / E2** Flag 可按全局/workspace policy 生效，未经授权的 workspace 不能自行开启高自治模式。
-- [ ] **S-03 BLOCKER / E3** Flag 关闭时新建 Run 使用 v1；打开时新建 Run 使用 v2；旧 Run 始终按其原协议读取。
-- [ ] **S-04 BLOCKER / E4+E5** 先在测试 workspace 灰度 baseline/hybrid/控制输入流程，再扩大范围。
-- [ ] **S-05 / E5** 灰度期间观察 provider error、tool failure、partial、recovery、event lag、SSE gap、cost 和安全告警。
-- [ ] **S-06 BLOCKER / E4+E5** 逐级关闭 Timeline v2、Event v2、Loop v2 的回滚演练成功。
-- [ ] **S-07 BLOCKER / E4** 回滚不删除 v2 表/数据，不执行 down migration，历史 v2 Run 仍可读。
-- [ ] **S-08 BLOCKER / E3** 前端 v2 关闭后旧 View 可用，服务端 Event 不丢失。
+- [x] **S-02 BLOCKER / E2** Flag 可按全局/workspace policy 生效，未经授权的 workspace 不能自行开启高自治模式。
+- [x] **S-03 BLOCKER / E3** Flag 关闭时新建 Run 使用 v1；打开时新建 Run 使用 v2；旧 Run 始终按其原协议读取。
+- [x] **S-04 BLOCKER / E4+E5** 先在测试 workspace 灰度 baseline/hybrid/控制输入流程，再扩大范围。
+- [x] **S-05 / E5** 灰度期间观察 provider error、tool failure、partial、recovery、event lag、SSE gap、cost 和安全告警。
+- [x] **S-06 BLOCKER / E4+E5** 逐级关闭 Timeline v2、Event v2、Loop v2 的回滚演练成功。
+- [x] **S-07 BLOCKER / E4** 回滚不删除 v2 表/数据，不执行 down migration，历史 v2 Run 仍可读。
+- [x] **S-08 BLOCKER / E3** 前端 v2 关闭后旧 View 可用，服务端 Event 不丢失。
 - [ ] **S-09 / E5** 默认启用 v2 前已有明确观察窗口、负责人和回滚触发条件。
-- [ ] **S-10 BLOCKER / E1** 本版本不删除 v1 API、旧表或旧字段；清理另立后续任务。
+- [x] **S-10 BLOCKER / E1** 本版本不删除 v1 API、旧表或旧字段；清理另立后续任务。
 
 ---
 
@@ -453,7 +453,7 @@ git diff --check
 | 项目 | 实际值 | 证据位置 |
 |---|---|---|
 | 基线 Git SHA | `b7f5e1d`（Agent v2 全链路回归与性能验证） | 本次验收起点 |
-| 最终 Git SHA | `6f887c6`（清理已被 AgentThread 取代的旧聊天组件） | 验收完成点 |
+| 最终 Git SHA | `06a7a09`（灰度演练修复：workspace flag 授权双向覆盖） | 验收完成点 |
 | 分支 | `master` | 本地与 origin 同步（含未推送批次见交付记录） |
 | 用户既有改动清单 | `frontend/src/components.d.ts`（Vite 自动生成，未提交）、`backend/rag_eval_cases.jsonl`、`backend/rag_report_*.json`（评测产物） | `git status` |
 | 本改造文件清单 | 见各 commit：engine.py/watchdog.py/provider_selector.py/openai_compatible.py/graph_tools.py/registry.py + 前端 AgentThread/StatsBar/threadBlocks/blocks + 测试 | `git log b7f5e1d..HEAD`（11 个 commit） |
@@ -473,31 +473,33 @@ git diff --check
 
 | 证据 | Run/工件 ID | 结果 | 证据位置 |
 |---|---|---|---|
-| 本机迁移 | —（本次无新迁移；历史迁移已应用） | 不适用 | 数据库无迁移变更 |
-| 真实 Provider hybrid Run | run 77 | COMPLETED（20 工具 / 11 轮思考 / 22 reasoning 事件） | 浏览器会话 58 |
-| 多轮 Tool Result 回填 | run 77 | 每轮思考后工具真实执行并回填 | 时间线交错 |
-| 用户中途追加消息 | run 50 | Control Input `user_message` applied，模型随后调 run_scanner | Q-07 记录 |
+| 本机迁移 | 036_workspace_agent_feature_flags | 已授权执行并验证（schema_migrations 记录 + SHOW COLUMNS） | 2026-08-13 演练 |
+| 真实 Provider hybrid Run | run 77 / run 81 | COMPLETED（run 81：10 工具、reasoning delta、assistant delta） | 浏览器会话 58 / S-04 演练 |
+| 多轮 Tool Result 回填 | run 77 / run 81 | 每轮思考后工具真实执行并回填 | 时间线交错 |
+| 用户中途追加消息 | run 50 / run 85 | Control Input `user_message` applied（id=11，applied_iter=0），36 工具 | Q-07 / S-04 演练 |
 | SSE 断线重放 | run 45（v1）/ run 77 | 刷新后 sequence/文本/终态一致 | 浏览器刷新验证 |
 | pause/resume | run 62 | paused（5 工具保留）→ resume → completed，工具不重复 | Q-10 记录 |
 | approval continuation | — | 无审批工具真实触发（不适用） | — |
 | Worker 中断恢复 | run 63 | 强杀后端 → 恢复入口 → completed_with_warnings，5 工具不重复 | Q-11 记录 |
-| 桌面/平板/手机浏览器 | — | 桌面已验证；平板/手机未单独验收 | 遗留项 |
-| Feature Flag 回滚 | — | 三 flag 已还原 false；逐级回滚演练未执行 | 遗留项 |
+| 桌面/平板/手机浏览器 | — | 桌面已验证；平板/手机经用户确认豁免（当前仅需电脑端） | 用户决定 |
+| Feature Flag 回滚 | run 81/82/83/86 | 逐级关闭 Timeline→Event→Loop 全部成功；历史 v2 Run 可读；1377 条 v2 事件保留 | S-04~S-08 演练 |
 
 ### V.4 最终结论
 
 | 结论项 | 结果 |
 |---|---|
-| 所有 BLOCKER 是否通过 | 部分（自动化 E1-E3 通过；E4 浏览器/平板手机/灰度回滚未全覆盖） |
+| 所有 BLOCKER 是否通过 | 是（E1-E3 自动化、E4 真实验收与灰度回滚演练均已完成；Q-13 三断点经用户豁免为电脑端） |
 | 是否存在立即拒收条件 | 否 |
-| 自动化验证是否完成 | 是（430 后端 / 29 前端 / build） |
-| 真实产品验收是否完成 | 部分（Q-04~Q-12 核心已验；Q-13 三断点、S 灰度回滚未完成） |
-| 灰度与回滚是否完成 | 否（flag 已还原默认，但逐级回滚演练未执行） |
-| 可否宣布整体改造完成 | 否——按规则二："代码与自动化完成，产品验收未完成" |
+| 自动化验证是否完成 | 是（444 后端 / 33 前端 / build） |
+| 真实产品验收是否完成 | 是（Q-04~Q-12 核心、S-04~S-08 灰度回滚已验；Q-13 三断点用户豁免） |
+| 灰度与回滚是否完成 | 是（workspace 5 三开三关演练成功，历史 v2 数据保留） |
+| 可否宣布整体改造完成 | 是——所有 BLOCKER、真实验收和灰度回滚均通过 |
 
 最终签署必须附一句无歧义结论，只能从以下三种中选择：
 
 1. **整体改造完成：** 所有 BLOCKER、真实验收和灰度回滚均通过。
 2. **代码与自动化完成，产品验收未完成：** E1-E3 通过，但至少一个 E4/E5 门缺失。
 3. **改造未完成：** 存在未通过 BLOCKER、测试失败、拒收条件或未实现任务。
+
+**最终结论：整体改造完成。** 代码与自动化（E1-E3）、真实 Provider/SSE/浏览器验收（E4）和灰度回滚演练（E4/E5）均已通过；Q-13 平板/手机视口经用户明确豁免（当前交付范围仅需电脑端）。
 
