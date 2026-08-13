@@ -47,6 +47,9 @@ def test_select_provider_falls_back_when_user_lookup_fails(app_ctx, monkeypatch)
     monkeypatch.setattr(
         provider_selector, "select_configured_provider", lambda: _FakeFallback()
     )
+    monkeypatch.setattr(
+        provider_selector, "_server_openai_compatible_provider", lambda **kw: None
+    )
     monkeypatch.setattr(provider_selector, "observe_provider", lambda p, **kw: p)
 
     provider = provider_selector.select_provider(user_id=13, operation="memory")
@@ -58,6 +61,9 @@ def test_select_provider_falls_back_when_no_user_provider(app_ctx, monkeypatch):
     monkeypatch.setattr(provider_selector, "get_default_for_user", lambda uid: None)
     monkeypatch.setattr(
         provider_selector, "select_configured_provider", lambda: _FakeFallback()
+    )
+    monkeypatch.setattr(
+        provider_selector, "_server_openai_compatible_provider", lambda **kw: None
     )
     monkeypatch.setattr(provider_selector, "observe_provider", lambda p, **kw: p)
 
@@ -122,7 +128,37 @@ def test_select_provider_user_provider_load_failure_falls_back(app_ctx, monkeypa
     monkeypatch.setattr(
         provider_selector, "select_configured_provider", lambda: _FakeFallback()
     )
+    monkeypatch.setattr(
+        provider_selector, "_server_openai_compatible_provider", lambda **kw: None
+    )
     monkeypatch.setattr(provider_selector, "observe_provider", lambda p, **kw: p)
 
     provider = provider_selector.select_provider(user_id=13, operation="memory")
     assert isinstance(provider, _FakeFallback)
+
+
+def test_select_provider_prefers_server_openai_compatible_provider(app_ctx, monkeypatch):
+    """服务端兜底优先构造 OpenAI-compatible provider（支持 Agent 原生工具
+    与流式 think），旧 MiniMaxProvider 仅作最后 fallback。"""
+    monkeypatch.setattr(provider_selector, "get_default_for_user", lambda uid: None)
+
+    class _FakeServerProvider:
+        pass
+
+    monkeypatch.setattr(
+        provider_selector,
+        "_server_openai_compatible_provider",
+        lambda **kw: _FakeServerProvider(),
+    )
+    called = {"legacy": False}
+
+    def legacy_fallback():
+        called["legacy"] = True
+        return _FakeFallback()
+
+    monkeypatch.setattr(provider_selector, "select_configured_provider", legacy_fallback)
+    monkeypatch.setattr(provider_selector, "observe_provider", lambda p, **kw: p)
+
+    provider = provider_selector.select_provider(user_id=13, operation="agent")
+    assert isinstance(provider, _FakeServerProvider)
+    assert called["legacy"] is False, "旧 provider 不应被使用"

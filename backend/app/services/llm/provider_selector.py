@@ -50,9 +50,37 @@ def select_provider(user_id: int | None = None, operation: str = "unknown"):
                     configured.id,
                 )
     try:
+        # 服务端兜底：优先构造 OpenAI-compatible 的 minimax（/chat/completions
+        # 支持 Agent 原生工具调用 + 流式 <think> 提取）；旧 MiniMaxProvider
+        # 仅作为最后 fallback（无 agent 能力，agent 轮会退化为 JSON fallback，
+        # 导致思考过程与原生工具调用全部丢失）。
+        server = _server_openai_compatible_provider(user_id=user_id, operation=operation)
+        if server is not None:
+            return observe_provider(server, user_id=user_id, operation=operation)
         provider = select_configured_provider()
         if provider is not None and user_id is not None:
             return observe_provider(provider, user_id=user_id, operation=operation)
         return provider
     except RuntimeError:
         return None
+
+
+def _server_openai_compatible_provider(
+    user_id: int | None, operation: str
+) -> OpenAICompatibleProvider | None:
+    """按服务端 env 配置构造 OpenAI-compatible Provider（优先 minimax）。"""
+    api_key = str(current_app.config.get("MINIMAX_API_KEY", "")).strip()
+    if not api_key:
+        return None
+    return OpenAICompatibleProvider(
+        provider_name="minimax",
+        base_url=str(
+            current_app.config.get("MINIMAX_API_BASE", "https://api.minimaxi.com/v1")
+        ),
+        api_key=api_key,
+        model=str(current_app.config.get("MINIMAX_MODEL", "MiniMax-M2.7")).strip()
+        or "MiniMax-M2.7",
+        provider_config_id=None,
+        user_id=user_id,
+        operation=operation,
+    )
