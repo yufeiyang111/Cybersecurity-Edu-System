@@ -278,7 +278,7 @@ def retry_agent_run(run_id: int):
         run = _agent_run_or_404(run_id, PROJECT_ROLES)
         if run is None:
             return jsonify({"error": "Agent 任务不存在"}), 404
-        data = _json_object()
+        data = request.get_json(silent=True) or {}
         client_request_id = data.get("client_request_id")
         if client_request_id is None:
             client_request_id = f"retry-{uuid.uuid4().hex[:12]}"

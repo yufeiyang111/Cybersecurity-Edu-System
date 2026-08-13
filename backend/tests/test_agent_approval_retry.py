@@ -272,9 +272,12 @@ def test_retry_endpoint_flow(agent_api_app, tmp_path):
     client = agent_api_app.test_client()
     headers = auth_headers(agent_api_app, user_id)
     response = client.post(
-        f"/api/security/agent-runs/{run_id}/retry", headers=headers, json={}
+        f"/api/security/agent-runs/{run_id}/retry",
+        headers=headers,
+        data=b"",
+        content_type="application/json",
     )
-    assert response.status_code == 200, response.get_json()
+    assert response.status_code == 200, "空 body 的 retry 不得 500（client_request_id 自动生成）"
     body = response.get_json()
     assert body["retried"] is True
     assert body["control_input"]["input_type"] == "system_retry"
