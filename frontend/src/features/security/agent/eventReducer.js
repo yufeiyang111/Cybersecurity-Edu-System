@@ -1,6 +1,3 @@
-import { securityApiErrorMessage } from '@/features/security/presentation'
-import { agentStatusMeta, agentModeMeta } from '@/features/security/agent/statusMeta'
-
 const STEP_CAP = 50
 const TOOL_CALL_CAP = 50
 const EVENT_TAIL_CAP = 100
@@ -19,6 +16,7 @@ export function createAgentRunState() {
     stateVersion: 0,
     reasoningStream: '',
     reasoningLive: false,
+    reasoningSensitiveLevel: 'internal',
     llmAnalysis: null,
     lastProvider: null,
     connectionState: 'connecting',
@@ -49,6 +47,7 @@ export function hydrateAgentRunState(snapshot) {
     stateVersion: snapshot.state_version || 0,
     reasoningStream: agentReasoning?.content || '',
     reasoningLive: false,
+    reasoningSensitiveLevel: 'internal',
     llmAnalysis: agentAnalysis?.content || null,
     lastProvider: startedEvent?.payload
       ? { provider: startedEvent.payload.provider, model: startedEvent.payload.model }
@@ -85,6 +84,37 @@ export function reduceAgentEvent(state, event) {
       ...state,
       reasoningStream: state.reasoningStream + (event.payload?.delta || ''),
       reasoningLive: true,
+      lastSequence: event.sequence
+    }
+  }
+
+  if (event.event_type === 'item.reasoning_summary.started') {
+    // v2 推理摘要开始：重置累积（每次模型轮独立）。
+    return {
+      ...state,
+      reasoningStream: '',
+      reasoningLive: true,
+      reasoningSensitiveLevel: event.payload?.sensitive_level || 'internal',
+      lastSequence: event.sequence
+    }
+  }
+
+  if (event.event_type === 'item.reasoning_summary.delta') {
+    // v2 推理摘要增量：累积受限摘要（已脱敏限长）。
+    return {
+      ...state,
+      reasoningStream: state.reasoningStream + (event.payload?.delta || ''),
+      reasoningLive: true,
+      reasoningSensitiveLevel: event.payload?.sensitive_level || state.reasoningSensitiveLevel,
+      lastSequence: event.sequence
+    }
+  }
+
+  if (event.event_type === 'item.reasoning_summary.completed' ||
+      event.event_type === 'item.reasoning_summary.failed') {
+    return {
+      ...state,
+      reasoningLive: false,
       lastSequence: event.sequence
     }
   }
@@ -245,5 +275,3 @@ export function applyEventBatch(state, events) {
   for (const event of events) next = reduceAgentEvent(next, event)
   return next
 }
-
-export { securityApiErrorMessage, agentStatusMeta, agentModeMeta }

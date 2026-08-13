@@ -1,6 +1,28 @@
 """Think-tag stripping: block removal and stream-safe cross-chunk filtering."""
 from app.services.llm.internal_reasoning_boundary import project, strip_visible
-from app.services.llm.openai_compatible import _ThinkStreamFilter
+from app.services.llm.openai_compatible import (
+    _ThinkStreamFilter,
+    _extract_think_blocks,
+)
+
+
+def test_extract_think_blocks_returns_inline_reasoning():
+    text = "<think>\u7528\u6237\u8be2\u95ee\u4ec0\u4e48\u662fSQL\u6ce8\u5165</think>\n\n\u56de\u7b54\u5185\u5bb9"
+    assert _extract_think_blocks(text) == "\u7528\u6237\u8be2\u95ee\u4ec0\u4e48\u662fSQL\u6ce8\u5165"
+
+
+def test_extract_think_blocks_multiple_and_trimmed():
+    text = (
+        "<think>\u7b2c\u4e00\u6b65\u601d\u8003</think>\n\u56de\u7b54\n"
+        "<think>\u7b2c\u4e8c\u6b65\u601d\u8003  </think>"
+    )
+    assert _extract_think_blocks(text) == "\u7b2c\u4e00\u6b65\u601d\u8003\n\u7b2c\u4e8c\u6b65\u601d\u8003"
+
+
+def test_extract_think_blocks_none_when_absent():
+    assert _extract_think_blocks("\u56de\u7b54\u5185\u5bb9") is None
+    assert _extract_think_blocks("<think>\u672a\u95ed\u5408") is None
+    assert _extract_think_blocks("") is None
 
 
 def test_project_removes_think_block_content_from_visible_text():

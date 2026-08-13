@@ -36,10 +36,18 @@
                 Turn {{ turn.turn_sequence }}
               </button>
             </div>
-            <AgentChatMessage
-              v-for="message in conversation"
-              :key="message.key"
-              :message="message"
+            <AgentThread
+              :user-messages="userMessages"
+              :events="store.events"
+              :tool-calls="store.toolCalls"
+              :reasoning-stream="store.reasoningStream"
+              :reasoning-live="store.reasoningLive"
+              :reasoning-sensitive-level="store.reasoningSensitiveLevel || 'internal'"
+              :llm-analysis="store.llmAnalysis"
+              :run="store.run"
+              :running="!store.isTerminal && !!store.run"
+              :fallback-text="agentFallbackText"
+              :fallback-detail="agentFallbackDetail"
             />
           </div>
         </div>
@@ -169,7 +177,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from '@/features/security/feedback'
 import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
-import AgentChatMessage from '@/components/security/agent/chat/AgentChatMessage.vue'
+import AgentThread from '@/components/security/agent/thread/AgentThread.vue'
 import AgentApprovalQueue from '@/components/security/agent/AgentApprovalQueue.vue'
 import AgentConnectionStatus from '@/components/security/agent/AgentConnectionStatus.vue'
 import AgentCostPanel from '@/components/security/agent/AgentCostPanel.vue'
@@ -420,7 +428,7 @@ const composerPlaceholder = computed(() => {
 
 // ------------------------------------------------------------------ conversation
 
-const conversation = computed(() => {
+const userMessages = computed(() => {
   const items = []
   if (mode.value === 'conversation') {
     for (const turn of turns.value) {
@@ -430,131 +438,46 @@ const conversation = computed(() => {
       if (message) {
         items.push({
           key: `conv-msg-${message.id}`,
-          role: 'user',
           text: message.content,
-          time: formatSecurityDate(message.created_at),
-          turnSeq: turn.turn_sequence
+          time: formatSecurityDate(message.created_at)
         })
-      }
-      const payload = turnRuns.value[turn.run_id]
-      if (payload) {
-        const isLive = turn.run_id === currentRunId.value
-        items.push(agentMessage(payload, turn, isLive))
       }
     }
     return items
   }
-
-  // run 模式：按消息顺序交错，最后一条 agent 消息实时融合 SSE 数据
-  const stored = store.messages || []
-  for (const message of stored) {
+  for (const message of store.messages || []) {
     if (message.role === 'user') {
       items.push({
         key: `msg-${message.id}`,
-        role: 'user',
         text: message.content,
         time: formatSecurityDate(message.created_at)
       })
-    } else {
-      items.push(agentMessageForStore(message))
     }
-  }
-  if (store.run && !items.some((item) => item.role === 'agent')) {
-    items.push(agentMessageForStore(null))
   }
   return items
 })
 
-function agentMessage(payload, turn, isLive) {
-  const run = payload.run || {}
-  const analysis = (payload.messages || []).find(
-    (message) => message.role === 'agent' && message.message_type === 'llm_analysis'
-  )
-  const reasoning = (payload.messages || []).find(
-    (message) => message.role === 'agent' && message.message_type === 'llm_reasoning'
-  )
-  if (isLive) {
-    return liveAgentMessage(turn, analysis?.content || null)
-  }
-  return {
-    key: `agent-turn-${turn?.id || run.id}`,
-    role: 'agent',
-    text: agentReplyText(run, payload.scan_summary),
-    time: run.finished_at ? formatSecurityDate(run.finished_at) : '',
-    turnSeq: turn?.turn_sequence || null,
-    reasoning: reasoning?.content || '',
-    reasoningLive: false,
-    llmAnalysis: analysis?.content || null,
-    detail: agentReplyDetail(payload.scan_summary),
-    toolCalls: payload.tool_calls || [],
-    steps: payload.steps || [],
-    status: run.status,
-    streaming: false
-  }
-}
-
-function agentMessageForStore(message) {
+const agentFallbackText = computed(() => {
   const run = store.run || {}
-  const agentMessages = (store.messages || []).filter((item) => item.role === 'agent')
-  const isLastAgent = message === agentMessages[agentMessages.length - 1]
-  // 无持久化消息（run 刚开始）或最后一条 agent 消息未结束时走 live 渲染
-  const useLive = (!message || isLastAgent) && !store.isTerminal
-  if (useLive) {
-    return liveAgentMessage(null, message?.content || null)
-  }
-  return {
-    key: `agent-msg-${message?.id || 'live'}`,
-    role: 'agent',
-    text: agentReplyText(run, store.scanSummary),
-    time: run.finished_at ? formatSecurityDate(run.finished_at) : '',
-    turnSeq: null,
-    reasoning: store.reasoningStream || '',
-    reasoningLive: false,
-    llmAnalysis: message?.content || store.llmAnalysis || null,
-    detail: agentReplyDetail(store.scanSummary),
-    toolCalls: store.toolCalls || [],
-    steps: store.steps || [],
-    status: run.status,
-    streaming: false
-  }
-}
-
-function liveAgentMessage(turn, fallbackAnalysis) {
-  const run = store.run || {}
-  return {
-    key: `agent-live-${turn?.id || run.id || 'current'}`,
-    role: 'agent',
-    text: agentReplyText(run, store.scanSummary),
-    time: run.finished_at ? formatSecurityDate(run.finished_at) : '',
-    turnSeq: turn?.turn_sequence || null,
-    reasoning: store.reasoningStream,
-    reasoningLive: store.reasoningLive,
-    llmAnalysis: store.llmAnalysis || fallbackAnalysis || null,
-    detail: agentReplyDetail(store.scanSummary),
-    toolCalls: store.toolCalls || [],
-    steps: store.steps || [],
-    status: run.status,
-    streaming: !store.isTerminal && !store.llmAnalysis
-  }
-}
-
-function agentReplyText(run, scanSummary) {
-  if (!run) return ''
+  if (!run.id) return ''
   const status = agentStatusMeta(run.status).label
-  const findings = scanSummary?.findings_count ?? 0
+  const findings = store.scanSummary?.findings_count ?? 0
   return `执行完成（${status}）：基线扫描产出 ${findings} 个发现。`
-}
+})
 
-function agentReplyDetail(scanSummary) {
+const agentFallbackDetail = computed(() => {
   const items = []
+  const scanSummary = store.scanSummary
   if (scanSummary) {
     items.push({ kind: 'task', text: scanSummary.task_id })
     const counts = scanSummary.severity_counts || {}
     items.push({ kind: 'severity', counts })
-    if (scanSummary.languages?.length) items.push({ kind: 'languages', text: scanSummary.languages.join(', ') })
+    if (scanSummary.languages?.length) {
+      items.push({ kind: 'languages', text: scanSummary.languages.join(', ') })
+    }
   }
   return items
-}
+})
 
 let conversationLoadSequence = 0
 

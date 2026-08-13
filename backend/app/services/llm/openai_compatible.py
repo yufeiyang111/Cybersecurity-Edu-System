@@ -635,6 +635,23 @@ def _agent_payload(request: "AgentModelRequest", model: str, *, stream: bool) ->
     return body
 
 
+def _extract_think_blocks(text: str) -> str | None:
+    """从非流式 content 中提取 <think>...</think> 块内容（与流式过滤器对齐）。
+
+    返回拼接后的推理文本；无完整 think 块时返回 None。提取后的推理内容
+    由 engine 层脱敏限长后才下发/持久化，不在此处直接透传。
+    """
+    blocks = _THINK_BLOCK_RE.findall(text or "")
+    if not blocks:
+        return None
+    return "\n".join(part.strip() for part in blocks if part and part.strip()) or None
+
+
+_THINK_BLOCK_RE = re.compile(
+    r"(?is)<\s*think(?:ing)?(?:\s[^>]*)?>(.*?)</\s*think(?:ing)?(?:\s[^>]*)?\s*>"
+)
+
+
 def _agent_success(
     provider: OpenAICompatibleProvider, body: dict[str, Any], started: float
 ) -> "AgentModelResponse":
@@ -666,19 +683,26 @@ def _agent_success(
                     AgentModelToolCall(call_id=call_id, name=name, arguments=parsed)
                 )
     raw_content = message.get("content") or ""
-    content = None
-    if raw_content and not tool_calls:
-        visible, _ = project(raw_content, None)
-        content = visible or None
-    if not content and not tool_calls:
-        return _agent_failure(provider, "LLM_OUTPUT_INVALID", started)
-    usage = normalize_usage(body.get("usage") or {}) or {}
     reasoning_content = message.get("reasoning_content")
     reasoning_content = (
         reasoning_content
         if isinstance(reasoning_content, str) and reasoning_content
         else None
     )
+    content = None
+    if raw_content and not tool_calls:
+        visible, _ = project(raw_content, reasoning_content)
+        content = visible or None
+        # 非流式路径：MiniMax/DeepSeek 把推理内联在 content 的 <think> 块中，
+        # 与流式 _ThinkStreamFilter 行为对齐——提取为受限推理摘要（脱敏在
+        # engine 层完成），可见文本剥离思考段。
+        if reasoning_content is None:
+            inline_reasoning = _extract_think_blocks(raw_content)
+            if inline_reasoning:
+                reasoning_content = inline_reasoning
+    if not content and not tool_calls:
+        return _agent_failure(provider, "LLM_OUTPUT_INVALID", started)
+    usage = normalize_usage(body.get("usage") or {}) or {}
     return AgentModelResponse(
         content=content,
         tool_calls=tuple(tool_calls),
