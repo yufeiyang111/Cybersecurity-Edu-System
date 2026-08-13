@@ -9,13 +9,58 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 
 from app import db
 from app.models.agent_control import AgentConversationSummary
 
+_PLAN_DONE_STATUSES = frozenset({"succeeded", "completed", "skipped", "canceled"})
+
 
 class ConversationSummaryError(ValueError):
     """摘要参数非法或持久化失败。"""
+
+
+def build_summary_content(context: dict) -> dict:
+    """从受限 ContextPack 构建结构化摘要（spec §8.3）。
+
+    包含：目标、已验证事实（最近 Observation）、未解决节点、已完成动作数、
+    预算与审批状态、消息预览；不包含源码全文、完整 Tool Result 或完整推理。
+    """
+    plan = context.get("plan") or {}
+    nodes = plan.get("nodes") or []
+    unresolved = [
+        str(node.get("key"))
+        for node in nodes
+        if str(node.get("status")) not in _PLAN_DONE_STATUSES
+    ][:20]
+    observations = [
+        str(
+            item.get("content_redacted")
+            or item.get("summary")
+            or item.get("content")
+            or ""
+        )[:200]
+        for item in (context.get("recent_observations") or [])[:5]
+    ]
+    completed = context.get("completed_actions") or []
+    approvals = [
+        str(item.get("status")) for item in (context.get("pending_approvals") or [])
+    ]
+    return {
+        "goal": str(context.get("goal") or "")[:500],
+        "verified_facts": observations,
+        "unresolved_nodes": unresolved,
+        "completed_actions_count": len(completed),
+        "plan_version": plan.get("version"),
+        "budget": context.get("budgets") or {},
+        "pending_approvals": approvals,
+        "recent_messages_preview": [
+            str(item.get("content") or "")[:200]
+            for item in (context.get("recent_messages") or [])[:3]
+        ],
+        "generated_at": datetime.utcnow().isoformat(),
+    }
 
 
 class ConversationSummaryService:

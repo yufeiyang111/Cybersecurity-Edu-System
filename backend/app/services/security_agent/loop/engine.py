@@ -30,6 +30,7 @@ from app.services.security_agent.loop.completion_evaluator import (
     CompletionEvaluator,
 )
 from app.services.security_agent.loop.context_assembler import (
+    AGENT_CONTEXT_LIMITED,
     SYSTEM_SECURITY_BOUNDARY,
     ContextAssembler,
 )
@@ -67,6 +68,7 @@ DEFAULT_MAX_ITERATIONS = 20
 DEFAULT_MAX_TOOL_CALLS = 30
 DEFAULT_MAX_CONSECUTIVE_MODEL_ERRORS = 2
 DEFAULT_MAX_SAME_TOOL_SAME_ARGS = 2
+DEFAULT_MAX_CONTEXT_CHARS = 60000
 _MAX_TOOL_RESULT_SUMMARY_CHARS = 2000
 
 
@@ -103,7 +105,12 @@ class AgentLoopEngine:
         self._evaluator = evaluator or CompletionEvaluator()
         self._state = state or AgentStateMachine()
         self._leases = leases or LeaseService()
-        self._tools = ToolExecutor(self._registry, events or EventServiceLike())
+        self._lease_owner: str | None = None
+        self._tools = ToolExecutor(
+            self._registry,
+            events or EventServiceLike(),
+            heartbeat=self._on_tool_heartbeat,
+        )
         self.max_iterations = max_iterations
         self.max_tool_calls = max_tool_calls
         self.max_consecutive_model_errors = max_consecutive_model_errors
@@ -134,6 +141,7 @@ class AgentLoopEngine:
         lease_seconds = _config_int("AGENT_LOOP_LEASE_SECONDS", 60)
         if not self._leases.acquire(run_id, owner, lease_seconds=lease_seconds):
             return "interrupted"
+        self._lease_owner = owner
         try:
             while True:
                 run = db.session.get(AgentRun, run_id)
@@ -170,6 +178,16 @@ class AgentLoopEngine:
                 self._leases.release(run_id, owner)
             except Exception:
                 db.session.rollback()
+            self._lease_owner = None
+
+    def _on_tool_heartbeat(self, run_id: int) -> None:
+        """长工具 attempt 边界的 lease 心跳（spec §6.2 heartbeat_seconds）。"""
+        if self._lease_owner is None:
+            return
+        try:
+            self._leases.heartbeat(run_id, self._lease_owner)
+        except Exception:
+            db.session.rollback()
 
     def _bootstrap_run(self, run: AgentRun, trace_id: str) -> str:
         """T08：v2 起点兼容——QUEUED 先前移到 PREPARING/EXECUTING_TOOLS，
@@ -228,6 +246,7 @@ class AgentLoopEngine:
 
     def advance_once(self, run: AgentRun, trace_id: str) -> str:
         """单轮推进：控制输入 → 硬限制 → 上下文 → 模型 → 动作 → 检查点。"""
+        self._on_tool_heartbeat(run.id)
         terminal = self._apply_control_inputs(run, trace_id)
         if terminal:
             return terminal
@@ -245,7 +264,7 @@ class AgentLoopEngine:
         if not self._baseline_done and not self._run_baseline_dag(run, trace_id):
             return "continue"
 
-        request = self._build_request(run)
+        request = self._build_request(run, trace_id)
         response = self._next_model_turn(run, request, trace_id)
         if response == "interrupted":
             return "interrupted"
@@ -596,10 +615,71 @@ class AgentLoopEngine:
             db.session.rollback()
         return "interrupted"
 
-    def _build_request(self, run: AgentRun) -> AgentModelRequest:
+    def _compress_conversation(
+        self,
+        run: AgentRun,
+        context: dict,
+        conversation_id: int | None,
+        trace_id: str | None,
+    ) -> None:
+        """上下文超限时生成结构化会话摘要（spec §8.3，T07 接线）。
+
+        - 摘要只覆盖声明的水位区间（source_sequence_from/to），带版本与 digest；
+        - 事件水位前进不足时跳过，避免每轮重复生成摘要版本；
+        - 生成失败不阻断循环：降级为缩短 Recent Window +
+          AGENT_CONTEXT_LIMITED（assembler 已处理），只记录结构化日志。
+        """
+        if conversation_id is None:
+            return
+        try:
+            from app.services.security_agent.loop.conversation_summary import (
+                ConversationSummaryService,
+                build_summary_content,
+            )
+
+            service = ConversationSummaryService()
+            latest = service.latest(conversation_id)
+            watermark = int(run.last_event_sequence or 0)
+            if latest is not None and watermark <= latest.source_sequence_to:
+                return
+            min_new = _config_int("AGENT_SUMMARY_MIN_NEW_SEQUENCES", 20)
+            if latest is not None and watermark - latest.source_sequence_to < min_new:
+                return
+            content = build_summary_content(context)
+            service.create_summary(
+                conversation_id=conversation_id,
+                source_sequence_from=(latest.source_sequence_to + 1) if latest is not None else 0,
+                source_sequence_to=max(watermark, 0),
+                content=content,
+            )
+            self._writer.emit(
+                run,
+                event_type=EVENT_WARNING_RAISED,
+                payload={"warning_codes": [AGENT_CONTEXT_LIMITED]},
+                trace_id=trace_id,
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            logger.warning(
+                "会话压缩摘要生成失败 run_id=%s conversation_id=%s",
+                run.id,
+                conversation_id,
+            )
+
+    def _build_request(
+        self, run: AgentRun, trace_id: str | None = None
+    ) -> AgentModelRequest:
+        conversation_id = self._conversation_id(run)
         context = self._assembler.build(
-            run, conversation_id=self._conversation_id(run)
+            run,
+            conversation_id=conversation_id,
+            max_context_chars=_config_int(
+                "AGENT_LOOP_MAX_CONTEXT_CHARS", DEFAULT_MAX_CONTEXT_CHARS
+            ),
         )
+        if context.get("truncated"):
+            self._compress_conversation(run, context, conversation_id, trace_id)
         context_text = _render_context(context)
         messages = [
             AgentModelMessage(role="system", content=SYSTEM_SECURITY_BOUNDARY),

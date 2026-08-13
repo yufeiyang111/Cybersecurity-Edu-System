@@ -10,6 +10,7 @@ import hashlib
 import json
 import time
 from datetime import datetime
+from typing import Callable
 
 from app import db
 from app.models.agent_approval import ApprovalStatus
@@ -45,9 +46,17 @@ from app.services.security_agent.tools.validator import (
 class ToolExecutor:
     """执行一个工具一次：治理门禁 + 幂等 + 重试 + 超时 + 结果落库。"""
 
-    def __init__(self, registry: ToolRegistry, events: EventService) -> None:
+    def __init__(
+        self,
+        registry: ToolRegistry,
+        events: EventService,
+        heartbeat: Callable[[int], None] | None = None,
+    ) -> None:
         self._registry = registry
         self._events = events
+        # 长工具进度心跳回调（spec §10.3）：每次 attempt 边界调用，
+        # 刷新 lease heartbeat_at，避免长工具期间被 watchdog 误判卡死。
+        self._heartbeat = heartbeat
 
     def execute(
         self,
@@ -85,6 +94,7 @@ class ToolExecutor:
         final_result: ToolResult | None = None
         for attempt in range(max_attempts):
             attempt_number = step_execution.attempt_number + attempt
+            self._notify_heartbeat(run.id)
             result, timed_out = self._run_attempt(
                 run,
                 node,
@@ -106,6 +116,14 @@ class ToolExecutor:
                 break
             final_result = result
         return final_result or ToolResult(status="failed", summary="工具执行失败")
+
+    def _notify_heartbeat(self, run_id: int) -> None:
+        if self._heartbeat is None:
+            return
+        try:
+            self._heartbeat(run_id)
+        except Exception:
+            db.session.rollback()
 
     # ---------------------------------------------------------------- gates
 
