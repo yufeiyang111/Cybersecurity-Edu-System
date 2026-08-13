@@ -2,10 +2,11 @@
 """Agent v2 Feature Flag 解析（spec §22.1，S-01/S-02/S-03）。
 
 - 全局 env（AGENT_LOOP_V2_ENABLED / AGENT_EVENT_SCHEMA_V2_ENABLED /
-  AGENT_TIMELINE_V2_ENABLED）是总开关；
-- workspace 的 agent_feature_flags JSON 只能**降级**：把全局开启的能力在
-  指定 workspace 关闭（灰度缩小范围）；全局关闭的能力不能被 workspace
-  自行开启——未经授权的 workspace 无法开启高自治模式（deny by default）；
+  AGENT_TIMELINE_V2_ENABLED）是默认值；
+- workspace 的 agent_feature_flags JSON 是**授权覆盖**：可以双向设置
+  （灰度时先为测试 workspace 开启，回滚时关闭）。写入端点
+  （/workspaces/{id}/agent-feature-flags）要求 workspace owner/
+  security_admin 角色——未经授权的成员无法自行开启高自治模式；
 - 旧 Run 按创建时的协议读取，新建 Run 按解析结果选择协议。
 """
 from __future__ import annotations
@@ -33,7 +34,7 @@ _ENV_TO_KEY = {
 
 @dataclass(frozen=True)
 class AgentFlagSnapshot:
-    """一次解析后的最终 flag 快照（全局 ∧ workspace 降级覆盖）。"""
+    """一次解析后的最终 flag 快照（全局 env 被 workspace 授权覆盖）。"""
 
     loop_v2: bool = False
     event_schema_v2: bool = False
@@ -48,7 +49,7 @@ class AgentFlagSnapshot:
 
 
 class AgentFeatureFlags:
-    """全局 env + workspace 降级覆盖解析；workspace 覆盖缓存短 TTL。"""
+    """全局 env + workspace 授权覆盖解析；workspace 覆盖缓存短 TTL。"""
 
     CACHE_TTL_SECONDS = 60.0
 
@@ -89,10 +90,8 @@ class AgentFeatureFlags:
 
     def for_workspace(self, workspace_id: int | None) -> AgentFlagSnapshot:
         values = self._global_values()
-        for key, disabled in self._workspace_overrides(workspace_id).items():
-            # 覆盖只能降级：全局关闭时 workspace 无法开启。
-            if disabled is False and values.get(key) is True:
-                values[key] = False
+        # 授权覆盖双向生效：写入端已做 owner/security_admin 角色鉴权。
+        values.update(self._workspace_overrides(workspace_id))
         return AgentFlagSnapshot(**values)
 
     def for_run(self, run) -> AgentFlagSnapshot:

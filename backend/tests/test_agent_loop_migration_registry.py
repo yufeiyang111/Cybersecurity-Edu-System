@@ -11,6 +11,7 @@ MIGRATIONS_DIR = BACKEND_ROOT / "database" / "migrations"
 INIT_SQL = BACKEND_ROOT / "database" / "init.sql"
 
 AGENT_LOOP_MIGRATION = "035_agent_loop_items"
+AGENT_FLAGS_MIGRATION = "036_workspace_agent_feature_flags"
 
 
 def test_migration_ids_unique_and_ordered():
@@ -21,8 +22,24 @@ def test_migration_ids_unique_and_ordered():
 def test_agent_loop_migration_registered_last():
     assert AGENT_LOOP_MIGRATION in MIGRATION_IDS
     index = MIGRATION_IDS.index(AGENT_LOOP_MIGRATION)
-    assert index == len(MIGRATION_IDS) - 1
+    assert index == len(MIGRATION_IDS) - 2
     assert MIGRATION_IDS[index - 1] == "034_analytics_preferences"
+
+
+def test_agent_flags_migration_registered_last():
+    assert AGENT_FLAGS_MIGRATION in MIGRATION_IDS
+    index = MIGRATION_IDS.index(AGENT_FLAGS_MIGRATION)
+    assert index == len(MIGRATION_IDS) - 1
+    assert MIGRATION_IDS[index - 1] == AGENT_LOOP_MIGRATION
+
+
+def test_agent_flags_migration_file_and_init_sql_synced():
+    path = MIGRATIONS_DIR / f"{AGENT_FLAGS_MIGRATION}.sql"
+    assert path.is_file()
+    content = path.read_text(encoding="utf-8")
+    assert "ADD COLUMN agent_feature_flags" in content
+    init_sql = INIT_SQL.read_text(encoding="utf-8")
+    assert "agent_feature_flags JSON NULL" in init_sql
 
 
 def test_migration_file_exists_with_new_tables():

@@ -49,12 +49,13 @@ def test_global_flags_default_off(app):
         }
 
 
-def test_workspace_cannot_enable_globally_disabled_flag(app):
+def test_workspace_override_enables_flag_even_when_global_off(app):
+    """灰度路径：全局关闭时，授权覆盖可为测试 workspace 开启（S-04）。"""
     with app.app_context():
         app.config["AGENT_LOOP_V2_ENABLED"] = False
-        workspace = _make_workspace("ws-canot-enable", {"loop_v2": True})
+        workspace = _make_workspace("ws-gray-enable", {"loop_v2": True})
         flags = AgentFeatureFlags().for_workspace(workspace.id)
-        assert flags.loop_v2 is False, "workspace 不能开启全局关闭的高自治模式"
+        assert flags.loop_v2 is True, "授权覆盖可为测试 workspace 开启灰度"
 
 
 def test_workspace_can_downgrade_enabled_flag(app):
@@ -157,7 +158,7 @@ def test_assistant_completed_translates_with_authoritative_analysis(app):
         assert completed[0].payload_json.get("analysis") == "审查完成。"
 
 
-def test_workspace_flag_endpoint_rejects_enable_and_allows_downgrade(agent_api_app):
+def test_workspace_flag_endpoint_owner_can_enable_and_downgrade(agent_api_app):
     user_id, workspace_id = make_user(agent_api_app, "flagowner", "flagowner@t")
     client = agent_api_app.test_client()
     headers = auth_headers(agent_api_app, user_id)
@@ -165,16 +166,26 @@ def test_workspace_flag_endpoint_rejects_enable_and_allows_downgrade(agent_api_a
     response = client.patch(
         f"/api/security/workspaces/{workspace_id}/agent-feature-flags",
         headers=headers,
-        json={"overrides": {"loop_v2": True}},
+        json={"overrides": {"loop_v2": True, "timeline_v2": True}},
     )
-    assert response.status_code == 400, "workspace 不能开启全局关闭的 flag"
+    assert response.status_code == 200, "owner 可授权开启灰度 flag"
+    body = response.get_json()
+    assert body["resolved"]["loop_v2"] is True
+    assert body["resolved"]["timeline_v2"] is True
 
     response = client.patch(
         f"/api/security/workspaces/{workspace_id}/agent-feature-flags",
         headers=headers,
-        json={"overrides": {"loop_v2": False, "timeline_v2": False, "unknown_x": False}},
+        json={"overrides": {"unknown_x": False}},
     )
     assert response.status_code == 400, "未知 flag 键必须被拒绝"
+
+    response = client.patch(
+        f"/api/security/workspaces/{workspace_id}/agent-feature-flags",
+        headers=headers,
+        json={"overrides": {"loop_v2": "yes"}},
+    )
+    assert response.status_code == 400, "非布尔值必须被拒绝"
 
     response = client.patch(
         f"/api/security/workspaces/{workspace_id}/agent-feature-flags",
@@ -182,9 +193,7 @@ def test_workspace_flag_endpoint_rejects_enable_and_allows_downgrade(agent_api_a
         json={"overrides": {"loop_v2": False, "timeline_v2": False}},
     )
     assert response.status_code == 200
-    body = response.get_json()
-    assert body["overrides"] == {"loop_v2": False, "timeline_v2": False}
-    assert body["resolved"]["loop_v2"] is False
+    assert response.get_json()["resolved"]["loop_v2"] is False
 
     response = client.get(
         f"/api/security/workspaces/{workspace_id}/agent-feature-flags",
@@ -200,6 +209,23 @@ def test_workspace_flag_endpoint_rejects_enable_and_allows_downgrade(agent_api_a
     )
     assert response.status_code == 200
     assert response.get_json()["overrides"] == {"timeline_v2": False}
+
+
+def test_workspace_flag_endpoint_denies_non_admin(agent_api_app):
+    user_id, workspace_id = make_user(agent_api_app, "flagowner2", "flagowner2@t")
+    outsider_id, _ = make_user(agent_api_app, "flagviewer", "flagviewer@t")
+    client = agent_api_app.test_client()
+    response = client.patch(
+        f"/api/security/workspaces/{workspace_id}/agent-feature-flags",
+        headers=auth_headers(agent_api_app, outsider_id),
+        json={"overrides": {"loop_v2": True}},
+    )
+    assert response.status_code == 403, "非管理员不能修改 flag"
+    response = client.get(
+        f"/api/security/workspaces/{workspace_id}/agent-feature-flags",
+        headers=auth_headers(agent_api_app, outsider_id),
+    )
+    assert response.status_code == 403, "非管理员不能读取 flag 覆盖"
 
 
 def test_run_payload_contains_feature_flags(agent_api_app, tmp_path):

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Agent v2 Feature Flag 管理端点（S-02/S-06 灰度与回滚演练）。
 
-- GET 返回 workspace 解析后的最终 flag（全局 ∧ 降级覆盖）；
-- PATCH 只接受布尔 false 的降级覆盖（或 null 清除）——workspace 不能
-  自行开启全局关闭的 v2 能力（deny by default）。
+- GET 返回 workspace 解析后的最终 flag（全局 env 被授权覆盖）；
+- PATCH 只允许 workspace owner/security_admin 角色设置布尔覆盖或 null
+  清除——未经授权的成员无法自行开启高自治模式（角色鉴权即授权）。
 """
 from __future__ import annotations
 
@@ -80,12 +80,12 @@ def update_workspace_agent_feature_flags(workspace_id: int):
                 400,
             )
         for key, value in overrides.items():
-            if value is not None and value is not False:
+            if value is not None and not isinstance(value, bool):
                 return (
                     jsonify(
                         {
-                            "error": f"{key} 只允许 false（降级）或 null（清除覆盖），"
-                            "workspace 不能自行开启全局关闭的能力"
+                            "error": f"{key} 只允许布尔值（true 开启 / false 关闭）"
+                            "或 null（清除覆盖）"
                         }
                     ),
                     400,
@@ -95,7 +95,7 @@ def update_workspace_agent_feature_flags(workspace_id: int):
             if value is None:
                 current.pop(key, None)
             else:
-                current[key] = False
+                current[key] = value
         workspace.agent_feature_flags = current or None
         db.session.commit()
         AgentFeatureFlags().invalidate(workspace_id)
