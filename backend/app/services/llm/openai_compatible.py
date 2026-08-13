@@ -49,7 +49,8 @@ class _ThinkStreamFilter:
 
     MiniMax emits reasoning inline inside content with <think> tags that can
     span multiple SSE chunks; buffering until the closing tag keeps reasoning
-    out of the visible stream (mirrors LabexAgent's thinkParser).
+    out of the visible stream (mirrors LabexAgent's thinkParser). 推理内容
+    会累积到 reasoning buffer，由 flushReasoning() 取走（脱敏在调用方完成）。
     """
 
     _OPEN_RE = re.compile(r"(?is)<\s*think(?:ing)?(?:\s[^>]*)?>")
@@ -58,9 +59,10 @@ class _ThinkStreamFilter:
     def __init__(self) -> None:
         self._buffer = ""
         self._in_think = False
+        self._reasoning_parts: list[str] = []
 
     def push(self, delta: str) -> str:
-        """Return visible text; reasoning content is buffered and dropped."""
+        """Return visible text; reasoning content is buffered for flushReasoning."""
         self._buffer += delta or ""
         visible = ""
         while True:
@@ -68,6 +70,7 @@ class _ThinkStreamFilter:
                 match = self._CLOSE_RE.search(self._buffer)
                 if match is None:
                     break
+                self._reasoning_parts.append(self._buffer[: match.start()])
                 self._buffer = self._buffer[match.end():]
                 self._in_think = False
                 continue
@@ -87,6 +90,12 @@ class _ThinkStreamFilter:
         self._buffer = ""
         self._in_think = False
         return visible
+
+    def flushReasoning(self) -> str:
+        """已闭合 <think> 块的累积推理内容（未闭合部分丢弃）。"""
+        parts = self._reasoning_parts
+        self._reasoning_parts = []
+        return "\n".join(part.strip() for part in parts if part and part.strip())
 
 
 class OpenAICompatibleProvider:
@@ -452,6 +461,7 @@ class OpenAICompatibleProvider:
             break
 
         tool_slots: dict[int, dict] = {}
+        think_filter = _ThinkStreamFilter()
         try:
             for raw_line in response.iter_lines(decode_unicode=False):
                 line = safe_decode(raw_line)
@@ -483,11 +493,23 @@ class OpenAICompatibleProvider:
                 delta = delta if isinstance(delta, dict) else {}
                 text = delta.get("content")
                 if isinstance(text, str) and text:
-                    yield AgentModelStreamEvent(
-                        event_type=AgentStreamEventType.OUTPUT_TEXT_DELTA.value,
-                        item_id="assistant",
-                        delta=text,
-                    )
+                    # MiniMax 把思考内联在 content 的 <think> 块中：
+                    # 剥离为受限推理增量（脱敏在 engine 层），可见文本单独发出。
+                    visible = think_filter.push(text)
+                    if visible:
+                        yield AgentModelStreamEvent(
+                            event_type=AgentStreamEventType.OUTPUT_TEXT_DELTA.value,
+                            item_id="assistant",
+                            delta=visible,
+                        )
+                    reasoning_text = think_filter.flushReasoning()
+                    if reasoning_text:
+                        yield AgentModelStreamEvent(
+                            event_type=AgentStreamEventType.REASONING_SUMMARY_DELTA.value,
+                            item_id="reasoning",
+                            delta=reasoning_text,
+                            payload={"sensitive_level": "internal"},
+                        )
                 reasoning = delta.get("reasoning_content")
                 if isinstance(reasoning, str) and reasoning:
                     yield AgentModelStreamEvent(

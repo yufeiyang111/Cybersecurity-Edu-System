@@ -71,3 +71,28 @@ def test_think_stream_filter_drops_unclosed_block_at_flush():
 
     assert filter_.push("<think>\u672a\u5b8c\u6210") == ""
     assert filter_.flush() == ""
+
+
+def test_think_stream_filter_accumulates_reasoning_for_delta():
+    """已闭合的 <think> 块内容必须能取回（供 reasoning_summary delta 下发）。"""
+    filter_ = _ThinkStreamFilter()
+
+    assert filter_.push("\u524d\u7f6e<think>\u601d\u8003\u4e00") == "\u524d\u7f6e"
+    assert filter_.push("\u4e8c\u4e09</think>\u540e\u7f6e") == "\u540e\u7f6e"
+    assert filter_.flushReasoning() == "\u601d\u8003\u4e00\u4e8c\u4e09"
+    assert filter_.flushReasoning() == ""
+
+
+def test_think_stream_filter_reasoning_multiple_blocks():
+    filter_ = _ThinkStreamFilter()
+
+    assert filter_.push("<think>A</think>\u53ef\u89c1<think>B</think>") == "\u53ef\u89c1"
+    assert filter_.flushReasoning() == "A\nB"
+
+
+def test_think_stream_filter_unclosed_reasoning_dropped():
+    filter_ = _ThinkStreamFilter()
+
+    assert filter_.push("<think>\u672a\u95ed\u5408") == ""
+    assert filter_.flushReasoning() == ""
+    assert filter_.flush() == ""
