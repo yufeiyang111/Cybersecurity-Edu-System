@@ -453,10 +453,10 @@ git diff --check
 | 项目 | 实际值 | 证据位置 |
 |---|---|---|
 | 基线 Git SHA | `b7f5e1d`（Agent v2 全链路回归与性能验证） | 本次验收起点 |
-| 最终 Git SHA | `06a7a09`（灰度演练修复：workspace flag 授权双向覆盖） | 验收完成点 |
+| 最终 Git SHA | `853ec65`（第二批：v2 事件全集 emit、审批闭环与 Retry API） | 验收完成点 |
 | 分支 | `master` | 本地与 origin 同步（含未推送批次见交付记录） |
 | 用户既有改动清单 | `frontend/src/components.d.ts`（Vite 自动生成，未提交）、`backend/rag_eval_cases.jsonl`、`backend/rag_report_*.json`（评测产物） | `git status` |
-| 本改造文件清单 | 见各 commit：engine.py/watchdog.py/provider_selector.py/openai_compatible.py/graph_tools.py/registry.py + 前端 AgentThread/StatsBar/threadBlocks/blocks + 测试 | `git log b7f5e1d..HEAD`（11 个 commit） |
+| 本改造文件清单 | 见各 commit：engine.py/watchdog.py/provider_selector.py/openai_compatible.py/graph_tools.py/registry.py + 前端 AgentThread/StatsBar/threadBlocks/blocks + 测试 | `git log b7f5e1d..HEAD`（15 个 commit） |
 | `git diff --check` | 通过（仅 components.d.ts 的 CRLF 警告，非 whitespace error） | 仓库根执行 |
 
 ### V.2 自动化命令
@@ -464,9 +464,12 @@ git diff --check
 | 命令 | 退出码 | 通过/失败/跳过 | 执行日期 | 证据位置 |
 |---|---:|---|---|---|
 | Agent focused tests（loop/vertical/gateway/stream/ops） | 0 | 通过（多次，如 16/23/28/37/430） | 2026-08-13 | 各批 commit message |
-| 后端全量 `pytest tests -q -k agent` | 0 | 430 passed / 697 deselected | 2026-08-13 | 最终全量 |
-| 前端 Agent tests `npm run test:agent` | 0 | 29 passed / 0 fail | 2026-08-13 | 最终运行 |
-| 前端 build `npm run build` | 0 | 成功（仅 chunk 体积既有警告） | 2026-08-13 | 最终运行 |
+| 后端全量 `pytest tests -q -k agent` | 0 | 463 passed / 697 deselected | 2026-08-14 | 第二批后全量 |
+| 前端 Agent tests `npm run test:agent` | 0 | 34 passed / 0 fail | 2026-08-14 | 第二批后运行 |
+| 前端 build `npm run build` | 0 | 成功（仅 chunk 体积既有警告） | 2026-08-14 | 第二批后运行 |
+| 审批闭环测试（requires_approval 拦截/request_approval 持久化/未注册工具拒绝） | 0 | 通过 | 2026-08-14 | `tests/test_agent_approval_retry.py` |
+| Retry API 测试（failed→QUEUED 转换/越权 403/completed 409） | 0 | 通过 | 2026-08-14 | `tests/test_agent_approval_retry.py` |
+| Action Parser 测试（request_approval/ask_user/plan_update 冻结动作） | 0 | 通过 | 2026-08-14 | `tests/test_agent_action_parser.py` |
 | Event/Reducer 性能测试 | 0 | 通过（agent-timeline-performance） | 2026-08-13 | 前端测试套件内 |
 
 ### V.3 真实纵向切片
