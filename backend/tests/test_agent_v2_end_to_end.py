@@ -2,6 +2,8 @@
 """T13 端到端测试：Scripted Provider + 真实 Registry/Executor 的多轮闭环。"""
 from __future__ import annotations
 
+import pytest
+
 from app import db
 from app.models.agent_events import AgentEvent
 from app.models.agent_items import AgentItem
@@ -26,6 +28,13 @@ from app.services.security_agent.tools.contracts import (
     ToolResult,
 )
 from app.services.security_agent.tools.registry import ToolRegistry
+
+
+@pytest.fixture(autouse=True)
+def _enable_v2_event_schema(app):
+    """本文件验证 v2 Loop/Event 协议：显式开启 Event v2 flag（S-03）。"""
+    app.config["AGENT_EVENT_SCHEMA_V2_ENABLED"] = True
+    yield
 
 
 class _ScriptedReviewProvider:

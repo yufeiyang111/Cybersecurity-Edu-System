@@ -12,6 +12,13 @@ from app.services.security_agent.timeline.event_writer import EventWriter
 from app.services.security_agent.timeline.item_service import ItemService, ItemStateError
 
 
+@pytest.fixture(autouse=True)
+def _enable_v2_event_schema(app):
+    """本文件验证 v2 事件协议：显式开启 Event v2 flag（S-03）。"""
+    app.config["AGENT_EVENT_SCHEMA_V2_ENABLED"] = True
+    yield
+
+
 def _make_run() -> AgentRun:
     run = AgentRun(
         workspace_id=1,

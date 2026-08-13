@@ -2,6 +2,8 @@
 """T04 模型网关测试：原生 Tool Calling 与 JSON Fallback 分发、failover、调用记录。"""
 from __future__ import annotations
 
+import pytest
+
 from app import db
 from app.models.agent_runtime import AgentRun
 from app.services.security_agent.model.contracts import (
@@ -13,6 +15,13 @@ from app.services.security_agent.model.contracts import (
     ProviderCapabilities,
 )
 from app.services.security_agent.model.gateway import AgentModelGateway
+
+
+@pytest.fixture(autouse=True)
+def _enable_v2_event_schema(app):
+    """failover 事件断言使用 v2 事件名：显式开启 Event v2 flag（S-03）。"""
+    app.config["AGENT_EVENT_SCHEMA_V2_ENABLED"] = True
+    yield
 
 
 class _FakeNativeProvider:

@@ -85,6 +85,7 @@ class Workspace(db.Model):
     description = db.Column(db.Text)
     provider_allowlist = db.Column(db.JSON)
     preferred_provider = db.Column(db.String(64))
+    agent_feature_flags = db.Column(db.JSON)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -109,6 +110,7 @@ class Workspace(db.Model):
             "description": self.description,
             "provider_allowlist": self.provider_allowlist or [],
             "preferred_provider": self.preferred_provider,
+            "agent_feature_flags": self.agent_feature_flags or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

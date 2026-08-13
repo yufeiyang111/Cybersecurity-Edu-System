@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from flask_jwt_extended import create_access_token
 
 from app import db
@@ -16,6 +17,13 @@ from test_agent_run_api import (
     make_project_and_snapshot,
     make_user,
 )
+
+
+@pytest.fixture(autouse=True)
+def _enable_v2_event_schema(agent_api_app):
+    """本文件验证 SSE v2 协议：显式开启 Event v2 flag（S-03）。"""
+    agent_api_app.config["AGENT_EVENT_SCHEMA_V2_ENABLED"] = True
+    yield
 
 
 def _make_run_with_events(agent_api_app, tmp_path, *, user_label="v2sse"):

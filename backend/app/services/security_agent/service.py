@@ -208,6 +208,7 @@ class AgentRunService:
             "scan_summary": _scan_summary(run.snapshot_id),
             "last_sequence": run.last_event_sequence,
             "state_version": run.state_version,
+            "feature_flags": _resolved_feature_flags(run),
         }
 
     def list_events(
@@ -307,6 +308,13 @@ def _parse_budget(budget: dict) -> dict:
             raise ValueError("max_estimated_cost 必须是正数")
         values["max_estimated_cost"] = cost
     return values
+
+
+def _resolved_feature_flags(run: AgentRun) -> dict:
+    """返回 run 所在 workspace 解析后的 v2 Feature Flag（spec §22.1）。"""
+    from app.services.security_agent.feature_flags import AgentFeatureFlags
+
+    return AgentFeatureFlags().for_run(run).as_dict()
 
 
 def _scan_summary(snapshot_id: int) -> dict | None:

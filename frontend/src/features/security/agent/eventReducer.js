@@ -20,7 +20,8 @@ export function createAgentRunState() {
     llmAnalysis: null,
     lastProvider: null,
     connectionState: 'connecting',
-    gapDetected: false
+    gapDetected: false,
+    featureFlags: { loop_v2: false, event_schema_v2: false, timeline_v2: false }
   }
 }
 
@@ -53,7 +54,12 @@ export function hydrateAgentRunState(snapshot) {
       ? { provider: startedEvent.payload.provider, model: startedEvent.payload.model }
       : null,
     connectionState: 'connected',
-    gapDetected: false
+    gapDetected: false,
+    featureFlags: snapshot.feature_flags || {
+      loop_v2: false,
+      event_schema_v2: false,
+      timeline_v2: false
+    }
   }
 }
 

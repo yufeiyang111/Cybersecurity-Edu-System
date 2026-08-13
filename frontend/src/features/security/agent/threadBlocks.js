@@ -42,6 +42,30 @@ export function buildThreadBlocks({
     }
   }
 
+  const upsertAssistant = (itemId, delta, { live, status, time, seq }, replace = false) => {
+    const key = `assistant-${itemId}`
+    const existing = items.find((item) => item.kind === 'assistant' && item.key === key)
+    if (existing) {
+      if (replace && delta) {
+        existing.text = delta
+      } else if (delta) {
+        existing.text += delta
+      }
+      existing.live = live
+      if (status) existing.status = status
+      return
+    }
+    items.push({
+      kind: 'assistant',
+      key,
+      text: delta || '',
+      status: status || 'started',
+      live,
+      time: time || '',
+      seq
+    })
+  }
+
   for (const event of events) {
     const type = event.event_type || ''
     const payload = event.payload || {}
@@ -55,6 +79,38 @@ export function buildThreadBlocks({
       upsertThinking(itemId, '', false, payload.sensitive_level || 'internal', seq)
     } else if (type === 'item.reasoning_summary.delta') {
       upsertThinking(itemId, payload.delta || '', true, payload.sensitive_level, seq)
+    } else if (type === 'item.assistant_message.started') {
+      upsertAssistant(itemId, '', {
+        live: true,
+        status: 'started',
+        time: event.occurred_at || '',
+        seq
+      })
+    } else if (type === 'item.assistant_message.delta') {
+      upsertAssistant(itemId, payload.delta || '', {
+        live: true,
+        status: null,
+        time: null,
+        seq
+      })
+    } else if (type === 'item.assistant_message.completed') {
+      // 兼容 v1/快照：无 started/delta 时直接落整块内容。
+      // completed 携带的完整 content 是权威文本（替换已有 delta 累积）；
+      // 无 content（v2 生命周期事件）时只固化状态，保留 delta 累积文本。
+      const content = payload.content ?? payload.analysis ?? ''
+      upsertAssistant(itemId, content, {
+        live: false,
+        status: run?.status || 'completed',
+        time: event.occurred_at || '',
+        seq
+      }, Boolean(content))
+    } else if (type === 'item.assistant_message.failed') {
+      upsertAssistant(itemId, '', {
+        live: false,
+        status: 'failed',
+        time: event.occurred_at || '',
+        seq
+      })
     } else if (type === 'tool.started') {
       const callId = String(payload.tool_call_id ?? '')
       if (callId) {
@@ -66,17 +122,6 @@ export function buildThreadBlocks({
           seq
         })
       }
-    } else if (type === 'item.assistant_message.completed') {
-      const content = payload.content ?? payload.analysis ?? ''
-      items.push({
-        kind: 'assistant',
-        key: `assistant-${seq}`,
-        text: content,
-        status: run?.status || 'completed',
-        live: false,
-        time: event.occurred_at || '',
-        seq
-      })
     }
   }
 

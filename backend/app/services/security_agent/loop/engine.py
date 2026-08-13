@@ -48,6 +48,9 @@ from app.services.security_agent.model.gateway import AgentModelGateway
 from app.services.security_agent.planning.scheduler import PlanScheduler
 from app.services.security_agent.state_machine import AgentStateMachine
 from app.services.security_agent.timeline.contracts import (
+    EVENT_ASSISTANT_MESSAGE_COMPLETED,
+    EVENT_ASSISTANT_MESSAGE_DELTA,
+    EVENT_ASSISTANT_MESSAGE_STARTED,
     EVENT_CHECKPOINT_CREATED,
     EVENT_TOOL_CALL_COMPLETED,
     EVENT_TOOL_CALL_STARTED,
@@ -864,7 +867,11 @@ class AgentLoopEngine:
         return "continue"
 
     def _persist_final_answer(self, run: AgentRun, content: str, trace_id: str) -> None:
-        """T10：最终回答以 assistant_message Item 固化（started → completed）。
+        """T10：最终回答以 assistant_message Item 增量流式固化。
+
+        生命周期 started → delta* → completed（spec §13.4）：
+        每块 delta 独立提交，SSE 订阅者可实时增量渲染，刷新后文本
+        与流累计逐字一致（ItemService 累积 content_redacted）。
 
         public_id 必须唯一：baseline 降级/异常重试可能多次调用本方法，
         固定 id 会撞 agent_items 唯一约束（真实验收 run 58 复现）。
@@ -877,19 +884,30 @@ class AgentLoopEngine:
             run,
             public_id=public_id,
             item_type="assistant_message",
-            event_type="item.assistant_message.started",
+            event_type=EVENT_ASSISTANT_MESSAGE_STARTED,
             iteration=run.iteration_count,
             sensitive_level="internal",
             trace_id=trace_id,
         )
+        db.session.commit()
+        text = (content or "").strip()
+        for chunk in _chunk_final_answer(text):
+            service.append_delta(
+                run,
+                public_id,
+                delta=chunk,
+                event_type=EVENT_ASSISTANT_MESSAGE_DELTA,
+                trace_id=trace_id,
+            )
+            db.session.commit()
         service.complete(
             run,
             public_id,
-            content=content,
             summary_json={"mode": self._status_value(run.mode)},
-            event_type="item.assistant_message.completed",
+            event_type=EVENT_ASSISTANT_MESSAGE_COMPLETED,
             trace_id=trace_id,
         )
+        db.session.commit()
 
     # ---------------------------------------------------------------- baseline
 
@@ -1119,6 +1137,23 @@ class CompletionVerdictLike:
         self.missing_requirements = missing_requirements
         self.warning_codes = warning_codes
         self.completion_reason = completion_reason
+
+
+def _chunk_final_answer(text: str, size: int = 240) -> list[str]:
+    """把最终回答按行优先切成流式 delta 块，块大小不超过 size 字符。"""
+    parts: list[str] = []
+    current = ""
+    for line in text.splitlines(keepends=True):
+        if current and len(current) + len(line) > size:
+            parts.append(current)
+            current = ""
+        current += line
+        while len(current) >= size:
+            parts.append(current[:size])
+            current = current[size:]
+    if current:
+        parts.append(current)
+    return parts
 
 
 def _render_context(context: dict) -> str:

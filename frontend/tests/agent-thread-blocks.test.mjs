@@ -78,3 +78,62 @@ test('工具快照兜底：无事件时按 toolCalls 顺序追加', () => {
   assert.equal(tools.length, 2)
   assert.deepEqual(tools.map((t) => t.tool.id), ['1', '2'])
 })
+
+test('最终回答 started→delta→completed 合并为单块并固化', () => {
+  const blocks = buildThreadBlocks({
+    events: [
+      evt(1, 'item.assistant_message.started', {}, 'asst-1'),
+      evt(2, 'item.assistant_message.delta', { delta: '审查完成：' }, 'asst-1'),
+      evt(3, 'item.assistant_message.delta', { delta: '发现 3 个风险。' }, 'asst-1'),
+      evt(4, 'item.assistant_message.completed', {}, 'asst-1')
+    ],
+    toolCalls: [],
+    run: { status: 'completed' }
+  })
+  const assistants = blocks.filter((b) => b.kind === 'assistant')
+  assert.equal(assistants.length, 1, 'delta 必须合并为同一块')
+  assert.equal(assistants[0].text, '审查完成：发现 3 个风险。')
+  assert.equal(assistants[0].live, false)
+})
+
+test('v1 快照无 delta 直接 completed 整块兼容', () => {
+  const blocks = buildThreadBlocks({
+    events: [
+      evt(1, 'item.assistant_message.completed', { content: '完整回答' }, 'asst-legacy')
+    ],
+    toolCalls: []
+  })
+  const assistants = blocks.filter((b) => b.kind === 'assistant')
+  assert.equal(assistants.length, 1)
+  assert.equal(assistants[0].text, '完整回答')
+})
+
+test('completed 带 content 时以权威文本覆盖 delta 累积', () => {
+  const blocks = buildThreadBlocks({
+    events: [
+      evt(1, 'item.assistant_message.started', {}, 'asst-1'),
+      evt(2, 'item.assistant_message.delta', { delta: '旧增量' }, 'asst-1'),
+      evt(3, 'item.assistant_message.completed', { content: '权威完整内容' }, 'asst-1')
+    ],
+    toolCalls: []
+  })
+  const assistants = blocks.filter((b) => b.kind === 'assistant')
+  assert.equal(assistants.length, 1)
+  assert.equal(assistants[0].text, '权威完整内容')
+  assert.equal(assistants[0].live, false)
+})
+
+test('最终回答流式期间 live 状态为回答中', () => {
+  const blocks = buildThreadBlocks({
+    events: [
+      evt(1, 'item.assistant_message.started', {}, 'asst-live'),
+      evt(2, 'item.assistant_message.delta', { delta: '正在生成结论' }, 'asst-live')
+    ],
+    toolCalls: [],
+    running: true
+  })
+  const assistants = blocks.filter((b) => b.kind === 'assistant')
+  assert.equal(assistants.length, 1)
+  assert.equal(assistants[0].live, true)
+  assert.equal(assistants[0].text, '正在生成结论')
+})

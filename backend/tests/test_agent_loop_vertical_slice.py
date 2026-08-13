@@ -2,6 +2,8 @@
 """T08 纵向切片测试：三轮交错 Model/Tool/Observation → Final Answer。"""
 from __future__ import annotations
 
+import pytest
+
 from app import db
 from app.models.agent_events import AgentEvent
 from app.models.agent_runtime import (
@@ -22,6 +24,13 @@ from app.services.security_agent.model.contracts import (
     ProviderCapabilities,
 )
 from app.services.security_agent.tools.registry import ToolRegistry
+
+
+@pytest.fixture(autouse=True)
+def _enable_v2_event_schema(app):
+    """本文件验证 v2 Loop/Event 协议：显式开启 Event v2 flag（S-03）。"""
+    app.config["AGENT_EVENT_SCHEMA_V2_ENABLED"] = True
+    yield
 
 
 class _VerticalProvider:
@@ -212,6 +221,48 @@ def test_vertical_slice_events_in_order(app):
         tool_start = types.index("item.tool_call.started")
         tool_result = types.index("item.tool_result.created")
         assert tool_start < tool_result, "Tool Result 必须晚于 Tool Call"
+
+
+def test_final_answer_streamed_as_deltas(app):
+    """T10：最终回答必须是 started → delta+ → completed 增量流，内容逐字一致。"""
+    from app.models.agent_items import AgentItem
+
+    run_id = _make_run(app)
+    provider = _VerticalProvider()
+    with app.app_context():
+        AgentLoopEngine(
+            provider=provider,
+            registry=_registry(),
+            events=EventService(),
+        ).run_until_interrupt(run_id, "t-final-delta")
+        events = (
+            AgentEvent.query.filter_by(run_id=run_id)
+            .order_by(AgentEvent.sequence.asc())
+            .all()
+        )
+        asst_types = [
+            event.event_type
+            for event in events
+            if event.event_type.startswith("item.assistant_message.")
+        ]
+        assert asst_types[0] == "item.assistant_message.started"
+        assert asst_types[-1] == "item.assistant_message.completed"
+        assert len(asst_types) >= 3, "最终回答必须包含至少一条 delta"
+        assert all(
+            event_type == "item.assistant_message.delta"
+            for event_type in asst_types[1:-1]
+        )
+        joined = "".join(
+            event.payload_json.get("delta", "")
+            for event in events
+            if event.event_type == "item.assistant_message.delta"
+        )
+        assert "鉴权链路存在水平越权风险" in joined
+        item = AgentItem.query.filter_by(
+            run_id=run_id, item_type="assistant_message"
+        ).one()
+        assert item.status == "completed"
+        assert item.content_redacted == joined, "刷新恢复文本必须与流累计一致"
 
 
 class _BaselineSummaryProvider:

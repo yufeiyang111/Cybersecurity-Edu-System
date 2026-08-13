@@ -287,6 +287,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
     description TEXT NULL,
     provider_allowlist JSON NULL,
     preferred_provider VARCHAR(64) NULL,
+    agent_feature_flags JSON NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT uq_workspaces_slug UNIQUE (slug)

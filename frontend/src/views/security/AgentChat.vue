@@ -36,7 +36,16 @@
                 Turn {{ turn.turn_sequence }}
               </button>
             </div>
+            <LegacyThreadView
+              v-if="!store.featureFlags.timeline_v2"
+              :messages="store.messages"
+              :steps="store.steps"
+              :llm-analysis="store.llmAnalysis || ''"
+              :run="store.run"
+              :running="!store.isTerminal && !!store.run"
+            />
             <AgentThread
+              v-else
               :user-messages="userMessages"
               :events="store.events"
               :tool-calls="store.toolCalls"
@@ -92,6 +101,7 @@
         />
         <AgentProviderSelector :workspace-id="store.run?.workspace_id || null" />
         <BasePanel
+          v-if="store.featureFlags.timeline_v2"
           title="统一时间线"
           subtitle="按事件 sequence 顺序（v2）"
           class="ac-timeline-panel"
@@ -179,6 +189,7 @@ import { ElMessage, ElMessageBox } from '@/features/security/feedback'
 import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import AgentThread from '@/components/security/agent/thread/AgentThread.vue'
+import LegacyThreadView from '@/components/security/agent/thread/LegacyThreadView.vue'
 import AgentApprovalQueue from '@/components/security/agent/AgentApprovalQueue.vue'
 import AgentConnectionStatus from '@/components/security/agent/AgentConnectionStatus.vue'
 import AgentCostPanel from '@/components/security/agent/AgentCostPanel.vue'
