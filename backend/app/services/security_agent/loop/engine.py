@@ -330,13 +330,28 @@ class AgentLoopEngine:
         self, run: AgentRun, request: AgentModelRequest, trace_id: str
     ) -> AgentModelResponse | None:
         provider = self._provider
+        candidates: tuple = ()
         if provider is None:
-            from app.services.llm.provider_selector import select_provider
+            from app.services.security_agent.providers.router import (
+                AgentProviderRouter,
+            )
 
-            provider = select_provider(user_id=run.created_by, operation="agent")
+            ordered = AgentProviderRouter(self._events).candidates(
+                user_id=run.created_by,
+                workspace_id=run.workspace_id,
+                operation="agent",
+            )
+            if ordered:
+                provider = ordered[0]
+                candidates = tuple(ordered[1:])
+            else:
+                from app.services.llm.provider_selector import select_provider
+
+                provider = select_provider(user_id=run.created_by, operation="agent")
         response = self._gateway.next_turn(
             request,
             provider=provider,
+            candidates=candidates,
             run=run,
             trace_id=trace_id,
         )

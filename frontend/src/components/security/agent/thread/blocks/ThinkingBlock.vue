@@ -1,141 +1,168 @@
 <template>
-  <div class="thinking-block" :class="{ 'thinking-block--live': live }">
+  <div class="thinking-block">
+    <div v-if="showMeta" class="tb-meta">
+      <span class="tb-tag">THINKING</span>
+      <span v-if="live" class="tb-live">思考中…</span>
+      <span v-if="sensitiveLevel === 'truncated'" class="tb-trunc">已截断</span>
+    </div>
+    <div class="tb-content" :class="{ 'tb-content--collapsed': collapsed }">
+      <p v-for="(paragraph, index) in paragraphs" :key="index">
+        {{ paragraph }}<span v-if="live && index === paragraphs.length - 1" class="tb-cursor" />
+      </p>
+    </div>
     <button
+      v-if="!live && text"
       type="button"
       class="tb-toggle"
-      :class="{ 'tb-toggle--open': open }"
-      @click="toggle"
+      @click="collapsed = !collapsed"
     >
       <svg class="tb-toggle__chevron" viewBox="0 0 24 24" fill="none" stroke-width="2">
-        <path d="M9 6l6 6-6 6" />
+        <polyline points="6 9 12 15 18 9" />
       </svg>
-      <span class="tb-toggle__spark" aria-hidden="true">✦</span>
-      <span class="tb-toggle__label">{{ title }}</span>
-      <span v-if="live" class="tb-toggle__live">思考中…</span>
-      <span v-else-if="text" class="tb-toggle__done">已结束</span>
-      <span v-if="sensitiveLevel === 'truncated'" class="tb-toggle__trunc">已截断</span>
+      {{ collapsed ? '展开思考' : '收起思考' }}
     </button>
-    <div v-if="open" class="tb-panel">
-      <pre v-if="text" class="tb-text">{{ text }}</pre>
-      <span v-else class="tb-empty">等待模型输出…</span>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
   title: { type: String, default: '推理摘要' },
   text: { type: String, default: '' },
   live: { type: Boolean, default: false },
-  sensitiveLevel: { type: String, default: 'internal' }
+  sensitiveLevel: { type: String, default: 'internal' },
+  showMeta: { type: Boolean, default: true }
 })
 
-const open = ref(false)
-
-function toggle() {
-  open.value = !open.value
-}
+const collapsed = ref(false)
 
 // 实时思考时自动展开；结束后保留用户当前查看状态
 watch(
   () => props.live,
   (live) => {
-    if (live) open.value = true
+    if (live) collapsed.value = false
   }
 )
+
+const paragraphs = computed(() => {
+  const text = props.text || ''
+  return text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+})
 </script>
 
 <style scoped lang="scss">
 .thinking-block {
-  margin: 2px 0;
+  padding: 2px 0 14px;
+  animation: tb-fade 0.3s ease;
 }
 
-.tb-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 0;
-  background: transparent;
-  padding: 5px 6px;
-  border-radius: 6px;
-  font-size: calc(13px * var(--chat-font-scale));
-  color: var(--chat-hollow);
-  cursor: pointer;
-  user-select: none;
-
-  &:hover {
-    background: var(--chat-hover);
-    color: var(--chat-muted);
+@keyframes tb-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.tb-toggle--open {
-  color: var(--chat-muted);
-}
-
-.tb-toggle__chevron {
-  width: 12px;
-  height: 12px;
-  stroke: currentColor;
-  transition: transform 0.15s;
-}
-
-.tb-toggle--open .tb-toggle__chevron {
-  transform: rotate(90deg);
-}
-
-.tb-toggle__spark {
+.tb-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 11px;
-  color: var(--chat-accent);
+  color: var(--chat-hollow);
+  margin-bottom: 6px;
 }
 
-.tb-toggle__label {
-  font-weight: 500;
+.tb-tag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  background: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
 }
 
-.tb-toggle__live {
-  font-size: 12px;
+.tb-live {
   color: var(--chat-accent);
   animation: tb-pulse 1.4s infinite ease-in-out;
 }
 
-.tb-toggle__done {
-  font-size: 12px;
-  color: var(--chat-hollow);
-}
-
-.tb-toggle__trunc {
-  font-size: 11px;
+.tb-trunc {
+  font-size: 10px;
   color: var(--chat-warning-ink);
   background: var(--chat-warning-bg);
   border-radius: 999px;
   padding: 1px 8px;
 }
 
-.tb-panel {
-  border-left: 2px solid var(--chat-hairline-strong);
-  padding: 4px 0 4px 14px;
-  margin: 4px 0 0 24px;
-  max-height: 340px;
-  overflow-y: auto;
-}
-
-.tb-text {
-  margin: 0;
-  font-family: inherit;
-  font-size: calc(13px * var(--chat-font-scale));
-  line-height: 1.7;
-  color: var(--chat-hollow);
+.tb-content p {
+  margin-bottom: 10px;
+  color: var(--chat-ink);
+  font-size: calc(14.5px * var(--chat-font-scale));
+  line-height: 1.75;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.tb-empty {
-  font-size: 13px;
-  color: var(--chat-hollow);
-  font-style: italic;
+.tb-content p:last-child {
+  margin-bottom: 0;
+}
+
+.tb-content--collapsed {
+  display: none;
+}
+
+.tb-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: #7c3aed;
+  padding: 4px 0;
+  margin-top: 4px;
+  font-family: inherit;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.tb-toggle__chevron {
+  width: 11px;
+  height: 11px;
+  stroke: currentColor;
+}
+
+.tb-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 15px;
+  background: var(--chat-ink);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: tb-blink 1s infinite;
+}
+
+@keyframes tb-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }
 
 @keyframes tb-pulse {

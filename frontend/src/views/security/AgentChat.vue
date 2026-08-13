@@ -48,6 +48,7 @@
               :running="!store.isTerminal && !!store.run"
               :fallback-text="agentFallbackText"
               :fallback-detail="agentFallbackDetail"
+              :total-tokens="agentTotalTokens"
             />
           </div>
         </div>
@@ -477,6 +478,12 @@ const agentFallbackDetail = computed(() => {
     }
   }
   return items
+})
+
+const agentTotalTokens = computed(() => {
+  return (invocations.value || []).reduce((sum, item) => {
+    return sum + (Number(item.total_tokens) || 0)
+  }, 0)
 })
 
 let conversationLoadSequence = 0

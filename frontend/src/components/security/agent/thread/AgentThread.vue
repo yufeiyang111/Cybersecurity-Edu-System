@@ -1,5 +1,17 @@
 <template>
   <div class="agent-thread">
+    <AgentStatsBar
+      v-if="run"
+      :started-at="run.started_at"
+      :finished-at="run.finished_at"
+      :tool-count="toolCount"
+      :reasoning-rounds="reasoningRounds"
+      :total-tokens="totalTokens"
+      :tool-time-ms="toolTimeMs"
+      :thinking-time-ms="thinkingTimeMs"
+      :waiting-time-ms="waitingTimeMs"
+    />
+
     <!-- 用户消息 -->
     <div
       v-for="userMsg in userMessages"
@@ -44,6 +56,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import AgentStatsBar from './AgentStatsBar.vue'
 import ThinkingBlock from './blocks/ThinkingBlock.vue'
 import ToolCallBlock from './blocks/ToolCallBlock.vue'
 import AssistantBlock from './blocks/AssistantBlock.vue'
@@ -60,7 +73,41 @@ const props = defineProps({
   run: { type: Object, default: null },
   running: { type: Boolean, default: false },
   fallbackText: { type: String, default: '' },
-  fallbackDetail: { type: Array, default: () => [] }
+  fallbackDetail: { type: Array, default: () => [] },
+  totalTokens: { type: Number, default: 0 }
+})
+
+// 顶部统计：工具调用次数
+const toolCount = computed(() => props.toolCalls.length)
+
+// 推理轮次 = 独立 reasoning_summary 块数量
+const reasoningRounds = computed(() => {
+  return props.events.filter(
+    (event) => (event.event_type || '') === 'item.reasoning_summary.started'
+  ).length
+})
+
+// 工具执行总耗时（tool.completed latency 求和）
+const toolTimeMs = computed(() => {
+  return props.toolCalls.reduce((sum, tool) => {
+    const latency = Number(tool.latency_ms)
+    return sum + (Number.isFinite(latency) && latency > 0 ? latency : 0)
+  }, 0)
+})
+
+// 模型思考耗时（估算：推理轮次 × 8s，无精确数据时给合理估算）
+const thinkingTimeMs = computed(() => {
+  const rounds = reasoningRounds.value
+  if (!rounds) return 0
+  return rounds * 8000
+})
+
+// 等待时间 = 总时长 - 工具耗时 - 思考耗时（下限 0）
+const waitingTimeMs = computed(() => {
+  const start = Date.parse(props.run?.started_at || '')
+  const end = Date.parse(props.run?.finished_at || '')
+  const total = start && end && end >= start ? end - start : 0
+  return Math.max(0, total - toolTimeMs.value - thinkingTimeMs.value)
 })
 
 const blocks = computed(() => {

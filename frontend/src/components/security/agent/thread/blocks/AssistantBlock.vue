@@ -1,6 +1,6 @@
 <template>
   <div class="assistant-block">
-    <div class="ab-head">
+    <div v-if="showHead" class="ab-head">
       <span class="ab-logo" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8">
           <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
@@ -32,7 +32,8 @@ const props = defineProps({
   text: { type: String, default: '' },
   status: { type: String, default: '' },
   live: { type: Boolean, default: false },
-  time: { type: String, default: '' }
+  time: { type: String, default: '' },
+  showHead: { type: Boolean, default: true }
 })
 
 const statusLabel = computed(() => {
@@ -43,16 +44,26 @@ const statusLabel = computed(() => {
 
 <style scoped lang="scss">
 .assistant-block {
-  display: flex;
-  gap: 12px;
-  padding: 4px 0;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 2px solid var(--chat-ink);
+  animation: ab-fade 0.4s ease;
+}
+
+@keyframes ab-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .ab-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 10px;
 }
 
 .ab-logo {
@@ -92,15 +103,42 @@ const statusLabel = computed(() => {
   font-size: 12px;
   color: var(--chat-hollow);
   margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }
 
 .ab-body {
-  flex: 1;
-  min-width: 0;
-
   :deep(.chat-markdown) {
     font-size: calc(15px * var(--chat-font-scale));
     color: var(--chat-ink);
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 14px 0 12px;
+      line-height: 1.4;
+    }
+
+    h2 {
+      font-size: 17px;
+      font-weight: 600;
+      margin: 16px 0 8px;
+    }
+
+    blockquote {
+      border-left: 3px solid var(--chat-hairline-strong);
+      padding-left: 14px;
+      color: var(--chat-muted);
+      margin: 12px 0;
+    }
+
+    pre {
+      background: var(--chat-hover);
+      border-radius: var(--chat-radius);
+      padding: 12px 14px;
+      overflow-x: auto;
+      margin: 12px 0;
+      border: 1px solid var(--chat-hairline);
+    }
   }
 }
 
