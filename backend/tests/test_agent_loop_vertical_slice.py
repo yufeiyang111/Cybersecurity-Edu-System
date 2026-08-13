@@ -945,3 +945,173 @@ def test_persist_final_answer_unique_public_id(app):
         assert len(items) == 2, "两次固化必须产生两条独立 assistant_message Item"
         public_ids = {item.public_id for item in items}
         assert len(public_ids) == 2, "public_id 必须唯一"
+
+
+def test_streaming_model_turn_emits_reasoning_delta_and_tool_calls(app):
+    """流式模型轮必须实时下发脱敏推理 delta 并正确累积工具调用
+    （真实 provider 的 <think> 思考块只在流式增量中完整可见）。"""
+    from app.services.security_agent.model.contracts import (
+        AgentModelStreamEvent,
+        AgentStreamEventType,
+        ProviderCapabilities,
+    )
+
+    run_id = _make_run(app)
+
+    class _StreamProvider(_VerticalProvider):
+        provider_name = "stream"
+        model = "stream-model"
+
+        def agent_capabilities(self):
+            return ProviderCapabilities(
+                supports_native_tools=True, supports_streaming=True
+            )
+
+        def generate_agent_stream(self, request):
+            self._stage += 1
+            if self._stage == 1:
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.REASONING_SUMMARY_DELTA.value,
+                    item_id="reasoning",
+                    delta="先分析认证链路，发现 sk-abcdefghijklmnopqrstuvw 密钥",
+                )
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.REASONING_SUMMARY_DELTA.value,
+                    item_id="reasoning",
+                    delta="，继续追调用链。",
+                )
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.TOOL_CALL_STARTED.value,
+                    call_id="call-1",
+                    payload={"name": "tool_a"},
+                )
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.TOOL_CALL_COMPLETED.value,
+                    call_id="call-1",
+                    payload={"name": "tool_a", "arguments": {"query": "auth"}},
+                )
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.COMPLETED.value
+                )
+                return
+            yield AgentModelStreamEvent(
+                event_type=AgentStreamEventType.OUTPUT_TEXT_DELTA.value,
+                item_id="assistant",
+                delta="审查完成：认证链路无越权风险。",
+            )
+            yield AgentModelStreamEvent(
+                event_type=AgentStreamEventType.COMPLETED.value
+            )
+
+        def generate_agent(self, request):
+            return AgentModelResponse(
+                content="兜底", tool_calls=(), finish_reason="stop",
+                provider_name=self.provider_name, model=self.model,
+            )
+
+    provider = _StreamProvider()
+    with app.app_context():
+        engine = AgentLoopEngine(
+            provider=provider,
+            registry=_registry(),
+            events=EventService(),
+        )
+        result = engine.run_until_interrupt(run_id, "t-stream-model")
+        run = db.session.get(AgentRun, run_id)
+        assert result == "completed", f"流式模型轮应正常完成，实际 {result}"
+        assert run.tool_call_count == 1
+        events = (
+            AgentEvent.query.filter_by(run_id=run_id)
+            .order_by(AgentEvent.sequence.asc())
+            .all()
+        )
+        reasoning = [
+            e for e in events
+            if e.event_type.startswith("item.reasoning_summary.")
+        ]
+        assert reasoning, "流式模型轮必须产生推理摘要事件"
+        serialized = "".join(
+            str(e.payload_json or e.payload or {}) for e in reasoning
+        )
+        assert "sk-abcdefghijklmnopqrstuvw" not in serialized, \
+            "推理摘要必须脱敏"
+        assert "认证链路" in serialized or "REDACTED" in serialized
+        assert any(
+            e.event_type == "item.tool_call.started" for e in events
+        ), "工具调用事件必须产生"
+
+
+def test_streaming_tool_round_with_prefix_text_does_not_conflict(app):
+    """流式工具轮：content 前缀文本（think 块外）与 tool_calls 并存时，
+    文本必须丢弃、只执行工具（真实验收 run 72：两者并存触发
+    ContractValidationError 导致 AGENT_LOOP_ITERATION_FAILED）。"""
+    from app.services.security_agent.model.contracts import (
+        AgentModelStreamEvent,
+        AgentStreamEventType,
+        ProviderCapabilities,
+    )
+
+    run_id = _make_run(app)
+
+    class _PrefixTextProvider(_VerticalProvider):
+        provider_name = "stream-prefix"
+        model = "m"
+
+        def agent_capabilities(self):
+            return ProviderCapabilities(
+                supports_native_tools=True, supports_streaming=True
+            )
+
+        def generate_agent_stream(self, request):
+            self._stage += 1
+            if self._stage == 1:
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.REASONING_SUMMARY_DELTA.value,
+                    item_id="reasoning",
+                    delta="先分析认证链路",
+                )
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.OUTPUT_TEXT_DELTA.value,
+                    item_id="assistant",
+                    delta="好的，我来检查认证链路",
+                )
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.TOOL_CALL_STARTED.value,
+                    call_id="c1",
+                    payload={"name": "tool_a"},
+                )
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.TOOL_CALL_COMPLETED.value,
+                    call_id="c1",
+                    payload={"name": "tool_a", "arguments": {"query": "auth"}},
+                )
+                yield AgentModelStreamEvent(
+                    event_type=AgentStreamEventType.COMPLETED.value
+                )
+                return
+            yield AgentModelStreamEvent(
+                event_type=AgentStreamEventType.OUTPUT_TEXT_DELTA.value,
+                item_id="assistant",
+                delta="审查完成",
+            )
+            yield AgentModelStreamEvent(
+                event_type=AgentStreamEventType.COMPLETED.value
+            )
+
+        def generate_agent(self, request):
+            return AgentModelResponse(
+                content="兜底", tool_calls=(), finish_reason="stop",
+                provider_name=self.provider_name, model=self.model,
+            )
+
+    provider = _PrefixTextProvider()
+    with app.app_context():
+        engine = AgentLoopEngine(
+            provider=provider,
+            registry=_registry(),
+            events=EventService(),
+        )
+        result = engine.run_until_interrupt(run_id, "t-stream-prefix")
+        run = db.session.get(AgentRun, run_id)
+        assert result == "completed", f"带前缀文本的工具轮应正常完成，实际 {result}"
+        assert run.tool_call_count == 1, "前缀文本不得阻止工具执行"

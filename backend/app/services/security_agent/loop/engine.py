@@ -348,13 +348,27 @@ class AgentLoopEngine:
                 from app.services.llm.provider_selector import select_provider
 
                 provider = select_provider(user_id=run.created_by, operation="agent")
-        response = self._gateway.next_turn(
-            request,
-            provider=provider,
-            candidates=candidates,
-            run=run,
-            trace_id=trace_id,
-        )
+        # 流式优先：MiniMax/DeepSeek 的 <think> 思考块只在流式增量中完整
+        # 可见，非流式 content 可能丢失推理内容（真实验收确认）。流式同时
+        # 支持 reasoning delta 实时下发。
+        streamed = False
+        caps = self._gateway.capabilities(provider)
+        streamer = getattr(provider, "generate_agent_stream", None)
+        if caps.supports_streaming and callable(streamer):
+            response = self._next_model_turn_stream(
+                run, request, provider, trace_id
+            )
+            streamed = True
+        else:
+            response = self._gateway.next_turn(
+                request,
+                provider=provider,
+                candidates=candidates,
+                run=run,
+                trace_id=trace_id,
+            )
+        if response is None:
+            return None
         if response.warning_code == "AGENT_APPROVAL_REQUIRED":
             return self._enter_awaiting_approval(run, trace_id)
         if response.warning_code:
@@ -366,8 +380,154 @@ class AgentLoopEngine:
             return None
         self._consecutive_model_errors = 0
         self._last_reasoning_content = response.reasoning_content
-        self._emit_reasoning_summary(run, response, trace_id)
+        if not streamed:
+            # 非流式路径才补发推理摘要（流式路径已实时逐段下发）
+            self._emit_reasoning_summary(run, response, trace_id)
         return response
+
+    def _next_model_turn_stream(
+        self,
+        run: AgentRun,
+        request: AgentModelRequest,
+        provider: object,
+        trace_id: str,
+    ) -> AgentModelResponse | None:
+        """流式模型轮：消费标准化流事件，实时下发推理摘要 delta，
+        累积 tool_calls / 文本后构造标准响应。"""
+        from app.services.security_agent.model.contracts import (
+            AgentStreamEventType,
+            AgentModelToolCall,
+        )
+        from app.services.security_agent.loop.policy import REASONING_SUMMARY_MAX_CHARS
+        from app.services.security_agent.timeline.contracts import (
+            EVENT_REASONING_SUMMARY_STARTED,
+            EVENT_REASONING_SUMMARY_DELTA,
+        )
+        from app.services.llm.redactor import redact_reasoning
+
+        reasoning_parts: list[str] = []
+        reasoning_emitted = False
+        tool_slots: dict[str, dict] = {}
+        tool_order: list[str] = []
+        text_parts: list[str] = []
+        usage: dict = {}
+        warning_code: str | None = None
+        iteration = run.iteration_count or 0
+        item_id = f"reasoning_{iteration}"
+
+        events = self._gateway.stream_turn(
+            request,
+            provider=provider,
+            run=run,
+            trace_id=trace_id,
+        )
+        for event in events:
+            etype = event.event_type
+            if etype == AgentStreamEventType.REASONING_SUMMARY_DELTA.value:
+                safe_delta = redact_reasoning(event.delta)
+                if safe_delta:
+                    reasoning_parts.append(safe_delta)
+                    if not reasoning_emitted:
+                        self._writer.emit(
+                            run,
+                            event_type=EVENT_REASONING_SUMMARY_STARTED,
+                            item_id=item_id,
+                            iteration=iteration,
+                            payload={
+                                "sensitive_level": "internal",
+                                "max_chars": REASONING_SUMMARY_MAX_CHARS,
+                            },
+                            trace_id=trace_id,
+                        )
+                        reasoning_emitted = True
+                    self._writer.emit(
+                        run,
+                        event_type=EVENT_REASONING_SUMMARY_DELTA,
+                        item_id=item_id,
+                        parent_item_id=item_id,
+                        iteration=iteration,
+                        payload={
+                            "delta": safe_delta,
+                            "sensitive_level": "internal",
+                        },
+                        trace_id=trace_id,
+                    )
+                    db.session.commit()
+            elif etype == AgentStreamEventType.OUTPUT_TEXT_DELTA.value:
+                if event.delta:
+                    text_parts.append(event.delta)
+            elif etype == AgentStreamEventType.TOOL_CALL_STARTED.value:
+                call_id = event.call_id or f"call-{len(tool_order)}"
+                tool_slots[call_id] = {
+                    "id": call_id,
+                    "name": (event.payload or {}).get("name", ""),
+                    "arguments": {},
+                }
+                if call_id not in tool_order:
+                    tool_order.append(call_id)
+            elif etype == AgentStreamEventType.TOOL_CALL_COMPLETED.value:
+                call_id = event.call_id or ""
+                if call_id in tool_slots:
+                    payload = event.payload or {}
+                    tool_slots[call_id]["name"] = (
+                        payload.get("name") or tool_slots[call_id]["name"]
+                    )
+                    tool_slots[call_id]["arguments"] = payload.get("arguments") or {}
+                elif call_id:
+                    tool_slots[call_id] = {
+                        "id": call_id,
+                        "name": (event.payload or {}).get("name", ""),
+                        "arguments": (event.payload or {}).get("arguments") or {},
+                    }
+                    tool_order.append(call_id)
+            elif etype == AgentStreamEventType.USAGE.value:
+                usage = event.payload or usage
+            elif etype == AgentStreamEventType.FAILED.value:
+                warning_code = (event.payload or {}).get("warning_code") or "LLM_PROVIDER_REQUEST_FAILED"
+            elif etype == AgentStreamEventType.COMPLETED.value:
+                break
+
+        if warning_code:
+            return AgentModelResponse(
+                content=None,
+                tool_calls=(),
+                finish_reason=None,
+                provider_name=getattr(provider, "provider_name", "unknown"),
+                model=getattr(provider, "model", None),
+                usage=usage,
+                warning_code=warning_code,
+            )
+        tool_calls = tuple(
+            AgentModelToolCall(
+                call_id=slot["id"],
+                name=slot["name"],
+                arguments=slot["arguments"] or {},
+            )
+            for slot in (tool_slots[cid] for cid in tool_order)
+            if slot["name"]
+        )
+        # 工具轮的前缀文本（think 块外的可见内容）不作为最终回答：
+        # 与 _agent_success 语义一致——有工具调用时文本丢弃，避免
+        # "一轮同时提交回答与工具调用"校验失败。
+        content = None if tool_calls else ("".join(text_parts).strip() or None)
+        if not content and not tool_calls:
+            return AgentModelResponse(
+                content=None,
+                tool_calls=(),
+                finish_reason=None,
+                provider_name=getattr(provider, "provider_name", "unknown"),
+                model=getattr(provider, "model", None),
+                warning_code="LLM_OUTPUT_INVALID",
+            )
+        return AgentModelResponse(
+            content=content,
+            tool_calls=tool_calls,
+            finish_reason="tool_calls" if tool_calls else "stop",
+            provider_name=getattr(provider, "provider_name", "unknown"),
+            model=getattr(provider, "model", None),
+            usage=usage,
+            reasoning_content="".join(reasoning_parts) or None,
+        )
 
     def _emit_reasoning_summary(
         self, run: AgentRun, response, trace_id: str
