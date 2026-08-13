@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from uuid import uuid4
 
 from app import db
 from app.models.agent_runtime import (
@@ -688,10 +689,14 @@ class AgentLoopEngine:
         return "continue"
 
     def _persist_final_answer(self, run: AgentRun, content: str, trace_id: str) -> None:
-        """T10：最终回答以 assistant_message Item 固化（started → completed）。"""
+        """T10：最终回答以 assistant_message Item 固化（started → completed）。
+
+        public_id 必须唯一：baseline 降级/异常重试可能多次调用本方法，
+        固定 id 会撞 agent_items 唯一约束（真实验收 run 58 复现）。
+        """
         from app.services.security_agent.timeline.item_service import ItemService
 
-        public_id = f"asst_final_{run.iteration_count}"
+        public_id = f"asst_final_{run.iteration_count}_{uuid4().hex[:8]}"
         service = ItemService()
         service.start(
             run,

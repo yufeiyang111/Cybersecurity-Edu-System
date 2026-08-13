@@ -922,3 +922,26 @@ def test_v2_reasoning_summary_events_emitted_redacted(app):
         assert "sk-abcdefghijklmnopqrstuvw" not in serialized, \
             "推理摘要必须脱敏，不得泄露密钥"
         assert "硬编码密钥" in serialized or "REDACTED" in serialized or "sk-" not in serialized
+
+
+def test_persist_final_answer_unique_public_id(app):
+    """baseline 降级/异常重试可能多次固化最终回答，public_id 必须唯一
+    （真实验收 run 58：固定 asst_final_{iteration} 撞 agent_items 唯一约束）。"""
+    from app.models.agent_items import AgentItem
+    from app.services.security_agent.loop.engine import AgentLoopEngine
+
+    run_id = _make_run(app)
+    with app.app_context():
+        engine = AgentLoopEngine(events=EventService())
+        run = db.session.get(AgentRun, run_id)
+        engine._persist_final_answer(run, "第一次摘要", "t-persist-1")
+        db.session.commit()
+        engine._persist_final_answer(run, "第二次摘要（重试）", "t-persist-2")
+        db.session.commit()
+        items = (
+            AgentItem.query.filter_by(run_id=run_id, item_type="assistant_message")
+            .all()
+        )
+        assert len(items) == 2, "两次固化必须产生两条独立 assistant_message Item"
+        public_ids = {item.public_id for item in items}
+        assert len(public_ids) == 2, "public_id 必须唯一"
