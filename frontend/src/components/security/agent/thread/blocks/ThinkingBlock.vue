@@ -1,5 +1,5 @@
 <template>
-  <div class="thinking-block">
+  <div v-if="live || text" class="thinking-block">
     <div v-if="showMeta" class="tb-meta">
       <span class="tb-tag">THINKING</span>
       <span v-if="live" class="tb-live">思考中…</span>
@@ -9,6 +9,7 @@
       <p v-for="(paragraph, index) in paragraphs" :key="index">
         {{ paragraph }}<span v-if="live && index === paragraphs.length - 1" class="tb-cursor" />
       </p>
+      <span v-if="live && !paragraphs.length" class="tb-waiting">思考中…</span>
     </div>
     <button
       v-if="!live && text"
@@ -142,6 +143,13 @@ const paragraphs = computed(() => {
   width: 11px;
   height: 11px;
   stroke: currentColor;
+}
+
+.tb-waiting {
+  font-size: 13px;
+  color: var(--chat-hollow);
+  font-style: italic;
+  animation: tb-pulse 1.4s infinite ease-in-out;
 }
 
 .tb-cursor {

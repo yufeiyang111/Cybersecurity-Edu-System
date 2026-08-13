@@ -61,6 +61,7 @@ import ThinkingBlock from './blocks/ThinkingBlock.vue'
 import ToolCallBlock from './blocks/ToolCallBlock.vue'
 import AssistantBlock from './blocks/AssistantBlock.vue'
 import WarningBlock from './blocks/WarningBlock.vue'
+import { buildThreadBlocks } from '@/features/security/agent/threadBlocks'
 
 const props = defineProps({
   userMessages: { type: Array, default: () => [] },
@@ -111,154 +112,26 @@ const waitingTimeMs = computed(() => {
 })
 
 const blocks = computed(() => {
-  const list = []
-  const toolById = {}
-  for (const tool of props.toolCalls) {
-    toolById[String(tool.id)] = tool
-  }
-
-  // 阶段 1：按事件顺序构造 thinking/assistant 块，收集工具调用顺序。
-  const toolStartOrder = []
-  for (const event of props.events) {
-    const type = event.event_type || ''
-    const payload = event.payload || {}
-    const itemId = event.item_id || payload.item_id || payload.item_public_id || String(event.sequence)
-    if (type === 'tool.started') {
-      const callId = String(payload.tool_call_id ?? '')
-      if (callId) toolStartOrder.push(callId)
-    } else if (type === 'item.reasoning_summary.started') {
-      list.push({
-        kind: 'thinking',
-        key: `reasoning-${itemId}`,
-        title: '推理摘要',
-        text: '',
-        live: true,
-        sensitiveLevel: payload.sensitive_level || 'internal'
-      })
-    } else if (type === 'item.reasoning_summary.delta') {
-      const existing = list.find(
-        (item) =>
-          item.kind === 'thinking' &&
-          item.key === `reasoning-${itemId}`
-      )
-      if (existing) {
-        existing.text += payload.delta || ''
-        existing.live = true
-      } else {
-        list.push({
-          kind: 'thinking',
-          key: `reasoning-${itemId}`,
-          title: '推理摘要',
-          text: payload.delta || '',
-          live: true,
-          sensitiveLevel: payload.sensitive_level || 'internal'
-        })
-      }
-    } else if (type === 'item.assistant_message.completed') {
-      const content =
-        payload.content ?? payload.analysis ?? ''
-      list.push({
-        kind: 'assistant',
-        key: `assistant-${event.sequence}`,
-        text: content,
-        status: props.run?.status || 'completed',
-        live: false,
-        time: event.occurred_at || ''
-      })
+  // 单一事件驱动：thinking / tool / assistant 全部按事件 sequence 交错。
+  // 每个块携带 seq，最后统一排序——保证思考与工具调用严格按时间顺序。
+  // 非 live 且无文本的 thinking 块（started 后 delta 全被脱敏丢弃）不渲染。
+  return buildThreadBlocks({
+    events: props.events,
+    toolCalls: props.toolCalls,
+    reasoningStream: props.reasoningStream,
+    reasoningLive: props.reasoningLive,
+    reasoningSensitiveLevel: props.reasoningSensitiveLevel,
+    llmAnalysis: props.llmAnalysis,
+    run: props.run,
+    running: props.running,
+    fallbackText: props.fallbackText,
+    fallbackDetail: props.fallbackDetail
+  }).filter((block) => {
+    if (block.kind === 'thinking' && !block.live && !(block.text || '').trim()) {
+      return false
     }
-  }
-
-  // 实时推理流（无 started 事件时的兜底，来自 SSE reducer 累积）
-  if (props.reasoningLive || props.reasoningStream) {
-    const liveIdx = list.findIndex((item) => item.kind === 'thinking' && item.live)
-    if (liveIdx >= 0) {
-      list[liveIdx].text = props.reasoningStream || list[liveIdx].text
-      list[liveIdx].live = props.reasoningLive
-      list[liveIdx].sensitiveLevel = props.reasoningSensitiveLevel
-    } else if (props.reasoningStream) {
-      list.push({
-        kind: 'thinking',
-        key: 'reasoning-live',
-        title: '推理摘要',
-        text: props.reasoningStream,
-        live: props.reasoningLive,
-        sensitiveLevel: props.reasoningSensitiveLevel
-      })
-    }
-  }
-
-  // 最终分析兜底（llm.completed 事件或 snapshot 消息）
-  if (props.llmAnalysis) {
-    const hasAssistant = list.some((item) => item.kind === 'assistant')
-    if (!hasAssistant) {
-      list.push({
-        kind: 'assistant',
-        key: 'assistant-final',
-        text: props.llmAnalysis,
-        status: props.run?.status || 'completed',
-        live: false,
-        time: props.run?.finished_at || ''
-      })
-    }
-  } else if (props.fallbackText && !props.running) {
-    list.push({
-      kind: 'assistant',
-      key: 'assistant-fallback',
-      text: props.fallbackText,
-      status: props.run?.status || 'completed',
-      live: false,
-      time: props.run?.finished_at || ''
-    })
-  }
-
-  // 警告块（warning_codes 汇总）
-  const warningCodes = props.run?.warning_codes || []
-  if (warningCodes.length) {
-    const warned = list.find((item) => item.kind === 'warning')
-    if (!warned) {
-      list.push({
-        kind: 'warning',
-        key: 'warning-final',
-        codes: warningCodes
-      })
-    }
-  }
-
-  // 阶段 2：按 tool.started 顺序构造工具块（数据以 store.toolCalls 为准）。
-  const toolBlocks = []
-  for (const callId of toolStartOrder) {
-    const tool = toolById[callId]
-    if (tool) {
-      toolBlocks.push({
-        kind: 'tool',
-        key: `tool-${callId}`,
-        tool: { ...tool, id: callId }
-      })
-    }
-  }
-  for (const tool of props.toolCalls) {
-    if (!toolStartOrder.includes(String(tool.id))) {
-      toolBlocks.push({
-        kind: 'tool',
-        key: `tool-snapshot-${tool.id}`,
-        tool: { ...tool, id: String(tool.id) }
-      })
-    }
-  }
-
-  // 阶段 3：合并——thinking 块后紧跟其后的工具块（Codex 风格交错），
-  // 未跟上的工具块追加到末尾。
-  const ordered = []
-  let pendingTools = [...toolBlocks]
-  for (const block of list) {
-    ordered.push(block)
-    if (block.kind === 'thinking') {
-      const taken = pendingTools.splice(0, pendingTools.length)
-      ordered.push(...taken)
-    }
-  }
-  ordered.push(...pendingTools)
-  return ordered
+    return true
+  })
 })
 </script>
 
