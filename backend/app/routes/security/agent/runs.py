@@ -259,6 +259,62 @@ def list_agent_run_decisions(run_id: int):
         return jsonify({"error": str(exc)}), 403
 
 
+@projects_bp.route("/agent-runs/<int:run_id>/retry", methods=["POST"])
+@jwt_required()
+def retry_agent_run(run_id: int):
+    """Retry API（spec §16.2，L-05）：只接受可恢复的 failed/partial Run。
+
+    转为 system_retry 控制输入 + QUEUED 重新入队 dispatch；HTTP 线程
+    不同步执行工具或推进 Loop。
+    """
+    import uuid
+
+    from app.services.security_agent.loop.control_inputs import (
+        ControlInputError,
+        ControlInputService,
+    )
+
+    try:
+        run = _agent_run_or_404(run_id, PROJECT_ROLES)
+        if run is None:
+            return jsonify({"error": "Agent 任务不存在"}), 404
+        data = _json_object()
+        client_request_id = data.get("client_request_id")
+        if client_request_id is None:
+            client_request_id = f"retry-{uuid.uuid4().hex[:12]}"
+        if not isinstance(client_request_id, str) or not client_request_id.strip():
+            return jsonify({"error": "client_request_id 必须是字符串"}), 400
+
+        control = ControlInputService().enqueue(
+            run,
+            input_type="system_retry",
+            payload={},
+            client_request_id=client_request_id.strip(),
+            created_by=_current_user_id(),
+        )
+        _service._state.retry(
+            run,
+            actor_id=_current_user_id(),
+            reason=f"用户重试（client_request_id={client_request_id.strip()}）",
+        )
+        trace_id = uuid.uuid4().hex
+        _service._dispatch(run, trace_id)
+        db.session.refresh(run)
+        return jsonify(
+            {
+                "run": run.to_dict(),
+                "control_input": control.to_dict(),
+                "retried": True,
+            }
+        )
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 403
+    except AgentStateError as exc:
+        return jsonify({"error": str(exc)}), 409
+    except ControlInputError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
 @projects_bp.route("/agent-runs/<int:run_id>/messages", methods=["POST"])
 @jwt_required()
 def post_agent_run_message(run_id: int):

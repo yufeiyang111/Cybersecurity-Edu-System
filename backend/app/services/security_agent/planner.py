@@ -28,7 +28,6 @@ from app.services.llm.provider_selector import resolve_provider_max_tokens, sele
 from app.services.security_agent.budget import budget_status
 from app.services.security_agent.contracts import (
     EVENT_BUDGET_UPDATED,
-    EVENT_PLAN_CREATED,
     EVENT_WARNING_RAISED,
     PLANNER_RULE_BASED,
     PLANNER_LLM_LIVE,
@@ -46,6 +45,10 @@ from app.services.security_agent.prompt_templates.planner_v1 import (
     parse_plan_envelope,
     prompt_digest,
 )
+from app.services.security_agent.timeline.contracts import (
+    EVENT_PLAN_CREATED,
+)
+from app.services.security_agent.timeline.event_writer import EventWriter
 from app.services.security_agent.tools.registry import get_tool_registry
 
 logger = logging.getLogger(__name__)
@@ -59,6 +62,7 @@ class PlanPlanner:
 
     def __init__(self, events: EventService) -> None:
         self._events = events
+        self._writer = EventWriter()
         self._agent_log = AgentLogger()
 
     # ------------------------------------------------------------------ public
@@ -303,7 +307,13 @@ class PlanPlanner:
         }
         if fallback_reason:
             payload["fallback_reason"] = fallback_reason
-        self._events.emit(run, EVENT_PLAN_CREATED, payload, trace_id=trace_id)
+        self._writer.emit(
+            run,
+            event_type=EVENT_PLAN_CREATED,
+            item_id=f"plan_v{plan.plan_version}",
+            payload=payload,
+            trace_id=trace_id,
+        )
         self._agent_log.plan_created(
             run,
             planner_source=planner_source,

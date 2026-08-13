@@ -126,3 +126,22 @@ test('batch 应用保持顺序', () => {
   assert.equal(state.lastSequence, 3)
   assert.equal(state.itemsById.rs.status, 'completed')
 })
+
+test('plan/decision/approval 事件按类型进时间线', () => {
+  const state = applyTimelineBatch(createTimelineState(), [
+    evt(1, 'item.plan.created', { plan_version: 1, planner_source: 'rule_based_policy' }, 'plan_v1'),
+    evt(2, 'item.decision.created', { reason_code: 'evidence_gap' }, 'decision_1'),
+    evt(3, 'item.approval.requested', { approval_id: 9, operation_type: 'tool_execution' }, 'approval_9'),
+    evt(4, 'item.observation.created', { observation_id: 7 }, 'observation_7'),
+    evt(5, 'item.approval.resolved', { approval_id: 9, decision: 'approved', comment: '同意执行' }, 'approval_9')
+  ])
+  assert.equal(state.itemsById.plan_v1.itemType, 'plan')
+  assert.equal(state.itemsById.plan_v1.summary.plan_version, 1)
+  assert.equal(state.itemsById.decision_1.itemType, 'decision')
+  assert.equal(state.itemsById.approval_9.itemType, 'approval')
+  assert.equal(state.itemsById.approval_9.summary.operation_type, 'tool_execution')
+  assert.equal(state.itemsById.approval_9.status, 'completed')
+  assert.equal(state.itemsById.approval_9.content, '同意执行')
+  assert.equal(state.itemsById.observation_7.itemType, 'observation')
+  assert.deepEqual(state.itemOrder, ['plan_v1', 'decision_1', 'approval_9', 'observation_7'])
+})

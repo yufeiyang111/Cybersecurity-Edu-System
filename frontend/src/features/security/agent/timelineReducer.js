@@ -107,7 +107,12 @@ function applyItemEvent(state, event, sequence) {
   const publicId = event.item_id || payload.item_public_id || payload.item_id
   if (!publicId) return state
 
-  if (eventType.endsWith('.started') || eventType.endsWith('.created')) {
+  if (
+    eventType.endsWith('.started') ||
+    eventType.endsWith('.created') ||
+    eventType.endsWith('.requested') ||
+    eventType.endsWith('.updated')
+  ) {
     return upsertItem(state, {
       publicId,
       itemType: itemTypeOf(eventType),
@@ -119,6 +124,31 @@ function applyItemEvent(state, event, sequence) {
       errorCode: null,
       sequence
     })
+  }
+
+  if (eventType.endsWith('.resolved')) {
+    const existing = state.itemsById[publicId]
+    const decision = payload.decision || 'resolved'
+    return {
+      ...state,
+      itemsById: {
+        ...state.itemsById,
+        [publicId]: {
+          ...(existing || {
+            publicId,
+            itemType: itemTypeOf(eventType),
+            content: '',
+            parentId: null,
+            sensitiveLevel: 'internal',
+            errorCode: null,
+            sequence
+          }),
+          status: decision === 'approved' ? 'completed' : 'failed',
+          summary: { ...(existing?.summary || {}), ...payload },
+          content: payload.comment || existing?.content || ''
+        }
+      }
+    }
   }
 
   if (eventType.endsWith('.delta')) {

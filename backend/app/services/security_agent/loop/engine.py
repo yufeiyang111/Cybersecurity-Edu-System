@@ -601,14 +601,20 @@ class AgentLoopEngine:
             trace_id=trace_id,
         )
         db.session.commit()
-    def _enter_awaiting_approval(self, run: AgentRun, trace_id: str) -> str:
+    def _enter_awaiting_approval(
+        self, run: AgentRun, trace_id: str, approval_id: int | None = None
+    ) -> str:
         """审批中断：转入 AWAITING_APPROVAL 并让出 Worker，不占用轮询。"""
         try:
             self._state.transition(
                 run,
                 AgentRunStatus.AWAITING_APPROVAL,
                 actor_id=run.created_by,
-                reason="模型请求审批，等待人工决策",
+                reason=(
+                    "模型请求审批，等待人工决策"
+                    if approval_id is None
+                    else f"工具审批已发起（approval_id={approval_id}），等待人工决策"
+                ),
                 trace_id=trace_id,
             )
         except Exception:
@@ -751,12 +757,47 @@ class AgentLoopEngine:
             return self._apply_plan_update(run, action.action, trace_id)
         if kind == ActionKind.FINAL_ANSWER:
             return self._handle_final_answer(run, action.action.content, trace_id)
-        if kind in {
-            ActionKind.REQUEST_APPROVAL,
-            ActionKind.ASK_USER,
-        }:
+        if kind == ActionKind.REQUEST_APPROVAL:
+            return self._request_tool_approval(run, action.action, trace_id)
+        if kind == ActionKind.ASK_USER:
             return "interrupted"
         return "continue"
+
+    def _request_tool_approval(self, run: AgentRun, action, trace_id: str) -> str:
+        """模型 request_approval 动作（spec §6.1）：持久化审批行并中断。
+
+        工具必须真实存在于注册表且声明 requires_approval，否则拒绝该动作
+        （模型不能通过审批请求绕过 Tool Registry）。
+        """
+        from app.models.agent_approval import ApprovalOperationType
+        from app.services.security_agent.approval_service import ApprovalService
+
+        descriptor = next(
+            (
+                item
+                for item in self._registry.descriptors()
+                if item.name == action.tool_name
+            ),
+            None,
+        )
+        if descriptor is None or not getattr(descriptor, "requires_approval", False):
+            self._feedback.append(
+                f"审批请求被拒绝：工具 {action.tool_name} 不存在或无需审批"
+            )
+            return "continue"
+        approval = ApprovalService(self._events).request(
+            run,
+            operation_type=ApprovalOperationType.TOOL_EXECUTION.value,
+            reason=(action.reason or f"模型请求执行工具 {action.tool_name}")[:1000],
+            affected_scope={
+                "tool_name": action.tool_name,
+                "request_id": action.request_id,
+            },
+            proposed={},
+            requester_id=run.created_by,
+            trace_id=trace_id,
+        )
+        return self._enter_awaiting_approval(run, trace_id, approval_id=approval.id)
 
     def _execute_tool_call(self, run: AgentRun, call, trace_id: str) -> str:
         repeat_key = f"{call.name}:{json.dumps(call.arguments, sort_keys=True)}"
@@ -829,6 +870,44 @@ class AgentLoopEngine:
             trace_id=trace_id,
             input_payload=call.arguments,
         )
+        if result.error_code == "AGENT_APPROVAL_REQUIRED":
+            # 敏感工具未批准：持久化审批行并中断，绝不自动放行（G-05）。
+            from app.models.agent_approval import ApprovalOperationType
+            from app.services.security_agent.approval_service import ApprovalService
+
+            approval = ApprovalService(self._events).request(
+                run,
+                operation_type=ApprovalOperationType.TOOL_EXECUTION.value,
+                reason=f"工具 {call.name} 声明 requires_approval，等待人工批准后执行",
+                affected_scope={
+                    "tool_name": call.name,
+                    "arguments_digest": _digest(call.arguments),
+                },
+                proposed={},
+                requester_id=run.created_by,
+                trace_id=trace_id,
+            )
+            self._writer.emit(
+                run,
+                event_type=EVENT_TOOL_CALL_COMPLETED,
+                item_id=call.call_id,
+                payload={
+                    "status": "failed",
+                    "error_code": "AGENT_APPROVAL_REQUIRED",
+                    "approval_id": approval.id,
+                },
+                trace_id=trace_id,
+            )
+            node = db.session.get(AgentPlanNode, node.id)
+            if node is not None:
+                node.status = AgentPlanNodeStatus.BLOCKED.value
+            step = db.session.get(AgentStepExecution, step.id)
+            if step is not None:
+                step.status = "failed"
+            db.session.commit()
+            return self._enter_awaiting_approval(
+                run, trace_id, approval_id=approval.id
+            )
         self._writer.emit(
             run,
             event_type=EVENT_TOOL_CALL_COMPLETED,

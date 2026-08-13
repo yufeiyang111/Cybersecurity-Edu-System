@@ -2,7 +2,8 @@
 """决策记录（Decision Records）：重规划决策的持久化与查询（A5）。
 
 每次 replan / 用户方向追加写一条 agent_decision_records，同时发出
-strategy.switched 与 decision.recorded 事件；前端决策时间线据此渲染。
+strategy.switched 与 v2 item.decision.created 事件（Event v2 关闭时由
+EventWriter 翻译回 decision.recorded）；前端决策时间线据此渲染。
 """
 from __future__ import annotations
 
@@ -10,15 +11,19 @@ from app import db
 from app.models.agent_runtime import AgentDecisionRecord, AgentRun
 from app.services.agent_observability import AgentLogger
 from app.services.security_agent.contracts import (
-    EVENT_DECISION_RECORDED,
     EVENT_STRATEGY_SWITCHED,
 )
 from app.services.security_agent.event_service import EventService
+from app.services.security_agent.timeline.contracts import (
+    EVENT_DECISION_CREATED,
+)
+from app.services.security_agent.timeline.event_writer import EventWriter
 
 
 class DecisionRecords:
     def __init__(self, events: EventService) -> None:
         self._events = events
+        self._writer = EventWriter()
         self._agent_log = AgentLogger()
 
     # ------------------------------------------------------------------ write
@@ -44,10 +49,11 @@ class DecisionRecords:
         )
         db.session.add(record)
         db.session.flush()
-        self._events.emit(
+        self._writer.emit(
             run,
-            EVENT_DECISION_RECORDED,
-            {
+            event_type=EVENT_DECISION_CREATED,
+            item_id=f"decision_{record.id}",
+            payload={
                 "decision_id": record.id,
                 "plan_version": plan_version,
                 "supersedes_version": supersedes_version,

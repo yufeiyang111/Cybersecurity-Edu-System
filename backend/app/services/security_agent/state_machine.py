@@ -225,6 +225,67 @@ class AgentStateMachine:
         db.session.commit()
         return new_version
 
+    def retry(self, run: AgentRun, *, actor_id: int | None = None, reason: str | None = None, trace_id: str | None = None) -> int:
+        """受控恢复转换（L-05 Retry API）：failed/partial → QUEUED 重新入队。
+
+        终态转换不在普通 TRANSITIONS 表中，由本方法显式允许——只接受
+        failed/partial 两种可恢复终态，并保留 finished_at 与既有证据。
+        """
+        current_value = run.status.value if isinstance(run.status, AgentRunStatus) else str(run.status)
+        if current_value not in {AgentRunStatus.FAILED.value, AgentRunStatus.PARTIAL.value}:
+            raise AgentStateError(f"只有 failed/partial 任务可以重试（当前 {current_value}）")
+
+        expected = run.state_version
+        now = datetime.utcnow()
+        updated = db.session.execute(
+            update(AgentRun)
+            .where(AgentRun.id == run.id, AgentRun.state_version == expected)
+            .values(
+                status=AgentRunStatus.QUEUED.value,
+                state_version=AgentRun.state_version + 1,
+                finished_at=None,
+            )
+        )
+        if updated.rowcount != 1:
+            db.session.rollback()
+            raise AgentVersionConflictError("状态版本冲突：工作进程需重新加载后重试")
+
+        new_version = expected + 1
+        sequence = self._append_event(
+            run_id=run.id,
+            event_type=EVENT_RUN_STATE_CHANGED,
+            state_version=new_version,
+            payload={
+                "status": AgentRunStatus.QUEUED.value,
+                "from": current_value,
+                "state_version": new_version,
+                "reason": reason or "用户重试，重新入队",
+            },
+            trace_id=trace_id,
+        )
+        run.state_version = new_version
+        run.status = AgentRunStatus.QUEUED.value
+        run.finished_at = None
+        run.last_event_sequence = sequence
+        db.session.add(
+            AuditEvent(
+                workspace_id=run.workspace_id,
+                actor_id=actor_id,
+                action="agent.run.retry",
+                target_type="agent_run",
+                target_id=run.id,
+                metadata_json={
+                    "project_id": run.project_id,
+                    "from": current_value,
+                    "to": AgentRunStatus.QUEUED.value,
+                    "state_version": new_version,
+                    "event_sequence": sequence,
+                },
+            )
+        )
+        db.session.commit()
+        return new_version
+
     def _append_event(
         self,
         *,

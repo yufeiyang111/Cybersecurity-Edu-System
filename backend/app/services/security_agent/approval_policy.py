@@ -16,12 +16,14 @@ _OPERATION_LABELS = {
     ApprovalOperationType.BUDGET_INCREASE.value: "预算超限（继续执行）",
     ApprovalOperationType.REMOTE_SOURCE_SEND.value: "远程源码发送",
     ApprovalOperationType.REMEDIATION_GENERATION.value: "修复建议生成",
+    ApprovalOperationType.TOOL_EXECUTION.value: "敏感工具执行",
 }
 
 _RISK_BY_OPERATION = {
     ApprovalOperationType.BUDGET_INCREASE.value: ApprovalRiskLevel.MEDIUM.value,
     ApprovalOperationType.REMOTE_SOURCE_SEND.value: ApprovalRiskLevel.HIGH.value,
     ApprovalOperationType.REMEDIATION_GENERATION.value: ApprovalRiskLevel.LOW.value,
+    ApprovalOperationType.TOOL_EXECUTION.value: ApprovalRiskLevel.MEDIUM.value,
 }
 
 # 需要 Owner/Security Admin 才能批准的风险级别

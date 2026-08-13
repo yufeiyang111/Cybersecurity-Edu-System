@@ -23,7 +23,6 @@ from app.models.agent_runtime import (
     AgentRun,
 )
 from app.services.security_agent.contracts import (
-    EVENT_PLAN_REPLANNED,
     EVENT_WARNING_RAISED,
 )
 from app.services.security_agent.decision_records import DecisionRecords
@@ -32,6 +31,10 @@ from app.services.security_agent.planning.completion_criteria import (
     MANDATORY_BASELINE_KEYS,
 )
 from app.services.security_agent.strategy_catalog import NodeSpec
+from app.services.security_agent.timeline.contracts import (
+    EVENT_PLAN_UPDATED,
+)
+from app.services.security_agent.timeline.event_writer import EventWriter
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +62,7 @@ class PlanService:
     ) -> None:
         self._events = events or EventService()
         self._decisions = decisions or DecisionRecords(self._events)
+        self._writer = EventWriter()
 
     # ---------------------------------------------------------------- versions
 
@@ -267,10 +271,11 @@ class PlanService:
             },
             trace_id=trace_id,
         )
-        self._events.emit(
+        self._writer.emit(
             run,
-            EVENT_PLAN_REPLANNED,
-            {
+            event_type=EVENT_PLAN_UPDATED,
+            item_id=f"plan_v{plan.plan_version}",
+            payload={
                 "plan_id": plan.id,
                 "plan_version": plan.plan_version,
                 "supersedes_version": supersedes.plan_version,

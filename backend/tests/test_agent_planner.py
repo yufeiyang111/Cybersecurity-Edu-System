@@ -260,3 +260,23 @@ def test_runner_build_plan_delegates_to_llm_planner(app, monkeypatch):
         invocation = LLMInvocation.query.filter_by(run_id=run.id).one()
         assert invocation.operation == "planner"
         assert invocation.status == "success"
+
+
+def test_plan_created_emits_v2_item_event_when_flag_on(app, monkeypatch):
+    """Event v2 开启时计划事件必须是 item.plan.created 且带 item_id。"""
+    from app.models.agent_events import AgentEvent
+
+    with app.app_context():
+        app.config["AGENT_EVENT_SCHEMA_V2_ENABLED"] = True
+        run = _make_run()
+        _patch_provider(monkeypatch, None)
+
+        PlanPlanner(EventService()).generate_plan(run, trace_id="p-v2")
+
+        created = (
+            AgentEvent.query.filter_by(run_id=run.id, event_type="item.plan.created")
+            .one()
+        )
+        assert created.schema_version == 2
+        assert created.item_public_id == "plan_v1"
+        assert created.payload_json["planner_source"] == "rule_based_policy"

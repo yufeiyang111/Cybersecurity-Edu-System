@@ -17,7 +17,9 @@ from app.services.security_agent.model.contracts import (
 
 ACTION_SCHEMA_VERSION = 1
 
-_ALLOWED_ACTIONS = frozenset({"tool_calls", "final_answer"})
+_ALLOWED_ACTIONS = frozenset(
+    {"tool_calls", "final_answer", "request_approval", "ask_user", "plan_update"}
+)
 _TOP_LEVEL_FIELDS = frozenset({"action", "payload", "schema_version"})
 _TOOL_CALL_FIELDS = frozenset({"id", "name", "arguments"})
 _SAFE_TOOL_NAME = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
@@ -25,6 +27,18 @@ _SAFE_TOOL_NAME = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
 
 class ActionParseError(ValueError):
     """Envelope 非法：JSON 错误、未知动作、未知字段或缺失必填字段。"""
+
+
+def _structured_response(action: str, payload: dict) -> AgentModelResponse:
+    return AgentModelResponse(
+        content=None,
+        tool_calls=(),
+        finish_reason="stop",
+        provider_name="fallback",
+        model=None,
+        action_kind=action,
+        action_payload=payload,
+    )
 
 
 def parse_action_envelope(text: str) -> AgentModelResponse:
@@ -60,6 +74,48 @@ def parse_action_envelope(text: str) -> AgentModelResponse:
             provider_name="fallback",
             model=None,
         )
+
+    if action == "request_approval":
+        request_id = payload.get("request_id")
+        tool_name = payload.get("tool_name")
+        reason = payload.get("reason", "")
+        if not isinstance(request_id, str) or not request_id:
+            raise ActionParseError("request_approval.request_id 必须是非空字符串")
+        if not isinstance(tool_name, str) or not _SAFE_TOOL_NAME.match(tool_name):
+            raise ActionParseError(f"request_approval.tool_name 不是合法工具名：{tool_name!r}")
+        if not isinstance(reason, str):
+            raise ActionParseError("request_approval.reason 必须是字符串")
+        extra_fields = set(payload) - {"request_id", "tool_name", "reason"}
+        if extra_fields:
+            raise ActionParseError(
+                f"request_approval 包含未知字段：{', '.join(sorted(extra_fields))}"
+            )
+        return _structured_response(
+            "request_approval",
+            {"request_id": request_id, "tool_name": tool_name, "reason": reason},
+        )
+
+    if action == "ask_user":
+        question = payload.get("question")
+        if not isinstance(question, str) or not question.strip():
+            raise ActionParseError("ask_user.question 必须是非空字符串")
+        extra_fields = set(payload) - {"question"}
+        if extra_fields:
+            raise ActionParseError(
+                f"ask_user 包含未知字段：{', '.join(sorted(extra_fields))}"
+            )
+        return _structured_response("ask_user", {"question": question})
+
+    if action == "plan_update":
+        patch = payload.get("patch")
+        if not isinstance(patch, dict):
+            raise ActionParseError("plan_update.patch 必须是对象")
+        extra_fields = set(payload) - {"patch"}
+        if extra_fields:
+            raise ActionParseError(
+                f"plan_update 包含未知字段：{', '.join(sorted(extra_fields))}"
+            )
+        return _structured_response("plan_update", {"patch": patch})
 
     calls = payload.get("tool_calls")
     if not isinstance(calls, list) or not calls:

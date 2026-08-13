@@ -30,12 +30,15 @@ from app.services.security_agent.approval_policy import (
     risk_for_operation,
 )
 from app.services.security_agent.contracts import (
-    EVENT_APPROVAL_REQUESTED,
-    EVENT_APPROVAL_RESOLVED,
     EVENT_WARNING_RAISED,
 )
 from app.services.security_agent.event_service import EventService
 from app.services.security_agent.state_machine import AgentStateError, AgentStateMachine
+from app.services.security_agent.timeline.contracts import (
+    EVENT_APPROVAL_REQUESTED,
+    EVENT_APPROVAL_RESOLVED,
+)
+from app.services.security_agent.timeline.event_writer import EventWriter
 
 
 class ApprovalError(ValueError):
@@ -58,6 +61,7 @@ def _digest(run_id: int, operation_type: str, scope: dict, proposed: dict) -> st
 class ApprovalService:
     def __init__(self, events: EventService | None = None) -> None:
         self._events = events or EventService()
+        self._writer = EventWriter()
         self._state = AgentStateMachine()
         self._agent_log = AgentLogger()
 
@@ -104,10 +108,11 @@ class ApprovalService:
                 return existing
             raise
 
-        self._events.emit(
+        self._writer.emit(
             run,
-            EVENT_APPROVAL_REQUESTED,
-            {
+            event_type=EVENT_APPROVAL_REQUESTED,
+            item_id=f"approval_{approval.id}",
+            payload={
                 "approval_id": approval.id,
                 "operation_type": approval.operation_type,
                 "operation_label": operation_label(approval.operation_type),
@@ -163,10 +168,11 @@ class ApprovalService:
             approval.status = ApprovalStatus.EXPIRED.value
             approval.resolved_at = now
             db.session.commit()
-            self._events.emit(
+            self._writer.emit(
                 run,
-                EVENT_APPROVAL_RESOLVED,
-                {
+                event_type=EVENT_APPROVAL_RESOLVED,
+                item_id=f"approval_{approval.id}",
+                payload={
                     "approval_id": approval.id,
                     "decision": ApprovalStatus.EXPIRED.value,
                     "reason": "审批请求已过期",
@@ -203,10 +209,11 @@ class ApprovalService:
         )
         db.session.flush()
 
-        self._events.emit(
+        self._writer.emit(
             run,
-            EVENT_APPROVAL_RESOLVED,
-            {
+            event_type=EVENT_APPROVAL_RESOLVED,
+            item_id=f"approval_{approval.id}",
+            payload={
                 "approval_id": approval.id,
                 "decision": decision,
                 "comment": (comment or "")[:300],

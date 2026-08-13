@@ -16,6 +16,7 @@ class ApprovalOperationType(str, Enum):
     BUDGET_INCREASE = "budget_increase"
     REMOTE_SOURCE_SEND = "remote_source_send"
     REMEDIATION_GENERATION = "remediation_generation"
+    TOOL_EXECUTION = "tool_execution"
 
 
 class ApprovalRiskLevel(str, Enum):

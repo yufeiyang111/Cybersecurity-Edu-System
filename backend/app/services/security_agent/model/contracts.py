@@ -95,6 +95,8 @@ class AgentModelResponse:
     usage: dict[str, Any] = field(default_factory=dict)
     warning_code: str | None = None
     reasoning_content: str | None = None
+    action_kind: str | None = None
+    action_payload: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         self.validate()
@@ -103,17 +105,40 @@ class AgentModelResponse:
         """互斥动作校验：一轮不得同时提交最终回答与工具调用。"""
         if self.content and self.tool_calls:
             raise ContractValidationError("一轮不能同时提交最终回答与工具调用")
+        if self.action_kind is not None and (self.content or self.tool_calls):
+            raise ContractValidationError("结构化动作不得与文本/工具调用混用")
 
     def to_action(self):
-        """把响应转换为标准化 AgentAction（tool_calls 先按单调用拆分）。"""
+        """把响应转换为标准 AgentAction（tool_calls 先按单调用拆分）。"""
         from app.services.security_agent.loop.actions import (
             ActionKind,
             AgentAction,
+            AskUserAction,
             FinalAnswerAction,
+            PlanUpdateAction,
+            RequestApprovalAction,
             ToolCallAction,
         )
 
         self.validate()
+        if self.action_kind is not None:
+            payload = self.action_payload or {}
+            if self.action_kind == ActionKind.REQUEST_APPROVAL.value:
+                return AgentAction(
+                    kind=ActionKind.REQUEST_APPROVAL,
+                    action=RequestApprovalAction.from_dict(payload),
+                )
+            if self.action_kind == ActionKind.ASK_USER.value:
+                return AgentAction(
+                    kind=ActionKind.ASK_USER,
+                    action=AskUserAction.from_dict(payload),
+                )
+            if self.action_kind == ActionKind.PLAN_UPDATE.value:
+                return AgentAction(
+                    kind=ActionKind.PLAN_UPDATE,
+                    action=PlanUpdateAction.from_dict(payload),
+                )
+            raise ContractValidationError(f"未知结构化动作：{self.action_kind}")
         if self.content:
             return AgentAction(
                 kind=ActionKind.FINAL_ANSWER,
@@ -122,7 +147,7 @@ class AgentModelResponse:
         if self.tool_calls:
             if len(self.tool_calls) != 1:
                 raise ContractValidationError(
-                    "工具调用动作必须逐轮单调用执行，多个调用先拆分"
+                    "工具调用动作必须逐轮单调用执行，多个调用先拆"
                 )
             call = self.tool_calls[0]
             return AgentAction(

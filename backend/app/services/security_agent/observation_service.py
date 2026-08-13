@@ -23,12 +23,15 @@ from app.models.agent_runtime import AgentRun
 from app.models.security import AuditEvent
 from app.services.agent_observability import AgentLogger
 from app.services.security_agent.contracts import (
-    EVENT_OBSERVATION_CREATED,
     EVENT_OBSERVATION_REVIEWED,
     EVENT_WARNING_RAISED,
 )
 from app.services.security_agent.event_service import EventService
 from app.services.security_agent.observation_validator import validate_observation
+from app.services.security_agent.timeline.contracts import (
+    EVENT_OBSERVATION_CREATED,
+)
+from app.services.security_agent.timeline.event_writer import EventWriter
 
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
@@ -46,6 +49,7 @@ class ObservationReviewError(ValueError):
 class ObservationService:
     def __init__(self, events: EventService | None = None) -> None:
         self._events = events or EventService()
+        self._writer = EventWriter()
         self._agent_log = AgentLogger()
 
     # ------------------------------------------------------------------ create
@@ -98,10 +102,11 @@ class ObservationService:
             )
         db.session.flush()
 
-        self._events.emit(
+        self._writer.emit(
             run,
-            EVENT_OBSERVATION_CREATED,
-            {
+            event_type=EVENT_OBSERVATION_CREATED,
+            item_id=f"observation_{observation.id}",
+            payload={
                 "observation_id": observation.id,
                 "title": observation.title,
                 "confidence": observation.confidence,
