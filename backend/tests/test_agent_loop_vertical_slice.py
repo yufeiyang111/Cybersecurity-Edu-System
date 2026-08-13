@@ -859,3 +859,66 @@ def test_non_idempotent_repeats_still_trigger_dead_loop_guard(app, monkeypatch):
         assert result == "partial", \
             f"非幂等工具重复调用必须触发死循环保护，实际 {result}"
         assert "AGENT_REPEATED_TOOL_CALL" in (run.warning_codes or [])
+
+
+def test_v2_reasoning_summary_events_emitted_redacted(app):
+    """C-13：v2 模型轮必须发 item.reasoning_summary.* 受限摘要事件（脱敏、
+    限长、sensitive_level），前端思考过程由此驱动（真实验收发现 v2 从不发
+    推理事件导致前端无思考过程）。"""
+    run_id = _make_run(app)
+
+    class _ReasoningProvider(_VerticalProvider):
+        def generate_agent(self, request):
+            self.requests.append(request)
+            self._stage += 1
+            if self._stage == 1:
+                return AgentModelResponse(
+                    content="继续分析认证链路",
+                    reasoning_content=(
+                        "先分析认证链路，发现硬编码密钥 sk-abcdefghijklmnopqrstuvw "
+                        "在 src/index.ts 第 1 行，需要脱敏展示。"
+                    ),
+                    tool_calls=(),
+                    finish_reason="stop",
+                    provider_name=self.provider_name,
+                    model=self.model,
+                )
+            return AgentModelResponse(
+                content="审查完成",
+                tool_calls=(),
+                finish_reason="stop",
+                provider_name=self.provider_name,
+                model=self.model,
+            )
+
+    provider = _ReasoningProvider()
+    with app.app_context():
+        engine = AgentLoopEngine(
+            provider=provider,
+            registry=_registry(),
+            events=EventService(),
+        )
+        result = engine.run_until_interrupt(run_id, "t-reasoning-events")
+        assert result == "completed"
+        events = (
+            AgentEvent.query.filter_by(run_id=run_id)
+            .order_by(AgentEvent.sequence.asc())
+            .all()
+        )
+        reasoning_events = [
+            event for event in events
+            if event.event_type.startswith("item.reasoning_summary.")
+        ]
+        assert reasoning_events, "v2 模型轮必须产生 item.reasoning_summary.* 事件"
+        started = [e for e in reasoning_events if e.event_type == "item.reasoning_summary.started"]
+        deltas = [e for e in reasoning_events if e.event_type == "item.reasoning_summary.delta"]
+        assert started, "必须有 reasoning_summary.started 事件"
+        assert deltas, "必须有 reasoning_summary.delta 事件"
+        serialized = ""
+        for event in reasoning_events:
+            payload = event.payload_json or event.payload or {}
+            assert payload.get("sensitive_level"), "推理摘要事件必须标注 sensitive_level"
+            serialized += str(payload)
+        assert "sk-abcdefghijklmnopqrstuvw" not in serialized, \
+            "推理摘要必须脱敏，不得泄露密钥"
+        assert "硬编码密钥" in serialized or "REDACTED" in serialized or "sk-" not in serialized

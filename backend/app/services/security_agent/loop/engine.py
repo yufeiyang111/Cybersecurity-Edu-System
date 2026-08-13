@@ -350,7 +350,59 @@ class AgentLoopEngine:
             return None
         self._consecutive_model_errors = 0
         self._last_reasoning_content = response.reasoning_content
+        self._emit_reasoning_summary(run, response, trace_id)
         return response
+
+    def _emit_reasoning_summary(
+        self, run: AgentRun, response, trace_id: str
+    ) -> None:
+        """C-13/K-03：模型推理输出以受限 Reasoning Summary 形式实时下发。
+
+        脱敏（redact_reasoning）→ 限长（REASONING_SUMMARY_MAX_CHARS）→
+        标注 sensitive_level；完整原始思维链全文不落库、不进日志。
+        非流式调用把完整脱敏结果作为单段 delta 发出，前端按 v2 事件累积。
+        """
+        from app.services.security_agent.loop.policy import REASONING_SUMMARY_MAX_CHARS
+        from app.services.security_agent.timeline.contracts import (
+            EVENT_REASONING_SUMMARY_STARTED,
+            EVENT_REASONING_SUMMARY_DELTA,
+        )
+        from app.services.llm.redactor import redact_reasoning
+
+        raw = response.reasoning_content
+        if not isinstance(raw, str) or not raw.strip():
+            return
+        redacted = redact_reasoning(raw)
+        if not redacted:
+            return
+        limited = redacted[:REASONING_SUMMARY_MAX_CHARS]
+        sensitive_level = "internal" if redacted == limited else "truncated"
+        iteration = run.iteration_count or 0
+        item_id = f"reasoning_{iteration}"
+        self._writer.emit(
+            run,
+            event_type=EVENT_REASONING_SUMMARY_STARTED,
+            item_id=item_id,
+            iteration=iteration,
+            payload={
+                "sensitive_level": sensitive_level,
+                "max_chars": REASONING_SUMMARY_MAX_CHARS,
+            },
+            trace_id=trace_id,
+        )
+        self._writer.emit(
+            run,
+            event_type=EVENT_REASONING_SUMMARY_DELTA,
+            item_id=item_id,
+            parent_item_id=item_id,
+            iteration=iteration,
+            payload={
+                "delta": limited,
+                "sensitive_level": sensitive_level,
+            },
+            trace_id=trace_id,
+        )
+        db.session.commit()
     def _enter_awaiting_approval(self, run: AgentRun, trace_id: str) -> str:
         """审批中断：转入 AWAITING_APPROVAL 并让出 Worker，不占用轮询。"""
         try:
