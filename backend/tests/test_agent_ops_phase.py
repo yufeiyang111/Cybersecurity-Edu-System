@@ -269,6 +269,49 @@ def test_watchdog_skips_pending_approval(app):
         assert run.id not in result["resumed"]
 
 
+def test_recover_open_runs_is_async_and_idempotent(app):
+    """Q-11：恢复入口必须异步驱动（同步执行会让 CLI 长时间挂起、超时中断时
+    恢复半途而废，真实验收 run 63 复现）；已恢复的 run 不得重复入队。"""
+    import time
+
+    from app.services.security_agent.service import AgentRunService
+
+    run, _, _ = _make_run(app)
+    with app.app_context():
+        called = []
+
+        def fake_execute(run_id, trace_id):
+            called.append((run_id, trace_id))
+
+        with patch("threading.Thread") as mock_thread:
+            with patch.object(AgentRunService, "execute_open_run", fake_execute):
+                result = recover_open_runs(max_recoveries=5)
+        assert run.id in result["recovered"]
+        assert mock_thread.called, "恢复必须通过后台线程驱动（异步）"
+        assert mock_thread.call_args.kwargs["daemon"] is True
+        # 线程 target 是 _drive_recovery：验证其最终会调用 execute_open_run
+        target = mock_thread.call_args.kwargs["target"]
+        assert target.__name__ == "_drive_recovery"
+
+
+def test_recover_open_runs_skips_leased_run(app):
+    from datetime import datetime, timedelta as dt
+
+    from app.services.security_agent.service import AgentRunService
+
+    run, _, _ = _make_run(app)
+    with app.app_context():
+        run = db.session.get(AgentRun, run.id)
+        run.lease_owner = "other-worker"
+        run.lease_expires_at = datetime.utcnow() + dt(minutes=10)
+        db.session.commit()
+        with patch.object(AgentRunService, "execute_open_run") as fake_execute:
+            result = recover_open_runs(max_recoveries=5)
+        assert run.id not in result["recovered"]
+        assert run.id in result["skipped_leased"]
+        fake_execute.assert_not_called()
+
+
 class _FakeProvider:
     def __init__(self, name, fail=False):
         self.provider_name = name

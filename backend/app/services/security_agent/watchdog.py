@@ -11,7 +11,9 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime, timedelta
+from flask import current_app as _current_app
 
 from app import db
 from app.models.agent_approval import AgentApproval, ApprovalStatus
@@ -129,7 +131,18 @@ def recover_open_runs(*, max_recoveries: int = DEFAULT_MAX_RECOVERIES) -> dict:
         run.lease_owner = None
         run.lease_expires_at = None
         db.session.flush()
-        AgentRunService().execute_open_run(run.id, "recover-open-runs")
+        # 异步恢复：execute_open_run 会阻塞直到 run 完成（含 LLM 多轮），
+        # 同步执行会让 CLI 长时间挂起、超时中断时恢复半途而废（真实验收
+        # run 63：3 分钟超时被杀后 run 仍停在 executing_tools）。改为
+        # 后台线程驱动，与正常 dispatch 路径保持一致。
+        app = _current_app._get_current_object()
+        thread = threading.Thread(
+            target=_drive_recovery,
+            args=(app, run.id),
+            name=f"recover-run-{run.id}",
+            daemon=True,
+        )
+        thread.start()
         recovered.append(run.id)
     db.session.commit()
     logger.info(
@@ -138,6 +151,19 @@ def recover_open_runs(*, max_recoveries: int = DEFAULT_MAX_RECOVERIES) -> dict:
         skipped_leased,
     )
     return {"recovered": recovered, "skipped_leased": skipped_leased}
+
+
+def _drive_recovery(app, run_id: int) -> None:
+    """在线程中驱动恢复（独立 app context，与 worker 线程隔离）。"""
+    with app.app_context():
+        try:
+            AgentRunService().execute_open_run(run_id, "recover-open-runs")
+        except Exception:
+            logger.warning(
+                "Recovery drive failed (run_id=%s)",
+                run_id,
+                exc_info=True,
+            )
 
 
 def _resume_or_fail(run: AgentRun, state: AgentStateMachine) -> None:
