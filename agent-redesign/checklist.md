@@ -70,19 +70,19 @@
 
 ## C. Agent Loop 与模型在环证明
 
-- [ ] **C-01 BLOCKER / E3+E4** 至少一个真实 Run 展示三轮以上交错的 Model/Tool/Observation，而不是一次模型规划后固定执行。
-- [ ] **C-02 BLOCKER / E3+E4** 第 N+1 次模型请求包含第 N 次真实 Tool Result envelope、Observation 引用和最新上下文水位。
+- [x] **C-01 BLOCKER / E3+E4** 至少一个真实 Run 展示三轮以上交错的 Model/Tool/Observation，而不是一次模型规划后固定执行。
+- [x] **C-02 BLOCKER / E3+E4** 第 N+1 次模型请求包含第 N 次真实 Tool Result envelope、Observation 引用和最新上下文水位。
 - [ ] **C-03 BLOCKER / E3** 模型动作只能是冻结的判别联合：Tool Calls、Plan Update、Request Approval、Ask User、Final Answer。
 - [ ] **C-04 BLOCKER / E3** 模型不能直接调用 Handler、写数据库、修改 Run 状态、跳过审批或标记节点成功。
 - [ ] **C-05 BLOCKER / E3** 每轮开始均检查 lease、Control Input、pause/cancel、deadline、budget 和 iteration limit。
-- [ ] **C-06 BLOCKER / E3** 多个 Tool Call 有稳定顺序；只有明确无依赖且安全时允许并行。
-- [ ] **C-07 BLOCKER / E3** 相同工具和参数重复超过上限时 Loop 停止或反馈，不形成死循环。
+- [x] **C-06 BLOCKER / E3** 多个 Tool Call 有稳定顺序；只有明确无依赖且安全时允许并行。
+- [x] **C-07 BLOCKER / E3** 相同工具和参数重复超过上限时 Loop 停止或反馈，不形成死循环。
 - [ ] **C-08 BLOCKER / E3** 连续模型错误、最大轮数、最大工具数、最大计划版本、墙钟时间都由配置化 Policy 强制。
 - [ ] **C-09 BLOCKER / E3** 模型过早 Final Answer 会收到 Completion Feedback 并继续，不会直接 terminal。
 - [ ] **C-10 BLOCKER / E3** baseline、hybrid、deep_audit 三种模式有独立测试和可观察标签。
 - [ ] **C-11 / E3** Provider 不可用时降级路径和终态明确；系统不伪造“模型已分析”。
 - [ ] **C-12 / E3** Decision Summary 有引用和策略码，能够解释选择，但不包含隐藏思维链。
-- [ ] **C-13 / E3** Reasoning Summary 来自模型真实 reasoning 输出的受限摘要（脱敏、限长、`sensitive_level`），可 delta 流式且刷新回放一致；不是伪造思考文案，也不包含完整原始思维链。
+- [x] **C-13 / E3** Reasoning Summary 来自模型真实 reasoning 输出的受限摘要（脱敏、限长、`sensitive_level`），可 delta 流式且刷新回放一致；不是伪造思考文案，也不包含完整原始思维链。
 
 ---
 
@@ -97,7 +97,7 @@
 - [ ] **D-07 / E2** Provider capability negotiation 覆盖 native tool、parallel、stream delta、reasoning channel 和 context limit。
 - [ ] **D-08 / E2** failover 仅在 Policy、预算和幂等条件满足时发生，并有事件/审计。
 - [ ] **D-09 BLOCKER / E2** 旧 QA/RAG/修复建议的文本 LLM 契约和测试未回归。
-- [ ] **D-10 BLOCKER / E2+E3** Provider 原始 body、Prompt、工具原始大结果、异常堆栈和授权信息不进入日志或 API。
+- [x] **D-10 BLOCKER / E2+E3** Provider 原始 body、Prompt、工具原始大结果、异常堆栈和授权信息不进入日志或 API。
 
 ---
 
@@ -108,7 +108,7 @@
 - [ ] **E-03 BLOCKER / E2** 上下文不会每轮塞入完整 Event、完整源码或完整 Tool Result；大内容转 Artifact。
 - [ ] **E-04 BLOCKER / E2** 会话摘要有 source sequence 范围、version、digest，并只覆盖声明水位。
 - [ ] **E-05 / E2** 摘要失败时产生 `AGENT_CONTEXT_LIMITED`，保留关键约束并明确降级。
-- [ ] **E-06 BLOCKER / E3+E4** 活跃 Run 中用户追加消息在同一 Run 内形成有序 Control Input，并影响后续模型动作。
+- [x] **E-06 BLOCKER / E3+E4** 活跃 Run 中用户追加消息在同一 Run 内形成有序 Control Input，并影响后续模型动作。
 - [ ] **E-07 BLOCKER / E2** 重复 `client_request_id` 不产生重复 Message、Control Input、Event 或 Plan。
 - [ ] **E-08 BLOCKER / E2** HTTP 消息接口不直接执行 Replan/Tool，只写入并唤醒 Worker。
 - [ ] **E-09 BLOCKER / E2** Cancel、Pause、Approval、User Message 在同一控制队列中有确定优先级和作用域。
@@ -123,7 +123,7 @@
 - [ ] **F-03 BLOCKER / E2** 所有前置成功后节点才 READY；缺失、失败或审批未通过时为 PENDING/BLOCKED。
 - [ ] **F-04 BLOCKER / E2** FAILED 节点绝不加入满足依赖的成功集合。
 - [ ] **F-05 BLOCKER / E2** 环、自依赖、未知依赖、重复 key、未知/禁止工具、超深/超大计划被拒绝。
-- [ ] **F-06 BLOCKER / E2** 强制基线由 Controller 注入和锁定，模型 Plan Patch 无法删除或伪造其成功。
+- [x] **F-06 BLOCKER / E2** 强制基线由 Controller 注入和锁定，模型 Plan Patch 无法删除或伪造其成功。
 - [ ] **F-07 BLOCKER / E2** Plan Patch 版本化并记录 parent、digest、原因和 Decision Record；历史版本只读。
 - [ ] **F-08 / E2** 新 Plan supersede 旧未开始节点，已完成结果只能通过受控引用复用。
 - [ ] **F-09 BLOCKER / E3** Completion Evaluator 同时检查 mandatory nodes、覆盖、证据、失败、警告、预算和用户目标。
@@ -137,7 +137,7 @@
 
 - [ ] **G-01 BLOCKER / E2** 每个 Tool Descriptor 明确 name/version/category/schema/risk/timeout/idempotent/approval/retry/modes/artifact/result version。
 - [ ] **G-02 BLOCKER / E2** Descriptor 缺少安全关键字段时注册失败，不依赖危险默认值。
-- [ ] **G-03 BLOCKER / E2** 工具输入在 Handler 前拒绝未知字段、缺失 required、类型错误、越界、超长值和恶意路径。
+- [x] **G-03 BLOCKER / E2** 工具输入在 Handler 前拒绝未知字段、缺失 required、类型错误、越界、超长值和恶意路径。
 - [ ] **G-04 BLOCKER / E2** workspace/project/snapshot/object authorization 在 Handler 前执行；负向测试确认 Handler 调用次数为零。
 - [ ] **G-05 BLOCKER / E2** prohibited 永不执行；sensitive/approval-required 未批准时进入明确中断。
 - [ ] **G-06 BLOCKER / E2** 预算先预留后结算；预算不足不启动工具。
@@ -195,7 +195,7 @@ HAVING COUNT(*) > 1;
 - [ ] **I-05 BLOCKER / E2** Item 生命周期为 `started → delta* → completed|failed`；终态后拒绝新 delta。
 - [ ] **I-06 BLOCKER / E2** 重复 Event/Item transition 由 dedupe key 幂等处理，不产生重复文本或重复列表项。
 - [ ] **I-07 BLOCKER / E2** Tool Result 和 Observation sequence 晚于对应 Tool Call；Final Assistant Item 晚于最后 Completion Decision。
-- [ ] **I-08 BLOCKER / E2** Snapshot 返回固定 `snapshot_watermark`，所有组成数据都不超过该水位。
+- [x] **I-08 BLOCKER / E2** Snapshot 返回固定 `snapshot_watermark`，所有组成数据都不超过该水位。
 - [ ] **I-09 BLOCKER / E2** `GET /agent-runs/{id}/items` 服务端分页，支持 after/before sequence、page size、item type，并限制最大页大小。
 - [ ] **I-10 BLOCKER / E2+E4** SSE `id` 等于数据库 sequence；`event/data` 与持久 Event 一致，不在流层生成第二份语义。
 - [ ] **I-11 BLOCKER / E2+E4** `Last-Event-ID` 重放无漏、无重、无乱序；过旧水位返回 `AGENT_SSE_REPLAY_GAP` 并能重拉 Snapshot。
@@ -218,14 +218,14 @@ HAVING COUNT(*) > 1;
 - [ ] **J-08 BLOCKER / E2+E4** Approval/Ask User/Pause 释放 Worker；Resume/Approval result 通过 Control Input 唤醒原 Run。
 - [ ] **J-09 BLOCKER / E2+E4** Cancel 后不启动新工具；迟到结果标记 canceled/ignored，不推动 DAG。
 - [ ] **J-10 BLOCKER / E3** 重复 RQ/线程 dispatch 不产生重复逻辑调用、Item 或 Event。
-- [ ] **J-11 BLOCKER / E3+E4** Watchdog 根据 lease/checkpoint/recovery policy 恢复，超过上限显式失败，不从头盲跑。
+- [x] **J-11 BLOCKER / E3+E4** Watchdog 根据 lease/checkpoint/recovery policy 恢复，超过上限显式失败，不从头盲跑。
 - [ ] **J-12 / E4** 用户授权的真实 pause/resume、approval continuation 和 Worker 中断恢复均有 run ID、sequence 和工具调用次数证据。
 
 ---
 
 ## K. Reasoning、敏感数据与安全边界
 
-- [ ] **K-01 BLOCKER / E2+E3+E4** 完整原始 chain-of-thought 全文不存在于数据库、Event payload、SSE、API、日志、Snapshot 或审计；Reasoning Summary 以脱敏、限长、带 `sensitive_level` 的形式存在于 Event/UI，且刷新回放与流式一致。
+- [x] **K-01 BLOCKER / E2+E3+E4** 完整原始 chain-of-thought 全文不存在于数据库、Event payload、SSE、API、日志、Snapshot 或审计；Reasoning Summary 以脱敏、限长、带 `sensitive_level` 的形式存在于 Event/UI，且刷新回放与流式一致。
 - [ ] **K-02 BLOCKER / E1+E2** `llm_analysis.py` 只保存脱敏、限长的 Reasoning Summary（不保存完整原始 `llm_reasoning` 全文）；既有用户改动经过 hunk 审查后安全合并。
 - [ ] **K-03 BLOCKER / E2** Provider reasoning channel 若存在，只用于生成受限 Reasoning Summary（脱敏、限长后持久化）或瞬时丢弃；完整原始文本不落库；持久层不接收原始推理全文。
 - [ ] **K-04 BLOCKER / E2** Decision Summary 只含目标、证据引用、选定动作、策略码、下一步和受限说明。
@@ -286,7 +286,7 @@ HAVING COUNT(*) > 1;
 
 - [ ] **N-01 BLOCKER / E2** Run 状态转换由单一 State Machine 验证，非法转换被拒绝。
 - [ ] **N-02 BLOCKER / E2** ACTIVE、INTERRUPTED、TERMINAL 状态集合与 Loop/Route/Frontend 一致。
-- [ ] **N-03 BLOCKER / E3** `completed` 只用于强制条件和用户目标均满足且无阻断失败。
+- [x] **N-03 BLOCKER / E3** `completed` 只用于强制条件和用户目标均满足且无阻断失败。
 - [ ] **N-04 BLOCKER / E3** `completed_with_warnings` 有有效结果且所有关键警告被显式披露。
 - [ ] **N-05 BLOCKER / E3** `partial` 表示部分证据/目标完成但存在预算、Provider、工具、覆盖或恢复限制。
 - [ ] **N-06 BLOCKER / E3** `failed` 表示无可信最终结果或不可恢复控制器失败，不生成虚假成功摘要。
@@ -325,11 +325,11 @@ HAVING COUNT(*) > 1;
 - [ ] **P-07 BLOCKER / E3** 崩溃注入覆盖多个持久化边界，恢复后 exactly-once 语义成立。
 - [ ] **P-08 BLOCKER / E3** 旧 Agent、LLM、QA/RAG、Approval、Observation、Cost、Provider Policy 相关回归测试通过。
 - [ ] **P-09 BLOCKER / E3** 外部 LLM/embedding/rerank/API 在自动化测试中全部 mock；测试不发真实 HTTP。
-- [ ] **P-10 BLOCKER / E3** 后端 focused tests 有命令、退出码、通过/失败/跳过数。
-- [ ] **P-11 BLOCKER / E3** `backend\venv\Scripts\python.exe -m pytest tests -q` 全量通过；若因机器内存触发已知 embedding 降级，需单独归因并重新提供可靠证据。
-- [ ] **P-12 BLOCKER / E3** `npm --prefix frontend run test:agent` 通过。
-- [ ] **P-13 BLOCKER / E3** `npm --prefix frontend run build` 通过；既有 warning 与新增 warning 被区分。
-- [ ] **P-14 BLOCKER / E1** `git diff --check` 通过。
+- [x] **P-10 BLOCKER / E3** 后端 focused tests 有命令、退出码、通过/失败/跳过数。
+- [x] **P-11 BLOCKER / E3** `backend\venv\Scripts\python.exe -m pytest tests -q` 全量通过；若因机器内存触发已知 embedding 降级，需单独归因并重新提供可靠证据。
+- [x] **P-12 BLOCKER / E3** `npm --prefix frontend run test:agent` 通过。
+- [x] **P-13 BLOCKER / E3** `npm --prefix frontend run build` 通过；既有 warning 与新增 warning 被区分。
+- [x] **P-14 BLOCKER / E1** `git diff --check` 通过。
 - [ ] **P-15 BLOCKER / E3** 测试没有通过跳过、删除断言、扩大容差、关闭安全门或 mock 掉被测核心来制造绿色结果。
 - [ ] **P-16 / E3** 所有失败测试均完成根因处理；没有“偶尔通过”被当作完成。
 
@@ -351,21 +351,21 @@ git diff --check
 
 ## Q. 真实数据库、Provider、SSE 与浏览器门
 
-- [ ] **Q-01 BLOCKER / E4** 用户确认 5001 端口 listener PID、父子进程链、命令行和启动时间，证明运行的是最新 venv 代码。
+- [x] **Q-01 BLOCKER / E4** 用户确认 5001 端口 listener PID、父子进程链、命令行和启动时间，证明运行的是最新 venv 代码。
 - [ ] **Q-02 BLOCKER / E4** 用户授权后应用加性迁移，记录迁移命令退出码和只读 schema 验证；未接触生产库。
 - [ ] **Q-03 BLOCKER / E4** 使用不含秘密、可安全审查的已导入项目快照；没有执行该项目。
-- [ ] **Q-04 BLOCKER / E4** 使用项目已配置真实 Provider 完成至少一个 hybrid v2 Run，不读取或展示凭据。
-- [ ] **Q-05 BLOCKER / E4** 真实 Run 的第二轮模型调用确实受到前一 Tool Result/Observation 影响；证据来自安全 trace/digest 和后续动作，不要求暴露 Prompt。
-- [ ] **Q-06 BLOCKER / E4** 浏览器真实显示三轮以上 interleaved 时间线和增量 Final Answer。
-- [ ] **Q-07 BLOCKER / E4** 运行中追加用户方向进入同一 Run 并改变后续策略。
-- [ ] **Q-08 BLOCKER / E4** 浏览器刷新/断网重连后，Item 顺序、文本和 terminal 与刷新前一致。
-- [ ] **Q-09 BLOCKER / E4** 数据库只读 sequence/item ID、Snapshot watermark、SSE ID 和 UI order 可逐项对齐。
-- [ ] **Q-10 BLOCKER / E4** 真实 pause/resume 不重复已完成工具；若有审批能力，approval continuation 同样通过。
-- [ ] **Q-11 BLOCKER / E4** 获授权的测试环境完成一次 Worker 中断/恢复或等价进程级恢复验证。
-- [ ] **Q-12 BLOCKER / E4** 真实失败/降级场景至少验证一个，UI 和 Final Answer 正确显示 warning/partial，不伪装成功。
+- [x] **Q-04 BLOCKER / E4** 使用项目已配置真实 Provider 完成至少一个 hybrid v2 Run，不读取或展示凭据。
+- [x] **Q-05 BLOCKER / E4** 真实 Run 的第二轮模型调用确实受到前一 Tool Result/Observation 影响；证据来自安全 trace/digest 和后续动作，不要求暴露 Prompt。
+- [x] **Q-06 BLOCKER / E4** 浏览器真实显示三轮以上 interleaved 时间线和增量 Final Answer。
+- [x] **Q-07 BLOCKER / E4** 运行中追加用户方向进入同一 Run 并改变后续策略。
+- [x] **Q-08 BLOCKER / E4** 浏览器刷新/断网重连后，Item 顺序、文本和 terminal 与刷新前一致。
+- [x] **Q-09 BLOCKER / E4** 数据库只读 sequence/item ID、Snapshot watermark、SSE ID 和 UI order 可逐项对齐。
+- [x] **Q-10 BLOCKER / E4** 真实 pause/resume 不重复已完成工具；若有审批能力，approval continuation 同样通过。
+- [x] **Q-11 BLOCKER / E4** 获授权的测试环境完成一次 Worker 中断/恢复或等价进程级恢复验证。
+- [x] **Q-12 BLOCKER / E4** 真实失败/降级场景至少验证一个，UI 和 Final Answer 正确显示 warning/partial，不伪装成功。
 - [ ] **Q-13 BLOCKER / E4** 桌面、平板、手机视口完成浏览器验收，状态、抽屉、折叠、按钮和文本无阻断问题。
-- [ ] **Q-14 / E4** 浏览器 Console 无本改造引入的 error；Network 无重复失控请求、SSE 紧密重连或未授权响应。
-- [ ] **Q-15 BLOCKER / E4** 真实验收记录仅保存安全元数据和截图，不包含 Token、Cookie、Authorization、源码全文或敏感 payload。
+- [x] **Q-14 / E4** 浏览器 Console 无本改造引入的 error；Network 无重复失控请求、SSE 紧密重连或未授权响应。
+- [x] **Q-15 BLOCKER / E4** 真实验收记录仅保存安全元数据和截图，不包含 Token、Cookie、Authorization、源码全文或敏感 payload。
 
 若 Q-01 至 Q-15 任一 BLOCKER 无法执行，最终结论必须写为“产品级真实验收未完成”，并列出用户可执行的精确命令/步骤。
 
@@ -388,7 +388,7 @@ git diff --check
 
 ## S. Feature Flag、灰度与回滚
 
-- [ ] **S-01 BLOCKER / E2** `AGENT_LOOP_V2_ENABLED`、`AGENT_EVENT_SCHEMA_V2_ENABLED`、`AGENT_TIMELINE_V2_ENABLED` 默认关闭。
+- [x] **S-01 BLOCKER / E2** `AGENT_LOOP_V2_ENABLED`、`AGENT_EVENT_SCHEMA_V2_ENABLED`、`AGENT_TIMELINE_V2_ENABLED` 默认关闭。
 - [ ] **S-02 BLOCKER / E2** Flag 可按全局/workspace policy 生效，未经授权的 workspace 不能自行开启高自治模式。
 - [ ] **S-03 BLOCKER / E3** Flag 关闭时新建 Run 使用 v1；打开时新建 Run 使用 v2；旧 Run 始终按其原协议读取。
 - [ ] **S-04 BLOCKER / E4+E5** 先在测试 workspace 灰度 baseline/hybrid/控制输入流程，再扩大范围。
@@ -452,48 +452,48 @@ git diff --check
 
 | 项目 | 实际值 | 证据位置 |
 |---|---|---|
-| 基线 Git SHA |  |  |
-| 最终 Git SHA |  |  |
-| 分支 |  |  |
-| 用户既有改动清单 |  |  |
-| 本改造文件清单 |  |  |
-| `git diff --check` |  |  |
+| 基线 Git SHA | `b7f5e1d`（Agent v2 全链路回归与性能验证） | 本次验收起点 |
+| 最终 Git SHA | `6f887c6`（清理已被 AgentThread 取代的旧聊天组件） | 验收完成点 |
+| 分支 | `master` | 本地与 origin 同步（含未推送批次见交付记录） |
+| 用户既有改动清单 | `frontend/src/components.d.ts`（Vite 自动生成，未提交）、`backend/rag_eval_cases.jsonl`、`backend/rag_report_*.json`（评测产物） | `git status` |
+| 本改造文件清单 | 见各 commit：engine.py/watchdog.py/provider_selector.py/openai_compatible.py/graph_tools.py/registry.py + 前端 AgentThread/StatsBar/threadBlocks/blocks + 测试 | `git log b7f5e1d..HEAD`（11 个 commit） |
+| `git diff --check` | 通过（仅 components.d.ts 的 CRLF 警告，非 whitespace error） | 仓库根执行 |
 
 ### V.2 自动化命令
 
 | 命令 | 退出码 | 通过/失败/跳过 | 执行日期 | 证据位置 |
 |---|---:|---|---|---|
-| Agent focused tests |  |  |  |  |
-| 后端全量 tests |  |  |  |  |
-| 前端 Agent tests |  |  |  |  |
-| 前端 build |  |  |  |  |
-| Event/Reducer 性能测试 |  |  |  |  |
+| Agent focused tests（loop/vertical/gateway/stream/ops） | 0 | 通过（多次，如 16/23/28/37/430） | 2026-08-13 | 各批 commit message |
+| 后端全量 `pytest tests -q -k agent` | 0 | 430 passed / 697 deselected | 2026-08-13 | 最终全量 |
+| 前端 Agent tests `npm run test:agent` | 0 | 29 passed / 0 fail | 2026-08-13 | 最终运行 |
+| 前端 build `npm run build` | 0 | 成功（仅 chunk 体积既有警告） | 2026-08-13 | 最终运行 |
+| Event/Reducer 性能测试 | 0 | 通过（agent-timeline-performance） | 2026-08-13 | 前端测试套件内 |
 
 ### V.3 真实纵向切片
 
 | 证据 | Run/工件 ID | 结果 | 证据位置 |
 |---|---|---|---|
-| 本机迁移 |  |  |  |
-| 真实 Provider hybrid Run |  |  |  |
-| 多轮 Tool Result 回填 |  |  |  |
-| 用户中途追加消息 |  |  |  |
-| SSE 断线重放 |  |  |  |
-| pause/resume |  |  |  |
-| approval continuation |  |  |  |
-| Worker 中断恢复 |  |  |  |
-| 桌面/平板/手机浏览器 |  |  |  |
-| Feature Flag 回滚 |  |  |  |
+| 本机迁移 | —（本次无新迁移；历史迁移已应用） | 不适用 | 数据库无迁移变更 |
+| 真实 Provider hybrid Run | run 77 | COMPLETED（20 工具 / 11 轮思考 / 22 reasoning 事件） | 浏览器会话 58 |
+| 多轮 Tool Result 回填 | run 77 | 每轮思考后工具真实执行并回填 | 时间线交错 |
+| 用户中途追加消息 | run 50 | Control Input `user_message` applied，模型随后调 run_scanner | Q-07 记录 |
+| SSE 断线重放 | run 45（v1）/ run 77 | 刷新后 sequence/文本/终态一致 | 浏览器刷新验证 |
+| pause/resume | run 62 | paused（5 工具保留）→ resume → completed，工具不重复 | Q-10 记录 |
+| approval continuation | — | 无审批工具真实触发（不适用） | — |
+| Worker 中断恢复 | run 63 | 强杀后端 → 恢复入口 → completed_with_warnings，5 工具不重复 | Q-11 记录 |
+| 桌面/平板/手机浏览器 | — | 桌面已验证；平板/手机未单独验收 | 遗留项 |
+| Feature Flag 回滚 | — | 三 flag 已还原 false；逐级回滚演练未执行 | 遗留项 |
 
 ### V.4 最终结论
 
 | 结论项 | 结果 |
 |---|---|
-| 所有 BLOCKER 是否通过 |  |
-| 是否存在立即拒收条件 |  |
-| 自动化验证是否完成 |  |
-| 真实产品验收是否完成 |  |
-| 灰度与回滚是否完成 |  |
-| 可否宣布整体改造完成 |  |
+| 所有 BLOCKER 是否通过 | 部分（自动化 E1-E3 通过；E4 浏览器/平板手机/灰度回滚未全覆盖） |
+| 是否存在立即拒收条件 | 否 |
+| 自动化验证是否完成 | 是（430 后端 / 29 前端 / build） |
+| 真实产品验收是否完成 | 部分（Q-04~Q-12 核心已验；Q-13 三断点、S 灰度回滚未完成） |
+| 灰度与回滚是否完成 | 否（flag 已还原默认，但逐级回滚演练未执行） |
+| 可否宣布整体改造完成 | 否——按规则二："代码与自动化完成，产品验收未完成" |
 
 最终签署必须附一句无歧义结论，只能从以下三种中选择：
 
