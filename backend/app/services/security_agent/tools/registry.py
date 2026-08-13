@@ -279,8 +279,24 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
                 name="search_code",
                 version="1.0",
                 category="code",
-                description="按标签或文件路径模糊搜索图节点（分页）。",
-                input_schema={"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer"}, "offset": {"type": "integer"}}},
+                description=(
+                    "按关键字/标签/文件路径模糊搜索图节点（分页）。"
+                    "query 为搜索关键字（必填其一）；也可用 path_pattern/pattern/"
+                    "labels 列表或 file_path 片段定位目标。"
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "maxLength": 128},
+                        "path_pattern": {"type": "string", "maxLength": 128},
+                        "pattern": {"type": "string", "maxLength": 128},
+                        "labels": {"type": "array", "items": {"type": "string"}},
+                        "file_path": {"type": "string", "maxLength": 256},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "offset": {"type": "integer", "minimum": 0},
+                    },
+                    "required": [],
+                },
                 risk_level="safe_read",
                 timeout_seconds=30,
                 idempotent=True,

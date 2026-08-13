@@ -189,6 +189,38 @@ def test_search_code_finds_symbol(app, tmp_path):
     assert "QaService" in labels
 
 
+def test_search_code_accepts_model_common_field_aliases(app, tmp_path):
+    """模型常以 path_pattern/pattern/labels/file_path 调用 search_code，
+    必须兼容这些字段名（真实验收 run 65：缺 query 误报必填错误）。"""
+    ctx, snapshot = _make_ctx(app, tmp_path)
+    build_project_graph(snapshot, budget=GraphBuildBudget())
+    handler = build_search_code_handler()
+
+    ctx.input = {"path_pattern": "QaService", "limit": 10}
+    result = handler(ctx)
+    assert result.status == "succeeded", f"path_pattern 应可用，实际 {result.error_code}"
+
+    ctx.input = {"pattern": "QaService", "limit": 10}
+    result = handler(ctx)
+    assert result.status == "succeeded", f"pattern 应可用，实际 {result.error_code}"
+
+    ctx.input = {"labels": ["QaService"], "limit": 10}
+    result = handler(ctx)
+    assert result.status == "succeeded", f"labels 应可用，实际 {result.error_code}"
+
+    ctx.input = {"file_path": "src", "limit": 10}
+    result = handler(ctx)
+    assert result.status == "succeeded", f"file_path 应可用，实际 {result.error_code}"
+
+
+def test_search_code_still_rejects_empty_input(app, tmp_path):
+    ctx, snapshot = _make_ctx(app, tmp_path)
+    build_project_graph(snapshot, budget=GraphBuildBudget())
+    ctx.input = {"limit": 10}
+    with pytest.raises(ToolExecutionError):
+        build_search_code_handler()(ctx)
+
+
 def test_find_symbol_references(app, tmp_path):
     ctx, snapshot = _make_ctx(app, tmp_path)
     build_project_graph(snapshot, budget=GraphBuildBudget())

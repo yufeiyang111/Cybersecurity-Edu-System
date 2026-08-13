@@ -163,7 +163,9 @@ def build_call_chain_handler():
 
 def build_search_code_handler():
     def search_code(ctx: ToolExecutionContext) -> ToolResult:
-        query = (ctx.input.get("query") or "").strip()
+        # 兼容模型常用字段：query / path_pattern / pattern / labels /
+        # file_path 片段，避免模型传非 query 字段时误报必填错误。
+        query = _search_query_from_input(ctx.input)
         if not query or len(query) > 128:
             raise ToolExecutionError("query 必填且不能超过 128 字符")
         limit, offset = _page_params(ctx.input)
@@ -202,3 +204,24 @@ def build_search_code_handler():
         )
 
     return search_code
+
+
+def _search_query_from_input(input_data: dict) -> str:
+    """从模型常用字段提取搜索词（query/path_pattern/pattern/labels/file_path）。"""
+    raw = input_data or {}
+    for key in ("query", "path_pattern", "pattern", "keyword", "search_term"):
+        value = raw.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()[:128]
+    for key in ("labels", "tags"):
+        value = raw.get(key)
+        if isinstance(value, list) and value:
+            parts = [str(item).strip() for item in value if str(item).strip()]
+            if parts:
+                return ",".join(parts)[:128]
+    file_path = raw.get("file_path")
+    if isinstance(file_path, str) and file_path.strip():
+        cleaned = file_path.strip().lstrip("*").lstrip("/")
+        if cleaned and cleaned not in {"", ".", "**"}:
+            return cleaned[:128]
+    return ""

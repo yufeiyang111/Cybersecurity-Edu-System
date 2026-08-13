@@ -690,16 +690,17 @@ def _agent_success(
         else None
     )
     content = None
-    if raw_content and not tool_calls:
-        visible, _ = project(raw_content, reasoning_content)
-        content = visible or None
-        # 非流式路径：MiniMax/DeepSeek 把推理内联在 content 的 <think> 块中，
-        # 与流式 _ThinkStreamFilter 行为对齐——提取为受限推理摘要（脱敏在
-        # engine 层完成），可见文本剥离思考段。
+    if raw_content:
+        # 无论是否带 tool_calls 都要先提取 <think> 推理块（MiniMax 工具轮
+        # 是 content 含 think + tool_calls 混合返回，此前只在无工具时提取，
+        # 导致工具轮思考过程丢失）。
         if reasoning_content is None:
             inline_reasoning = _extract_think_blocks(raw_content)
             if inline_reasoning:
                 reasoning_content = inline_reasoning
+        if not tool_calls:
+            visible, _ = project(raw_content, reasoning_content)
+            content = visible or None
     if not content and not tool_calls:
         return _agent_failure(provider, "LLM_OUTPUT_INVALID", started)
     usage = normalize_usage(body.get("usage") or {}) or {}
