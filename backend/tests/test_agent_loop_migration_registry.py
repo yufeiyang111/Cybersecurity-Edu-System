@@ -12,6 +12,7 @@ INIT_SQL = BACKEND_ROOT / "database" / "init.sql"
 
 AGENT_LOOP_MIGRATION = "035_agent_loop_items"
 AGENT_FLAGS_MIGRATION = "036_workspace_agent_feature_flags"
+AGENT_SSE_HEALTH_MIGRATION = "037_agent_sse_health"
 
 
 def test_migration_ids_unique_and_ordered():
@@ -22,15 +23,16 @@ def test_migration_ids_unique_and_ordered():
 def test_agent_loop_migration_registered_last():
     assert AGENT_LOOP_MIGRATION in MIGRATION_IDS
     index = MIGRATION_IDS.index(AGENT_LOOP_MIGRATION)
-    assert index == len(MIGRATION_IDS) - 2
+    assert index == len(MIGRATION_IDS) - 3
     assert MIGRATION_IDS[index - 1] == "034_analytics_preferences"
 
 
 def test_agent_flags_migration_registered_last():
     assert AGENT_FLAGS_MIGRATION in MIGRATION_IDS
-    index = MIGRATION_IDS.index(AGENT_FLAGS_MIGRATION)
-    assert index == len(MIGRATION_IDS) - 1
-    assert MIGRATION_IDS[index - 1] == AGENT_LOOP_MIGRATION
+    flags_index = MIGRATION_IDS.index(AGENT_FLAGS_MIGRATION)
+    sse_index = MIGRATION_IDS.index(AGENT_SSE_HEALTH_MIGRATION)
+    assert flags_index == sse_index - 1
+    assert sse_index == len(MIGRATION_IDS) - 1
 
 
 def test_agent_flags_migration_file_and_init_sql_synced():

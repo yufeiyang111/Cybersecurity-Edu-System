@@ -1603,6 +1603,18 @@ CREATE TABLE IF NOT EXISTS agent_conversation_summaries (
     INDEX ix_agent_conversation_summaries_conv (conversation_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Structured conversation compression summaries';
 
+CREATE TABLE IF NOT EXISTS agent_sse_health (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    workspace_id INT NOT NULL,
+    run_id INT NOT NULL,
+    event_type VARCHAR(32) NOT NULL COMMENT 'connect_with_watermark / replay_gap',
+    last_event_id INT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX ix_agent_sse_health_ws_time (workspace_id, created_at),
+    INDEX ix_agent_sse_health_run (run_id),
+    CONSTRAINT fk_agent_sse_health_run FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Agent SSE reconnect and replay gap health';
+
 ALTER TABLE agent_events ADD COLUMN conversation_id INT NULL;
 ALTER TABLE agent_events ADD COLUMN turn_id INT NULL;
 ALTER TABLE agent_events ADD COLUMN iteration INT NOT NULL DEFAULT 0;

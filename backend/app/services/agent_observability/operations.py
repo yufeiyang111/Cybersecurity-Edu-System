@@ -11,13 +11,18 @@ from sqlalchemy import func
 
 from app import db
 from app.models.agent_approval import AgentApproval, ApprovalStatus
+from app.models.agent_events import AgentEvent
 from app.models.agent_review import AgentObservation
 from app.models.agent_runtime import AgentRun, AgentToolCall
+from app.models.agent_sse import AgentSseHealth
 from app.models.agent_llm import LLMInvocation
+
+FAILOVER_EVENT_TYPES = ("strategy.switched", "strategy.provider_switched")
+FIRST_TOOL_EVENT_TYPES = ("tool.started", "item.tool_call.started")
 
 
 def observability_overview(*, workspace_id: int, days: int = 7) -> dict:
-    """工作区 Agent 运维概览（状态分布/工具统计/成本/审批/观察）。"""
+    """工作区 Agent 运维概览（状态分布/工具统计/成本/审批/观察/指标）。"""
     since = datetime.utcnow() - timedelta(days=max(1, min(days, 90)))
 
     runs = AgentRun.query.filter(
@@ -53,6 +58,9 @@ def observability_overview(*, workspace_id: int, days: int = 7) -> dict:
         },
         "tools": tool_stats,
         "llm": cost_stats,
+        "failover": _failover_stats(workspace_id, since),
+        "sse_health": _sse_health_stats(workspace_id, since),
+        "latency": _latency_stats(workspace_id, since),
         "pending_approvals": pending_approvals,
         "observations": observation_count,
     }
@@ -163,4 +171,128 @@ def _cost_stats(workspace_id: int, since: datetime) -> dict:
         "providers": sorted(providers, key=lambda item: -item["total_cost"]),
         "total_cost": round(total_cost, 6),
         "total_tokens": total_tokens,
+    }
+
+
+def _failover_stats(workspace_id: int, since: datetime) -> dict:
+    """Provider Failover 率（spec §19.3）：切换事件数 / LLM 调用数。"""
+    failover_count = (
+        AgentEvent.query.join(AgentRun, AgentEvent.run_id == AgentRun.id)
+        .filter(
+            AgentRun.workspace_id == workspace_id,
+            AgentEvent.occurred_at >= since,
+            AgentEvent.event_type.in_(FAILOVER_EVENT_TYPES),
+        )
+        .count()
+    )
+    llm_calls = (
+        LLMInvocation.query.join(AgentRun, LLMInvocation.run_id == AgentRun.id)
+        .filter(
+            AgentRun.workspace_id == workspace_id,
+            LLMInvocation.created_at >= since,
+        )
+        .count()
+    )
+    rate = round(failover_count / llm_calls, 4) if llm_calls else None
+    return {
+        "failover_count": failover_count,
+        "llm_calls": llm_calls,
+        "failover_rate": rate,
+    }
+
+
+def _sse_health_stats(workspace_id: int, since: datetime) -> dict:
+    """SSE 重连/Gap/Resync 率（spec §19.3）。"""
+    rows = (
+        db.session.query(AgentSseHealth.event_type, func.count(AgentSseHealth.id))
+        .filter(
+            AgentSseHealth.workspace_id == workspace_id,
+            AgentSseHealth.created_at >= since,
+        )
+        .group_by(AgentSseHealth.event_type)
+        .all()
+    )
+    counts = {"connect_with_watermark": 0, "replay_gap": 0}
+    for event_type, count in rows:
+        counts[event_type] = count
+    reconnects = counts["connect_with_watermark"]
+    gaps = counts["replay_gap"]
+    return {
+        "reconnects": reconnects,
+        "gaps": gaps,
+        "gap_rate": round(gaps / reconnects, 4) if reconnects else None,
+        "resync_count": gaps,
+    }
+
+
+def _percentile(values: list[float], percentile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = min(len(ordered) - 1, int(round((len(ordered) - 1) * percentile)))
+    return round(ordered[index], 1)
+
+
+def _latency_stats(workspace_id: int, since: datetime) -> dict:
+    """用户输入 → 首个 Item / 首个工具 / 最终回答 延迟（秒）。"""
+    first_item_rows = (
+        db.session.query(AgentEvent.run_id, func.min(AgentEvent.occurred_at))
+        .join(AgentRun, AgentEvent.run_id == AgentRun.id)
+        .filter(
+            AgentRun.workspace_id == workspace_id,
+            AgentEvent.occurred_at >= since,
+            AgentEvent.event_type.like("item.%"),
+        )
+        .group_by(AgentEvent.run_id)
+        .all()
+    )
+    first_tool_rows = (
+        db.session.query(AgentEvent.run_id, func.min(AgentEvent.occurred_at))
+        .join(AgentRun, AgentEvent.run_id == AgentRun.id)
+        .filter(
+            AgentRun.workspace_id == workspace_id,
+            AgentEvent.occurred_at >= since,
+            AgentEvent.event_type.in_(FIRST_TOOL_EVENT_TYPES),
+        )
+        .group_by(AgentEvent.run_id)
+        .all()
+    )
+    first_item_at: dict[int, datetime] = {run_id: when for run_id, when in first_item_rows}
+    first_tool_at: dict[int, datetime] = {run_id: when for run_id, when in first_tool_rows}
+
+    runs = AgentRun.query.filter(
+        AgentRun.workspace_id == workspace_id,
+        AgentRun.created_at >= since,
+    ).all()
+
+    first_item_secs: list[float] = []
+    first_tool_secs: list[float] = []
+    final_secs: list[float] = []
+    for run in runs:
+        created = run.created_at
+        if created is None:
+            continue
+        item_at = first_item_at.get(run.id)
+        if item_at is not None:
+            first_item_secs.append((item_at - created).total_seconds())
+        tool_at = first_tool_at.get(run.id)
+        if tool_at is not None:
+            first_tool_secs.append((tool_at - created).total_seconds())
+        if run.finished_at is not None:
+            final_secs.append((run.finished_at - created).total_seconds())
+
+    def _stats(values: list[float]) -> dict | None:
+        if not values:
+            return None
+        return {
+            "count": len(values),
+            "avg_secs": round(sum(values) / len(values), 1),
+            "p50_secs": _percentile(values, 0.5),
+            "p95_secs": _percentile(values, 0.95),
+        }
+
+    return {
+        "first_item": _stats(first_item_secs),
+        "first_tool": _stats(first_tool_secs),
+        "final_answer": _stats(final_secs),
     }

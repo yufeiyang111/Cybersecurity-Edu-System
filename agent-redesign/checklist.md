@@ -482,7 +482,8 @@ git diff --check
 | 用户中途追加消息 | run 50 / run 85 | Control Input `user_message` applied（id=11，applied_iter=0），36 工具 | Q-07 / S-04 演练 |
 | SSE 断线重放 | run 45（v1）/ run 77 | 刷新后 sequence/文本/终态一致 | 浏览器刷新验证 |
 | pause/resume | run 62 | paused（5 工具保留）→ resume → completed，工具不重复 | Q-10 记录 |
-| approval continuation | — | 无审批工具真实触发（不适用） | — |
+| Approval 等待时长 | — | 无审批工具真实触发（不适用） | — |
+| spec 19.3 指标（Failover 率/SSE Gap·Resync 率/响应延迟） | run 87 + workspace 5 | 真实聚合：failover 0/23、SSE reconnects 1、首工具 P95 40s、最终回答 P95 72s（迁移 037 + 埋点 + 前端卡片） | 2026-08-14 复核 |
 | Worker 中断恢复 | run 63 | 强杀后端 → 恢复入口 → completed_with_warnings，5 工具不重复 | Q-11 记录 |
 | 桌面/平板/手机浏览器 | — | 桌面已验证；平板/手机经用户确认豁免（当前仅需电脑端） | 用户决定 |
 | Feature Flag 回滚 | run 81/82/83/86 | 逐级关闭 Timeline→Event→Loop 全部成功；历史 v2 Run 可读；1377 条 v2 事件保留 | S-04~S-08 演练 |

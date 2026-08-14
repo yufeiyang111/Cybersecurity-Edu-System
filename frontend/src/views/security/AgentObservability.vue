@@ -42,6 +42,38 @@
         </div>
       </section>
 
+      <section class="obs-panel">
+        <h2>spec 19.3 可靠性指标</h2>
+        <div class="obs-metrics">
+          <div class="obs-metric">
+            <span class="obs-card__label">Provider Failover 率</span>
+            <span class="obs-card__value">{{ pct(overview.failover.failover_rate) }}</span>
+            <span class="obs-card__sub">
+              {{ overview.failover.failover_count }} 次切换 / {{ overview.failover.llm_calls }} 次 LLM 调用
+            </span>
+          </div>
+          <div class="obs-metric">
+            <span class="obs-card__label">SSE Gap 率</span>
+            <span class="obs-card__value" :class="{ 'obs-card__value--warn': overview.sse_health.gaps > 0 }">
+              {{ pct(overview.sse_health.gap_rate) }}
+            </span>
+            <span class="obs-card__sub">
+              {{ overview.sse_health.gaps }} 次 Gap / {{ overview.sse_health.reconnects }} 次带水位重连
+              · Resync {{ overview.sse_health.resync_count }} 次
+            </span>
+          </div>
+          <div class="obs-metric">
+            <span class="obs-card__label">响应延迟（平均 / P95，秒）</span>
+            <span class="obs-card__value">{{ latencySummary }}</span>
+            <span class="obs-card__sub">
+              首个 Item {{ secs(overview.latency.first_item) }}
+              · 首个工具 {{ secs(overview.latency.first_tool) }}
+              · 最终回答 {{ secs(overview.latency.final_answer) }}
+            </span>
+          </div>
+        </div>
+      </section>
+
       <section class="obs-panels">
         <div class="obs-panel">
           <h2>运行状态分布</h2>
@@ -146,6 +178,22 @@ const statusSummary = computed(() => {
   return `完成 ${completed} / 失败 ${failed}`
 })
 
+const latencySummary = computed(() => {
+  const final = overview.value?.latency?.final_answer
+  if (!final) return '—'
+  return `${final.avg_secs}s / ${final.p95_secs ?? '—'}s`
+})
+
+function pct(value) {
+  if (value == null) return '—'
+  return `${(value * 100).toFixed(1)}%`
+}
+
+function secs(stats) {
+  if (!stats) return '—'
+  return `${stats.avg_secs}s`
+}
+
 function statusLabel(status) {
   return agentStatusMeta(status)?.label || status
 }
@@ -213,6 +261,22 @@ function normalizeOverview(raw) {
     observations: Number(source.observations || 0),
     tools: {
       tools: tools.tools || []
+    },
+    failover: source.failover || {
+      failover_count: 0,
+      llm_calls: 0,
+      failover_rate: null
+    },
+    sse_health: source.sse_health || {
+      reconnects: 0,
+      gaps: 0,
+      gap_rate: null,
+      resync_count: 0
+    },
+    latency: source.latency || {
+      first_item: null,
+      first_tool: null,
+      final_answer: null
     }
   }
 }
@@ -325,6 +389,18 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+.obs-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.obs-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .obs-run-approval {
   margin-left: 4px;
 }
@@ -332,6 +408,10 @@ onMounted(async () => {
 @media (max-width: 960px) {
   .obs-cards {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .obs-metrics {
+    grid-template-columns: 1fr;
   }
 
   .obs-panels {
