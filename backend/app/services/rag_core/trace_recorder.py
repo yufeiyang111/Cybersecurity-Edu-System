@@ -8,6 +8,7 @@ from typing import Any
 
 from app.models.qa import RagRetrievalTrace
 from app.services.rag_core.contracts import RetrievalTrace
+from app.services.rag_core.metrics import RagRuntimeMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,14 @@ _FORBIDDEN_TRACE_KEYS = {
 class TraceRecorder:
     """将 RetrievalTrace 写为脱敏 ORM 记录，不负责提交外层事务。"""
 
-    def __init__(self, *, session) -> None:
+    def __init__(
+        self,
+        *,
+        session,
+        metrics: RagRuntimeMetrics | None = None,
+    ) -> None:
         self._session = session
+        self._metrics = metrics
 
     def record(
         self,
@@ -82,6 +89,7 @@ class TraceRecorder:
             )
         except Exception as exc:  # noqa: BLE001 需要隔离诊断写入故障
             self._session.rollback()
+            self._record_trace_failure(trace)
             logger.warning(
                 "RAG trace persistence failed stage=%s request_id=%s error_type=%s",
                 _safe_stage(stage),
@@ -89,6 +97,22 @@ class TraceRecorder:
                 type(exc).__name__,
             )
             return None
+
+    def _record_trace_failure(self, trace: RetrievalTrace) -> None:
+        """记录 trace DB 失败计数，观测器异常不得影响原始降级路径。"""
+        if self._metrics is None:
+            return
+        try:
+            pipeline_version = _safe_identifier(trace.pipeline_version_key) or "unknown"
+            pipeline_mode = "v2" if pipeline_version.startswith("rag-v2-") else "legacy"
+            self._metrics.record_component_event(
+                component="trace_db",
+                outcome="failed",
+                pipeline_mode=pipeline_mode,
+                pipeline_version=pipeline_version,
+            )
+        except Exception:
+            return
 
 
 def redact_stage_summary(summary: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:

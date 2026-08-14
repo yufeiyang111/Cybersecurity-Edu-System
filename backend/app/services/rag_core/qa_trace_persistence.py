@@ -9,6 +9,7 @@ from typing import Any
 from app import db
 from app.config import Config, rag_pipeline_config_snapshot
 from app.models.qa import QARecord, RagPipelineVersion
+from app.services.observability import get_rag_runtime_metrics
 from app.services.rag_core.contracts import RetrievalTrace
 from app.services.rag_core.trace_recorder import TraceRecorder
 
@@ -28,7 +29,10 @@ def persist_trace_for_qa_record(
 
     try:
         pipeline_version_id = _ensure_pipeline_version(trace)
-        trace_id = TraceRecorder(session=db.session).try_record(
+        trace_id = TraceRecorder(
+            session=db.session,
+            metrics=get_rag_runtime_metrics(),
+        ).try_record(
             user_id=user_id,
             trace=trace,
             record_id=record.id,

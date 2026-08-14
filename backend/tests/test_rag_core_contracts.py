@@ -6,7 +6,11 @@ import json
 
 import pytest
 
-from app.config import Config, resolve_rag_pipeline_settings
+from app.config import (
+    Config,
+    rag_runtime_config_snapshot,
+    resolve_rag_pipeline_settings,
+)
 from app.services.rag_core import (
     CitationManifest,
     EnterpriseRagPipeline,
@@ -63,6 +67,7 @@ def test_rag_pipeline_settings_defaults_are_safe_and_disabled():
         "evidence_token_budget": 3500,
         "diagnostics_enabled": False,
         "strict_citations": False,
+        "metrics_sample_limit": 512,
     }
     assert Config.RAG_PIPELINE_V2_ENABLED is False
 
@@ -74,6 +79,8 @@ def test_rag_pipeline_settings_defaults_are_safe_and_disabled():
         ({"RAG_RERANK_TOP_K": "31"}, "RAG_RERANK_TOP_K"),
         ({"RAG_EVIDENCE_TOP_K": "11"}, "RAG_EVIDENCE_TOP_K"),
         ({"RAG_EVIDENCE_TOKEN_BUDGET": "499"}, "RAG_EVIDENCE_TOKEN_BUDGET"),
+        ({"RAG_METRICS_SAMPLE_LIMIT": "15"}, "RAG_METRICS_SAMPLE_LIMIT"),
+        ({"RAG_METRICS_SAMPLE_LIMIT": "5001"}, "RAG_METRICS_SAMPLE_LIMIT"),
         ({"RAG_PIPELINE_V2_ENABLED": "maybe"}, "RAG_PIPELINE_V2_ENABLED"),
         (
             {"RAG_CANDIDATE_TOP_K": "10", "RAG_RERANK_TOP_K": "15"},
@@ -222,3 +229,20 @@ def test_enhanced_engine_flag_defaults_to_legacy_and_v2_uses_rag_core_contract(m
     assert result["reasoning"] == "provider 原始推理仅允许当前记录展示"
     assert result["pipeline_version"] == "rag-v2-test"
     assert stream_result["citations"]["citations"][0]["document_id"] == "42"
+
+
+def test_rag_runtime_config_snapshot_exposes_only_effective_non_sensitive_flags(monkeypatch):
+    monkeypatch.setattr(Config, "RAG_PIPELINE_V2_ENABLED", False)
+    monkeypatch.setattr(Config, "RAG_STRICT_CITATIONS", True)
+    monkeypatch.setattr(Config, "RAG_DIAGNOSTICS_ENABLED", True)
+    monkeypatch.setattr(Config, "RAG_METRICS_SAMPLE_LIMIT", 16)
+
+    snapshot = rag_runtime_config_snapshot()
+
+    assert snapshot == {
+        "pipeline_mode": "legacy",
+        "pipeline_v2_enabled": False,
+        "strict_citations_enabled": False,
+        "diagnostics_enabled": True,
+        "metrics_sample_limit": 16,
+    }

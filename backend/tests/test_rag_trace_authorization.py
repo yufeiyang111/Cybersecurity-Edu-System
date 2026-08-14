@@ -7,7 +7,12 @@ from flask import Flask
 from flask_jwt_extended import create_access_token
 
 from app import db, jwt
+from app.config import Config
 from app.models.qa import RagEvaluationRun, RagPipelineVersion, RagRetrievalTrace
+from app.services.observability import (
+    get_rag_runtime_metrics,
+    register_rag_runtime_metrics,
+)
 
 
 @pytest.fixture
@@ -22,11 +27,13 @@ def admin_rag_app(tmp_path):
         SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
         SQLALCHEMY_TRACK_MODIFICATIONS = False
         UPLOAD_FOLDER = str(tmp_path / "uploads")
+        RAG_METRICS_SAMPLE_LIMIT = 16
 
     application = Flask(__name__)
     application.config.from_object(AdminRagTestConfig)
     db.init_app(application)
     jwt.init_app(application)
+    register_rag_runtime_metrics(application)
     application.register_blueprint(admin_rag_bp, url_prefix="/api/admin")
 
     with application.app_context():
@@ -119,6 +126,7 @@ def test_admin_rag_endpoints_require_authentication(admin_rag_app):
 
     assert client.get("/api/admin/rag/traces/1").status_code == 401
     assert client.get("/api/admin/rag/evaluation-runs").status_code == 401
+    assert client.get("/api/admin/rag/runtime-metrics").status_code == 401
 
 
 def test_non_admin_cannot_read_trace_or_evaluation_runs(admin_rag_app):
@@ -129,6 +137,7 @@ def test_non_admin_cannot_read_trace_or_evaluation_runs(admin_rag_app):
 
     assert client.get(f"/api/admin/rag/traces/{trace_id}", headers=headers).status_code == 403
     assert client.get("/api/admin/rag/evaluation-runs", headers=headers).status_code == 403
+    assert client.get("/api/admin/rag/runtime-metrics", headers=headers).status_code == 403
 
 
 def test_admin_trace_response_is_redacted_even_for_legacy_dirty_rows(admin_rag_app):
@@ -203,3 +212,66 @@ def test_admin_evaluation_runs_are_paginated_and_do_not_expose_report_path(admin
     assert payload["runs"][0]["id"] == run_id
     assert payload["runs"][0]["metrics"]["recall_at_20"] == 0.8
     assert "report_path" not in payload["runs"][0]
+
+
+def test_admin_runtime_metrics_expose_only_allowed_aggregate_fields(
+    admin_rag_app,
+    monkeypatch,
+):
+    monkeypatch.setattr(Config, "RAG_DIAGNOSTICS_ENABLED", True)
+    monkeypatch.setattr(Config, "RAG_PIPELINE_V2_ENABLED", True)
+    monkeypatch.setattr(Config, "RAG_STRICT_CITATIONS", True)
+    monkeypatch.setattr(Config, "RAG_METRICS_SAMPLE_LIMIT", 16)
+    raw_query = "raw query must not be returned by admin metrics"
+
+    with admin_rag_app.app_context():
+        metrics = get_rag_runtime_metrics()
+        assert metrics is not None
+        metrics.record_execution(
+            pipeline_mode="v2",
+            pipeline_version="rag-v2-0123456789abcdef01234567",
+            answer_status="degraded",
+            warnings=("QDRANT_UNAVAILABLE", raw_query),
+            stage_durations_ms={
+                "candidate": 7,
+                "retrieval_total": 9,
+            },
+        )
+
+    response = admin_rag_app.test_client().get(
+        "/api/admin/rag/runtime-metrics",
+        headers=_auth_header(admin_rag_app),
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["runtime"] == {
+        "pipeline_mode": "v2",
+        "pipeline_v2_enabled": True,
+        "strict_citations_enabled": True,
+        "diagnostics_enabled": True,
+        "metrics_sample_limit": 16,
+    }
+    series = payload["metrics"]["series"][0]
+    serialized = str(payload)
+    assert payload["metrics"]["scope"] == "process"
+    assert payload["metrics"]["sample_limit"] == 16
+    assert series["component_events"]["qdrant"]["failed"] == 1
+    assert series["durations_ms"]["candidate"]["p50"] == 7
+    assert raw_query not in serialized
+    assert "request_id" not in serialized
+    assert "document_id" not in serialized
+
+
+def test_admin_runtime_metrics_returns_not_found_when_diagnostics_disabled(
+    admin_rag_app,
+    monkeypatch,
+):
+    monkeypatch.setattr(Config, "RAG_DIAGNOSTICS_ENABLED", False)
+
+    response = admin_rag_app.test_client().get(
+        "/api/admin/rag/runtime-metrics",
+        headers=_auth_header(admin_rag_app),
+    )
+
+    assert response.status_code == 404

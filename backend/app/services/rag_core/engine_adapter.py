@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.config import Config, rag_pipeline_config_snapshot
+from app.services.observability import get_rag_runtime_metrics
 from app.services.rag_core.evidence_pack_builder import EvidencePackBuilder
 from app.services.rag_core.pipeline import EnterpriseRagPipeline, build_pipeline_version_key
 from app.services.rag_core.public_rag_executor import ProviderGeneration, PublicRagExecutor
@@ -44,6 +45,7 @@ def build_public_rag_pipeline(engine: Any) -> EnterpriseRagPipeline:
         candidate_top_k=Config.RAG_CANDIDATE_TOP_K,
         rerank_top_k=Config.RAG_RERANK_TOP_K,
         evidence_token_budget=Config.RAG_EVIDENCE_TOKEN_BUDGET,
+        metrics=get_rag_runtime_metrics(),
     )
     return EnterpriseRagPipeline(executor.execute)
 

@@ -193,10 +193,18 @@ def resolve_rag_pipeline_settings(
             source.get("RAG_STRICT_CITATIONS"),
             False,
         ),
+        "metrics_sample_limit": _resolve_rag_bounded_int(
+            "RAG_METRICS_SAMPLE_LIMIT",
+            source.get("RAG_METRICS_SAMPLE_LIMIT"),
+            512,
+            16,
+            5000,
+        ),
     }
 
 
 _RAG_PIPELINE_SETTINGS = resolve_rag_pipeline_settings()
+
 
 class Config:
     """Flask application configuration."""
@@ -295,6 +303,7 @@ class Config:
     RAG_EVIDENCE_TOKEN_BUDGET = _RAG_PIPELINE_SETTINGS["evidence_token_budget"]
     RAG_DIAGNOSTICS_ENABLED = _RAG_PIPELINE_SETTINGS["diagnostics_enabled"]
     RAG_STRICT_CITATIONS = _RAG_PIPELINE_SETTINGS["strict_citations"]
+    RAG_METRICS_SAMPLE_LIMIT = _RAG_PIPELINE_SETTINGS["metrics_sample_limit"]
     # QA 高成本 LLM 调用限流（每分钟每用户）
     QA_RATE_LIMIT_PER_MINUTE = _env_int("QA_RATE_LIMIT_PER_MINUTE", 10)
     # 持久记忆写入去重相似度阈值（>= 阈值视为同一事实，跳过入库）
@@ -601,4 +610,16 @@ def rag_pipeline_config_snapshot() -> dict[str, bool | int]:
         "evidence_token_budget": Config.RAG_EVIDENCE_TOKEN_BUDGET,
         "diagnostics_enabled": Config.RAG_DIAGNOSTICS_ENABLED,
         "strict_citations": Config.RAG_STRICT_CITATIONS,
+    }
+
+
+def rag_runtime_config_snapshot() -> dict[str, bool | int | str]:
+    """返回已生效的非敏感运行开关，用于管理员诊断和回滚核验。"""
+    pipeline_v2_enabled = bool(Config.RAG_PIPELINE_V2_ENABLED)
+    return {
+        "pipeline_mode": "v2" if pipeline_v2_enabled else "legacy",
+        "pipeline_v2_enabled": pipeline_v2_enabled,
+        "strict_citations_enabled": bool(Config.RAG_STRICT_CITATIONS) and pipeline_v2_enabled,
+        "diagnostics_enabled": bool(Config.RAG_DIAGNOSTICS_ENABLED),
+        "metrics_sample_limit": int(Config.RAG_METRICS_SAMPLE_LIMIT),
     }

@@ -362,31 +362,52 @@ T02、T03、T04、T05、T06 的业务实现必须建立在 T01 的稳定契约�
 
 ---
 
-## T08 观测、告警、Feature Flag 与回滚
-**状态：** `[ ]`
-**依赖：** T05、T06、T07
+## T08 Observability, Feature Flags, and Rollback
 
-**文件范围：**
+**Status:** `[-]`
+**Dependencies:** T05, T06, T07
+
+**Files:**
 
 - `backend/app/services/rag_core/metrics.py`
+- `backend/app/services/rag_core/metrics_policy.py`
+- `backend/app/services/rag_core/execution_observer.py`
+- `backend/app/services/rag_core/public_rag_executor.py`
+- `backend/app/services/rag_core/trace_recorder.py`
+- `backend/app/services/rag_core/qa_trace_persistence.py`
 - `backend/app/services/observability.py`
+- `backend/app/routes/admin_rag.py`
 - `backend/app/config.py`
 - `backend/tests/test_rag_metrics.py`
-- `README.md` 或项目既有运维文档（仅记录非敏感配置与回滚步骤）
+- `backend/tests/test_public_rag_executor.py`
+- `backend/tests/test_rag_trace_recorder.py`
+- `backend/tests/test_rag_trace_authorization.py`
+- `rag-redesign/spec.md`
+- `rag-redesign/tasks.md`
+- `rag-redesign/checklist.md`
 
-**工作项：**
+**Completed work:**
 
-- [ ] 记录 retrieval/rerank/evidence/generation 阶段耗时、降级率、citation validation failure、answer status 分布与 pipeline version。
-- [ ] 定义受控指标命名和低基数标签；不得把 query、document title、用户 ID 或 citation ID 作为 metrics label。
-- [ ] 实现 v2 flag、strict citations flag、diagnostics flag 的配置优先级与回退行为。
-- [ ] 写出一键配置回滚流程：关闭 v2 即回到 legacy；不得依赖数据库回滚。
-- [ ] 对 Qdrant/reranker/LLM 失败、trace DB 失败、citation validator 失败执行故障注入测试。
+- [x] Record V2 candidate/rerank/evidence/generation/retrieval-total timings, answer-status distribution, degradation count, citation-validation failures, and pipeline version through a bounded in-process registry.
+- [x] Enforce controlled metric names and low-cardinality labels. Query, title, user ID, document ID, citation ID, raw errors, prompts, and document text are rejected as labels and never appear in the snapshot.
+- [x] Resolve V2, strict-citation, diagnostics, and metrics-sample flags from validated startup configuration. Runtime diagnostics return the effective non-sensitive snapshot; no mutable admin flag API is exposed.
+- [x] Document a configuration-only rollback: set `RAG_PIPELINE_V2_ENABLED=false`, restart the user-managed backend, and verify legacy mode. No database migration, reset, or rollback is involved.
+- [x] Add failure-injection coverage for Qdrant, reranker, LLM, citation validator, and trace DB failures, including safe response behavior and metric classification.
 
-**完成条件：**
+**Completion conditions:**
 
-- 每个 status 和降级分支有可观测指标；
-- 回滚在本地配置切换中可验证；
-- 文档不含秘密、URL token 或生产信息。
+- V2 execution and trace-persistence failure branches emit only controlled metrics;
+- Configuration rollback behavior is covered by code tests; a user-managed runtime rehearsal remains a release gate in `checklist.md`;
+- Documentation contains no secrets, tokenized URLs, production endpoints, queries, or document content.
+
+**Automated implementation record (2026-08-14):**
+
+- `RagRuntimeMetrics` is worker-local (`scope=process`), thread-safe, samples at most `RAG_METRICS_SAMPLE_LIMIT` values per allowed stage, and caps metric series at 24. It deliberately does not claim multi-worker aggregation.
+- `GET /api/admin/rag/runtime-metrics` is JWT-admin-only and returns 404 when `RAG_DIAGNOSTICS_ENABLED=false`. The payload contains only an effective non-sensitive flag snapshot and controlled aggregate counters/latency percentiles.
+- The current per-stage execution instrumentation applies to the V2 executor. Legacy remains the rollback target and quality baseline; legacy-vs-V2 latency comparison must be established by the T09 runtime evaluation, not inferred from this in-process registry.
+- Focused verification: `backend\venv\Scripts\python.exe -m pytest tests\test_rag_metrics.py tests\test_public_rag_executor.py tests\test_rag_trace_recorder.py tests\test_rag_trace_authorization.py tests\test_rag_core_contracts.py -q` completed with 40 passed. `backend\venv\Scripts\python.exe -m compileall -q app tests` completed successfully.
+- Full verification: `backend\venv\Scripts\python.exe -m pytest tests -q` completed with 1286 passed and 1 skipped. The existing suite emitted dependency and SQLAlchemy warnings; process exit status was 0.
+- J-04/J-05 and L-05 remain open because quality comparison, p95 release gating, and a real configuration rollback rehearsal require the user-managed runtime environment.
 
 ---
 

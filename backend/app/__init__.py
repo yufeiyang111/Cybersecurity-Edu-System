@@ -8,7 +8,10 @@ from flask_jwt_extended import JWTManager
 from flask_sqlalchemy import SQLAlchemy
 
 from app.config import Config, DATA_DIR, normalize_cors_origins
-from app.services.observability import register_request_context
+from app.services.observability import (
+    register_rag_runtime_metrics,
+    register_request_context,
+)
 
 
 db = SQLAlchemy()
@@ -49,6 +52,7 @@ def create_app(config_object: type | None = None) -> Flask:
     db.init_app(app)
     jwt.init_app(app)
     register_request_context(app)
+    register_rag_runtime_metrics(app)
     CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 
     try:

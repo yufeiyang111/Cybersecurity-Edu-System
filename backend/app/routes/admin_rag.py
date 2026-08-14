@@ -6,8 +6,9 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt, jwt_required
 
 from app import db
-
+from app.config import Config, rag_runtime_config_snapshot
 from app.models.qa import RagEvaluationResult, RagEvaluationRun, RagRetrievalTrace
+from app.services.observability import get_rag_runtime_metrics
 from app.services.rag_core.admin_trace_summary import build_admin_trace_stage_summary
 
 admin_rag_bp = Blueprint("admin_rag", __name__)
@@ -57,6 +58,27 @@ def _serialize_evaluation_run(run: RagEvaluationRun) -> dict:
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "finished_at": run.finished_at.isoformat() if run.finished_at else None,
     }
+
+
+@admin_rag_bp.route("/rag/runtime-metrics", methods=["GET"])
+@jwt_required()
+def get_runtime_metrics():
+    """管理员读取当前 Flask worker 的受控 RAG 运行指标。"""
+    if not _require_admin():
+        return jsonify({"error": "权限不足"}), 403
+    if not Config.RAG_DIAGNOSTICS_ENABLED:
+        return jsonify({"error": "RAG 运行时诊断未启用"}), 404
+
+    metrics = get_rag_runtime_metrics()
+    snapshot = metrics.snapshot() if metrics is not None else {
+        "scope": "process",
+        "sample_limit": 0,
+        "series": [],
+    }
+    return jsonify({
+        "runtime": rag_runtime_config_snapshot(),
+        "metrics": snapshot,
+    }), 200
 
 
 @admin_rag_bp.route("/rag/traces/<int:trace_id>", methods=["GET"])

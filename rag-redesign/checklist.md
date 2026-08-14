@@ -141,15 +141,15 @@
 - [x] **I-07** 报告按类别展示失败样本、失败阶段与 legacy/v2 对比。
 - [x] **I-08** 评测报告不含正文、完整 query、Prompt 或 secrets，且不提交到 Git。
 
-## J. 性能、可靠性与可观测性
+## J. Performance, reliability, and observability
 
-- [ ] **J-01** 记录 candidate/rerank/evidence/generation 总耗时及 p50/p95。
-- [ ] **J-02** 记录 embedding、Qdrant、reranker、LLM、citation validator、trace DB 的降级/失败率。
-- [ ] **J-03** metrics 标签低基数，不含 query、title、user ID、document ID 或 citation ID。
-- [ ] **J-04 BLOCKER** v2 发布时所有核心质量指标不低于 legacy，且至少两个主要质量指标有提升。
-- [ ] **J-05 BLOCKER** retrieval p95 不高于 legacy 1.25 倍，或存在用户确认的量化质量收益。
-- [ ] **J-06** 关闭 v2 Feature Flag 后可回到 legacy，无数据库回滚要求。
-- [ ] **J-07** Qdrant/reranker/LLM/trace DB 故障注入均有预期降级与测试。
+- [x] **J-01** Record V2 candidate/rerank/evidence/generation/retrieval-total latency with bounded p50/p95 samples; scope is explicitly one Flask worker process.
+- [x] **J-02** Record controlled degradation/failure counters for embedding, Qdrant, reranker, LLM, citation validator, and trace DB.
+- [x] **J-03** Metric labels are low-cardinality and reject query, title, user ID, document ID, citation ID, request ID, raw error, prompt, and document content.
+- [ ] **J-04 BLOCKER** v2 release core quality metrics are not below legacy and at least two major quality metrics improve.
+- [ ] **J-05 BLOCKER** retrieval p95 is not above 1.25x legacy, or there is user-approved quantitative evidence of the tradeoff.
+- [x] **J-06** Code-level Feature Flag test and the effective runtime snapshot confirm that disabling V2 selects legacy without a database rollback. The user-managed runtime rehearsal remains L-05.
+- [x] **J-07** Qdrant/reranker/LLM/trace DB/citation-validator fault injection verifies expected safe degradation and controlled metric classification.
 
 ## K. 自动化验证
 
@@ -180,8 +180,9 @@
 | nDCG@10 / MRR@20 | 未执行 |  |  |  |
 | Citation correctness 抽检 | 未执行 |  |  |  |
 | Retrieval p95 | 未执行 |  |  |  |
-| 后端 pytest | 1271 passed，1 skipped | `backend\\venv\\Scripts\\python.exe -m pytest tests -q` | 2026-08-14 | Codex |
+| 后端 pytest | 1286 passed，1 skipped | `backend\\venv\\Scripts\\python.exe -m pytest tests -q` | 2026-08-14 | Codex |
 | 前端 build | 通过（既有 Sass/CSS nesting 与 chunk 警告） | `npm --prefix frontend run build` | 2026-08-14 | Codex |
+| RAG runtime metrics | Worker-local, bounded, low-cardinality implementation and fault injection tests | `backend\venv\Scripts\python.exe -m pytest tests\test_rag_metrics.py tests\test_public_rag_executor.py tests\test_rag_trace_recorder.py tests\test_rag_trace_authorization.py tests\test_rag_core_contracts.py -q` | 2026-08-14 | Codex |
 | Feature Flag 回滚 | 未执行 |  |  |  |
 | 最终发布结论 | 未执行 |  |  |  |
 

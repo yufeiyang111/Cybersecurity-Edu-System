@@ -9,6 +9,7 @@ import pytest
 
 from app.services.rag_core.contracts import RagExecutionRequest
 from app.services.rag_core.evidence_pack_builder import EvidencePackBuilder
+from app.services.rag_core.metrics import RagRuntimeMetrics
 from app.services.rag_core.public_rag_executor import (
     ProviderGeneration,
     PublicRagExecutor,
@@ -68,7 +69,14 @@ class _ScoredReranker:
         return [{"id": "0", "rerank_score": 0.9}]
 
 
-def _executor(*, backend=None, generation=None, reranker=None) -> PublicRagExecutor:
+def _executor(
+    *,
+    backend=None,
+    generation=None,
+    reranker=None,
+    answer_composer=None,
+    metrics=None,
+) -> PublicRagExecutor:
     return PublicRagExecutor(
         backend=backend or _Backend(),
         embedding_service=_EmbeddingService(),
@@ -83,6 +91,8 @@ def _executor(*, backend=None, generation=None, reranker=None) -> PublicRagExecu
         candidate_top_k=5,
         rerank_top_k=2,
         evidence_token_budget=20,
+        answer_composer=answer_composer,
+        metrics=metrics,
     )
 
 
@@ -270,3 +280,128 @@ def test_executor_flattens_batched_embedding_vectors_before_hybrid_search():
 
     assert captured["vector"] == pytest.approx([0.1, 0.2])
     assert result.answer_status == "insufficient_evidence"
+
+
+class _BrokenReranker:
+    def rerank(self, query, documents, top_k):
+        raise RuntimeError("reranker provider details must not reach users")
+
+
+class _BrokenAnswerComposer:
+    def compose(self, raw_response, *, citation_manifest, strict_citations):
+        raise RuntimeError("citation validator internals must not reach users")
+
+
+def _supported_generation(messages, request):
+    evidence = messages[1]["content"]
+    citation_id = re.search(r'citation_id="(C-[a-f0-9]+)"', evidence).group(1)
+    return ProviderGeneration(
+        raw_response=json.dumps(
+            {
+                "answer_status": "supported",
+                "answer": "A verifiable security answer.",
+                "claims": [
+                    {
+                        "text": "The answer is supported by current evidence.",
+                        "citation_ids": [citation_id],
+                    }
+                ],
+                "uncertainty": [],
+            },
+            ensure_ascii=False,
+        ),
+    )
+
+
+def _only_metric_series(metrics: RagRuntimeMetrics) -> dict:
+    snapshot = metrics.snapshot()
+    assert snapshot["scope"] == "process"
+    assert len(snapshot["series"]) == 1
+    return snapshot["series"][0]
+
+
+def test_executor_records_qdrant_failure_without_recording_query_or_error_detail():
+    class BrokenBackend:
+        def hybrid_search(self, **kwargs):
+            raise RuntimeError("qdrant endpoint internal detail")
+
+    raw_query = "sensitive retrieval query must not be stored"
+    metrics = RagRuntimeMetrics(sample_limit=16)
+    result = _executor(
+        backend=BrokenBackend(),
+        generation=lambda messages, request: (_ for _ in ()).throw(
+            AssertionError("provider must not run after retrieval failure")
+        ),
+        metrics=metrics,
+    ).execute(
+        RagExecutionRequest(
+            query=raw_query,
+            request_id="req-metric-qdrant",
+        ),
+    )
+
+    series = _only_metric_series(metrics)
+    serialized = json.dumps(metrics.snapshot(), ensure_ascii=False)
+    assert result.answer_status == "degraded"
+    assert series["degraded_count"] == 1
+    assert series["component_events"]["qdrant"]["failed"] == 1
+    assert raw_query not in serialized
+    assert "internal detail" not in serialized
+
+
+def test_executor_records_reranker_and_llm_failure_in_separate_safe_components():
+    rerank_metrics = RagRuntimeMetrics(sample_limit=16)
+    rerank_result = _executor(
+        reranker=_BrokenReranker(),
+        generation=_supported_generation,
+        metrics=rerank_metrics,
+    ).execute(
+        RagExecutionRequest(
+            query="reranker service outage",
+            request_id="req-metric-rerank",
+        ),
+    )
+    rerank_series = _only_metric_series(rerank_metrics)
+
+    llm_metrics = RagRuntimeMetrics(sample_limit=16)
+    llm_result = _executor(
+        generation=lambda messages, request: (_ for _ in ()).throw(
+            RuntimeError("provider internal failure")
+        ),
+        metrics=llm_metrics,
+    ).execute(
+        RagExecutionRequest(
+            query="generation service outage",
+            request_id="req-metric-llm",
+        ),
+    )
+    llm_series = _only_metric_series(llm_metrics)
+
+    assert rerank_result.answer_status == "supported"
+    assert "RERANK_FAILED" in rerank_result.rag_warnings
+    assert rerank_series["component_events"]["reranker"]["failed"] == 1
+    assert llm_result.answer_status == "degraded"
+    assert "LLM_PROVIDER_REQUEST_FAILED" in llm_result.rag_warnings
+    assert llm_series["component_events"]["llm"]["failed"] == 1
+
+
+def test_executor_records_citation_validator_failure_without_exposing_validator_error():
+    metrics = RagRuntimeMetrics(sample_limit=16)
+    result = _executor(
+        generation=_supported_generation,
+        answer_composer=_BrokenAnswerComposer(),
+        metrics=metrics,
+    ).execute(
+        RagExecutionRequest(
+            query="citation validator outage",
+            request_id="req-metric-citation",
+        ),
+    )
+
+    series = _only_metric_series(metrics)
+    serialized = json.dumps(metrics.snapshot(), ensure_ascii=False)
+    assert result.answer_status == "degraded"
+    assert "CITATION_VALIDATOR_UNAVAILABLE" in result.rag_warnings
+    assert series["citation_validation_failure_count"] == 1
+    assert series["component_events"]["citation_validator"]["failed"] == 1
+    assert "validator internals" not in serialized

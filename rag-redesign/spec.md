@@ -404,6 +404,17 @@ warning 与评测摘要
 5. 回答、trace、评测运行通过 request ID、record ID 和 pipeline version 关联，便于排障与审计。
 6. 日志不得使用 `print` 输出异常正文；使用结构化 logger，记录 error type、stage、trace ID 与安全摘要。
 
+
+### 10.1 Runtime metric contract and rollback
+
+1. `RagRuntimeMetrics` is a thread-safe, worker-local in-process registry. Its returned `scope` must be `process`; it must never be described as an aggregate for multiple Flask workers, hosts, or deployments.
+2. Allowed metric dimensions are the fixed pipeline mode, validated pipeline version, answer status, fixed component name, and fixed failure/degradation outcome. The registry must reject or collapse unknown values. Query text, title, user ID, document ID, citation ID, request ID, prompt, evidence text, raw provider error, and exception message are forbidden from metric labels and snapshots.
+3. Only the bounded stage names `candidate`, `rerank`, `evidence`, `generation`, `answer`, and `retrieval_total` may store integer milliseconds. Each stage keeps at most `RAG_METRICS_SAMPLE_LIMIT` samples (16--5000), and the registry keeps at most 24 series. Percentiles are therefore operational signals, not a durable analytics database.
+4. The V2 executor records per-stage timing and its final answer/degradation outcome. Trace persistence failures record the fixed `trace_db/failed` component event without affecting the already generated answer. Legacy is a rollback target and offline baseline; T09 must measure live legacy/V2 latency before any performance claim is made.
+5. `GET /api/admin/rag/runtime-metrics` is admin-only. It is available only when `RAG_DIAGNOSTICS_ENABLED=true`; otherwise it returns 404 after authorization. It returns the effective non-sensitive runtime flag snapshot and controlled aggregate metrics only.
+6. Flag values are validated from startup configuration. There is no mutable flag-management API. To rollback, set `RAG_PIPELINE_V2_ENABLED=false`, have the user restart the backend, confirm the effective mode is `legacy`, and rerun a prepared smoke case. This changes no schema and requires no database rollback, reset, truncate, or reindex.
+7. Automated failure injection must cover Qdrant, reranker, LLM, citation validator, and trace database write failures. The tests must verify both safe user behavior and that metric payloads omit raw query/error details.
+
 ---
 
 ## 11. 交付定义

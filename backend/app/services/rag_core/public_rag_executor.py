@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from time import perf_counter
-from typing import Any
 
 from app.services.rag_core.answer_composer import AnswerComposer
 from app.services.rag_core.public_rag_result_factory import (
@@ -20,8 +19,11 @@ from app.services.rag_core.citation_manifest import CitationManifestBuilder
 from app.services.rag_core.contracts import (
     CitationManifest,
     RagExecutionRequest,
-    RagExecutionResult,)
+    RagExecutionResult,
+)
 from app.services.rag_core.evidence_pack_builder import EvidencePackBuilder
+from app.services.rag_core.execution_observer import record_execution_result
+from app.services.rag_core.metrics import RagRuntimeMetrics
 from app.services.rag_core.rerank_stage import RerankResult, RerankStage
 
 
@@ -47,6 +49,7 @@ class PublicRagExecutor:
         candidate_retriever: CandidateRetriever | None = None,
         citation_manifest_builder: CitationManifestBuilder | None = None,
         answer_composer: AnswerComposer | None = None,
+        metrics: RagRuntimeMetrics | None = None,
     ) -> None:
         if not pipeline_version_key or not pipeline_version_key.strip():
             raise ValueError("pipeline_version_key is required")
@@ -66,10 +69,12 @@ class PublicRagExecutor:
         self._evidence_builder = evidence_builder
         self._citation_manifest_builder = citation_manifest_builder or CitationManifestBuilder()
         self._answer_composer = answer_composer or AnswerComposer()
+        self._metrics = metrics
 
     def execute(self, request: RagExecutionRequest) -> RagExecutionResult:
         """执行公共 RAG 全链路；所有降级明确标注，禁止无证据调用模型。"""
         started_at = perf_counter()
+        candidate_started_at = perf_counter()
         query_vector, embedding_degraded, embedding_warnings = self._query_vector(request.query)
         candidate_result = self._candidate_retriever.retrieve(
             request.query,
@@ -77,12 +82,17 @@ class PublicRagExecutor:
             top_k=self._candidate_top_k,
             embedding_degraded=embedding_degraded,
         )
+        candidate_elapsed_ms = _elapsed_ms(candidate_started_at)
+
         rerank_result = self._rerank(request, candidate_result.candidates)
+
+        evidence_started_at = perf_counter()
         evidence_result = self._evidence_builder.build(
             rerank_result.candidates,
             token_budget=self._evidence_token_budget,
         )
-        retrieval_ms = max(0, round((perf_counter() - started_at) * 1000))
+        evidence_elapsed_ms = _elapsed_ms(evidence_started_at)
+        retrieval_ms = _elapsed_ms(started_at)
         warnings = unique_warnings(
             embedding_warnings,
             candidate_result.warnings,
@@ -92,17 +102,21 @@ class PublicRagExecutor:
         trace_stages = {
             "candidate": {
                 **candidate_result.trace_summary(),
+                "elapsed_ms": candidate_elapsed_ms,
                 "candidates": [
                     candidate.trace_summary()
                     for candidate in candidate_result.candidates
                 ],
             },
             "rerank": rerank_result.trace_summary(),
-            "evidence": evidence_result.trace_summary(),
+            "evidence": {
+                **evidence_result.trace_summary(),
+                "elapsed_ms": evidence_elapsed_ms,
+            },
         }
 
         if "QDRANT_UNAVAILABLE" in warnings:
-            return terminal_result(
+            return self._record_result(terminal_result(
                 request=request,
                 pipeline_version_key=self._pipeline_version_key,
                 answer="检索服务暂时不可用，当前无法提供可验证的知识库回答。",
@@ -111,9 +125,9 @@ class PublicRagExecutor:
                 warnings=warnings,
                 trace_stages=trace_stages,
                 retrieval_ms=retrieval_ms,
-            )
+            ))
         if evidence_result.answer_status == "insufficient_evidence":
-            return terminal_result(
+            return self._record_result(terminal_result(
                 request=request,
                 pipeline_version_key=self._pipeline_version_key,
                 answer="当前知识库没有找到足够的可定位证据，暂时无法提供可验证的回答。",
@@ -122,15 +136,21 @@ class PublicRagExecutor:
                 warnings=warnings,
                 trace_stages=trace_stages,
                 retrieval_ms=retrieval_ms,
-            )
+            ))
 
         citation_manifest = self._citation_manifest_builder.build(evidence_result.pack)
         from app.services.rag_citation_prompt import build_citation_qa_messages
 
         messages = build_citation_qa_messages(request.query, citation_manifest)
+        generation_started_at = perf_counter()
         generation = self._generate_answer(messages, request)
+        generation_elapsed_ms = _elapsed_ms(generation_started_at)
+        trace_stages["generation"] = {
+            "status": "completed" if generation is not None else "failed",
+            "elapsed_ms": generation_elapsed_ms,
+        }
         if generation is None:
-            return terminal_result(
+            return self._record_result(terminal_result(
                 request=request,
                 pipeline_version_key=self._pipeline_version_key,
                 answer="生成服务暂时不可用，当前无法提供可验证的回答。",
@@ -139,16 +159,28 @@ class PublicRagExecutor:
                 warnings=unique_warnings(warnings, ("LLM_PROVIDER_REQUEST_FAILED",)),
                 trace_stages=trace_stages,
                 retrieval_ms=retrieval_ms,
+            ))
+
+        try:
+            composition = self._answer_composer.compose(
+                generation.raw_response,
+                citation_manifest=citation_manifest,
+                strict_citations=self._strict_citations,
             )
+        except Exception:
+            return self._record_result(terminal_result(
+                request=request,
+                pipeline_version_key=self._pipeline_version_key,
+                answer="引用校验服务暂时不可用，当前无法提供可验证的回答。",
+                answer_status="degraded",
+                citations=CitationManifest(references=citation_manifest.references),
+                warnings=unique_warnings(warnings, ("CITATION_VALIDATOR_UNAVAILABLE",)),
+                trace_stages=trace_stages,
+                retrieval_ms=retrieval_ms,
+            ))
 
-        composition = self._answer_composer.compose(
-            generation.raw_response,
-            citation_manifest=citation_manifest,
-            strict_citations=self._strict_citations,
-        )
         all_warnings = unique_warnings(warnings, composition.warnings, generation_warnings(generation))
-
-        return composed_result(
+        return self._record_result(composed_result(
             request=request,
             pipeline_version_key=self._pipeline_version_key,
             composition=composition,
@@ -156,7 +188,11 @@ class PublicRagExecutor:
             warnings=all_warnings,
             trace_stages=trace_stages,
             retrieval_ms=retrieval_ms,
-        )
+        ))
+
+    def _record_result(self, result: RagExecutionResult) -> RagExecutionResult:
+        """记录受控运行指标；指标系统异常不得影响回答。"""
+        return record_execution_result(self._metrics, result)
 
     def _query_vector(self, query: str) -> tuple[Sequence[float] | None, bool, tuple[str, ...]]:
         """获取 query 向量；embedding 降级或异常时显式转为词法检索。"""
@@ -212,5 +248,9 @@ class PublicRagExecutor:
         except Exception:
             return None
         return generation if isinstance(generation, ProviderGeneration) else None
+
+def _elapsed_ms(started_at: float) -> int:
+    return max(0, round((perf_counter() - started_at) * 1000))
+
 
 __all__ = ["ProviderGeneration", "PublicRagExecutor"]

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
 """TraceRecorder 的数据最小化与持久化边界测试。"""
 from app.services.rag_core.contracts import RetrievalTrace
+from app.services.rag_core.metrics import RagRuntimeMetrics
 from app.services.rag_core.trace_recorder import TraceRecorder
 
 
@@ -74,8 +74,9 @@ def test_trace_recorder_failure_is_non_blocking_and_logs_safe_context(caplog):
         stage_summary={"query": "不得泄漏的问题原文"},
     )
     session = _FailingSession()
+    metrics = RagRuntimeMetrics(sample_limit=16)
 
-    trace_id = TraceRecorder(session=session).try_record(
+    trace_id = TraceRecorder(session=session, metrics=metrics).try_record(
         user_id=7,
         trace=trace,
         stage="trace_persistence",
@@ -88,3 +89,5 @@ def test_trace_recorder_failure_is_non_blocking_and_logs_safe_context(caplog):
     assert "RuntimeError" in caplog.text
     assert "不得泄漏" not in caplog.text
     assert "database details" not in caplog.text
+    snapshot = metrics.snapshot()
+    assert snapshot["series"][0]["component_events"]["trace_db"]["failed"] == 1
