@@ -8,7 +8,7 @@ from flask_jwt_extended import get_jwt, jwt_required
 from app import db
 
 from app.models.qa import RagEvaluationResult, RagEvaluationRun, RagRetrievalTrace
-from app.services.rag_core.trace_recorder import redact_stage_summary
+from app.services.rag_core.admin_trace_summary import build_admin_trace_stage_summary
 
 admin_rag_bp = Blueprint("admin_rag", __name__)
 
@@ -29,20 +29,16 @@ def _page_arguments() -> tuple[int, int]:
 
 def _serialize_trace(trace: RagRetrievalTrace) -> dict:
     """二次脱敏已有 trace，防御历史脏数据或手工写入。"""
-    stage_summary, redacted = redact_stage_summary(trace.stage_summary_json or {})
+    stage_summary = build_admin_trace_stage_summary(trace.stage_summary_json)
     warnings = [
         warning
         for warning in (trace.warnings_json or [])
         if isinstance(warning, str) and warning.strip()
     ]
-    if redacted and "TRACE_SENSITIVE_FIELD_REDACTED" not in warnings:
-        warnings.append("TRACE_SENSITIVE_FIELD_REDACTED")
+
     return {
         "id": trace.id,
-        "request_id": trace.request_id,
-        "record_id": trace.record_id,
         "pipeline_version_id": trace.pipeline_version_id,
-        "query_fingerprint": trace.query_fingerprint,
         "stage_summary": stage_summary,
         "warnings": warnings,
         "retrieval_ms": trace.retrieval_ms,

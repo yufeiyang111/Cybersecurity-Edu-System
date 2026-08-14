@@ -1,23 +1,12 @@
 <template>
   <div class="chat-msg" :class="message.role">
-    <template v-if="message.role === 'user'">
-      <div class="cm-body cm-user-bubble">
-        <div v-if="message.attachments?.length" class="cm-attachments">
-          <div v-for="(att, idx) in message.attachments" :key="idx" class="cm-att">
-            <img v-if="att.type === 'image' && att.preview" :src="att.preview" alt="">
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke-width="1.6">
-              <path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6z" />
-              <path d="M14 3v6h6" />
-            </svg>
-            <span class="cm-att-name">{{ att.name }}</span>
-          </div>
-        </div>
-        <div class="cm-text">{{ message.content }}</div>
-      </div>
-    </template>
+    <ChatUserMessage
+      v-if="message.role === 'user'"
+      :message="message"
+    />
 
     <template v-else>
-      <div class="cm-logo">
+      <div class="cm-logo" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8">
           <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
           <path d="M9.5 12l2 2 3.5-4" />
@@ -26,47 +15,49 @@
       <div class="cm-body cm-assistant-body">
         <ChatThinking
           :seconds="message.response_time"
-          :sources="message.sources"
-          :confidence="message.confidence"
+          :citation-count="citationCount"
           :model-name="message.model_name"
           :reasoning="message.reasoning"
         />
-        <div v-if="message.streaming && !message.content" class="cm-stream-dots">
-          <span></span><span></span><span></span>
+        <div
+          v-if="message.streaming && !message.content"
+          class="cm-stream-dots"
+          aria-label="正在生成回答"
+        >
+          <span />
+          <span />
+          <span />
         </div>
         <ChatMarkdown v-if="message.content" :content="message.content" />
+        <AnswerEvidenceSummary
+          v-if="showCitations"
+          :answer-status="message.answerStatus"
+          :citation-count="citationCount"
+          :citation-state="message.citationState"
+          :detail-state="message.evidenceLoadState"
+          :error-message="message.evidenceError"
+          :record-id="message.recordId"
+          @load-evidence="handleLoadEvidence"
+        />
+        <AnswerCitationList
+          v-if="showCitations && message.evidenceLoadState === 'success'"
+          :citations="citationDetails"
+          :retrieval-signal="message.retrievalSignal"
+          :details-truncated="message.citationDetailsTruncated"
+          @open-detail="handleOpenCitationDetail"
+          @open-original="handleOpenCitationOriginal"
+        />
+        <AnswerUncertaintyPanel
+          :answer-status="message.answerStatus"
+          :citation-state="message.citationState"
+        />
         <ChatRagWarnings v-if="showWarnings" :warnings="message.ragWarnings" />
-        <ChatSources v-if="showCitations" :sources="message.sources" />
-        <div class="cm-actions">
-          <button :title="t('message.copy')" @click="$emit('copy', message)">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
-              <rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 012-2h10" />
-            </svg>
-          </button>
-          <button :title="t('message.favorite')" @click="$emit('favorite', message)">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
-              <path d="M12 4l2.9 6 6.6.9-4.8 4.6 1.2 6.5-5.9-3.1-5.9 3.1 1.2-6.5L2.5 10.9 9.1 10 12 4z" />
-            </svg>
-          </button>
-          <button
-            :title="t('message.good')"
-            :class="{ active: message.feedback === 'good' }"
-            @click="$emit('feedback', message, 'good')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
-              <path d="M7 11v10H4V11h3zm0 0l4-8h3a2 2 0 012 2v6h6a1 1 0 011 1l-2 7a2 2 0 01-2 1H7" />
-            </svg>
-          </button>
-          <button
-            :title="t('message.bad')"
-            :class="{ active: message.feedback === 'bad' }"
-            @click="$emit('feedback', message, 'bad')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
-              <path d="M17 13V3h3v10h-3zm0 0l-4 8h-3a2 2 0 01-2-2v-6H2a1 1 0 01-1-1l2-7a2 2 0 012-1h12" />
-            </svg>
-          </button>
-        </div>
+        <ChatMessageActions
+          :feedback="message.feedback"
+          @copy="emit('copy', message)"
+          @favorite="emit('favorite', message)"
+          @feedback="handleFeedback"
+        />
       </div>
     </template>
   </div>
@@ -74,93 +65,147 @@
 
 <script setup>
 import { computed } from 'vue'
+import AnswerCitationList from './AnswerCitationList.vue'
+import AnswerEvidenceSummary from './AnswerEvidenceSummary.vue'
+import AnswerUncertaintyPanel from './AnswerUncertaintyPanel.vue'
 import ChatMarkdown from './ChatMarkdown.vue'
+import ChatMessageActions from './ChatMessageActions.vue'
 import ChatRagWarnings from './ChatRagWarnings.vue'
-import ChatSources from './ChatSources.vue'
 import ChatThinking from './ChatThinking.vue'
+import ChatUserMessage from './ChatUserMessage.vue'
 import { useChatPreferences } from '@/composables/chat/useChatPreferences'
-import { useI18n } from '@/features/chat/i18n'
 
-defineProps({
+const props = defineProps({
   message: { type: Object, required: true }
 })
-defineEmits(['copy', 'favorite', 'feedback'])
 
-const { t } = useI18n()
+const emit = defineEmits([
+  'copy',
+  'favorite',
+  'feedback',
+  'view-evidence',
+  'citation-detail',
+  'citation-original'
+])
+
 const { preferences } = useChatPreferences()
-// 展示开关：默认展示，仅当用户在设置里显式关闭时才隐藏
+
 const showCitations = computed(() => preferences.show_citations !== false)
 const showWarnings = computed(() => preferences.show_security_warnings !== false)
+const citationCount = computed(() => {
+  const citations = props.message.citationManifest?.citations
+  return Array.isArray(citations) ? citations.length : 0
+})
+const citationDetails = computed(() => {
+  return Array.isArray(props.message.citationDetails)
+    ? props.message.citationDetails
+    : []
+})
+
+function handleLoadEvidence(origin) {
+  emit('view-evidence', props.message, origin)
+}
+
+function handleOpenCitationDetail({ citation, trigger }) {
+  emit('citation-detail', props.message, citation, trigger)
+}
+
+function handleOpenCitationOriginal({ citation }) {
+  emit('citation-original', props.message, citation)
+}
+
+function handleFeedback(value) {
+  emit('feedback', props.message, value)
+}
 </script>
 
-<style lang="scss" scoped>
-.chat-msg { display: flex; gap: 14px; padding: calc(20px * var(--chat-space-scale)) 0; }
+<style scoped lang="scss">
+.chat-msg {
+  display: flex;
+  gap: 14px;
+  padding: calc(20px * var(--chat-space-scale)) 0;
+}
 
 .cm-logo {
-  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-  background: var(--chat-accent-gradient, var(--chat-accent));
-  display: flex; align-items: center; justify-content: center;
-  margin-top: 2px;
-  svg { width: 16px; height: 16px; }
-}
-.cm-body { flex: 1; min-width: 0; }
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--chat-accent-gradient);
 
-.chat-msg.user { justify-content: flex-end; }
-.cm-user-bubble {
-  max-width: 68%;
-  background: var(--chat-bubble);
-  border-radius: var(--chat-radius);
-  padding: calc(12px * var(--chat-space-scale)) calc(16px * var(--chat-space-scale));
-  font-size: calc(15px * var(--chat-font-scale));
-  line-height: 1.6;
-  .cm-text { white-space: pre-wrap; word-break: break-word; }
+  svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 
-.cm-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.cm-body {
+  min-width: 0;
+}
+
+.cm-assistant-body {
+  flex: 1;
+}
+
+.chat-msg.user {
+  justify-content: flex-end;
+}
+
 .cm-stream-dots {
-  display: flex; gap: 4px; align-items: center; height: 24px;
+  display: flex;
+  gap: 4px;
+  padding: 10px 0;
+
   span {
-    width: 7px; height: 7px; border-radius: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
     background: var(--chat-hollow);
-    animation: cm-blink 1.2s infinite ease-in-out;
-    &:nth-child(2) { animation-delay: .2s; }
-    &:nth-child(3) { animation-delay: .4s; }
-  }
-}
-@keyframes cm-blink {
-  0%, 80%, 100% { opacity: .25; transform: translateY(0); }
-  40% { opacity: 1; transform: translateY(-3px); }
-}
-.cm-att {
-  display: flex; align-items: center; gap: 6px;
-  border: 1px solid var(--chat-hairline);
-  background: var(--chat-canvas);
-   border-radius: var(--chat-radius);
-  padding: 4px 8px;
-  max-width: 200px;
-  img {
-    width: 32px; height: 32px; border-radius: 6px; object-fit: cover;
-    flex-shrink: 0;
-  }
-  svg { width: 18px; height: 18px; stroke: var(--chat-hollow); flex-shrink: 0; }
-  .cm-att-name {
-    font-size: 12px; color: var(--chat-ink);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    animation: stream-dot 1.2s ease-in-out infinite;
+
+    &:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 0.3s;
+    }
   }
 }
 
-.cm-actions {
-  display: flex; gap: 2px; margin-top: 8px;
-  opacity: 0; transition: opacity .15s;
+@keyframes stream-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
 }
-.chat-msg:hover .cm-actions { opacity: 1; }
-.cm-actions button {
-  border: none; background: transparent; cursor: pointer;
-  width: 28px; height: 28px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  &:hover { background: var(--chat-hover); }
-  &.active { background: var(--chat-accent-soft); }
-  &.active svg { stroke: var(--chat-accent); }
-  svg { width: 15px; height: 15px; stroke: var(--chat-hollow); }
+
+@media (min-width: 768px) and (max-width: 1200px) {
+  .chat-msg {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 767px) {
+  .chat-msg {
+    gap: 9px;
+    padding: calc(16px * var(--chat-space-scale)) 0;
+  }
+
+  .cm-logo {
+    width: 24px;
+    height: 24px;
+  }
 }
 </style>

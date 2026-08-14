@@ -205,6 +205,12 @@ const routes = [
         meta: { title: '政策文档' }
       },
       {
+        path: 'rag-diagnostics',
+        name: 'AdminRagDiagnostics',
+        component: () => import('@/views/admin/RagDiagnostics.vue'),
+        meta: { title: 'RAG 研发诊断', requiresAuth: true, admin: true }
+      },
+      {
         path: 'help',
         name: 'AdminHelp',
         component: () => import('@/views/admin/HelpAdmin.vue'),

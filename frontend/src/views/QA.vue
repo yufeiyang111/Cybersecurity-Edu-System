@@ -38,6 +38,9 @@
             @copy="copyMessage"
             @favorite="toggleFavorite"
             @feedback="submitFeedback"
+            @view-evidence="handleLoadEvidence"
+            @citation-detail="handleCitationDetail"
+            @citation-original="handleCitationOriginal"
           />
         </div>
       </div>
@@ -47,6 +50,13 @@
     </main>
 
     <ChatSettingsDialog v-if="settingsOpen" v-model="settingsOpen" />
+    <CitationDetailDrawer
+      :visible="drawerVisible"
+      :citation="selectedCitation"
+      :retrieval-signal="selectedSignal"
+      @close="closeDrawer"
+      @open-original="handleDrawerOpenOriginal"
+    />
   </div>
 </template>
 
@@ -59,7 +69,9 @@ import ChatSidebar from '@/components/chat/ChatSidebar.vue'
 import ChatWelcome from '@/components/chat/ChatWelcome.vue'
 import ChatMessage from '@/components/chat/ChatMessage.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
+import CitationDetailDrawer from '@/components/chat/CitationDetailDrawer.vue'
 import { useChat } from '@/composables/chat/useChat'
+import { useCitationEvidence } from '@/composables/chat/useCitationEvidence'
 import { useChatPreferences } from '@/composables/chat/useChatPreferences'
 import { useI18n } from '@/features/chat/i18n'
 
@@ -73,6 +85,16 @@ const threadRef = ref(null)
 const sidebarCollapsed = ref(false)
 const settingsOpen = ref(false)
 const { load: loadPreferences } = useChatPreferences()
+const {
+  drawerVisible,
+  selectedCitation,
+  selectedSignal,
+  selectedRecordId,
+  loadEvidence,
+  openCitation,
+  openOriginalDocument,
+  closeDrawer
+} = useCitationEvidence()
 
 const {
   messages,
@@ -115,6 +137,60 @@ const handleSend = ({ text, files }) => {
 
 const quickAsk = (topic) => {
   sendMessage({ text: topic, files: [] })
+}
+
+const applyEvidenceDetails = (message, evidence) => {
+  message.citationDetails = evidence.citationDetails
+  message.citationDetailsTruncated = evidence.citationDetailsTruncated
+  message.retrievalSignal = evidence.retrievalSignal
+  message.evidenceLoadState = 'success'
+  message.evidenceError = ''
+}
+
+const handleLoadEvidence = async (message) => {
+  if (!message?.recordId || message.evidenceLoadState === 'loading') {
+    return
+  }
+  message.evidenceLoadState = 'loading'
+  message.evidenceError = ''
+  try {
+    const evidence = await loadEvidence(message.recordId)
+    applyEvidenceDetails(message, evidence)
+  } catch (error) {
+    message.evidenceLoadState = 'error'
+    message.evidenceError = '证据详情暂时无法加载，请稍后重试。'
+  }
+}
+
+const handleCitationDetail = async (message, citation, origin) => {
+  try {
+    const evidence = await loadEvidence(message.recordId)
+    applyEvidenceDetails(message, evidence)
+    await openCitation(message.recordId, citation.citationId, origin)
+  } catch (error) {
+    ElMessage.warning('该引用详情当前不可用。')
+  }
+}
+
+const handleCitationOriginal = async (message, citation) => {
+  try {
+    const evidence = await loadEvidence(message.recordId)
+    applyEvidenceDetails(message, evidence)
+    await openOriginalDocument(message.recordId, citation.citationId)
+  } catch (error) {
+    ElMessage.warning('该引用的知识库原文当前不可用。')
+  }
+}
+
+const handleDrawerOpenOriginal = async ({ citation }) => {
+  try {
+    if (!selectedRecordId.value) {
+      throw new Error('无法定位引用所属记录。')
+    }
+    await openOriginalDocument(selectedRecordId.value, citation.citationId)
+  } catch (error) {
+    ElMessage.warning('该引用的知识库原文当前不可用。')
+  }
 }
 
 const notifyModel = () => {

@@ -62,7 +62,40 @@ def _seed_trace_and_run() -> tuple[int, int]:
         pipeline_version_id=pipeline.id,
         query_fingerprint="a" * 64,
         stage_summary_json={
-            "candidate_count": 8,
+            "candidate": {
+                "candidate_count": 8,
+                "retrieval_paths": {
+                    "dense_only": 2,
+                    "bm25_only": 1,
+                    "both": 5,
+                },
+                "candidates": [
+                    {
+                        "document_id": "99",
+                        "content": "候选正文不能返回",
+                    },
+                ],
+            },
+            "rerank": {
+                "status": "completed",
+                "input_count": 8,
+                "output_count": 5,
+                "elapsed_ms": 6,
+            },
+            "evidence": {
+                "answer_status": "supported",
+                "reference_count": 3,
+                "token_count": 160,
+                "token_budget": 400,
+                "rejection_counts": {
+                    "prompt_injection": 1,
+                },
+            },
+            "answer": {
+                "answer_status": "supported",
+                "citation_count": 3,
+                "claim_count": 2,
+            },
             "query": "该字段即使脏数据存在也不能返回",
             "nested": {"prompt": "不能返回"},
         },
@@ -111,11 +144,44 @@ def test_admin_trace_response_is_redacted_even_for_legacy_dirty_rows(admin_rag_a
     assert response.status_code == 200
     trace = response.get_json()["trace"]
     assert trace["id"] == trace_id
-    assert trace["stage_summary"]["candidate_count"] == 8
+    assert trace["stage_summary"] == {
+        "candidate": {
+            "candidate_count": 8,
+            "retrieval_paths": {
+                "dense_only": 2,
+                "bm25_only": 1,
+                "both": 5,
+            },
+        },
+        "rerank": {
+            "status": "completed",
+            "input_count": 8,
+            "output_count": 5,
+            "elapsed_ms": 6,
+        },
+        "evidence": {
+            "answer_status": "supported",
+            "reference_count": 3,
+            "token_count": 160,
+            "token_budget": 400,
+            "rejection_counts": {
+                "prompt_injection": 1,
+            },
+        },
+        "answer": {
+            "answer_status": "supported",
+            "citation_count": 3,
+            "claim_count": 2,
+        },
+    }
+    serialized = str(trace)
     assert "query" not in trace["stage_summary"]
-    assert "prompt" not in trace["stage_summary"]["nested"]
-    assert "query_fingerprint" in trace
-    assert "request_id" in trace
+    assert "'prompt':" not in serialized
+    assert "document_id" not in serialized
+    assert "候选正文不能返回" not in serialized
+    assert "query_fingerprint" not in trace
+    assert "request_id" not in trace
+    assert "record_id" not in trace
     assert "user_id" not in trace
 
 

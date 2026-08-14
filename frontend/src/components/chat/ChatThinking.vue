@@ -1,23 +1,20 @@
 <template>
-  <div v-if="seconds !== null || reasoning" class="chat-thinking">
-    <div class="ct-toggle" :class="{ open }" @click="open = !open">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6" /></svg>
-      {{ seconds !== null ? t('thinking.seconds', { seconds }) : t('thinking.title') }}
-    </div>
+  <div v-if="shouldRender" class="chat-thinking">
+    <button
+      class="ct-toggle"
+      :class="{ open }"
+      type="button"
+      @click="open = !open"
+    >
+      <BaseIcon name="chevron-down" :size="13" />
+      <span>{{ seconds !== null ? t('thinking.seconds', { seconds }) : t('thinking.title') }}</span>
+    </button>
     <div v-if="open" class="ct-panel">
       <div v-if="reasoning" class="ct-reasoning">{{ reasoning }}</div>
       <template v-else>
-        <div class="ct-row">
-          <span class="ct-label">{{ t('thinking.sources') }}</span>
-          <span>{{ sourceCount }} {{ t('thinking.docs') }}</span>
-        </div>
-        <div v-if="avgSimilarity !== null" class="ct-row">
-          <span class="ct-label">{{ t('thinking.avgSimilarity') }}</span>
-          <span>{{ avgSimilarity }}%</span>
-        </div>
-        <div v-if="confidence !== null" class="ct-row">
-          <span class="ct-label">{{ t('thinking.confidence') }}</span>
-          <span>{{ (confidence * 100).toFixed(0) }}%</span>
+        <div v-if="citationCount > 0" class="ct-row">
+          <span class="ct-label">可核验引用</span>
+          <span>{{ citationCount }} 条</span>
         </div>
         <div v-if="modelName" class="ct-row">
           <span class="ct-label">{{ t('thinking.model') }}</span>
@@ -29,13 +26,13 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
+import { BaseIcon } from '@/components/ui'
 import { useI18n } from '@/features/chat/i18n'
 
 const props = defineProps({
   seconds: { type: Number, default: null },
-  sources: { type: Array, default: () => [] },
-  confidence: { type: Number, default: null },
+  citationCount: { type: Number, default: 0 },
   modelName: { type: String, default: '' },
   reasoning: { type: String, default: '' }
 })
@@ -43,39 +40,68 @@ const props = defineProps({
 const open = ref(false)
 const { t } = useI18n()
 
-const sourceCount = computed(() => (props.sources || []).length)
-const avgSimilarity = computed(() => {
-  const list = props.sources || []
-  if (!list.length) return null
-  const sum = list.reduce((acc, s) => acc + (Number(s.similarity) || 0), 0)
-  return Math.round((sum / list.length) * 100)
+const shouldRender = computed(() => {
+  return props.seconds !== null || props.reasoning || props.citationCount > 0
 })
 </script>
 
-<style lang="scss" scoped>
-.chat-thinking { margin-bottom: 6px; }
+<style scoped lang="scss">
+.chat-thinking {
+  margin-bottom: 6px;
+}
+
 .ct-toggle {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: calc(13px * var(--chat-font-scale)); color: var(--chat-hollow);
-  cursor: pointer; padding: 4px 0;
-  user-select: none;
-  svg { width: 13px; height: 13px; stroke: var(--chat-hollow); transition: transform .15s; }
-  &.open svg { transform: rotate(90deg); }
-}
-.ct-panel {
-  border-left: 2px solid var(--chat-hairline);
-  padding: 2px 0 2px 14px;
-  margin-top: 4px;
-}
-.ct-reasoning {
-  font-size: calc(13px * var(--chat-font-scale)); line-height: 1.7;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border: 0;
   color: var(--chat-hollow);
+  background: transparent;
+  font: inherit;
+  font-size: calc(13px * var(--chat-font-scale));
+  cursor: pointer;
+  user-select: none;
+
+  .ui-icon {
+    transition: transform 0.15s;
+  }
+
+  &.open .ui-icon {
+    transform: rotate(180deg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--chat-link);
+    outline-offset: 2px;
+  }
+}
+
+.ct-panel {
+  margin-top: 4px;
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--chat-hairline);
+}
+
+.ct-reasoning {
+  color: var(--chat-hollow);
+  font-size: calc(13px * var(--chat-font-scale));
+  line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
 }
+
 .ct-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  font-size: calc(13px * var(--chat-font-scale)); color: var(--chat-hollow); line-height: 1.7;
-  .ct-label { flex-shrink: 0; }
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--chat-hollow);
+  font-size: calc(13px * var(--chat-font-scale));
+  line-height: 1.7;
+}
+
+.ct-label {
+  flex-shrink: 0;
 }
 </style>

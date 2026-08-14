@@ -225,6 +225,7 @@ export const qaAPI = {
   getSimilar: (params) => api.get('/qa/similar', { params }),
   getHistory: (params) => api.get('/qa/history', { params }),
   getRecord: (id) => api.get(`/qa/${id}`),
+  getEvidence: (id) => api.get(`/qa/records/${id}/evidence`),
   submitFeedback: (id, data) => api.post(`/qa/${id}/feedback`, data),
   
   // 会话管理
@@ -425,6 +426,9 @@ export const agentAPI = {
 export const adminAPI = {
   getOverviewStats: () => api.get('/admin/stats/overview'),
   getQAStats: () => api.get('/admin/stats/qa'),
+  getRagTrace: (traceId) => api.get(`/admin/rag/traces/${traceId}`),
+  getRagEvaluationRuns: (params) => api.get('/admin/rag/evaluation-runs', { params }),
+  getRagEvaluationRun: (runId, params) => api.get(`/admin/rag/evaluation-runs/${runId}`, { params }),
 
   getUsers: (params) => api.get('/admin/users', { params }),
   getUserDetail: (id) => api.get(`/admin/users/${id}/detail`),

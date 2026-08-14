@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from app.models.qa import QARecord
+from app.services.rag_core.citation_evidence import build_evidence_details
 
 _ALLOWED_ANSWER_STATUSES = {
     "supported",
@@ -70,6 +71,7 @@ def evidence_payload(record: QARecord) -> dict[str, Any]:
         }
     citations = manifest.get("citations")
     citation_count = len(citations) if isinstance(citations, list) else 0
+    detail_payload = build_evidence_details(record, manifest)
     return {
         "record_id": record.id,
         "answer_status": record.answer_status,
@@ -77,6 +79,7 @@ def evidence_payload(record: QARecord) -> dict[str, Any]:
         "citation_count": citation_count,
         "trace_id": record.rag_trace_id,
         "pipeline_version": record.pipeline_version_key,
+        **detail_payload,
     }
 
 

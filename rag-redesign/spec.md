@@ -1,6 +1,6 @@
 # CyberGuard Enterprise RAG Core 规格说明
 
-> 状态：**设计冻结，待用户审阅后实施**
+> 状态：**用户已确认设计，按任务分阶段实施**
 > 创建日期：2026-08-14
 > 范围：公共安全知识库 `knowledge_embeddings` 的企业级检索、证据、评测与交互闭环。
 > 非范围：Workspace 私有知识库、实时 Web RAG、多租户向量权限过滤和自主 Agent 改造。
@@ -292,39 +292,50 @@ Prompt 不得强迫模型生成 CoT。若 Provider 原生返回 reasoning，则�
 - `trace_id`
 - `pipeline_version`
 
-新增只读授权接口：
+现有只读授权接口按兼容方式扩展：
 
-- `GET /api/qa/records/<record_id>/evidence`：本人查看该回答的 citation manifest 与安全摘要。
-- `GET /api/admin/rag/traces/<trace_id>`：仅管理员/诊断权限，返回脱敏 trace。
-- `GET /api/admin/rag/evaluation-runs`：分页查看评测运行摘要。
-- `GET /api/admin/rag/evaluation-runs/<run_id>`：查看按类别、阶段和策略版本拆分的指标。
+- `GET /api/qa/records/<record_id>/evidence`：仅该 record 所属用户可读取。保留既有 `citations` manifest 和计数；新增受控 `citation_details` 与顶层 `retrieval_signal`；每项 citation detail 只包含稳定 `citation_id`、标题/路径、起止行号、关联主张数、限长纯文本预览和后端解析出的公共知识库跳转目标，`retrieval_signal` 只含高/中/低/暂不可用等级及“非正确率”语义。
+  - 跳转目标仅支持当前公共知识库的已发布 `KnowledgeItem`，格式为 `document: { type: "public_knowledge", knowledge_id: <int> }`；前端只能使用这个经 record + citation_id 校验后的字段导航，不能从 legacy `sources`、`doc_id`、标题或 URL 猜测文档 ID。
+  - 预览从 citation 记录的行号范围裁剪，必须去除 HTML、限制字符数并标记是否截断；不返回完整文档、完整 query、Prompt、CoT、原始 rerank 分数或内部 trace。
+  - 不存在 record、非所有者、citation 不属于该 record、文档已删除/未发布或 manifest 非法时，返回安全错误或不可导航状态；不得降级为任意 `knowledge_id` 查询。
+- `GET /api/admin/rag/traces/<trace_id>`：仅管理员，返回脱敏 trace。
+- `GET /api/admin/rag/evaluation-runs`：仅管理员分页查看评测运行摘要。
+- `GET /api/admin/rag/evaluation-runs/<run_id>`：仅管理员查看按类别、阶段和策略版本拆分的指标。
 
-所有新增接口必须验证身份、对象归属和管理员角色；不得依赖前端隐藏按钮做鉴权。
+`confidence` 当前来自未校准的检索启发式，不能作为“回答正确率”或“回答置信度”显示。用户界面只能将其映射为 `检索辅助信号：高 / 中 / 低 / 暂不可用`，并明确说明它不是准确率概率；用户结论以 `answer_status`、citation validity、主张覆盖数和证据数量为准。
+
+所有新增或扩展接口必须验证身份、对象归属和管理员角色；不得依赖前端隐藏按钮做鉴权。
 
 ---
 
 ## 8. 前端设计
 
-### 8.1 用户聊天视图
+### 8.1 用户聊天视图：可核验证据卡
 
-在现有聊天组件中新增、复用并拆分：
+在现有 `/qa` 聊天视图中新增、复用并拆分：
 
-- `AnswerEvidenceSummary.vue`：回答状态、证据数量、降级/冲突提示；
-- `AnswerCitationList.vue`：按 `[C1]` 显示标题、标题路径、行号和摘要；
-- `CitationDetailDrawer.vue`：调用授权详情接口，展示受限引用内容；
-- `AnswerUncertaintyPanel.vue`：仅在证据不足、冲突或降级时显示。
+- `AnswerEvidenceSummary.vue`：展示 `answer_status`、稳定 citation 数、主张覆盖数与“查看证据”入口；流式完成前显示证据处理中，旧记录显示兼容说明。
+- `AnswerCitationList.vue`：按 `[C#]` 展示标题、标题路径、行号、证据状态和受限预览；每项可聚焦、可通过 Enter/Space 打开详情或原文。
+- `CitationDetailDrawer.vue`：只接收页面/composable 提供的详情状态和数据，展示受控预览、行号、关联主张数、检索辅助信号和“在知识库中阅读全文”；组件内不得请求 API。
+- `AnswerUncertaintyPanel.vue`：仅在 `insufficient_evidence`、`conflicting_evidence`、`degraded` 时展示可执行的下一步建议。
+- `useCitationEvidence.js`：唯一负责调用 owner-scoped evidence API、缓存同一 record 的详情、处理 loading/error/legacy 状态，并在后端返回合法 `document` 目标后导航到 `/knowledge/:id`。
+- `citationPresentation.js`：纯函数归一化 citation manifest、状态文案、主张覆盖和未校准检索辅助信号；不得输出 cosine/rerank 百分比。
 
-要求：
+交互与安全要求：
 
-- 不再将 cosine 格式化为“xx% 相似度”；
-- 引用卡可键盘操作，有语义标签与 focus 管理；
-- 手机端只保留标题、状态和行号，详情在抽屉显示；
-- 所有样式使用现有 UI 组件、SCSS scoped 和项目统一变量；
-- 不在页面组件直接调 API，数据加载放在 composable/API 层。
+1. 新回答 SSE 完成时先稳定显示正文和 answer status；`citations` 缺失、格式非法、断流或 error 发生在正文之后时，将消息显式标记为 `degraded`，不得静默隐藏来源区。
+2. 点击 citation 标识或标题打开详情；点击“查看原文/阅读全文”时只能使用 `useCitationEvidence` 已解析的 `document.knowledge_id` 导航。旧 `sources` 仅作为 legacy 兼容信息，不允许再直接调用 `knowledgeAPI.getKnowledge(source.id)`。
+3. 预览是后端受限返回的阅读辅助，不是模型上下文或原始 Evidence Pack；必须显示来源、行号和截断语义，不能渲染未消毒 HTML。
+4. 不显示“dense cosine × 100”的相似度，也不把未校准 `confidence` 标成回答置信度；若存在则显示“检索辅助信号（非正确率）”等级，否则显示“暂不可用”。
+5. 证据状态优先级高于任何辅助信号：`supported`、`insufficient_evidence`、`conflicting_evidence`、`degraded` 必须有明确用户文案和下一步操作。
+6. 证据卡、抽屉、焦点轮廓、空态与错误态必须遵循既有 QA 页面 `--chat-*` token、内容宽度、圆角和暗色主题；不得混入 Security Workbench 的蓝色卡片风格或新增全局样式。聊天组件优先复用 `BaseIcon`，管理员页面使用完整 `BasePanel`、`BaseBadge`、`BaseButton` 组件库。
+7. 桌面端引用列表保持与聊天正文同宽；平板端抽屉缩窄；手机端卡片保留 `[C#]`、标题、状态、行号和“查看原文”，预览与详情置入全宽抽屉。所有可点击 citation 均有语义标签、键盘操作和焦点恢复。
 
 ### 8.2 管理/诊断视图
 
-新增受控诊断面板，展示：
+新增管理员路由 `/admin/rag-diagnostics`，继承现有 `/admin` 的前端 role guard，并继续以后台 API 的管理员鉴权为最终安全边界。页面只负责编排，细分为 `components/admin/ragDiagnostics/` 组件，使用 `BasePanel`、`BaseBadge`、`BaseButton`，并展示 loading/empty/error/success 骨架状态。
+
+受控展示字段：
 
 ```text
 pipeline version
@@ -334,12 +345,12 @@ Evidence Pack 数量 / token 数
 注入剔除数量
 最终 answer status
 各阶段耗时
+warning 与评测摘要
 ```
 
-不得展示完整用户问题、完整资料正文、Token、Prompt 或 CoT。
+不得展示完整用户问题、完整资料正文、Token 明细、Prompt、CoT、document ID、citation ID、用户 ID 或 report path。
 
 ---
-
 ## 9. 评测与质量门禁
 
 ### 9.1 评测集

@@ -112,17 +112,26 @@
 
 ## H. 前端交互与无障碍
 
-- [ ] **H-01 BLOCKER** 不再把向量 cosine 显示成“xx% 相似度”或“回答置信度”。
-- [ ] **H-02** Answer status 和证据不足/冲突/降级状态清晰、可操作且有用户可理解文案。
-- [ ] **H-03** Citation list 以稳定 `[C#]` 标识展示标题、标题路径、行号和受限摘要。
-- [ ] **H-04** Citation detail 通过授权 API 加载，不由前端猜测/拼接私有 document ID。
-- [ ] **H-05** 所有新 Vue 页面遵守编排层与组件层分离；组件不直接调用 API。
-- [ ] **H-06** 使用 BaseIcon/BaseButton/BaseBadge/BasePanel，样式为 scoped SCSS，无行内 style。
-- [ ] **H-07** 桌面、平板、手机三断点均验证；引用详情可键盘操作、focus 正确。
-- [ ] **H-08** loading、empty、error、success、SSE 中断和旧记录状态都有 UI 覆盖。
+- [x] **H-01 BLOCKER** 不再把向量 cosine 显示成“xx% 相似度”或“回答置信度”。
+- [x] **H-02** Answer status 和证据不足/冲突/降级状态清晰、可操作且有用户可理解文案。
+- [x] **H-03** Citation list 以稳定 `[C#]` 标识展示标题、标题路径、行号、主张覆盖和受限预览。
+- [x] **H-04 BLOCKER** Citation detail 仅通过 owner-scoped evidence API 加载；前端不能由 legacy `sources`、`doc_id`、标题或 URL 猜测/拼接知识文档 ID。
+- [x] **H-05** 后端只为已发布公共知识的有效 citation 返回导航目标；跨用户 record、伪造 citation、非法/失效 document 与 malformed manifest 不泄露正文或对象存在性。
+- [x] **H-06** 未校准 `confidence` 仅显示为“检索辅助信号（非正确率）”高/中/低/暂不可用；answer status、citation validity 与覆盖数始终优先。
+- [x] **H-07** 所有新 Vue 页面遵守编排层与组件层分离；展示组件不直接调用 API，`useCitationEvidence` 统一承担请求、缓存和已授权导航。
+- [x] **H-08** 聊天证据组件使用现有 QA `--chat-*` token、内容宽度与亮/暗主题，不混入 Security Workbench 蓝色卡片风格；管理员诊断页使用 BaseIcon/BaseButton/BaseBadge/BasePanel。
+- [ ] **H-09** 桌面、平板、手机三断点均验证；引用详情可键盘操作、焦点正确恢复，手机端标题、状态、行号与原文跳转可用。
+- [x] **H-10** loading、empty、error、success、SSE 中断、manifest 非法和旧记录状态都有 UI/纯函数覆盖，不允许静默隐藏证据失败。
+- [x] **H-11 BLOCKER** 普通用户无法进入 `/admin/rag-diagnostics`，且后台 trace/evaluation API 对非管理员返回 403；前端路由守卫不是唯一防线。
 
+
+**T07 自动化证据（2026-08-14）：**
+
+- Citation API focused tests：42 passed；公共知识导航仅由 record + manifest + published KnowledgeItem 共同授权。
+- 前端 `test:agent`：44 passed；含 citation 状态/辅助信号、非法 manifest、诊断数据白名单与泄露防护测试。
+- 前端 build：通过；完整后端 pytest：1271 passed，1 skipped；compileall：通过。
+- **H-09 保持待人工验收**：响应式断点、亮/暗主题、键盘焦点恢复和真实知识原文跳转需要在用户管理的运行中服务上完成。
 ## I. 评测集与质量指标
-
 - [ ] **I-01 BLOCKER** 活跃评测 case 不少于 200，且各类别数量、难度、来源可审计；受版本控制 JSONL 为人工审阅标签源且不含文档正文。
 - [ ] **I-02 BLOCKER** 每个 case 包含 expected evidence 和 expected answer status；不可验证 case 已停用或移除。
 - [x] **I-03** 评测可分别运行 legacy/v2，输出固定 pipeline/corpus/config 指纹。
@@ -147,10 +156,10 @@
 - [x] **K-01 BLOCKER** 所有新增后端单元/集成测试通过，外部 API 均 mock。
 - [x] **K-02 BLOCKER** 执行：`backend\venv\Scripts\python.exe -m pytest tests -q`。
 - [x] **K-03 BLOCKER** 执行：`backend\venv\Scripts\python.exe -m compileall -q app tests`。
-- [ ] **K-04 BLOCKER** 执行：`npm --prefix frontend run build`。
+- [x] **K-04 BLOCKER** 执行：`npm --prefix frontend run build`。
 - [x] **K-05 BLOCKER** 执行：`git diff --check`。
-- [ ] **K-06** 如新增前端行为，运行现有针对性前端测试；不运行会自动全量改写的 lint。
-- [ ] **K-07** 任何真实 Provider/embedding/rerank HTTP 出现在自动化测试中均为拒收。
+- [x] **K-06** 如新增前端行为，运行现有针对性前端测试；不运行会自动全量改写的 lint。
+- [x] **K-07** 任何真实 Provider/embedding/rerank HTTP 出现在自动化测试中均为拒收。
 
 ## L. 人工验收、灰度与回滚
 
@@ -171,8 +180,8 @@
 | nDCG@10 / MRR@20 | 未执行 |  |  |  |
 | Citation correctness 抽检 | 未执行 |  |  |  |
 | Retrieval p95 | 未执行 |  |  |  |
-| 后端 pytest | 未执行 |  |  |  |
-| 前端 build | 未执行 |  |  |  |
+| 后端 pytest | 1271 passed，1 skipped | `backend\\venv\\Scripts\\python.exe -m pytest tests -q` | 2026-08-14 | Codex |
+| 前端 build | 通过（既有 Sass/CSS nesting 与 chunk 警告） | `npm --prefix frontend run build` | 2026-08-14 | Codex |
 | Feature Flag 回滚 | 未执行 |  |  |  |
 | 最终发布结论 | 未执行 |  |  |  |
 
@@ -188,7 +197,7 @@
 - [ ] 仅凭“相似度百分比”或主观聊天体验宣布质量提升。
 - [ ] 未跑完整验证便声称已完成。
 
-### T06 ???????2026-08-14?
+### T06 完成记录（2026-08-14）
 
-- [x] 200 ?????????????????????????????????????/???????
-- [ ] ???????? seed?????? legacy/v2 ?????????????I-01?I-02?I-06 ???????????
+- [x] 受版本控制的评测标签源包含 200 条 active case，类别覆盖 concept、identifier、defense、multihop、alias、insufficient、conflict、injection；标签源未复制知识库正文。
+- [ ] 仍需在用户管理的本地环境运行真实 legacy/v2 对照，确认 I-01、I-02、I-06 及发布门禁；该验证不能由数据库种子或 fake Pipeline 测试替代。

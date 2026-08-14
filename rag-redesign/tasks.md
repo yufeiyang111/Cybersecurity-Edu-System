@@ -290,43 +290,78 @@ T02、T03、T04、T05、T06 的业务实现必须建立在 T01 的稳定契约�
 
 ## T07 前端证据交互与研发诊断体验
 
-**状态：** `[ ]`
+**状态：** `[-]`
 **依赖：** T05、T06
+**设计确认：** 2026-08-14，采用“QA 风格可核验证据卡 + 受控原文跳转”；不展示 dense cosine 百分比或未校准回答置信度。
 
 **文件范围：**
 
+- `backend/app/routes/qa.py`（仅保留鉴权与响应薄层）
+- `backend/app/routes/admin_rag.py`（仅保留管理员鉴权与脱敏响应薄层）
+- `backend/app/services/rag_core/citation_evidence.py`
+- `backend/app/services/rag_core/admin_trace_summary.py`
+- `backend/app/services/rag_core/qa_record_payload.py`
+- `backend/tests/test_qa_evidence_api.py`
+- `backend/tests/test_rag_trace_authorization.py`
+- `frontend/src/api/index.js`
+- `frontend/src/composables/chat/useCitationEvidence.js`
+- `frontend/src/composables/admin/useRagDiagnostics.js`
+- `frontend/src/features/chat/citationPresentation.js`
+- `frontend/src/features/chat/citationManifest.js`
+- `frontend/src/features/admin/ragDiagnosticsPresentation.js`
+- `frontend/src/features/admin/ragTracePresentation.js`
+- `frontend/src/features/admin/ragEvaluationPresentation.js`
 - `frontend/src/components/chat/AnswerEvidenceSummary.vue`
 - `frontend/src/components/chat/AnswerCitationList.vue`
 - `frontend/src/components/chat/CitationDetailDrawer.vue`
 - `frontend/src/components/chat/AnswerUncertaintyPanel.vue`
 - `frontend/src/components/chat/ChatMessage.vue`
+- `frontend/src/components/chat/ChatUserMessage.vue`
+- `frontend/src/components/chat/ChatMessageActions.vue`
+- `frontend/src/components/chat/ChatSources.vue`（删除旧的前端直连知识详情逻辑）
 - `frontend/src/composables/chat/useChat.js`
 - `frontend/src/composables/chat/useConversationMessages.js`
-- `frontend/src/api/index.js`
-- `frontend/src/views/security/RagDiagnostics.vue`
-- `frontend/src/components/security/ragDiagnostics/`
-- 前端对应测试文件
+- `frontend/src/features/chat/i18n.js`
+- `frontend/src/views/QA.vue`
+- `frontend/src/views/admin/RagDiagnostics.vue`
+- `frontend/src/components/admin/ragDiagnostics/`
+- `frontend/src/router/index.js`
+- `frontend/src/views/AdminLayout.vue`
+- `frontend/tests/agent-chat-evidence-presentation.test.mjs`
+- `frontend/tests/agent-rag-diagnostics-presentation.test.mjs`
 
 **工作项：**
 
-- [ ] 移除“dense cosine × 100 = 相似度百分比”的产品表达；替换为证据状态、引用数量和行号。
-- [ ] 为 `[C#]` 引用提供可访问的点击、键盘焦点和详情抽屉；详情 API 不允许前端直接猜测文档 ID。
-- [ ] 展示 supported/insufficient/conflicting/degraded 四种状态及可执行的用户提示。
-- [ ] 流式回答中先稳定渲染状态/正文，再接收 citation manifest；断流或无效 manifest 显示降级，而非静默隐藏来源。
-- [ ] 新建管理员诊断页：仅显示脱敏数量、排名、耗时、策略版本和 warning；必须有 loading/empty/error/success 骨架状态。
-- [ ] 使用 `BaseIcon`、`BaseBadge`、`BasePanel`、`BaseButton`，遵循三断点和 scoped SCSS；不得把 API 逻辑塞进展示组件。
-- [ ] 运行 `npm --prefix frontend run build`；不运行带 `--fix` 的 lint 命令。
+- [x] 扩展 owner-scoped `GET /api/qa/records/<record_id>/evidence`：保留 manifest 兼容字段，新增按 record + `citation_id` 验证后的 citation detail、限长纯文本预览、主张覆盖数和公共知识库导航目标；不新增迁移，不允许从 legacy source 猜测文档 ID。
+- [x] 仅对 manifest 中可解析、已发布的公共 `KnowledgeItem` 返回 `document.knowledge_id`；跨用户 record、伪造 citation、非法 document_id、已删除/未发布文档、非法 manifest 与无 citation 的旧记录均覆盖安全返回，不泄露正文或对象存在性。
+- [x] 移除“dense cosine × 100 = 相似度百分比”的产品表达；`confidence` 仅以“检索辅助信号（非正确率）”高/中/低/暂不可用显示，不能展示为回答置信度百分比。
+- [x] 新建 QA 风格 `AnswerEvidenceSummary`、`AnswerCitationList`、`CitationDetailDrawer`、`AnswerUncertaintyPanel`：使用现有 `--chat-*` tokens、暗色主题和聊天内容宽度；引用标题/按钮可进入知识库原文，预览、状态、行号、主张覆盖和辅助信号清晰可见。
+- [x] `CitationDetailDrawer` 与各展示组件只通过 props/emit 协作；新增 `useCitationEvidence` 统一处理 API 调用、缓存、错误、焦点恢复和后端授权后的路由导航；移除 `ChatSources.vue` 中组件内 API 调用。
+- [x] 流式回答中先稳定渲染正文和状态，再处理 citation manifest；SSE 断流、无 done、manifest 缺失/非法、legacy record、evidence 请求失败时显式显示降级或兼容提示，不能静默隐藏。
+- [x] 新增管理员诊断页 `/admin/rag-diagnostics`：仅显示后端白名单后的脱敏数量、排名、耗时、策略版本、warning 与评测摘要；具备 loading/empty/error/success 状态，前端 role guard 与后端 403 双重覆盖，API 不下发候选明细、document ID、request ID 或 query fingerprint。
+- [x] 使用 `BaseIcon`；管理员页面使用 `BasePanel`、`BaseBadge`、`BaseButton`。聊天页面不引入与 QA token 冲突的 Security Workbench 蓝色视觉；所有新增样式为 scoped SCSS，覆盖桌面/平板/手机。
+- [x] 编写真实边界测试：citation 越权/伪造/文档失效/预览截断/旧记录，状态与辅助信号归一化，SSE 断流与无效 manifest，管理员路由与 trace API 拒绝普通用户；外部 API 全部 mock。
+- [x] 运行 `npm --prefix frontend run test:agent` 与 `npm --prefix frontend run build`；不运行带 `--fix` 的 lint 命令；后端先跑 focused tests 再跑完整 pytest。
 
 **完成条件：**
 
-- 正常、证据不足、冲突、降级、旧 QA record、SSE 失败均有组件/交互覆盖；
-- 手机端引用列表可用；
-- 用户不可进入管理员诊断页或读取 trace。
+- 正常、证据不足、冲突、降级、旧 QA record、citation detail 请求失败、SSE 失败均有组件或纯函数覆盖；
+- 每一条 v2 citation 可在授权后看到预览、状态、行号并进入对应公共知识库原文；前端不再直连或猜测知识文档 ID；
+- 手机端引用列表、抽屉、原文跳转和键盘操作可用，视觉与当前 QA 聊天页的亮/暗主题匹配；
+- 普通用户不能进入管理员诊断页、读取 trace 或评测详情；
+- 前端构建、针对性前端测试、focused 后端测试、全量后端测试与 `git diff --check` 均通过。
+
+**自动化验证证据（2026-08-14）：**
+
+- `backend\venv\Scripts\python.exe -m pytest tests\test_qa_evidence_api.py tests\test_qa_rag_warnings.py tests\test_rag_trace_authorization.py -q`：42 passed；覆盖 owner scope、伪造 citation、未发布文档、预览截断、legacy record、SSE 降级与管理员 API 拒绝普通用户。
+- `npm --prefix frontend run test:agent`：44 passed；覆盖 citation manifest 缺失/重复/伪造、流式/legacy 状态、未校准检索辅助信号、诊断 trace 白名单、评测摘要白名单与 failure stage 聚合。
+- `npm --prefix frontend run build`：通过；使用当前项目既有 Sass/CSS nesting 和大 chunk 警告，但无新增构建失败。
+- `backend\venv\Scripts\python.exe -m pytest tests -q`：1271 passed，1 skipped；`backend\venv\Scripts\python.exe -m compileall -q app tests`：通过。
+- 仅剩用户管理服务上的浏览器人工验收（H-09/L-04）：需验证亮/暗主题下的桌面、平板、手机断点，以及真实已发布知识文档的跳转；本轮未启动、停止或重启任何常驻服务。
 
 ---
 
 ## T08 观测、告警、Feature Flag 与回滚
-
 **状态：** `[ ]`
 **依赖：** T05、T06、T07
 
@@ -388,10 +423,10 @@ T02、T03、T04、T05、T06 的业务实现必须建立在 T01 的稳定契约�
 
 只有 T00–T09 全部标记 `[x]`、所有 blocker 在 `checklist.md` 通过、用户接受最终评测结果且没有未解决 P0/P1 风险时，本改造才可标记为完成。
 
-### T06 ???????2026-08-14?
+### T06 完成记录（2026-08-14）
 
-- ?????? `backend/rag_eval_cases.jsonl`?200 ? active case?8 ????concept/identifier/defense/multihop/alias/insufficient/conflict/injection?????????
-- `database/seed_rag_eval_cases.sql`?? query ?? insert?????? seed ? evidence/status/difficulty ??????? SQL??????????
-- ?? `evaluation_contracts`?`evaluation_metrics`?`evaluator`?`evaluation_runtime`?`evaluation_persistence`?CLI ???? `--pipeline` ? `--corpus-version`?
-- ????`backend\venv\Scripts\python.exe -m pytest tests -q` -> 1254 passed, 1 skipped??? Provider/Embedding/Rerank ?????????
-- ?????????? 200 ????????????????? legacy/v2 ???????????? T06 ??????
+- 受版本控制的 `backend/rag_eval_cases.jsonl` 已扩展到 200 条 active case，覆盖 concept、identifier、defense、multihop、alias、insufficient、conflict、injection 八类场景；标签源不包含知识库正文。
+- `database/seed_rag_eval_cases.sql` 仅写入受控 case 标签、预期 evidence/status/difficulty；SQL 使用加性、幂等的种子写法，不输出 query 或文档正文。
+- `evaluation_contracts`、`evaluation_metrics`、`evaluator`、`evaluation_runtime`、`evaluation_persistence` 与 CLI 已支持按 `--pipeline`、`--corpus-version` 生成脱敏的 legacy/v2 可比报告。
+- 自动化回归使用 fake Pipeline、Provider、Embedding 与 Rerank；T06 完成时的后端全量 pytest 为 1254 passed、1 skipped，没有自动化真实 HTTP 请求。
+- 真实 200+ case 的 legacy/v2 对照与发布门禁仍属于 T09 的用户管理环境验收，不能以自动化结构测试替代实际质量结论。

@@ -5,6 +5,7 @@ import { qaAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { titleFromQuestion } from '@/features/chat/conversationTitle'
 import { useConversationMessages } from '@/composables/chat/useConversationMessages'
+import { normalizeAssistantEvidence } from '@/features/chat/citationPresentation'
 
 let typeTimer = null
 
@@ -175,6 +176,7 @@ export function useChat(threadRef) {
     const userMsg = messages.value[messages.value.length - 1]
     scrollToBottom()
 
+    const pendingEvidence = normalizeAssistantEvidence({ isStreaming: true })
     messages.value.push({
       key: nextKey(),
       role: 'assistant',
@@ -182,7 +184,15 @@ export function useChat(threadRef) {
       reasoning: '',
       sources: [],
       attachments: [],
-      streaming: true
+      streaming: true,
+      answerStatus: pendingEvidence.answerStatus,
+      citationManifest: pendingEvidence.citationManifest,
+      citationState: pendingEvidence.citationState,
+      evidenceLoadState: 'idle',
+      evidenceError: '',
+      citationDetails: [],
+      citationDetailsTruncated: false,
+      retrievalSignal: null
     })
     const assistantMsg = messages.value[messages.value.length - 1]
     scrollToBottom()
@@ -229,6 +239,8 @@ export function useChat(threadRef) {
       flushTyping()
       assistantMsg.streaming = false
       assistantMsg.isError = true
+      assistantMsg.answerStatus = 'degraded'
+      assistantMsg.citationState = 'degraded'
       assistantMsg.content = assistantMsg.content || message || '抱歉，生成答案时出现错误，请稍后重试。'
       scrollToBottom()
     }
@@ -245,12 +257,26 @@ export function useChat(threadRef) {
             assistantMsg.streaming = false
             assistantMsg.content = data.answer || assistantMsg.content
             assistantMsg.reasoning = data.reasoning || assistantMsg.reasoning
+            const evidence = normalizeAssistantEvidence({
+              answerStatus: data.answer_status,
+              citations: data.citations,
+              pipelineVersion: data.pipeline_version
+            })
             assistantMsg.sources = normalizeSources(data.sources)
             assistantMsg.confidence = data.confidence
             assistantMsg.response_time = data.response_time
             assistantMsg.model_name = data.model_name || data.provider
             assistantMsg.ragWarnings = data.rag_warnings || []
             assistantMsg.recordId = data.id
+            assistantMsg.answerStatus = evidence.answerStatus
+            assistantMsg.citationManifest = evidence.citationManifest
+            assistantMsg.citationState = evidence.citationState
+            assistantMsg.pipelineVersion = data.pipeline_version || null
+            assistantMsg.evidenceLoadState = 'idle'
+            assistantMsg.evidenceError = ''
+            assistantMsg.citationDetails = []
+            assistantMsg.citationDetailsTruncated = false
+            assistantMsg.retrievalSignal = null
             if (data.attachments?.length) {
               assistantMsg.attachments = data.attachments.map((a) => ({
                 ...a,

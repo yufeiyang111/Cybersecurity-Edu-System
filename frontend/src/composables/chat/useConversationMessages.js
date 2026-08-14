@@ -1,5 +1,6 @@
 import { ref, computed, nextTick } from 'vue'
 import { qaAPI } from '@/api'
+import { normalizeAssistantEvidence } from '@/features/chat/citationPresentation'
 
 const PAGE_SIZE = 5
 
@@ -16,6 +17,11 @@ const buildMessages = (records) => {
       recordId: r.id
     })
     if (r.answer) {
+      const evidence = normalizeAssistantEvidence({
+        answerStatus: r.answer_status,
+        citations: r.citations,
+        pipelineVersion: r.pipeline_version
+      })
       list.push({
         key: ++keySeed,
         role: 'assistant',
@@ -32,7 +38,16 @@ const buildMessages = (records) => {
         recordId: r.id,
         feedback: r.feedback,
         isFavorite: r.is_favorited,
-        favoriteId: r.favoriteId || null
+        favoriteId: r.favoriteId || null,
+        answerStatus: evidence.answerStatus,
+        citationManifest: evidence.citationManifest,
+        citationState: evidence.citationState,
+        pipelineVersion: r.pipeline_version || null,
+        evidenceLoadState: 'idle',
+        evidenceError: '',
+        citationDetails: [],
+        citationDetailsTruncated: false,
+        retrievalSignal: null
       })
     }
   }
