@@ -1,9 +1,19 @@
-﻿"""
+"""
 数据模型包
 """
 from app.models.user import User, Role, LoginLog
 from app.models.knowledge import Category, KnowledgeItem, KnowledgeTag, KnowledgeFavorite
-from app.models.qa import QAConversation, QARecord, Favorite, FeedbackLog
+from app.models.qa import (
+    Favorite,
+    FeedbackLog,
+    QAConversation,
+    QARecord,
+    RagEvaluationResult,
+    RagEvaluationRun,
+    RagEvalCase,
+    RagPipelineVersion,
+    RagRetrievalTrace,
+)
 from app.models.policy import PolicyDocument
 from app.models.help import HelpCategory, HelpDocument
 from app.models.security import (
@@ -96,6 +106,8 @@ __all__ = [
     "User", "Role", "LoginLog",
     "Category", "KnowledgeItem", "KnowledgeTag", "KnowledgeFavorite",
     "QAConversation", "QARecord", "Favorite", "FeedbackLog",
+    "RagEvalCase", "RagPipelineVersion", "RagRetrievalTrace",
+    "RagEvaluationRun", "RagEvaluationResult",
     "PolicyDocument",
     "HelpCategory", "HelpDocument",
     "Workspace", "WorkspaceMember", "WorkspaceMemberRole",

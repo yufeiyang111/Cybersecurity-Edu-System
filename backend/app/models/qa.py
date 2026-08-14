@@ -45,6 +45,11 @@ class QARecord(db.Model):
     model_name = db.Column(db.String(50))
     response_time = db.Column(db.Float)
     rag_warnings = db.Column(db.JSON)
+    # RAG Core 加性字段：旧记录允许为空，仍按 legacy sources/answer 反序列化。
+    answer_status = db.Column(db.String(32))
+    citation_manifest_json = db.Column(db.JSON)
+    rag_trace_id = db.Column(db.Integer)
+    pipeline_version_key = db.Column(db.String(64))
     feedback = db.Column(db.Enum("good", "neutral", "bad"))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -65,6 +70,10 @@ class QARecord(db.Model):
             "model_name": self.model_name,
             "response_time": self.response_time,
             "rag_warnings": self.rag_warnings or [],
+            "answer_status": self.answer_status,
+            "citations": self.citation_manifest_json,
+            "rag_trace_id": self.rag_trace_id,
+            "pipeline_version": self.pipeline_version_key,
             "feedback": self.feedback,
             "is_favorited": len(self.favorites) > 0,
             "created_at": self.created_at.isoformat() if self.created_at else None
@@ -116,9 +125,68 @@ class RagEvalCase(db.Model):
     expected_answer = db.Column(db.Text)
     category = db.Column(db.String(64))
     notes = db.Column(db.String(500))
+    expected_evidence_json = db.Column(db.JSON)
+    expected_status = db.Column(db.String(32))
+    difficulty = db.Column(db.String(32))
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+
+
+class RagPipelineVersion(db.Model):
+    """可复现的 RAG pipeline 配置与模型版本快照（不含密钥或用户数据）。"""
+    __tablename__ = "rag_pipeline_versions"
+    id = db.Column(db.Integer, primary_key=True)
+    version_key = db.Column(db.String(64), nullable=False, unique=True)
+    config_json = db.Column(db.JSON, nullable=False)
+    prompt_version = db.Column(db.String(64), nullable=False)
+    embedding_version = db.Column(db.String(255), nullable=False)
+    reranker_version = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class RagRetrievalTrace(db.Model):
+    """脱敏 RAG 检索 trace；不得写入原问题、文档正文、Prompt 或 CoT。"""
+    __tablename__ = "rag_retrieval_traces"
+    id = db.Column(db.Integer, primary_key=True)
+    request_id = db.Column(db.String(64))
+    record_id = db.Column(db.Integer, db.ForeignKey("qa_records.id"))
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    pipeline_version_id = db.Column(db.Integer, db.ForeignKey("rag_pipeline_versions.id"))
+    query_fingerprint = db.Column(db.String(64), nullable=False)
+    stage_summary_json = db.Column(db.JSON, nullable=False)
+    warnings_json = db.Column(db.JSON)
+    retrieval_ms = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class RagEvaluationRun(db.Model):
+    """一次离线评测运行的汇总记录。"""
+    __tablename__ = "rag_evaluation_runs"
+    id = db.Column(db.Integer, primary_key=True)
+    pipeline_version_id = db.Column(db.Integer, db.ForeignKey("rag_pipeline_versions.id"))
+    corpus_version = db.Column(db.String(128), nullable=False)
+    status = db.Column(db.String(32), nullable=False)
+    metrics_json = db.Column(db.JSON)
+    report_path = db.Column(db.String(500))
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    finished_at = db.Column(db.DateTime)
+
+
+class RagEvaluationResult(db.Model):
+    """离线评测单 case 的分阶段指标与失败归因。"""
+    __tablename__ = "rag_evaluation_results"
+    id = db.Column(db.Integer, primary_key=True)
+    run_id = db.Column(db.Integer, db.ForeignKey("rag_evaluation_runs.id"), nullable=False)
+    case_id = db.Column(db.Integer, db.ForeignKey("rag_eval_cases.id"), nullable=False)
+    retrieval_metrics_json = db.Column(db.JSON)
+    citation_metrics_json = db.Column(db.JSON)
+    answer_metrics_json = db.Column(db.JSON)
+    failure_stage = db.Column(db.String(64))
+    notes = db.Column(db.String(1000))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 class MemoryEvalCase(db.Model):
     """持久记忆离线评估集（query + 期望命中的记忆内容）"""
     __tablename__ = "memory_eval_cases"

@@ -1,4 +1,4 @@
-﻿# Environment and local runtime
+# Environment and local runtime
 backend/.env
 backend/venv/
 backend/venv.bat
@@ -37,12 +37,18 @@ backend/rag_report_*.json
 docs/
 design/
 .github/
+!.github/
+!.github/workflows/
+!.github/workflows/ci.yml
 start-dev.bat
 $seedPath
 query
 SPEC.md
 # Agent 改造交接文档需要纳入版本控制
 !agent-redesign/spec.md
+!rag-redesign/spec.md
+!rag-redesign/tasks.md
+!rag-redesign/checklist.md
 技术实现文档.md
 CLAUDE.md
 .qdrant-initialized

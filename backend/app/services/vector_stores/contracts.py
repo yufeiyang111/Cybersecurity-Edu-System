@@ -7,7 +7,7 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional, Protocol, Sequence, runtime_checkable
 
 import numpy as np
@@ -35,8 +35,9 @@ class VectorHit:
     id: str
     text: str
     metadata: Mapping[str, Any]
-    similarity: float
+    similarity: float | None
     distance: float
+    retrieval_metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -45,6 +46,7 @@ class VectorHit:
             "metadata": dict(self.metadata),
             "similarity": self.similarity,
             "distance": self.distance,
+            "retrieval_metadata": dict(self.retrieval_metadata),
         }
 
 

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 问答相关路由
 """
@@ -15,6 +16,12 @@ from app.services.memory import service as memory_service
 from app.services.rag_engine import get_rag_engine
 from app.services.rate_limit import rate_limit
 from app.services.document_parser import parse_document
+from app.services.rag_core.qa_trace_persistence import persist_trace_for_qa_record
+from app.services.rag_core.qa_record_payload import (
+    evidence_payload,
+    rag_core_record_fields,
+    rag_core_response_fields,
+)
 
 qa_bp = Blueprint("qa", __name__)
 
@@ -134,7 +141,8 @@ def _save_qa_record(user_id: int, conversation_id: int, question: str, result: d
         confidence=result.get("confidence"),
         model_name=result.get("model_name"),
         response_time=result.get("response_time"),
-        rag_warnings=result.get("rag_warnings") or None
+        rag_warnings=result.get("rag_warnings") or None,
+        **rag_core_record_fields(result),
     )
     db.session.add(record)
     if conversation_id is not None:
@@ -194,13 +202,22 @@ def ask_question():
             user_id=int(user_id),
             memories=memories,
         )
-    except Exception as e:
+    except Exception as exc:
+        current_app.logger.warning(
+            "qa.answer_generation_failed error_type=%s",
+            type(exc).__name__,
+        )
         return jsonify({
-            "error": f"生成答案失败: {str(e)}"
+            "error": "生成答案失败，请稍后重试。"
         }), 500
 
     # 保存问答记录
     record = _save_qa_record(user_id, conversation_id, question, result, attachments)
+    persist_trace_for_qa_record(
+        user_id=int(user_id),
+        record=record,
+        result=result,
+    )
     # 检索结果落库（离线评估用）
     try:
         from app.services.qa_retrieval_log import log_retrieval
@@ -240,6 +257,7 @@ def ask_question():
         "confidence": result.get("confidence"),
         "response_time": result.get("response_time"),
         "rag_warnings": result.get("rag_warnings") or [],
+        **rag_core_response_fields(record, result),
         "attachments": attachments,
         "memory_changes": memory_changes,
         "created_at": record.created_at.isoformat() if record.created_at else None
@@ -274,6 +292,11 @@ def ask_question_stream():
                     yield _sse_event(event["type"], {"delta": event.get("content") or event.get("delta") or ""})
                 elif event["type"] == "done":
                     record = _save_qa_record(user_id, conversation_id, question, event, attachments)
+                    persist_trace_for_qa_record(
+                        user_id=int(user_id),
+                        record=record,
+                        result=event,
+                    )
                     # 检索结果落库（离线评估用）
                     try:
                         from app.services.qa_retrieval_log import log_retrieval
@@ -304,6 +327,7 @@ def ask_question_stream():
                         "created_at": record.created_at.isoformat() if record.created_at else None,
                         "warning_code": event.get("warning_code"),
                         "rag_warnings": event.get("rag_warnings") or [],
+                        **rag_core_response_fields(record, event),
                     })
                     memory_changes = {"added": 0, "updated": 0, "skipped": 0}
                     try:
@@ -319,7 +343,12 @@ def ask_question_stream():
                     yield _sse_event("memory", memory_changes)
         except Exception:
             # 不向客户端泄漏内部实现细节
-            yield _sse_event("error", {"error": "生成答案时发生异常，请稍后重试。"})
+            yield _sse_event("error", {
+                "error": "生成答案时发生异常，请稍后重试。",
+                "answer_status": "degraded",
+                "citations": [],
+                "rag_warnings": ["SSE_GENERATION_INTERRUPTED"],
+            })
 
     response = Response(stream_with_context(generate()), mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache"
@@ -401,6 +430,20 @@ def get_history():
         "pages": pagination.pages
     }), 200
 
+
+@qa_bp.route("/records/<int:record_id>/evidence", methods=["GET"])
+@jwt_required()
+def get_record_evidence(record_id):
+    """仅记录所有者查看 citation manifest 与受限证据摘要。"""
+    user_id = get_jwt_identity()
+    record = QARecord.query.filter_by(
+        id=record_id,
+        user_id=user_id,
+    ).first()
+    if record is None:
+        return jsonify({"error": "记录不存在"}), 404
+
+    return jsonify({"evidence": evidence_payload(record)}), 200
 
 @qa_bp.route("/<int:record_id>", methods=["GET"])
 @jwt_required()

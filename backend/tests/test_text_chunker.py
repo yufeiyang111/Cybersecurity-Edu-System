@@ -112,3 +112,26 @@ def test_paragraph_chunker_line_numbers():
         assert chunk["start_line"] >= 1
         assert chunk["end_line"] >= chunk["start_line"]
         assert chunk["metadata"]["token_count"] > 0
+
+
+def test_token_count_mode_distinguishes_tokenizer_and_estimate_without_loading_models():
+    class FakeTokenizer:
+        def encode(self, text, add_special_tokens):
+            assert add_special_tokens is False
+            return [1, 2, 3]
+
+    class FailingTokenizer:
+        def encode(self, text, add_special_tokens):
+            raise RuntimeError("tokenizer unavailable")
+
+    chunker = object.__new__(TextChunker)
+    chunker.language = "en"
+    chunker._tokenizer_failed = False
+    chunker._tokenizer = FakeTokenizer()
+
+    assert chunker.count_tokens_with_mode("one two") == (3, "tokenizer")
+
+    chunker._tokenizer = FailingTokenizer()
+    assert chunker.count_tokens_with_mode("one two") == (2, "estimate")
+    assert chunker._tokenizer is None
+    assert chunker._tokenizer_failed is True

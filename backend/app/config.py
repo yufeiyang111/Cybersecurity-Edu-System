@@ -101,6 +101,103 @@ def normalize_cors_origins(origins: Any) -> list[str]:
     return deduped
 
 
+def _resolve_rag_boolean(name: str, raw_value: Any, default: bool) -> bool:
+    """解析 RAG feature flag，拒绝模糊配置以避免灰度状态不可预期。"""
+    if raw_value is None or str(raw_value).strip() == "":
+        return default
+    if isinstance(raw_value, bool):
+        return raw_value
+    normalized = str(raw_value).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be a boolean value")
+
+
+def _resolve_rag_bounded_int(
+    name: str,
+    raw_value: Any,
+    default: int,
+    minimum: int,
+    maximum: int,
+) -> int:
+    """解析并限制 RAG 整数配置，防止单次请求放大检索或上下文成本。"""
+    if raw_value is None or str(raw_value).strip() == "":
+        value = default
+    elif isinstance(raw_value, bool):
+        raise ValueError(f"{name} must be an integer")
+    else:
+        try:
+            value = int(str(raw_value).strip())
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{name} must be an integer") from exc
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
+def resolve_rag_pipeline_settings(
+    values: Mapping[str, Any] | None = None,
+) -> dict[str, bool | int]:
+    """读取企业 RAG 配置并验证候选、重排和证据三层的数量关系。"""
+    source = os.environ if values is None else values
+    candidate_top_k = _resolve_rag_bounded_int(
+        "RAG_CANDIDATE_TOP_K",
+        source.get("RAG_CANDIDATE_TOP_K"),
+        40,
+        10,
+        100,
+    )
+    rerank_top_k = _resolve_rag_bounded_int(
+        "RAG_RERANK_TOP_K",
+        source.get("RAG_RERANK_TOP_K"),
+        15,
+        3,
+        30,
+    )
+    evidence_top_k = _resolve_rag_bounded_int(
+        "RAG_EVIDENCE_TOP_K",
+        source.get("RAG_EVIDENCE_TOP_K"),
+        6,
+        2,
+        10,
+    )
+    if rerank_top_k > candidate_top_k:
+        raise ValueError("RAG_RERANK_TOP_K cannot exceed RAG_CANDIDATE_TOP_K")
+    if evidence_top_k > rerank_top_k:
+        raise ValueError("RAG_EVIDENCE_TOP_K cannot exceed RAG_RERANK_TOP_K")
+    return {
+        "pipeline_v2_enabled": _resolve_rag_boolean(
+            "RAG_PIPELINE_V2_ENABLED",
+            source.get("RAG_PIPELINE_V2_ENABLED"),
+            False,
+        ),
+        "candidate_top_k": candidate_top_k,
+        "rerank_top_k": rerank_top_k,
+        "evidence_top_k": evidence_top_k,
+        "evidence_token_budget": _resolve_rag_bounded_int(
+            "RAG_EVIDENCE_TOKEN_BUDGET",
+            source.get("RAG_EVIDENCE_TOKEN_BUDGET"),
+            3500,
+            500,
+            12000,
+        ),
+        "diagnostics_enabled": _resolve_rag_boolean(
+            "RAG_DIAGNOSTICS_ENABLED",
+            source.get("RAG_DIAGNOSTICS_ENABLED"),
+            False,
+        ),
+        "strict_citations": _resolve_rag_boolean(
+            "RAG_STRICT_CITATIONS",
+            source.get("RAG_STRICT_CITATIONS"),
+            False,
+        ),
+    }
+
+
+_RAG_PIPELINE_SETTINGS = resolve_rag_pipeline_settings()
+
 class Config:
     """Flask application configuration."""
 
@@ -190,6 +287,14 @@ class Config:
     VECTOR_TOP_K = int(os.getenv("VECTOR_TOP_K", "10"))
     SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.5"))
     MAX_CONTEXT_LENGTH = int(os.getenv("MAX_CONTEXT_LENGTH", "4000"))
+    # 企业 RAG Core：默认关闭，所有参数均在模块加载时完成范围校验。
+    RAG_PIPELINE_V2_ENABLED = _RAG_PIPELINE_SETTINGS["pipeline_v2_enabled"]
+    RAG_CANDIDATE_TOP_K = _RAG_PIPELINE_SETTINGS["candidate_top_k"]
+    RAG_RERANK_TOP_K = _RAG_PIPELINE_SETTINGS["rerank_top_k"]
+    RAG_EVIDENCE_TOP_K = _RAG_PIPELINE_SETTINGS["evidence_top_k"]
+    RAG_EVIDENCE_TOKEN_BUDGET = _RAG_PIPELINE_SETTINGS["evidence_token_budget"]
+    RAG_DIAGNOSTICS_ENABLED = _RAG_PIPELINE_SETTINGS["diagnostics_enabled"]
+    RAG_STRICT_CITATIONS = _RAG_PIPELINE_SETTINGS["strict_citations"]
     # QA 高成本 LLM 调用限流（每分钟每用户）
     QA_RATE_LIMIT_PER_MINUTE = _env_int("QA_RATE_LIMIT_PER_MINUTE", 10)
     # 持久记忆写入去重相似度阈值（>= 阈值视为同一事实，跳过入库）
@@ -484,3 +589,16 @@ class Config:
             cls.REMEDIATION_PATCH_MAX_CHARS,
             maximum=MAX_REMEDIATION_PATCH_MAX_CHARS,
         )
+
+
+def rag_pipeline_config_snapshot() -> dict[str, bool | int]:
+    """返回无用户数据、无密钥的 pipeline version 输入。"""
+    return {
+        "pipeline_v2_enabled": Config.RAG_PIPELINE_V2_ENABLED,
+        "candidate_top_k": Config.RAG_CANDIDATE_TOP_K,
+        "rerank_top_k": Config.RAG_RERANK_TOP_K,
+        "evidence_top_k": Config.RAG_EVIDENCE_TOP_K,
+        "evidence_token_budget": Config.RAG_EVIDENCE_TOKEN_BUDGET,
+        "diagnostics_enabled": Config.RAG_DIAGNOSTICS_ENABLED,
+        "strict_citations": Config.RAG_STRICT_CITATIONS,
+    }

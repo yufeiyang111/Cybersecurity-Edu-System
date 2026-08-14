@@ -200,15 +200,9 @@ class QdrantVectorBackend:
         where: Optional[Mapping[str, Any]],
         top_k: int,
     ) -> list[VectorHit]:
-        """稠密向量 + Qdrant 原生 BM25 双路召回，RRF 融合。
-
-        vector 为 None 时（embedding 模型降级/不可用）只走 BM25 词法路，
-        避免降级伪向量与库中真实向量错配产生噪声相似度。
-        similarity 字段保留向量余弦分（前端展示语义不变），排序用 RRF 融合分。
-        """
+        """执行一次 dense、一次 BM25 查询，用本地 RRF 融合并保留阶段元数据。"""
         query_filter = self._filter(where) if where else None
         sparse_query = _sparse_vector_from_text(text)
-
         if vector is None:
             lexical = self._client.query_points(
                 collection_name=self._collection_name,
@@ -218,29 +212,25 @@ class QdrantVectorBackend:
                 limit=top_k,
                 with_payload=True,
             )
-            result: list[VectorHit] = []
-            for point in getattr(lexical, "points", None) or []:
-                payload = dict(point.payload or {})
-                result.append(
-                    VectorHit(
-                        id=str(payload.get("id", point.id)),
-                        text=str(payload.get("text", "")),
-                        metadata={
-                            key: value
-                            for key, value in payload.items()
-                            if key not in ("id", "text")
-                        },
-                        similarity=None,
-                        distance=1.0,
-                    )
+            return [
+                self._hybrid_hit(
+                    point,
+                    similarity=None,
+                    retrieval_metadata={
+                        "dense_score": None,
+                        "dense_rank": None,
+                        "bm25_score": float(point.score),
+                        "bm25_rank": rank,
+                        "rrf_score": None,
+                        "retrieval_path": "lexical_only_degraded",
+                    },
                 )
-            return result
-
-        dense_query = [float(value) for value in vector]
+                for rank, point in enumerate(getattr(lexical, "points", None) or [], 1)
+            ]
 
         dense = self._client.query_points(
             collection_name=self._collection_name,
-            query=dense_query,
+            query=[float(value) for value in vector],
             using=DENSE_VECTOR_NAME,
             query_filter=query_filter,
             limit=top_k * 2,
@@ -254,53 +244,52 @@ class QdrantVectorBackend:
             limit=top_k * 2,
             with_payload=True,
         )
-        lexical = self._client.query_points(
-            collection_name=self._collection_name,
-            query=sparse_query,
-            using=BM25_VECTOR_NAME,
-            query_filter=query_filter,
-            limit=top_k * 2,
-            with_payload=True,
-        )
-
-        fusion_scores: dict[str, float] = {}
-        hits: dict[str, dict[str, Any]] = {}
-
-        for rank, point in enumerate(getattr(dense, "points", None) or []):
-            point_id = str(point.payload.get("id", point.id))
-            fusion_scores[point_id] = fusion_scores.get(point_id, 0.0) + 1.0 / (60 + rank + 1)
-            if point_id not in hits:
-                hits[point_id] = {"point": point, "cosine": float(point.score)}
-
-        for rank, point in enumerate(getattr(lexical, "points", None) or []):
-            point_id = str(point.payload.get("id", point.id))
-            fusion_scores[point_id] = fusion_scores.get(point_id, 0.0) + 1.0 / (60 + rank + 1)
-            if point_id not in hits:
-                # 词法-only 命中：无向量余弦分，前端不展示相似度
-                hits[point_id] = {"point": point, "cosine": None}
-
-        ranked_ids = sorted(fusion_scores, key=fusion_scores.get, reverse=True)[:top_k]
-
-        result: list[VectorHit] = []
-        for point_id in ranked_ids:
-            point = hits[point_id]["point"]
-            cosine = hits[point_id]["cosine"]
-            payload = dict(point.payload or {})
-            result.append(
-                VectorHit(
-                    id=point_id,
-                    text=str(payload.get("text", "")),
-                    metadata={
-                        key: value
-                        for key, value in payload.items()
-                        if key not in ("id", "text")
-                    },
-                    similarity=cosine,
-                    distance=1.0 if cosine is None else 1.0 - cosine,
-                )
-            )
+        fused: dict[str, dict[str, Any]] = {}
+        for rank, point in enumerate(getattr(dense, "points", None) or [], 1):
+            point_id = self._point_id(point)
+            item = fused.setdefault(point_id, {"point": point, "rrf_score": 0.0})
+            item.update({"point": point, "dense_score": float(point.score), "dense_rank": rank})
+            item["rrf_score"] += 1.0 / (60 + rank)
+        for rank, point in enumerate(getattr(lexical, "points", None) or [], 1):
+            point_id = self._point_id(point)
+            item = fused.setdefault(point_id, {"point": point, "rrf_score": 0.0})
+            item.setdefault("point", point)
+            item.update({"bm25_score": float(point.score), "bm25_rank": rank})
+            item["rrf_score"] += 1.0 / (60 + rank)
+        result=[]
+        for item in sorted(fused.values(), key=lambda value: value["rrf_score"], reverse=True)[:top_k]:
+            dense_rank=item.get("dense_rank")
+            bm25_rank=item.get("bm25_rank")
+            path="both" if dense_rank and bm25_rank else "dense_only" if dense_rank else "bm25_only"
+            result.append(self._hybrid_hit(
+                item["point"],
+                similarity=item.get("dense_score"),
+                retrieval_metadata={
+                    "dense_score": item.get("dense_score"),
+                    "dense_rank": dense_rank,
+                    "bm25_score": item.get("bm25_score"),
+                    "bm25_rank": bm25_rank,
+                    "rrf_score": float(item["rrf_score"]),
+                    "retrieval_path": path,
+                },
+            ))
         return result
 
+    @staticmethod
+    def _point_id(point: Any) -> str:
+        payload = dict(point.payload or {})
+        return str(payload.get("id", point.id))
+
+    def _hybrid_hit(self, point: Any, *, similarity: float | None, retrieval_metadata: Mapping[str, Any]) -> VectorHit:
+        payload = dict(point.payload or {})
+        return VectorHit(
+            id=str(payload.get("id", point.id)),
+            text=str(payload.get("text", "")),
+            metadata={key: value for key, value in payload.items() if key not in ("id", "text")},
+            similarity=similarity,
+            distance=1.0 if similarity is None else 1.0 - similarity,
+            retrieval_metadata=dict(retrieval_metadata),
+        )
     def _to_hits(self, response: Any) -> list[VectorHit]:
         hits: list[VectorHit] = []
         for point in getattr(response, "points", None) or []:

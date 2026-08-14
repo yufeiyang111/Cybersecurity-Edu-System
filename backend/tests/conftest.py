@@ -68,6 +68,7 @@ _ROUTE_STUB_MODULES = {
     "app.routes.admin_users": "admin_users_bp",
     "app.routes.admin_vector": "admin_vector_bp",
     "app.routes.admin_graph": "admin_graph_bp",
+    "app.routes.admin_rag": "admin_rag_bp",
 }
 
 # legacy stub 不含 projects / help，两者需从磁盘真实加载：

@@ -194,3 +194,8 @@ def build_qa_messages(
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ]
+# Citation 模式实现独立放置，避免 legacy Prompt 模块继续膨胀。
+from app.services.rag_citation_prompt import (
+    CITATION_SYSTEM_PROMPT,
+    build_citation_qa_messages,
+)

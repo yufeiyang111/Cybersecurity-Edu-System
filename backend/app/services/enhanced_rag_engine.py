@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 RAG核心引擎 - 增强版
 检索增强生成：集成重排序、多路召回、优化的Prompt工程
@@ -6,6 +7,7 @@ RAG核心引擎 - 增强版
 """
 import time
 import json
+import uuid
 from time import perf_counter
 from typing import List, Dict, Any, Optional, Tuple
 from app.config import Config
@@ -336,10 +338,11 @@ class EnhancedRAGEngine:
         user_id: int | None = None,
         operation: str = "qa",
         memories: List[Dict] = None,
+        messages: List[Dict] | None = None,
     ) -> Dict[str, Any]:
         """Generate an answer through the shared Provider contract."""
         start_time = time.time()
-        messages = self.build_prompt(
+        messages = messages or self.build_prompt(
             query,
             context,
             conversation_history,
@@ -635,7 +638,63 @@ class EnhancedRAGEngine:
             for doc in retrieved_docs[:5]
         ]
 
+    def _enterprise_rag_pipeline(self):
+        """委托公共 RAG Core 适配器，避免继续扩展遗留引擎。"""
+        from app.services.rag_core.engine_adapter import build_public_rag_pipeline
+
+        return build_public_rag_pipeline(self)
+    @staticmethod
+    def _rag_execution_request(
+        query: str,
+        conversation_history: List[Dict] | None,
+        use_rerank: bool,
+        user_preferences: Dict[str, Any] | None,
+        user_id: int | None,
+        memories: List[Dict] | None,
+    ):
+        """将 legacy 参数收敛为 RAG Core request；请求原文不写入 trace。"""
+        from app.services.rag_core import RagExecutionRequest
+
+        return RagExecutionRequest(
+            query=query,
+            request_id=uuid.uuid4().hex,
+            conversation_history=tuple(conversation_history or ()),
+            use_rerank=use_rerank,
+            user_preferences=user_preferences,
+            user_id=user_id,
+            memories=tuple(memories or ()),
+        )
+
     def ask_stream(
+        self,
+        query: str,
+        conversation_history: List[Dict] = None,
+        use_rerank: bool = True,
+        user_preferences: Dict[str, Any] = None,
+        user_id: int | None = None,
+        memories: List[Dict] = None,
+    ) -> Any:
+        """流式 RAG 入口；默认保持 legacy 行为，v2 仅通过 Feature Flag 灰度启用。"""
+        if not Config.RAG_PIPELINE_V2_ENABLED:
+            yield from self._ask_stream_legacy(
+                query,
+                conversation_history,
+                use_rerank,
+                user_preferences,
+                user_id,
+                memories,
+            )
+            return
+        request = self._rag_execution_request(
+            query,
+            conversation_history,
+            use_rerank,
+            user_preferences,
+            user_id,
+            memories,
+        )
+        yield from self._enterprise_rag_pipeline().stream(request)
+    def _ask_stream_legacy(
         self,
         query: str,
         conversation_history: List[Dict] = None,
@@ -667,6 +726,34 @@ class EnhancedRAGEngine:
             yield event
 
     def ask(
+        self,
+        query: str,
+        conversation_history: List[Dict] = None,
+        use_rerank: bool = True,
+        user_preferences: Dict[str, Any] = None,
+        user_id: int | None = None,
+        memories: List[Dict] = None,
+    ) -> Dict[str, Any]:
+        """非流式 RAG 入口；默认保持 legacy 行为，v2 使用统一执行契约。"""
+        if not Config.RAG_PIPELINE_V2_ENABLED:
+            return self._ask_legacy(
+                query,
+                conversation_history,
+                use_rerank,
+                user_preferences,
+                user_id,
+                memories,
+            )
+        request = self._rag_execution_request(
+            query,
+            conversation_history,
+            use_rerank,
+            user_preferences,
+            user_id,
+            memories,
+        )
+        return self._enterprise_rag_pipeline().execute(request).to_legacy_payload()
+    def _ask_legacy(
         self,
         query: str,
         conversation_history: List[Dict] = None,

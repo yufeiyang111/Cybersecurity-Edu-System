@@ -1,0 +1,407 @@
+# CyberGuard Enterprise RAG Core 规格说明
+
+> 状态：**设计冻结，待用户审阅后实施**
+> 创建日期：2026-08-14
+> 范围：公共安全知识库 `knowledge_embeddings` 的企业级检索、证据、评测与交互闭环。
+> 非范围：Workspace 私有知识库、实时 Web RAG、多租户向量权限过滤和自主 Agent 改造。
+
+---
+
+## 0. 执行约束
+
+1. 实施必须严格遵循本目录的 `spec.md`、`tasks.md`、`checklist.md`；任何范围、接口、数据模型或验收标准变更，必须先更新三份文档并经用户确认。
+2. 代码实施前必须先完成 `tasks.md` 的 T00，记录冻结基线；不得以“感觉效果更好”替代评测证据。
+3. 仅使用现有公共知识库：数据库当前有 1,022 条已发布 `KnowledgeItem`，Qdrant `knowledge_embeddings` 当前有 21,650 个点。不得在本项目中新增外部 Web 搜索或自动抓取。
+4. 不读取或提交 `backend/.env`、日志、上传文件、运行时文档正文或用户敏感数据；检索 trace 和评测报告必须脱敏、最小化保存。
+5. 用户负责管理前后端、Qdrant、Redis 等常驻服务。本实施不得启动、重启或停止这些服务，除非用户在当次任务明确授权。
+6. 数据库变更只能使用新的加性迁移，并同步更新 `database/init.sql`；不得 reset、drop、truncate 或重建生产数据。
+
+---
+
+## 1. 背景与已确认基线
+
+### 1.1 当前资产
+
+- 语料源：仓库 `docs/HackTricks/src/`，静态盘点为 993 篇 Markdown；主数据库有 1,022 条已发布公共知识。
+- 当前索引：Qdrant `knowledge_embeddings` 为 green；`dense` 为 1,024 维 Cosine 向量，`bm25` 为 IDF sparse 向量，共 21,650 点。
+- 当前链路：Markdown/知识条目 → 384 token 分块与 50 token overlap → dense + BM25 → RRF → 可选 cross-encoder rerank → 父块上下文 → LLM 问答。
+- 当前质量资产：18 条 `rag_eval_cases`，59 条 `qa_retrieval_logs`。它们不足以成为模型、分块和 Prompt 改动的发布门禁。
+
+### 1.2 当前问题
+
+1. 前端将 dense cosine 乘以 100 显示为“相似度百分比”，但最终排序来自 RRF 或 reranker，该值不是相关概率、更不是回答正确率。
+2. 检索链路没有完整 trace：不能解释 dense、BM25、RRF、rerank 和最终上下文选择分别如何影响结果。
+3. `QdrantVectorBackend.hybrid_search()` 对同一 sparse query 发出重复词法查询；这是可确认的额外延迟与成本。
+4. 召回、重排、上下文选择和生成耦合在 `enhanced_rag_engine.py` 中，无法独立比较不同策略，也无法对每个阶段建立清晰测试。
+5. 最终上下文按排序顺序拼接父块，采用字符长度预算；同源内容可能重复，长父块可能挤出更具证据价值的 chunk。
+6. 回答只要求笼统标注来源，没有稳定的逐主张 citation ID，也没有服务端验证“回答引用只来自本次授权证据集”。
+7. `confidence` 由检索分数启发式线性计算，未经标注数据校准，不能作为用户可理解的“回答可信度”。
+8. 评测脚本只测检索文档命中，不测 rerank 后最终证据、上下文覆盖、引用正确性、答案忠实性和拒答行为。
+
+---
+
+## 2. 产品目标与非目标
+
+### 2.1 产品目标
+
+本改造将公共 QA 升级为“带可验证证据的安全知识辅助分析”。系统必须能够：
+
+1. 对每次问答解释检索阶段，不泄露知识正文或用户隐私。
+2. 以宽召回、精排和多样性选择构造最小充分 Evidence Pack，而非直接拼接 Top-K 文档。
+3. 让最终答案的每项关键事实都能回溯到本次 Evidence Pack 中的固定 citation ID、知识条目、语料版本与行号范围。
+4. 在证据不足、证据冲突或检索降级时明确降级，而不是把检索分数伪装成高置信回答。
+5. 通过可复现的离线评测和线上匿名化 trace，比对策略版本，形成发布门禁。
+6. 在普通聊天体验和研发诊断体验之间建立权限与信息边界：普通用户看答案依据；研发/管理员可看脱敏 trace。
+
+### 2.2 简历可展示成果
+
+完成后项目应可以准确描述为：
+
+> 设计并实现企业级安全知识 RAG Core：基于 Qdrant dense+BM25 hybrid retrieval、可插拔 cross-encoder rerank、证据包构建与逐主张引用校验；建设 200+ 条分层评测集，覆盖 Recall/nDCG/citation completeness/faithfulness 与注入负例；通过策略版本、检索 trace、灰度开关和回归门禁实现可观测、可评测的 RAG 发布流程。
+
+上述描述必须在代码、测试、评测报告与演示界面中有对应证据，不能只写在简历中。
+
+### 2.3 明确非目标
+
+- 不接入通用搜索引擎、网页爬取、浏览器自动化或实时外网内容。
+- 不重建 Workspace 私有知识库；`security_knowledge_embeddings` 仍不属于本期。
+- 不改变扫描器、Agent Loop、修复建议或既有 LLM Provider 契约。
+- 允许向所属用户展示并按既有 `qa_records.reasoning` 范围保存 Provider 原样返回的 CoT；它仅是模型输出，不是证据、事实、置信度或审计结论。Trace、评测、指标和日志不得复制或保存该内容。
+- 不承诺模型回答可替代人工安全决策。
+
+---
+
+## 3. 术语与不变量
+
+### 3.1 术语
+
+| 术语 | 定义 |
+| --- | --- |
+| Candidate | dense 或 BM25 阶段召回的原始 chunk，尚未证明适合给模型。 |
+| Retrieval Trace | 本次请求各检索阶段的脱敏排序、数量、耗时、策略版本和降级状态。 |
+| Evidence Reference | 有稳定 ID 的最小可引用证据，绑定 knowledge item、chunk、语料版本、标题路径与行号。 |
+| Evidence Pack | 经过重排、去重、多样性选择和 token 预算装配后，允许进入生成 Prompt 的证据集合。 |
+| Citation Manifest | 最终回答中所有 citation ID 与 Evidence Reference 的可验证映射。 |
+| Answer Status | `supported`、`insufficient_evidence`、`conflicting_evidence`、`degraded` 之一。 |
+| Pipeline Version | 检索参数、算法与 Prompt 模板的不可变版本标识，用于比对和回滚。 |
+
+### 3.2 不变量
+
+1. 任何 Evidence Reference 都必须来自本次经过权限与注入检查的 Evidence Pack；不得由模型虚构 citation ID。
+2. 任何 `supported` 的关键主张至少包含一个有效 citation；没有有效 citation 的关键主张不得标记为 supported。
+3. 文档正文、完整用户问题、原始 Prompt、原始 CoT、凭据和 Token 不得出现在 trace、指标或日志中；唯一允许的 CoT 保存位置是当前用户有权读取的既有 `qa_records.reasoning` 字段。
+4. dense cosine、BM25、RRF、rerank 分数均只能视为检索特征；不得在 UI 中直接解释为事实正确率或回答置信度。
+5. 当前默认链路必须可通过 Feature Flag 切换回 legacy 行为；新链路出错时安全降级为 legacy retrieval 或明确返回 degraded，不得静默返回伪造引用。
+6. 所有新增数据库表、字段和迁移必须是加性的，旧 QA 记录和旧客户端继续可读。
+
+---
+
+## 4. 目标架构
+
+```text
+QA Route
+  │
+  ├─ Legacy adapter（兼容现有 ask / ask_stream）
+  │
+  └─ EnterpriseRagPipeline.execute(request)
+       │
+       ├─ QueryNormalizer（确定性规范化，保留原问题）
+       ├─ CandidateRetriever（Qdrant dense + BM25 + RRF）
+       ├─ RerankStage（现有 reranker adapter，可降级）
+       ├─ EvidencePackBuilder（去重、多样性、token 预算、父子窗口）
+       ├─ CitationManifestBuilder（稳定 citation ID 与可追溯元数据）
+       ├─ AnswerComposer（稳定系统提示 + Evidence Pack + 结构化回答契约）
+       ├─ CitationValidator（引用存在性、授权范围、行号、状态校验）
+       └─ RetrievalTraceRecorder（脱敏 trace、策略版本、耗时）
+```
+
+### 4.1 深模块与接口
+
+新增 `backend/app/services/rag_core/`，作为本期唯一的主 seam。调用方只需要理解下列接口：
+
+```text
+EnterpriseRagPipeline.execute(request) -> RagExecutionResult
+EnterpriseRagPipeline.stream(request) -> Iterator[RagStreamEvent]
+RagEvaluator.run(evaluation_run_request) -> RagEvaluationReport
+```
+
+模块内部可以有多个小实现，但 Route、前端和评测工具不得直接依赖 Qdrant 细节、RRF 公式、父块拼接规则或 citation 编码规则。
+
+### 4.2 请求和结果契约
+
+`RagExecutionRequest` 必须包含：
+
+- `query`：原始用户问题；
+- `conversation_history`：已清洗的有限窗口；
+- `user_id`、`record_id`、`request_id`：审计关联；
+- `mode`：`user` 或 `diagnostic`；
+- `pipeline_version`：可选显式版本，否则使用 Feature Flag 当前默认值。
+
+`RagExecutionResult` 必须包含：
+
+- `answer`；
+- `answer_status`；
+- `citations`：面向客户端的、无正文泄露的 citation 摘要；
+- `evidence_manifest`：仅用于持久化/诊断的结构化映射；
+- `trace_id`；
+- `retrieval_summary`：候选、重排、证据数量和降级状态；
+- `warnings`；
+- `model/provider/usage/latency`。
+
+### 4.3 策略配置与版本
+
+配置必须有安全默认值、严格范围校验和稳定指纹。第一版提供：
+
+| 配置 | 默认值 | 说明 |
+| --- | ---: | --- |
+| `RAG_PIPELINE_V2_ENABLED` | `false` | 新链路 Feature Flag。 |
+| `RAG_CANDIDATE_TOP_K` | `40` | RRF 后供精排的最大候选数，范围 10–100。 |
+| `RAG_RERANK_TOP_K` | `15` | 供 Evidence Pack 选择的重排结果数，范围 3–30。 |
+| `RAG_EVIDENCE_TOP_K` | `6` | 最终证据数量，范围 2–10。 |
+| `RAG_EVIDENCE_TOKEN_BUDGET` | `3500` | 使用 tokenizer 计数的 Evidence Pack 预算。 |
+| `RAG_DIAGNOSTICS_ENABLED` | `false` | 是否允许授权诊断 API 返回脱敏 trace。 |
+| `RAG_STRICT_CITATIONS_ENABLED` | `false` | 是否强制关键主张必须有有效 citation。 |
+
+`pipeline_version` 由算法版本、Embedding 版本、reranker 版本、Prompt 模板版本和上述配置指纹生成；不得含用户信息或随机值。
+
+---
+
+## 5. 检索与证据设计
+
+### 5.1 QueryNormalizer
+
+第一期只做确定性、可审计的规范化：空白规范、Unicode 规范、保留原 query、提取高价值标识符（CVE/CWE、协议端口、配置键、函数/类名）。
+
+不得在第一期引入 LLM query rewrite、HyDE 或多查询扩展；这些功能只有在评测证明当前链路对特定类别存在系统性低召回时才进入后续规格。
+
+### 5.2 CandidateRetriever
+
+- 复用 Qdrant dense + BM25 与 RRF，修复重复 lexical 请求。
+- 每个 candidate 必须记录来源阶段、dense rank/score（如有）、BM25 rank（如有）、RRF score、原始 chunk ID、文档 ID、标题路径、行号和 embedding/corpus version。
+- 返回的 `similarity` 保持向后兼容，但不再作为 UI 的百分比含义；新增明确命名的阶段特征。
+- 所有分数必须可为空，代码不得假定 dense、BM25 与 rerank 分数处于同一尺度。
+
+### 5.3 RerankStage
+
+- 使用现有 API/local reranker adapter；未配置、超时或失败时保留 RRF 顺序并在 trace 中写入 `rerank_status=skipped|failed`。
+- 不允许 embedding 余弦伪重排覆盖真实 reranker 结果；降级策略必须可观测。
+- Rerank 输入使用 child chunk；Evidence Pack 可在后续展开受限 parent window。
+
+### 5.4 EvidencePackBuilder
+
+输入：已重排 candidates 与 token budget。输出：按 citation ID 排序的 Evidence Pack。
+
+选择规则：
+
+1. 先过滤注入命中、缺正文、缺 document/chunk 标识、版本不一致和重复 chunk。
+2. 同文档相邻 chunks 可合并为连续行窗口；非相邻 chunks 不能伪造连续引用。
+3. 同一知识条目默认最多占 Evidence Pack 的 40%，除非候选集中只有一个可用来源。
+4. 优先保留与 query 标识符、标题路径、rerank 结果一致的 chunk；相同相似内容只保留一份。
+5. 预算以 embedding tokenizer 真实 token 数计算，不能再以 Python 字符数作为主预算。
+6. 若没有能够支撑关键主张的安全证据，产生 `insufficient_evidence` 候选状态，不用低相关内容强行凑齐。
+
+### 5.5 Citation Manifest
+
+Citation ID 格式：`C{ordinal}-{knowledge_item_id}-{chunk_id_hash}-{corpus_version_short}`。
+
+每条引用必须包含：
+
+- citation ID；
+- knowledge item ID；
+- title；
+- title path；
+- relative source path；
+- corpus version；
+- chunk ID；
+- start/end line；
+- 受限的证据摘要；
+- 注入检查状态。
+
+用户侧不显示 RRF、dense cosine 或完整 parent_text；诊断侧可显示脱敏阶段排名。
+
+---
+
+## 6. 生成、答案状态与验证
+
+### 6.1 Prompt 契约
+
+系统提示保持稳定前缀，Evidence Pack 位于明确标记为不可信资料的数据区。模型必须输出：
+
+```text
+<answer_status>supported | insufficient_evidence | conflicting_evidence | degraded</answer_status>
+<answer>面向用户的 Markdown 答案</answer>
+<claims>
+  <claim citations="C1-...,C2-...">关键事实或结论</claim>
+</claims>
+<uncertainties>证据不足、冲突或适用条件</uncertainties>
+```
+
+Prompt 不得强迫模型生成 CoT。若 Provider 原生返回 reasoning，则允许向当前记录所属用户原样显示和保存；该内容必须与“回答依据”区分，且不得被 CitationValidator 当作证据或事实来源。
+
+### 6.2 CitationValidator
+
+生成后必须验证：
+
+1. 所有 citation ID 存在于本次 Evidence Pack；
+2. citation 不跨用户、知识范围或 corpus version；
+3. `supported` 答案的每个关键 claim 至少有一个有效 citation；
+4. 引用格式错误、引用不存在或引用全部被剔除时，将答案降级为 `degraded`，并提示用户重新提问或查看不足说明；
+5. 验证器不对自然语言“真伪”作伪确定性判断；忠实性由离线评测和人工抽样共同评估。
+
+### 6.3 用户可见状态
+
+| 状态 | 用户文案语义 | 允许的回答行为 |
+| --- | --- | --- |
+| `supported` | 已找到可追溯资料 | 正常回答，显示引用。 |
+| `insufficient_evidence` | 当前知识库没有足够依据 | 说明缺什么信息，不编造事实。 |
+| `conflicting_evidence` | 检索到相互冲突资料 | 罗列差异、版本或适用条件，不强行裁决。 |
+| `degraded` | 检索/重排/引用校验发生降级 | 明确未验证范围，不能显示虚假高置信。 |
+
+---
+
+## 7. 数据模型与 API
+
+### 7.1 新增迁移
+
+新增 `database/migrations/038_enterprise_rag_core.sql`，在 `backend/app/scripts/apply_sql_migration.py` 的 `MIGRATION_IDS` 中按序注册，并同步 `database/init.sql`。
+
+新增表：
+
+1. `rag_pipeline_versions`
+   - `id`、`version_key`（唯一）、`config_json`、`prompt_version`、`embedding_version`、`reranker_version`、`created_at`。
+2. `rag_retrieval_traces`
+   - `id`、`request_id`、`record_id`、`user_id`、`pipeline_version_id`、`query_fingerprint`、`stage_summary_json`、`warnings_json`、`retrieval_ms`、`created_at`。
+   - 不保存原 query、原文 chunk、Prompt 或 CoT。
+3. `rag_evaluation_runs`
+   - `id`、`pipeline_version_id`、`corpus_version`、`status`、`metrics_json`、`report_path`、`started_at`、`finished_at`。
+4. `rag_evaluation_results`
+   - `id`、`run_id`、`case_id`、`retrieval_metrics_json`、`citation_metrics_json`、`answer_metrics_json`、`failure_stage`、`notes`。
+
+对现有表的加性扩展：
+
+- `qa_records`：增加 `answer_status`、`citation_manifest_json`、`rag_trace_id`、`pipeline_version_key`。
+- `rag_eval_cases`：增加 `expected_evidence_json`、`expected_status`、`difficulty`、`is_active`、`updated_at`。
+
+### 7.2 API
+
+保留既有 `/api/qa/ask` 与 `/api/qa/ask/stream` 返回字段；增加：
+
+- `answer_status`
+- `citations`
+- `retrieval_summary`
+- `trace_id`
+- `pipeline_version`
+
+新增只读授权接口：
+
+- `GET /api/qa/records/<record_id>/evidence`：本人查看该回答的 citation manifest 与安全摘要。
+- `GET /api/admin/rag/traces/<trace_id>`：仅管理员/诊断权限，返回脱敏 trace。
+- `GET /api/admin/rag/evaluation-runs`：分页查看评测运行摘要。
+- `GET /api/admin/rag/evaluation-runs/<run_id>`：查看按类别、阶段和策略版本拆分的指标。
+
+所有新增接口必须验证身份、对象归属和管理员角色；不得依赖前端隐藏按钮做鉴权。
+
+---
+
+## 8. 前端设计
+
+### 8.1 用户聊天视图
+
+在现有聊天组件中新增、复用并拆分：
+
+- `AnswerEvidenceSummary.vue`：回答状态、证据数量、降级/冲突提示；
+- `AnswerCitationList.vue`：按 `[C1]` 显示标题、标题路径、行号和摘要；
+- `CitationDetailDrawer.vue`：调用授权详情接口，展示受限引用内容；
+- `AnswerUncertaintyPanel.vue`：仅在证据不足、冲突或降级时显示。
+
+要求：
+
+- 不再将 cosine 格式化为“xx% 相似度”；
+- 引用卡可键盘操作，有语义标签与 focus 管理；
+- 手机端只保留标题、状态和行号，详情在抽屉显示；
+- 所有样式使用现有 UI 组件、SCSS scoped 和项目统一变量；
+- 不在页面组件直接调 API，数据加载放在 composable/API 层。
+
+### 8.2 管理/诊断视图
+
+新增受控诊断面板，展示：
+
+```text
+pipeline version
+候选数量（dense / BM25 / RRF）
+rerank 是否执行与耗时
+Evidence Pack 数量 / token 数
+注入剔除数量
+最终 answer status
+各阶段耗时
+```
+
+不得展示完整用户问题、完整资料正文、Token、Prompt 或 CoT。
+
+---
+
+## 9. 评测与质量门禁
+
+### 9.1 评测集
+
+扩展 `rag_eval_cases` 至至少 200 条活跃 case，类别至少包括：
+
+- `concept`：安全概念解释；
+- `identifier`：CVE/CWE、端口、配置键、函数名；
+- `defense`：检测、修复、加固；
+- `multihop`：多资料综合；
+- `alias`：中英文别名与缩写；
+- `insufficient`：语料中没有答案；
+- `conflict`：版本或适用条件冲突；
+- `injection`：恶意文档/查询提示词注入负例。
+
+每个 case 必须有 expected document/chunk evidence、预期 answer status 和人工审核说明；`expected_answer` 可作为参考，不作为单一自动正确性标准。
+
+评测标签以受版本控制的 `backend/rag_eval_cases.jsonl` 为唯一人工可审阅来源；每条至少包含稳定 `case_key`、query、类别、难度、expected evidence、expected status 与审核说明。该文件不得保存文档正文或完整 Prompt；`database/seed_rag_eval_cases.sql` 仅由它转换出的最小字段生成，并按 query 幂等导入。
+
+### 9.2 指标
+
+| 阶段 | 必测指标 |
+| --- | --- |
+| Candidate | Recall@20、Recall@40、MRR@20、nDCG@10。 |
+| Rerank | nDCG@10、MRR@10、与 RRF baseline 的胜负样本。 |
+| Evidence Pack | context precision、context recall、来源多样性、token 预算占用。 |
+| Answer | citation correctness、citation completeness、人工忠实性抽样、拒答正确率。 |
+| Runtime | retrieval p50/p95、rerank p50/p95、降级率、失败率。 |
+
+### 9.3 发布门禁
+
+新 Pipeline Version 只有同时满足以下条件才可默认启用：
+
+1. 所有自动化测试通过，外部 embedding/rerank/LLM 全部 mock；
+2. 对冻结评测集，Recall@20、nDCG@10、citation completeness 不低于 legacy baseline；
+3. 至少两个主要质量指标优于 baseline，且没有任何高风险类别下降；
+4. `insufficient` 和 `injection` 类别没有把不支持的答案标成 supported；
+5. 检索 p95 不高于 legacy 的 1.25 倍，或性能代价有经用户确认的收益证据；
+6. 人工抽检 30 条 supported 答案，关键主张 citation correctness 至少 90%，且不存在 P0 级越权/伪造引用；
+7. 可以通过 Feature Flag 在一次配置变更内回退到 legacy。
+
+---
+
+## 10. 安全、隐私与可观测性
+
+1. 所有 Evidence Pack 内容视为不可信资料；延续并扩大 prompt injection 检测范围。
+2. 历史记录、用户偏好、记忆、附件必须显式标注来源类型，不能伪装为系统指令或可信证据。
+3. Trace 保存 ID、rank、分数、耗时和摘要哈希；不保存文本正文。
+4. 评测报告保存至已忽略的 `backend/rag_report_*.json`，数据库仅保存摘要、版本和受控路径。
+5. 回答、trace、评测运行通过 request ID、record ID 和 pipeline version 关联，便于排障与审计。
+6. 日志不得使用 `print` 输出异常正文；使用结构化 logger，记录 error type、stage、trace ID 与安全摘要。
+
+---
+
+## 11. 交付定义
+
+本规格完成不等于“代码写完”。只有以下全部成立才算完成：
+
+- 200+ 冻结评测 case 已入库、类别分布可查询；
+- legacy 和 v2 能对同一 case 生成可对比报告；
+- v2 按门禁优于或不劣于 legacy；
+- 用户能查看答案状态、citation、行号和证据不足说明；
+- 管理员能查看脱敏 trace 和评测运行；
+- 新增 schema、API、Feature Flag、迁移、回滚和测试都有验证证据；
+- `tasks.md` 和 `checklist.md` 中所有 blocker 项完成并登记结果。

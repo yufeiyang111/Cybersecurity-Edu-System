@@ -117,16 +117,22 @@ class TextChunker:
         return self._tokenizer
 
     def count_tokens(self, text: str) -> int:
-        """估算 token 数量（优先真实 tokenizer，降级字符估算）。"""
+        """返回 token 数量；兼容原有调用方。"""
+        token_count, _ = self.count_tokens_with_mode(text)
+        return token_count
+
+    def count_tokens_with_mode(self, text: str) -> tuple[int, str]:
+        """返回 token 数量与计数模式，供 Evidence Pack trace 标注降级状态。"""
         tokenizer = self._get_tokenizer()
         if tokenizer is not None:
             try:
-                return len(tokenizer.encode(text, add_special_tokens=False))
+                return len(tokenizer.encode(text, add_special_tokens=False)), "tokenizer"
             except Exception:
-                pass
+                self._tokenizer = None
+                self._tokenizer_failed = True
         if self.language == "zh":
-            return len(text) // 2
-        return len(text.split())
+            return len(text) // 2, "estimate"
+        return len(text.split()), "estimate"
 
     def _line_starts(self, text: str) -> List[int]:
         """构建行起始字符偏移数组（第 i 行从 starts[i] 开始，1-based 行号）。"""

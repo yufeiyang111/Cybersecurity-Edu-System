@@ -1,4 +1,4 @@
-﻿- =========================================
+- =========================================
 -- CyberGuard 缃戠粶瀹夊叏鏅鸿兘闂瓟鏁欏绯荤粺
 -- 鏁版嵁搴撳垵濮嬪寲鑴氭湰
 -- =========================================
@@ -171,6 +171,10 @@ CREATE TABLE IF NOT EXISTS qa_records (
     model_name VARCHAR(50) COMMENT '浣跨敤鐨勬ā鍨?,
     response_time FLOAT COMMENT '鍝嶅簲鏃堕棿(绉?',
     rag_warnings JSON NULL COMMENT 'RAG 娉ㄥ叆闃叉姢璀﹀憡锛坉ocId:flag 鍒楄〃锛?,
+    answer_status VARCHAR(32) NULL COMMENT 'RAG 回答证据状态',
+    citation_manifest_json JSON NULL COMMENT '结构化 citation manifest（不含正文）',
+    rag_trace_id INT NULL COMMENT '脱敏检索 trace ID',
+    pipeline_version_key VARCHAR(64) NULL COMMENT 'RAG pipeline version key',
     feedback ENUM('good', 'neutral', 'bad') COMMENT '鐢ㄦ埛鍙嶉',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES qa_conversations(id) ON DELETE SET NULL,
@@ -1335,6 +1339,11 @@ CREATE TABLE IF NOT EXISTS rag_eval_cases (
     expected_answer TEXT NULL COMMENT '鏈熸湜绛旀瑕佺偣锛堢敤浜庣瓟妗堢浉鍏虫€ц瘎浼帮級',
     category VARCHAR(64) NULL,
     notes VARCHAR(500) NULL,
+    expected_evidence_json JSON NULL COMMENT '期望证据文档与行号标签',
+    expected_status VARCHAR(32) NULL COMMENT '期望回答证据状态',
+    difficulty VARCHAR(32) NULL COMMENT '评测难度',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否纳入当前评测',
+    updated_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '评测标签最后更新时间',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_eval_cases_category (category)
@@ -1644,3 +1653,70 @@ ALTER TABLE agent_checkpoints ADD COLUMN context_watermark INT NOT NULL DEFAULT 
 ALTER TABLE agent_checkpoints ADD COLUMN current_item_public_id VARCHAR(64) NULL;
 ALTER TABLE agent_checkpoints ADD COLUMN lease_owner VARCHAR(255) NULL;
 ALTER TABLE agent_checkpoints ADD COLUMN checkpoint_digest VARCHAR(64) NULL;
+-- =========================================
+-- Enterprise RAG Core（038 同步）
+-- =========================================
+CREATE TABLE IF NOT EXISTS rag_pipeline_versions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    version_key VARCHAR(64) NOT NULL,
+    config_json JSON NOT NULL,
+    prompt_version VARCHAR(64) NOT NULL,
+    embedding_version VARCHAR(255) NOT NULL,
+    reranker_version VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_rag_pipeline_versions_key (version_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Enterprise RAG pipeline versions';
+
+CREATE TABLE IF NOT EXISTS rag_retrieval_traces (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    request_id VARCHAR(64) NULL,
+    record_id INT NULL,
+    user_id INT NOT NULL,
+    pipeline_version_id INT NULL,
+    query_fingerprint VARCHAR(64) NOT NULL,
+    stage_summary_json JSON NOT NULL,
+    warnings_json JSON NULL,
+    retrieval_ms INT UNSIGNED NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_rag_retrieval_traces_record
+        FOREIGN KEY (record_id) REFERENCES qa_records(id) ON DELETE SET NULL,
+    CONSTRAINT fk_rag_retrieval_traces_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_rag_retrieval_traces_pipeline_version
+        FOREIGN KEY (pipeline_version_id) REFERENCES rag_pipeline_versions(id) ON DELETE SET NULL,
+    INDEX ix_rag_retrieval_traces_user_time (user_id, created_at),
+    INDEX ix_rag_retrieval_traces_record (record_id),
+    INDEX ix_rag_retrieval_traces_request (request_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Redacted RAG retrieval traces';
+
+CREATE TABLE IF NOT EXISTS rag_evaluation_runs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    pipeline_version_id INT NULL,
+    corpus_version VARCHAR(128) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    metrics_json JSON NULL,
+    report_path VARCHAR(500) NULL,
+    started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at DATETIME NULL,
+    CONSTRAINT fk_rag_evaluation_runs_pipeline_version
+        FOREIGN KEY (pipeline_version_id) REFERENCES rag_pipeline_versions(id) ON DELETE SET NULL,
+    INDEX ix_rag_evaluation_runs_status_time (status, started_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Enterprise RAG evaluation runs';
+
+CREATE TABLE IF NOT EXISTS rag_evaluation_results (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    run_id INT NOT NULL,
+    case_id INT NOT NULL,
+    retrieval_metrics_json JSON NULL,
+    citation_metrics_json JSON NULL,
+    answer_metrics_json JSON NULL,
+    failure_stage VARCHAR(64) NULL,
+    notes VARCHAR(1000) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_rag_evaluation_results_run
+        FOREIGN KEY (run_id) REFERENCES rag_evaluation_runs(id) ON DELETE CASCADE,
+    CONSTRAINT fk_rag_evaluation_results_case
+        FOREIGN KEY (case_id) REFERENCES rag_eval_cases(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_rag_evaluation_results_run_case (run_id, case_id),
+    INDEX ix_rag_evaluation_results_failure_stage (failure_stage)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Enterprise RAG evaluation case results';
