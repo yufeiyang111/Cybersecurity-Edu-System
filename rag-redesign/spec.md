@@ -316,6 +316,7 @@ Prompt 不得强迫模型生成 CoT。若 Provider 原生返回 reasoning，则�
 
 - `AnswerEvidenceSummary.vue`：展示 `answer_status`、稳定 citation 数、主张覆盖数与“查看证据”入口；流式完成前显示证据处理中，旧记录显示兼容说明。
 - `AnswerCitationList.vue`：按 `[C#]` 展示标题、标题路径、行号、证据状态和受限预览；每项可聚焦、可通过 Enter/Space 打开详情或原文。
+- `LegacySourceList.vue`：仅展示旧记录已保存的标题、来源与行号；不渲染正文、不展示相似度、不支持详情、预览或原文跳转。
 - `CitationDetailDrawer.vue`：只接收页面/composable 提供的详情状态和数据，展示受控预览、行号、关联主张数、检索辅助信号和“在知识库中阅读全文”；组件内不得请求 API。
 - `AnswerUncertaintyPanel.vue`：仅在 `insufficient_evidence`、`conflicting_evidence`、`degraded` 时展示可执行的下一步建议。
 - `useCitationEvidence.js`：唯一负责调用 owner-scoped evidence API、缓存同一 record 的详情、处理 loading/error/legacy 状态，并在后端返回合法 `document` 目标后导航到 `/knowledge/:id`。
@@ -324,7 +325,7 @@ Prompt 不得强迫模型生成 CoT。若 Provider 原生返回 reasoning，则�
 交互与安全要求：
 
 1. 新回答 SSE 完成时先稳定显示正文和 answer status；`citations` 缺失、格式非法、断流或 error 发生在正文之后时，将消息显式标记为 `degraded`，不得静默隐藏来源区。
-2. 点击 citation 标识或标题打开详情；点击“查看原文/阅读全文”时只能使用 `useCitationEvidence` 已解析的 `document.knowledge_id` 导航。旧 `sources` 仅作为 legacy 兼容信息，不允许再直接调用 `knowledgeAPI.getKnowledge(source.id)`。
+2. 点击 citation 标识或标题打开详情；点击“查看原文/阅读全文”时只能使用 `useCitationEvidence` 已解析的 `document.knowledge_id` 导航。无 `pipeline_version` 的旧记录若保存了 `sources`，必须显示只读历史来源卡（标题、来源、行号）；不得显示相似度、正文、`document_id`，也不得再直接调用 `knowledgeAPI.getKnowledge(source.id)` 或猜测跳转目标。
 3. 预览是后端受限返回的阅读辅助，不是模型上下文或原始 Evidence Pack；必须显示来源、行号和截断语义，不能渲染未消毒 HTML。
 4. 不显示“dense cosine × 100”的相似度，也不把未校准 `confidence` 标成回答置信度；若存在则显示“检索辅助信号（非正确率）”等级，否则显示“暂不可用”。
 5. 证据状态优先级高于任何辅助信号：`supported`、`insufficient_evidence`、`conflicting_evidence`、`degraded` 必须有明确用户文案和下一步操作。

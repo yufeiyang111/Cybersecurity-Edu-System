@@ -61,11 +61,6 @@ export function useChat(threadRef) {
     '服务器被入侵后应如何排查？'
   ]
 
-  const normalizeSources = (sources) => (sources || []).map((s) => ({
-    ...s,
-    source_type: s.source_type || s.source || 'unknown'
-  }))
-
   const loadConversations = async () => {
     try {
       const res = await qaAPI.getConversations({ page: 1, per_page: 15 })
@@ -182,7 +177,7 @@ export function useChat(threadRef) {
       role: 'assistant',
       content: '',
       reasoning: '',
-      sources: [],
+      legacySources: pendingEvidence.legacySources,
       attachments: [],
       streaming: true,
       answerStatus: pendingEvidence.answerStatus,
@@ -260,9 +255,10 @@ export function useChat(threadRef) {
             const evidence = normalizeAssistantEvidence({
               answerStatus: data.answer_status,
               citations: data.citations,
+              sources: data.sources,
               pipelineVersion: data.pipeline_version
             })
-            assistantMsg.sources = normalizeSources(data.sources)
+            assistantMsg.legacySources = evidence.legacySources
             assistantMsg.confidence = data.confidence
             assistantMsg.response_time = data.response_time
             assistantMsg.model_name = data.model_name || data.provider

@@ -34,10 +34,15 @@
           :answer-status="message.answerStatus"
           :citation-count="citationCount"
           :citation-state="message.citationState"
+          :legacy-source-count="legacySources.length"
           :detail-state="message.evidenceLoadState"
           :error-message="message.evidenceError"
           :record-id="message.recordId"
           @load-evidence="handleLoadEvidence"
+        />
+        <LegacySourceList
+          v-if="showCitations && message.citationState === 'legacy'"
+          :sources="legacySources"
         />
         <AnswerCitationList
           v-if="showCitations && message.evidenceLoadState === 'success'"
@@ -69,6 +74,7 @@ import AnswerCitationList from './AnswerCitationList.vue'
 import AnswerEvidenceSummary from './AnswerEvidenceSummary.vue'
 import AnswerUncertaintyPanel from './AnswerUncertaintyPanel.vue'
 import ChatMarkdown from './ChatMarkdown.vue'
+import LegacySourceList from './LegacySourceList.vue'
 import ChatMessageActions from './ChatMessageActions.vue'
 import ChatRagWarnings from './ChatRagWarnings.vue'
 import ChatThinking from './ChatThinking.vue'
@@ -96,6 +102,12 @@ const citationCount = computed(() => {
   const citations = props.message.citationManifest?.citations
   return Array.isArray(citations) ? citations.length : 0
 })
+const legacySources = computed(() => {
+  return Array.isArray(props.message.legacySources)
+    ? props.message.legacySources
+    : []
+})
+
 const citationDetails = computed(() => {
   return Array.isArray(props.message.citationDetails)
     ? props.message.citationDetails

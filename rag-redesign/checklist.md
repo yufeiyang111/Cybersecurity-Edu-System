@@ -121,14 +121,14 @@
 - [x] **H-07** 所有新 Vue 页面遵守编排层与组件层分离；展示组件不直接调用 API，`useCitationEvidence` 统一承担请求、缓存和已授权导航。
 - [x] **H-08** 聊天证据组件使用现有 QA `--chat-*` token、内容宽度与亮/暗主题，不混入 Security Workbench 蓝色卡片风格；管理员诊断页使用 BaseIcon/BaseButton/BaseBadge/BasePanel。
 - [ ] **H-09** 桌面、平板、手机三断点均验证；引用详情可键盘操作、焦点正确恢复，手机端标题、状态、行号与原文跳转可用。
-- [x] **H-10** loading、empty、error、success、SSE 中断、manifest 非法和旧记录状态都有 UI/纯函数覆盖，不允许静默隐藏证据失败。
+- [x] **H-10** loading、empty、error、success、SSE 中断、manifest 非法和旧记录状态都有 UI/纯函数覆盖，不允许静默隐藏证据失败；历史 record 的旧 `sources` 以只读卡片保留标题、来源和行号，不允许伪造 citation、正文或原文跳转。
 - [x] **H-11 BLOCKER** 普通用户无法进入 `/admin/rag-diagnostics`，且后台 trace/evaluation API 对非管理员返回 403；前端路由守卫不是唯一防线。
 
 
 **T07 自动化证据（2026-08-14）：**
 
 - Citation API focused tests：42 passed；公共知识导航仅由 record + manifest + published KnowledgeItem 共同授权。
-- 前端 `test:agent`：44 passed；含 citation 状态/辅助信号、非法 manifest、诊断数据白名单与泄露防护测试。
+- 前端 `test:agent`：46 passed；含 citation 状态/辅助信号、非法 manifest、诊断数据白名单与泄露防护测试。
 - 前端 build：通过；完整后端 pytest：1271 passed，1 skipped；compileall：通过。
 - **H-09 保持待人工验收**：响应式断点、亮/暗主题、键盘焦点恢复和真实知识原文跳转需要在用户管理的运行中服务上完成。
 ## I. 评测集与质量指标

@@ -313,6 +313,7 @@ T02、T03、T04、T05、T06 的业务实现必须建立在 T01 的稳定契约�
 - `frontend/src/features/admin/ragEvaluationPresentation.js`
 - `frontend/src/components/chat/AnswerEvidenceSummary.vue`
 - `frontend/src/components/chat/AnswerCitationList.vue`
+- `frontend/src/components/chat/LegacySourceList.vue`
 - `frontend/src/components/chat/CitationDetailDrawer.vue`
 - `frontend/src/components/chat/AnswerUncertaintyPanel.vue`
 - `frontend/src/components/chat/ChatMessage.vue`
@@ -335,9 +336,9 @@ T02、T03、T04、T05、T06 的业务实现必须建立在 T01 的稳定契约�
 - [x] 扩展 owner-scoped `GET /api/qa/records/<record_id>/evidence`：保留 manifest 兼容字段，新增按 record + `citation_id` 验证后的 citation detail、限长纯文本预览、主张覆盖数和公共知识库导航目标；不新增迁移，不允许从 legacy source 猜测文档 ID。
 - [x] 仅对 manifest 中可解析、已发布的公共 `KnowledgeItem` 返回 `document.knowledge_id`；跨用户 record、伪造 citation、非法 document_id、已删除/未发布文档、非法 manifest 与无 citation 的旧记录均覆盖安全返回，不泄露正文或对象存在性。
 - [x] 移除“dense cosine × 100 = 相似度百分比”的产品表达；`confidence` 仅以“检索辅助信号（非正确率）”高/中/低/暂不可用显示，不能展示为回答置信度百分比。
-- [x] 新建 QA 风格 `AnswerEvidenceSummary`、`AnswerCitationList`、`CitationDetailDrawer`、`AnswerUncertaintyPanel`：使用现有 `--chat-*` tokens、暗色主题和聊天内容宽度；引用标题/按钮可进入知识库原文，预览、状态、行号、主张覆盖和辅助信号清晰可见。
+- [x] 新建 QA 风格 `AnswerEvidenceSummary`、`AnswerCitationList`、`LegacySourceList`、`CitationDetailDrawer`、`AnswerUncertaintyPanel`：使用现有 `--chat-*` tokens、暗色主题和聊天内容宽度；v2 引用标题/按钮可进入知识库原文，预览、状态、行号、主张覆盖和辅助信号清晰可见；legacy source 仅以只读摘要保留。
 - [x] `CitationDetailDrawer` 与各展示组件只通过 props/emit 协作；新增 `useCitationEvidence` 统一处理 API 调用、缓存、错误、焦点恢复和后端授权后的路由导航；移除 `ChatSources.vue` 中组件内 API 调用。
-- [x] 流式回答中先稳定渲染正文和状态，再处理 citation manifest；SSE 断流、无 done、manifest 缺失/非法、legacy record、evidence 请求失败时显式显示降级或兼容提示，不能静默隐藏。
+- [x] 流式回答中先稳定渲染正文和状态，再处理 citation manifest；SSE 断流、无 done、manifest 缺失/非法、legacy record、evidence 请求失败时显式显示降级或兼容提示，不能静默隐藏；历史 record 已保存的 `sources` 显示为只读来源卡，不伪造 citation、不显示相似度或正文、不支持原文跳转。
 - [x] 新增管理员诊断页 `/admin/rag-diagnostics`：仅显示后端白名单后的脱敏数量、排名、耗时、策略版本、warning 与评测摘要；具备 loading/empty/error/success 状态，前端 role guard 与后端 403 双重覆盖，API 不下发候选明细、document ID、request ID 或 query fingerprint。
 - [x] 使用 `BaseIcon`；管理员页面使用 `BasePanel`、`BaseBadge`、`BaseButton`。聊天页面不引入与 QA token 冲突的 Security Workbench 蓝色视觉；所有新增样式为 scoped SCSS，覆盖桌面/平板/手机。
 - [x] 编写真实边界测试：citation 越权/伪造/文档失效/预览截断/旧记录，状态与辅助信号归一化，SSE 断流与无效 manifest，管理员路由与 trace API 拒绝普通用户；外部 API 全部 mock。
@@ -354,7 +355,7 @@ T02、T03、T04、T05、T06 的业务实现必须建立在 T01 的稳定契约�
 **自动化验证证据（2026-08-14）：**
 
 - `backend\venv\Scripts\python.exe -m pytest tests\test_qa_evidence_api.py tests\test_qa_rag_warnings.py tests\test_rag_trace_authorization.py -q`：42 passed；覆盖 owner scope、伪造 citation、未发布文档、预览截断、legacy record、SSE 降级与管理员 API 拒绝普通用户。
-- `npm --prefix frontend run test:agent`：44 passed；覆盖 citation manifest 缺失/重复/伪造、流式/legacy 状态、未校准检索辅助信号、诊断 trace 白名单、评测摘要白名单与 failure stage 聚合。
+- `npm --prefix frontend run test:agent`：46 passed；覆盖 citation manifest 缺失/重复/伪造、流式/legacy 状态、未校准检索辅助信号、诊断 trace 白名单、评测摘要白名单与 failure stage 聚合。
 - `npm --prefix frontend run build`：通过；使用当前项目既有 Sass/CSS nesting 和大 chunk 警告，但无新增构建失败。
 - `backend\venv\Scripts\python.exe -m pytest tests -q`：1271 passed，1 skipped；`backend\venv\Scripts\python.exe -m compileall -q app tests`：通过。
 - 仅剩用户管理服务上的浏览器人工验收（H-09/L-04）：需验证亮/暗主题下的桌面、平板、手机断点，以及真实已发布知识文档的跳转；本轮未启动、停止或重启任何常驻服务。

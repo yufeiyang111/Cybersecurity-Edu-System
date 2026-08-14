@@ -7,6 +7,7 @@ import {
   normalizeAssistantEvidence,
   normalizeCitationManifest,
   normalizeEvidenceResponse,
+  normalizeLegacySources,
   retrievalSignalPresentation
 } from '../../frontend/src/features/chat/citationPresentation.js'
 
@@ -78,6 +79,61 @@ test('流式过程和无 pipeline 的历史记录有明确状态，不伪造证�
   assert.equal(answerStatusPresentation(pending.answerStatus, pending.citationState).label, '证据处理中')
   assert.equal(legacy.citationState, 'legacy')
   assert.equal(answerStatusPresentation(legacy.answerStatus, legacy.citationState).label, '历史记录')
+})
+
+test('历史记录的 legacy sources 必须保留为只读来源，不能因缺 manifest 而被隐藏', () => {
+  const evidence = normalizeAssistantEvidence({
+    sources: [
+      {
+        title: '旧版 SQL 注入资料',
+        source: 'HackTricks',
+        start_line: 3,
+        end_line: 8
+      }
+    ]
+  })
+
+  assert.equal(evidence.citationState, 'legacy')
+  assert.deepEqual(evidence.legacySources, [
+    {
+      title: '旧版 SQL 注入资料',
+      source: 'HackTricks',
+      startLine: 3,
+      endLine: 8
+    }
+  ])
+})
+
+test('legacy sources 丢弃无效字段、去重并且不透传旧 payload 的敏感内容', () => {
+  const sources = normalizeLegacySources([
+    null,
+    { title: '', source: '' },
+    {
+      title: '旧资料',
+      source: 'HackTricks',
+      start_line: '7',
+      end_line: '3',
+      document_id: 44,
+      content: '不应进入前端历史来源卡片的正文'
+    },
+    {
+      title: '旧资料',
+      source: 'HackTricks',
+      start_line: 7,
+      end_line: 3
+    }
+  ])
+
+  assert.deepEqual(sources, [
+    {
+      title: '旧资料',
+      source: 'HackTricks',
+      startLine: 7,
+      endLine: null
+    }
+  ])
+  assert.equal(JSON.stringify(sources).includes('document_id'), false)
+  assert.equal(JSON.stringify(sources).includes('不应进入前端历史来源卡片的正文'), false)
 })
 
 test('evidence 详情只接受 manifest 内 citation 和后端授权的知识库跳转目标', () => {

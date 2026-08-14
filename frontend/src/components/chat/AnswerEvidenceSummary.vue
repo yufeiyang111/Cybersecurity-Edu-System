@@ -17,10 +17,10 @@
         {{ citationCount }} 条可核验引用
       </p>
       <p
-        v-else-if="citationState === 'legacy'"
+        v-else-if="citationState === 'legacy' && legacySourceCount > 0"
         class="summary-meta"
       >
-        历史来源信息不具备稳定 citation 标识。
+        已保留 {{ legacySourceCount }} 条历史检索来源；暂不支持原文跳转。
       </p>
       <p
         v-if="detailState === 'error'"
@@ -53,6 +53,7 @@ const props = defineProps({
   answerStatus: { type: String, default: null },
   citationCount: { type: Number, default: 0 },
   citationState: { type: String, default: 'legacy' },
+  legacySourceCount: { type: Number, default: 0 },
   detailState: { type: String, default: 'idle' },
   errorMessage: { type: String, default: '' },
   recordId: { type: Number, default: null }

@@ -20,6 +20,7 @@ const buildMessages = (records) => {
       const evidence = normalizeAssistantEvidence({
         answerStatus: r.answer_status,
         citations: r.citations,
+        sources: r.sources,
         pipelineVersion: r.pipeline_version
       })
       list.push({
@@ -27,10 +28,7 @@ const buildMessages = (records) => {
         role: 'assistant',
         content: r.answer,
         reasoning: r.reasoning || '',
-        sources: (r.sources || []).map((s) => ({
-          ...s,
-          source_type: s.source_type || s.source || 'unknown'
-        })),
+        legacySources: evidence.legacySources,
         confidence: r.confidence,
         response_time: r.response_time,
         model_name: r.model_name,

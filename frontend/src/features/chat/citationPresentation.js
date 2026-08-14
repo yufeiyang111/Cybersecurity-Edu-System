@@ -66,38 +66,86 @@ const RETRIEVAL_SIGNAL_PRESENTATIONS = {
 export function normalizeAssistantEvidence({
   answerStatus,
   citations,
+  sources,
   pipelineVersion,
   isStreaming = false
 } = {}) {
   const manifest = normalizeCitationManifest(citations)
   const normalizedStatus = ANSWER_STATUSES.has(answerStatus) ? answerStatus : null
+  const legacySources = normalizeLegacySources(sources)
 
   if (isStreaming) {
     return {
       answerStatus: normalizedStatus,
       citationManifest: manifest,
-      citationState: 'pending'
+      citationState: 'pending',
+      legacySources
     }
   }
   if (!isNonEmptyString(pipelineVersion)) {
     return {
       answerStatus: normalizedStatus,
       citationManifest: manifest,
-      citationState: 'legacy'
+      citationState: 'legacy',
+      legacySources
     }
   }
   if (!normalizedStatus || !manifest.isValid) {
     return {
       answerStatus: 'degraded',
       citationManifest: manifest,
-      citationState: 'degraded'
+      citationState: 'degraded',
+      legacySources
     }
   }
   return {
     answerStatus: normalizedStatus,
     citationManifest: manifest,
-    citationState: 'ready'
+    citationState: 'ready',
+    legacySources
   }
+}
+
+export function normalizeLegacySources(value) {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const normalized = []
+  const seen = new Set()
+  for (const item of value) {
+    if (!isPlainObject(item)) {
+      continue
+    }
+
+    const source = shortText(item.source || item.source_type)
+    const title = shortText(item.title || item.name) || source
+    if (!title) {
+      continue
+    }
+
+    const startLine = positiveInteger(item.start_line ?? item.startLine)
+    const candidateEndLine = positiveInteger(item.end_line ?? item.endLine)
+    const endLine = candidateEndLine && startLine && candidateEndLine < startLine
+      ? null
+      : candidateEndLine
+    const fingerprint = `${title}\u0000${source || ''}\u0000${startLine || ''}\u0000${endLine || ''}`
+    if (seen.has(fingerprint)) {
+      continue
+    }
+
+    seen.add(fingerprint)
+    normalized.push({
+      title,
+      source,
+      startLine,
+      endLine
+    })
+    if (normalized.length >= 8) {
+      break
+    }
+  }
+  return normalized
 }
 
 export function normalizeEvidenceResponse(value) {
@@ -159,6 +207,13 @@ function normalizeRetrievalSignal(value) {
       : 'unavailable',
     isCalibrated: false
   }
+}
+
+function shortText(value) {
+  if (!isNonEmptyString(value)) {
+    return null
+  }
+  return value.trim().slice(0, 300)
 }
 
 function positiveInteger(value) {
