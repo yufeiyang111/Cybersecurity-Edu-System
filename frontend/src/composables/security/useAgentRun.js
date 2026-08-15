@@ -1,5 +1,6 @@
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { agentAPI } from '@/api'
+import { isAgentRunAccessDenied } from '@/features/security/agent/runAccessGuard'
 import { useAgentRunStore } from '@/stores/agentRunStore'
 import { securityApiErrorMessage } from '@/features/security/presentation'
 import { useAgentEventStream } from '@/composables/security/useAgentEventStream'
@@ -9,6 +10,7 @@ export function useAgentRun() {
   const { connect, disconnect } = useAgentEventStream()
   const loading = ref(false)
   const errorMessage = ref('')
+  const accessDenied = ref(false)
   const actionLoading = ref({ pause: false, resume: false, cancel: false })
   let activeRunId = null
   let generation = 0
@@ -28,9 +30,10 @@ export function useAgentRun() {
     disconnect()
     loading.value = true
     errorMessage.value = ''
+    accessDenied.value = false
     try {
       const snapshot = await agentAPI.getRun(runId)
-      if (requestGeneration !== generation) return
+      if (requestGeneration !== generation) return false
       store.hydrate(snapshot)
       attachStream(runId, (frame) => {
         store.applyEvent({
@@ -42,10 +45,19 @@ export function useAgentRun() {
           occurred_at: frame.data?.occurred_at || null
         })
       })
+      return true
     } catch (error) {
-      if (requestGeneration === generation) {
-        errorMessage.value = securityApiErrorMessage(error, '加载 Agent 任务失败。')
+      if (requestGeneration !== generation) return false
+      if (isAgentRunAccessDenied(error)) {
+        // 403 是稳定终态：断开流并清除旧任务，避免伪造“连接中”状态。
+        activeRunId = null
+        disconnect()
+        store.reset()
+        accessDenied.value = true
+        return false
       }
+      errorMessage.value = securityApiErrorMessage(error, '加载 Agent 任务失败。')
+      return false
     } finally {
       if (requestGeneration === generation) loading.value = false
     }
@@ -82,7 +94,7 @@ export function useAgentRun() {
   watch(
     () => store.gapDetected,
     (gap) => {
-      if (gap && activeRunId) {
+      if (gap && activeRunId && !accessDenied.value) {
         store.setConnectionState('resyncing')
         loadRun(activeRunId).then(() => store.markResynced())
       }
@@ -98,6 +110,7 @@ export function useAgentRun() {
     store,
     loading,
     errorMessage,
+    accessDenied,
     actionLoading,
     loadRun,
     createRun,

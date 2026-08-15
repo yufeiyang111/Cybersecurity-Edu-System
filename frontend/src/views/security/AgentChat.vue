@@ -1,23 +1,119 @@
 <template>
   <div class="agent-chat-page">
     <header class="ac-head">
-      <el-button text :icon="ArrowLeft" @click="goBack">返回</el-button>
+      <el-button
+        text
+        :icon="ArrowLeft"
+        @click="goBack"
+      >
+        返回
+      </el-button>
       <div class="ac-head__title">
         <span v-if="mode === 'conversation'">{{ conversationTitle }}</span>
         <span v-else>Agent 任务 #{{ runId }}</span>
         <el-tag v-if="store.run" :type="statusMeta.tagType" size="small">{{ statusMeta.label }}</el-tag>
       </div>
-      <div class="ac-head__actions">
-        <el-button size="small" :loading="actionLoading.pause" :disabled="!store.canPause" @click="handlePause">暂停</el-button>
-        <el-button size="small" type="primary" plain :loading="actionLoading.resume" :disabled="!store.canResume" @click="handleResume">恢复</el-button>
-        <el-button size="small" type="danger" plain :loading="actionLoading.cancel" :disabled="!store.canCancel" @click="handleCancel">取消</el-button>
-        <el-button size="small" :icon="Refresh" :loading="loading" @click="reload">刷新</el-button>
+      <div
+        v-if="!accessDenied"
+        class="ac-head__actions"
+      >
+        <el-button
+          size="small"
+          :loading="actionLoading.pause"
+          :disabled="!store.canPause"
+          @click="handlePause"
+        >
+          暂停
+        </el-button>
+        <el-button
+          size="small"
+          type="primary"
+          plain
+          :loading="actionLoading.resume"
+          :disabled="!store.canResume"
+          @click="handleResume"
+        >
+          恢复
+        </el-button>
+        <el-button
+          size="small"
+          type="danger"
+          plain
+          :loading="actionLoading.cancel"
+          :disabled="!store.canCancel"
+          @click="handleCancel"
+        >
+          取消
+        </el-button>
+        <el-button
+          size="small"
+          :icon="Refresh"
+          :loading="loading"
+          @click="reload"
+        >
+          刷新
+        </el-button>
       </div>
     </header>
 
-    <el-alert v-if="errorMessage" :title="errorMessage" type="error" :closable="false" show-icon class="ac-alert" />
+    <el-alert
+      v-if="errorMessage && !accessDenied"
+      :title="errorMessage"
+      type="error"
+      :closable="false"
+      show-icon
+      class="ac-alert"
+    />
 
-    <div class="ac-layout">
+    <section
+      v-if="accessDenied && mode === 'run'"
+      class="ac-access-denied"
+      role="alert"
+      aria-live="polite"
+    >
+      <div
+        class="ac-access-denied__icon"
+        aria-hidden="true"
+      >
+        <BaseIcon
+          name="warning"
+          :size="32"
+        />
+      </div>
+      <h1 class="ac-access-denied__title">
+        你没有访问此 Agent 任务的权限
+      </h1>
+      <p class="ac-access-denied__description">
+        此任务属于其他工作区，系统已停止加载运行状态、证据和实时事件。
+      </p>
+      <div class="ac-access-denied__actions">
+        <BaseButton
+          variant="primary"
+          @click="goAgentWorkbench"
+        >
+          返回 Agent 工作台
+        </BaseButton>
+        <BaseButton @click="goProjects">
+          返回项目总览
+        </BaseButton>
+      </div>
+    </section>
+
+    <section
+      v-else-if="mode === 'run' && !runPageInitialized"
+      class="ac-run-loading"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <div class="ac-run-loading__panel">
+        <el-skeleton
+          :rows="5"
+          animated
+        />
+      </div>
+    </section>
+
+    <div v-else class="ac-layout">
       <main class="ac-main">
         <AgentRunExperienceNotice
           v-if="store.run"
@@ -213,7 +309,7 @@ import AgentProviderSelector from '@/components/security/agent/AgentProviderSele
 import AgentProgressCard from '@/components/security/agent/AgentProgressCard.vue'
 import AgentProviderBadge from '@/components/security/agent/AgentProviderBadge.vue'
 import AgentTimeline from '@/components/security/agent/timeline/AgentTimeline.vue'
-import { BasePanel } from '@/components/ui'
+import { BaseButton, BaseIcon, BasePanel } from '@/components/ui'
 import CallChainPanel from '@/components/security/agent/CallChainPanel.vue'
 import CodeEvidenceViewer from '@/components/security/agent/CodeEvidenceViewer.vue'
 import ProjectSecurityGraph from '@/components/security/agent/ProjectSecurityGraph.vue'
@@ -223,12 +319,23 @@ import { useAgentCosts } from '@/composables/security/useAgentCosts'
 import { useAgentCoverage } from '@/composables/security/useAgentCoverage'
 import { useAgentRun } from '@/composables/security/useAgentRun'
 import { agentStatusMeta } from '@/features/security/agent/statusMeta'
+import { shouldLoadAgentRunSupplementalData } from '@/features/security/agent/runAccessGuard'
 import { resolveAgentRunExperience } from '@/features/security/agent/runExperience'
 import { formatSecurityDate, securityApiErrorMessage } from '@/features/security/presentation'
 
 const route = useRoute()
 const router = useRouter()
-const { store, loading, errorMessage, actionLoading, loadRun, pauseRun, resumeRun, cancelRun } = useAgentRun()
+const {
+  store,
+  loading,
+  errorMessage,
+  accessDenied,
+  actionLoading,
+  loadRun,
+  pauseRun,
+  resumeRun,
+  cancelRun
+} = useAgentRun()
 const currentRunId = ref(null)
 const {
   loading: coverageLoading,
@@ -267,6 +374,7 @@ const selectedGraphNode = ref(null)
 const codeVisible = ref(false)
 const codeSlice = ref(null)
 const moreOpen = ref([])
+const runPageInitialized = ref(false)
 
 function selectGraphNode(node) {
   selectedGraphNode.value = node
@@ -286,8 +394,26 @@ function closeCodeEvidence() {
   codeSlice.value = null
 }
 
+async function loadRunPage(runIdValue) {
+  runPageInitialized.value = false
+  const runLoaded = await loadRun(runIdValue)
+  runPageInitialized.value = true
+  if (!shouldLoadAgentRunSupplementalData({
+    runLoaded,
+    accessDenied: accessDenied.value
+  })) {
+    return false
+  }
+  await Promise.all([
+    loadPlanVersions(runIdValue),
+    loadObservations(runIdValue),
+    loadApprovals(runIdValue)
+  ])
+  return true
+}
+
 async function loadPlanVersions(runIdValue) {
-  if (!runIdValue) return
+  if (!runIdValue || accessDenied.value) return
   try {
     const response = await agentAPI.getRunPlans(runIdValue)
     planVersions.value = response.items || []
@@ -297,7 +423,7 @@ async function loadPlanVersions(runIdValue) {
 }
 
 async function loadObservations(runIdValue) {
-  if (!runIdValue) return
+  if (!runIdValue || accessDenied.value) return
   observationsLoading.value = true
   try {
     const response = await agentAPI.getObservations(runIdValue, {
@@ -335,7 +461,7 @@ function closeObservation() {
 }
 
 async function loadApprovals(runIdValue) {
-  if (!runIdValue) return
+  if (!runIdValue || accessDenied.value) return
   approvalsLoading.value = true
   try {
     const response = await agentAPI.getRunApprovals(runIdValue)
@@ -558,10 +684,7 @@ async function loadConversation(conversationIdValue) {
     const latestRunTurn = runTurns[runTurns.length - 1]
     if (latestRunTurn?.run_id) {
       currentRunId.value = latestRunTurn.run_id
-      loadRun(latestRunTurn.run_id)
-      loadPlanVersions(latestRunTurn.run_id)
-      loadObservations(latestRunTurn.run_id)
-      loadApprovals(latestRunTurn.run_id)
+      await loadRunPage(latestRunTurn.run_id)
     } else {
       currentRunId.value = null
     }
@@ -592,8 +715,7 @@ async function handleSendMessage({ text }) {
         content,
         generateClientMessageId()
       )
-      await loadRun(runId.value)
-      await loadPlanVersions(runId.value)
+      await loadRunPage(runId.value)
       if (response.message && !store.messages.some((item) => item.id === response.message.id)) {
         store.messages = [...(store.messages || []), response.message]
       }
@@ -611,17 +733,13 @@ function generateClientMessageId() {
   return `msg-${Date.now().toString(36)}-${random}`
 }
 
-function jumpToTurn(turn) {
+async function jumpToTurn(turn) {
   if (!turn.run_id) return
   currentRunId.value = turn.run_id
-  loadRun(turn.run_id)
-  loadPlanVersions(turn.run_id)
-  loadObservations(turn.run_id)
-  loadApprovals(turn.run_id)
-  loadCoverage('')
+  const loaded = await loadRunPage(turn.run_id)
+  if (loaded) loadCoverage('')
   nextTickScroll()
 }
-
 async function nextTickScroll() {
   await nextTick()
   const el = threadRef.value
@@ -657,9 +775,20 @@ function selectCoverageKind(kind) {
   loadCoverage(kind)
 }
 
-const reload = () => {
-  if (mode.value === 'conversation') loadConversation(conversationId.value)
-  else if (runId.value) loadRun(runId.value)
+const reload = async () => {
+  if (mode.value === 'conversation') {
+    await loadConversation(conversationId.value)
+  } else if (runId.value) {
+    await loadRunPage(runId.value)
+  }
+}
+
+function goAgentWorkbench() {
+  router.push('/security/agent')
+}
+
+function goProjects() {
+  router.push('/security/projects')
 }
 
 function goBack() {
@@ -698,7 +827,7 @@ watch(
 watch(
   () => store.toolCalls.length,
   (length, previous) => {
-    if (length <= previous) return
+    if (accessDenied.value || length <= previous) return
     const latest = store.toolCalls[store.toolCalls.length - 1]
     if (latest?.tool_name === 'run_deep_review' && latest.status === 'succeeded') {
       loadObservations(currentRunId.value || runId.value)
@@ -711,18 +840,13 @@ watch(conversationId, (id) => {
 })
 
 watch(runId, (id) => {
-  if (id) {
-    loadRun(id)
-    loadPlanVersions(id)
-    loadObservations(id)
-    loadApprovals(id)
-  }
+  if (id) loadRunPage(id)
 })
 
 watch(
   () => store.isTerminal,
   (terminal) => {
-    if (terminal && currentRunId.value) {
+    if (terminal && currentRunId.value && !accessDenied.value) {
       if (mode.value === 'conversation') {
         loadConversation(conversationId.value)
       }
@@ -734,12 +858,10 @@ watch(
 )
 
 onMounted(() => {
-  if (mode.value === 'conversation') loadConversation(conversationId.value)
-  else if (runId.value) {
-    loadRun(runId.value)
-    loadPlanVersions(runId.value)
-    loadObservations(runId.value)
-    loadApprovals(runId.value)
+  if (mode.value === 'conversation') {
+    loadConversation(conversationId.value)
+  } else if (runId.value) {
+    loadRunPage(runId.value)
   }
 })
 </script>
@@ -789,6 +911,70 @@ onMounted(() => {
   flex: 0 0 auto;
 }
 
+.ac-access-denied,
+.ac-run-loading {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.ac-access-denied {
+  flex-direction: column;
+  text-align: center;
+  background: #f8fafc;
+}
+
+.ac-access-denied__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 18px;
+  border: 1px solid #fecaca;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.ac-access-denied__title {
+  margin: 0;
+  color: #1e293b;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.ac-access-denied__description {
+  max-width: 440px;
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.ac-access-denied__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.ac-run-loading {
+  background: var(--chat-canvas);
+}
+
+.ac-run-loading__panel {
+  width: min(100%, 620px);
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
 .ac-layout {
   flex: 1;
   display: grid;
@@ -923,8 +1109,20 @@ onMounted(() => {
     border-top: 1px solid #e2e7ee;
   }
 }
-
 @media (max-width: 720px) {
+  .ac-access-denied,
+  .ac-run-loading {
+    padding: 20px 16px;
+  }
+
+  .ac-access-denied__actions {
+    width: 100%;
+  }
+
+  .ac-access-denied__actions :deep(.ui-btn) {
+    flex: 1 1 180px;
+  }
+
   .ac-head__actions .el-button {
     display: none;
   }

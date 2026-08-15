@@ -77,7 +77,9 @@ api.interceptors.response.use(
           ElMessage.error(data.error || '请求参数错误')
           break
         case 403:
-          ElMessage.error(data.error || '权限不足')
+          if (!error.config?.suppressGlobalErrorMessage) {
+            ElMessage.error(data.error || '权限不足')
+          }
           break
         case 404:
           ElMessage.error(data.error || '资源不存在')
@@ -327,7 +329,8 @@ function parseAgentSSE(raw, onEvent) {
 
 export const agentAPI = {
   createRun: (projectId, data) => api.post(`/security/projects/${projectId}/agent-runs`, data),
-  getRun: (runId) => api.get(`/security/agent-runs/${runId}`),
+  getRun: (runId) =>
+    api.get(`/security/agent-runs/${runId}`, { suppressGlobalErrorMessage: true }),
   pauseRun: (runId) => api.post(`/security/agent-runs/${runId}/pause`),
   resumeRun: (runId) => api.post(`/security/agent-runs/${runId}/resume`),
   cancelRun: (runId) => api.post(`/security/agent-runs/${runId}/cancel`),
