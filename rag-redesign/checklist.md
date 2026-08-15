@@ -146,6 +146,7 @@
 - [x] **J-01** Record V2 candidate/rerank/evidence/generation/retrieval-total latency with bounded p50/p95 samples; scope is explicitly one Flask worker process.
 - [x] **J-02** Record controlled degradation/failure counters for embedding, Qdrant, reranker, LLM, citation validator, and trace DB.
 - [x] **J-03** Metric labels are low-cardinality and reject query, title, user ID, document ID, citation ID, request ID, raw error, prompt, and document content.
+- [x] **J-08** A pure offline release-gate verifier compares sanitized legacy/V2 reports, enforces report comparability and automatic blockers, and emits no query, case-id, title, prompt, or document text. Live evidence remains pending.
 - [ ] **J-04 BLOCKER** v2 release core quality metrics are not below legacy and at least two major quality metrics improve.
 - [ ] **J-05 BLOCKER** retrieval p95 is not above 1.25x legacy, or there is user-approved quantitative evidence of the tradeoff.
 - [x] **J-06** Code-level Feature Flag test and the effective runtime snapshot confirm that disabling V2 selects legacy without a database rollback. The user-managed runtime rehearsal remains L-05.
@@ -175,6 +176,7 @@
 | 项目 | 结果/数值 | 命令或报告路径 | 日期 | 审核人 |
 | --- | --- | --- | --- | --- |
 | Legacy baseline | 18 case；Hit@1=0.4444，Hit@3=1.0000，Hit@5=1.0000，MRR=0.7037 | `backend/rag_report_20260814_legacy_baseline.json` | 2026-08-14 | Codex |
+| Release gate decision | Pending user-generated comparable 200+ case reports | `backend/rag_release_gate_<comparison>.json` | Pending | Pending |
 | V2 evaluation run | 未执行 |  |  |  |
 | Recall@20 / Recall@40 | 未执行 |  |  |  |
 | nDCG@10 / MRR@20 | 未执行 |  |  |  |

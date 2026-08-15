@@ -53,3 +53,4 @@ SPEC.md
 CLAUDE.md
 .qdrant-initialized
 AGENTS.md
+backend/rag_release_gate_*.json

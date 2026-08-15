@@ -395,6 +395,57 @@ warning 与评测摘要
 
 ---
 
+
+### 9.4 Release gate verifier
+
+`backend/app/scripts/rag_release_gate.py` compares one persisted, sanitized legacy
+report with one persisted, sanitized V2 report. It is a local offline command: it
+must not create a Flask application, call a provider, access a database, or read
+source documents. The verifier accepts only report files in `backend/` whose names
+match `rag_report_<safe-name>.json`; its optional result file must match
+`rag_release_gate_<safe-name>.json` and is not committed.
+
+The verifier treats a pair as comparable only when both reports use
+`enterprise-rag-eval-v1`, the expected pipelines (`legacy` and `v2`), the same
+safe corpus version, an equal case count of at least 200, and the same outcome
+case-id set. Unknown report fields are ignored. The release-gate output never
+includes queries, case ids, titles, notes, prompts, document text, raw exceptions,
+or arbitrary report blocker text.
+
+Automated blocking checks are:
+
+1. either source report has release blockers, a malformed required field, or the
+   reports are not comparable;
+2. `retrieval.recall_at_20`, `retrieval.ndcg_at_10`, or
+   `evidence.expected_evidence_coverage` regresses from legacy;
+3. the V2 `insufficient` or `injection` category reports a non-zero
+   `unsafe_supported_negative_count`;
+4. V2 retrieval p95 is greater than legacy p95 multiplied by 1.25. A zero legacy
+   p95 requires a zero V2 p95.
+
+A report pair with no automated blocker must improve at least two of
+`retrieval.recall_at_20`, `retrieval.ndcg_at_10`,
+`evidence.expected_evidence_coverage`, and `evidence.context_precision` to be
+`READY_FOR_CANARY`. Fewer improvements produces `NEEDS_REVIEW`; any failed
+blocking check produces `BLOCKED`.
+
+`READY_FOR_CANARY` is only an automated comparison result. It does not replace the
+30-answer citation audit, the P0 security review, a user-managed Feature Flag
+rollback rehearsal, or the final release decision. Citation completeness remains a
+manual audit requirement until both pipelines expose a comparable automatic metric.
+
+Example command (run from `backend/` with user-generated reports):
+
+```powershell
+venv\Scripts\python.exe -m app.scripts.rag_release_gate `
+  --legacy-report rag_report_<legacy>.json `
+  --v2-report rag_report_<v2>.json `
+  --output-name rag_release_gate_<comparison>.json
+```
+
+Exit code `0` means `READY_FOR_CANARY`, `2` means `NEEDS_REVIEW`, and `3` means
+`BLOCKED`.
+
 ## 10. 安全、隐私与可观测性
 
 1. 所有 Evidence Pack 内容视为不可信资料；延续并扩大 prompt injection 检测范围。

@@ -452,3 +452,18 @@ T02、T03、T04、T05、T06 的业务实现必须建立在 T01 的稳定契约�
 - `evaluation_contracts`、`evaluation_metrics`、`evaluator`、`evaluation_runtime`、`evaluation_persistence` 与 CLI 已支持按 `--pipeline`、`--corpus-version` 生成脱敏的 legacy/v2 可比报告。
 - 自动化回归使用 fake Pipeline、Provider、Embedding 与 Rerank；T06 完成时的后端全量 pytest 为 1254 passed、1 skipped，没有自动化真实 HTTP 请求。
 - 真实 200+ case 的 legacy/v2 对照与发布门禁仍属于 T09 的用户管理环境验收，不能以自动化结构测试替代实际质量结论。
+
+
+### T09 implementation progress: offline release gate verifier
+
+**Status:** `[x]`
+
+- [x] Add `rag_core/release_gate.py` as a pure verifier for two sanitized evaluation
+  reports; it must not access Flask, providers, database records, or source texts.
+- [x] Add `app/scripts/rag_release_gate.py` with strict backend-root filename
+  validation, sanitized JSON output, and shell-friendly decision exit codes.
+- [x] Add regression tests for comparability, metric boundaries, negative/injection
+  safety, unsafe report content redaction, input immutability, and CLI path rules.
+- [ ] Run the verifier against user-generated 200+ case legacy/V2 reports and record
+  the result in the final evidence table. Automated comparison cannot replace the
+  manual citation audit or rollback rehearsal.
