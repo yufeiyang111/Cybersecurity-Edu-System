@@ -507,3 +507,24 @@ T02、T03、T04、T05、T06 的业务实现必须建立在 T01 的稳定契约�
 - [x] `supported`、`insufficient_evidence`、`conflicting_evidence` 与未知状态按不同语义展示引用资料，避免将证据不足时的检索候选误称为“可核验引用”。
 - [x] 为路由预加载并发、失败重试、未知路由，以及引用状态边界补充 Node 定向测试。
 - [x] 已完成真实浏览器验收：首页 QA 路由预热后跳转成功；证据不足回答显示“相关参考资料”及非支撑说明。
+
+## T11 流式透明度、证据卡片与阅读优先级
+
+**目标：** 修复 QA 实时问答中“伪思考”展示、超长 citation 标识挤出卡片，以及流式内容强制抢占用户阅读位置的问题；保持 V2 的引用校验边界。
+
+**实现：**
+
+1. 扩展 `EnterpriseRagPipeline.stream` 的无 streamer 分支：仅在 `RagExecutionResult.reasoning` 非空时发送 `reasoning` 事件；随后发送已通过执行与引用校验后的 answer `delta`，最后发送 `done`。
+2. 前端将实际 reasoning 与受控 RAG 阶段摘要分开显示。阶段摘要仅接受候选、重排、证据数量和生成状态；历史记录不回填不存在的过程或推理。
+3. `AnswerCitationList` 使用显示序号而非内部 citation ID，并保留原始 ID 的可访问名称；调整网格列和最小宽度以约束长内容。
+4. 将滚动跟随状态收敛在 `useConversationMessages`：默认跟随、用户离开底部即暂停、回到 56px 阈值内恢复；分页加载仍保留视口锚点。
+5. 添加覆盖实际/缺失 reasoning、白名单摘要、负数/无效摘要和滚动阈值的回归测试；以真实浏览器完成 V2 supported 回答与证据卡片 smoke。
+
+**验收：**
+
+- [x] Provider 未返回 reasoning 时不显示伪 CoT，展示受控“检索与生成过程”。
+- [x] Provider 返回 reasoning 时 SSE 契约发送实际 reasoning，再发送已校验 answer。
+- [x] 长内部 citation ID 不再溢出卡片，页面显示 `C-1…C-n`。
+- [x] 自动跟随与用户向上阅读的阈值逻辑有独立边界测试。
+- [x] 浏览器 V2 smoke：支持型回答展示 40 项候选、15 项重排、5/6 项可用证据和可核验引用；Provider 未返回 reasoning 时不伪造模型推理。
+- [x] 测试完成后后端恢复 legacy 默认模式。

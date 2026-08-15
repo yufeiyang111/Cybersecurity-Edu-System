@@ -215,3 +215,11 @@
 - [x] 证据不足回答不再显示“可核验引用”或“已验证引用”：摘要、按钮、资料列表和可访问性标签统一改为“相关参考资料”，并明确不支撑当前结论。
 - [x] `conflicting_evidence` 与未知/降级状态分别展示“冲突参考资料”与“待核验资料”，不展示主张覆盖数。
 - [x] 已执行：`node --test frontend\tests\chat-citation-presentation.test.mjs frontend\tests\home-route-prefetch.test.mjs`、`npm --prefix frontend run build`、`git diff --check`。
+
+### T11 完成记录（2026-08-15）
+
+- [x] 当前记录只展示 Provider 实际返回的 reasoning；无 reasoning 时显示经过字段白名单约束的检索与生成过程，不展示伪造 CoT、query、Prompt、证据正文或异常正文。
+- [x] V2 无底层 streamer 的兼容路径在 Citation 校验完成后发送 reasoning（如有）、answer delta 和 done，避免未校验引用提前暴露。
+- [x] 真实浏览器已验证 supported 回答的过程卡片与引用列表：内部超长 citation ID 已收敛为 `C-1…C-n`，证据原文预览和“查看原文”仍可用。
+- [x] 流式滚动策略覆盖默认跟随、用户离开底部暂停、回到底部恢复和不完整容器首屏安全默认值；Node 边界测试通过。
+- [x] 临时 V2 浏览器验证完成后，5001 端口已恢复到 venv 启动的 legacy 默认进程。

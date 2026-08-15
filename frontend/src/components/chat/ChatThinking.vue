@@ -1,53 +1,101 @@
 <template>
-  <div v-if="shouldRender" class="chat-thinking">
+  <section
+    v-if="shouldRender"
+    class="chat-thinking"
+    :data-mode="mode"
+  >
     <button
       class="ct-toggle"
       :class="{ open }"
       type="button"
-      @click="open = !open"
+      @click="toggle"
     >
       <BaseIcon name="chevron-down" :size="13" />
-      <span>{{ seconds !== null ? t('thinking.seconds', { seconds }) : t('thinking.title') }}</span>
+      <span>{{ title }}</span>
     </button>
-    <div v-if="open" class="ct-panel">
-      <div v-if="reasoning" class="ct-reasoning">{{ reasoning }}</div>
+    <div
+      v-if="open"
+      class="ct-panel"
+    >
+      <div
+        v-if="hasReasoning"
+        class="ct-reasoning"
+      >
+        {{ reasoning }}
+      </div>
       <template v-else>
-        <div v-if="citationCount > 0" class="ct-row">
-          <span class="ct-label">可核验引用</span>
-          <span>{{ citationCount }} 条</span>
-        </div>
-        <div v-if="modelName" class="ct-row">
-          <span class="ct-label">{{ t('thinking.model') }}</span>
-          <span>{{ modelName }}</span>
+        <p class="ct-note">模型未返回可展示推理，以下为本次回答的受控执行过程。</p>
+        <div
+          v-for="step in ragProcess.steps"
+          :key="step.label"
+          class="ct-row"
+        >
+          <span class="ct-label">{{ step.label }}</span>
+          <span>{{ step.detail }}</span>
         </div>
       </template>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { BaseIcon } from '@/components/ui'
-import { useI18n } from '@/features/chat/i18n'
 
 const props = defineProps({
   seconds: { type: Number, default: null },
-  citationCount: { type: Number, default: 0 },
-  modelName: { type: String, default: '' },
-  reasoning: { type: String, default: '' }
+  reasoning: { type: String, default: '' },
+  ragProcess: { type: Object, default: null }
 })
 
 const open = ref(false)
-const { t } = useI18n()
+const userToggled = ref(false)
+
+const hasReasoning = computed(() => {
+  return typeof props.reasoning === 'string' && props.reasoning.trim().length > 0
+})
+
+const hasProcess = computed(() => {
+  return Array.isArray(props.ragProcess?.steps) && props.ragProcess.steps.length > 0
+})
+
+const mode = computed(() => {
+  return hasReasoning.value ? 'reasoning' : 'process'
+})
+
+const title = computed(() => {
+  const duration = Number.isFinite(props.seconds)
+    ? ` · ${props.seconds.toFixed(1)} 秒`
+    : ''
+  return hasReasoning.value
+    ? `模型推理${duration}`
+    : `检索与生成过程${duration}`
+})
 
 const shouldRender = computed(() => {
-  return props.seconds !== null || props.reasoning || props.citationCount > 0
+  return hasReasoning.value || hasProcess.value
 })
+
+const toggle = () => {
+  userToggled.value = true
+  open.value = !open.value
+}
+
+watch(
+  [hasReasoning, hasProcess],
+  ([reasoningAvailable, processAvailable], [previousReasoning, previousProcess]) => {
+    const becameAvailable = (!previousReasoning && reasoningAvailable)
+      || (!previousProcess && processAvailable)
+    if (becameAvailable && !userToggled.value) {
+      open.value = true
+    }
+  }
+)
 </script>
 
 <style scoped lang="scss">
 .chat-thinking {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .ct-toggle {
@@ -79,16 +127,25 @@ const shouldRender = computed(() => {
 
 .ct-panel {
   margin-top: 4px;
-  padding: 2px 0 2px 14px;
+  padding: 8px 10px;
   border-left: 2px solid var(--chat-hairline);
+  border-radius: 0 7px 7px 0;
+  background: var(--chat-bubble);
 }
 
 .ct-reasoning {
-  color: var(--chat-hollow);
+  color: var(--chat-muted);
   font-size: calc(13px * var(--chat-font-scale));
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.ct-note {
+  margin: 0 0 7px;
+  color: var(--chat-hollow);
+  font-size: calc(12px * var(--chat-font-scale));
+  line-height: 1.55;
 }
 
 .ct-row {
@@ -96,12 +153,20 @@ const shouldRender = computed(() => {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  color: var(--chat-hollow);
-  font-size: calc(13px * var(--chat-font-scale));
-  line-height: 1.7;
+  padding: 3px 0;
+  color: var(--chat-muted);
+  font-size: calc(12px * var(--chat-font-scale));
+  line-height: 1.55;
 }
 
 .ct-label {
   flex-shrink: 0;
+  color: var(--chat-hollow);
+}
+
+@media (max-width: 767px) {
+  .ct-panel {
+    padding: 8px 9px;
+  }
 }
 </style>

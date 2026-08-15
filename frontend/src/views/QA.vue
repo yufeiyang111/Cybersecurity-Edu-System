@@ -116,19 +116,12 @@ const {
   loadMoreConversations,
   hasMoreConversations,
   loadingMore,
-  loadEarlierMessages,
   hasEarlierMessages,
   loadingEarlier,
   loadedRecords,
-  totalRecords
+  totalRecords,
+  handleThreadScroll
 } = useChat(threadRef)
-
-// 聊天窗口向上滚动到顶部时加载更早的消息
-const handleThreadScroll = () => {
-  if (threadRef.value && threadRef.value.scrollTop < 40) {
-    loadEarlierMessages()
-  }
-}
 
 const handleSend = ({ text, files }) => {
   sendMessage({ text, files })

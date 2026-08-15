@@ -18,11 +18,17 @@
       class="citation-list"
     >
       <article
-        v-for="citation in citations"
+        v-for="(citation, index) in citations"
         :key="citation.citationId"
         class="citation-card"
       >
-        <div class="citation-id" aria-hidden="true">{{ citation.citationId }}</div>
+        <div
+          class="citation-id"
+          :title="citation.citationId"
+          :aria-label="`引用 ${index + 1}`"
+        >
+          C-{{ index + 1 }}
+        </div>
         <div class="citation-copy">
           <button
             class="citation-title"
@@ -41,7 +47,11 @@
           <div class="citation-meta">
             <span class="citation-verified">{{ usage.itemLabel }}</span>
             <span v-if="lineLabel">{{ lineLabel(citation) }}</span>
-            <span v-if="usage.showClaimCount && citation.claimCount > 0">覆盖 {{ citation.claimCount }} 个主张</span>
+            <span
+              v-if="usage.showClaimCount && citation.claimCount > 0"
+            >
+              覆盖 {{ citation.claimCount }} 个主张
+            </span>
           </div>
           <p
             v-if="citation.preview?.text"
@@ -166,7 +176,8 @@ const lineLabel = (citation) => {
 
 .citation-card {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  min-width: 0;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   gap: 9px;
   align-items: flex-start;
   padding: 10px 0;
@@ -184,15 +195,17 @@ const lineLabel = (citation) => {
 
 .citation-id {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   justify-content: center;
-  width: 28px;
+  width: 34px;
   height: 28px;
   border-radius: 7px;
   color: var(--chat-ink);
   background: var(--chat-bubble);
   font-size: calc(10px * var(--chat-font-scale));
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .citation-copy {
@@ -336,7 +349,7 @@ const lineLabel = (citation) => {
   }
 
   .citation-card {
-    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-columns: 34px minmax(0, 1fr);
   }
 
   .citation-original {

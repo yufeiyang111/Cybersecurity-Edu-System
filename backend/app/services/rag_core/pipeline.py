@@ -68,7 +68,12 @@ class EnterpriseRagPipeline:
         if self._streamer is not None:
             yield from self._streamer(request)
             return
-        yield {"type": "done", **self.execute(request).to_legacy_payload()}
+        result = self.execute(request)
+        if result.reasoning:
+            yield {"type": "reasoning", "delta": result.reasoning}
+        if result.answer:
+            yield {"type": "delta", "content": result.answer}
+        yield {"type": "done", **result.to_legacy_payload()}
 
 
 class LegacyRagAdapter:

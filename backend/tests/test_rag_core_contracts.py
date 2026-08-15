@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -154,11 +155,30 @@ def test_pipeline_accepts_fake_executor_and_rejects_invalid_result():
     pipeline = EnterpriseRagPipeline(lambda received: expected)
 
     assert pipeline.execute(request) is expected
-    assert list(pipeline.stream(request))[0]["answer"] == "答案 [C1]"
+    events = list(pipeline.stream(request))
+    assert events == [
+        {"type": "reasoning", "delta": "provider 原始推理仅允许当前记录展示"},
+        {"type": "delta", "content": "答案 [C1]"},
+        {
+            "type": "done",
+            **expected.to_legacy_payload(),
+        },
+    ]
 
     invalid_pipeline = EnterpriseRagPipeline(lambda received: {"answer": "not-a-contract"})
     with pytest.raises(TypeError, match="RagExecutionResult"):
         invalid_pipeline.execute(request)
+
+
+def test_pipeline_stream_omits_reasoning_event_when_provider_did_not_return_reasoning():
+    expected = replace(_result(), reasoning=None)
+    pipeline = EnterpriseRagPipeline(lambda received: expected)
+
+    events = list(pipeline.stream(RagExecutionRequest(query="无推理测试")))
+
+    assert [event["type"] for event in events] == ["delta", "done"]
+    assert events[0]["content"] == "答案 [C1]"
+    assert events[-1]["reasoning"] is None
 
 
 def test_legacy_adapter_preserves_existing_payload_and_adds_v2_metadata():

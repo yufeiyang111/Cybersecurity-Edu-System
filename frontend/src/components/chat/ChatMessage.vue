@@ -15,9 +15,8 @@
       <div class="cm-body cm-assistant-body">
         <ChatThinking
           :seconds="message.response_time"
-          :citation-count="citationCount"
-          :model-name="message.model_name"
           :reasoning="message.reasoning"
+          :rag-process="message.ragProcess"
         />
         <div
           v-if="message.streaming && !message.content"

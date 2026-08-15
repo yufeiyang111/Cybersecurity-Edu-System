@@ -6,6 +6,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { titleFromQuestion } from '@/features/chat/conversationTitle'
 import { useConversationMessages } from '@/composables/chat/useConversationMessages'
 import { normalizeAssistantEvidence } from '@/features/chat/citationPresentation'
+import { normalizeRagProcessSummary } from '@/features/chat/ragProcessPresentation'
 
 let typeTimer = null
 
@@ -38,6 +39,7 @@ export function useChat(threadRef) {
     totalRecords,
     loadInitial,
     loadEarlier,
+    handleThreadScroll,
     scrollToBottom,
     reset: resetMessages,
     nextKey
@@ -169,7 +171,7 @@ export function useChat(threadRef) {
       }))
     })
     const userMsg = messages.value[messages.value.length - 1]
-    scrollToBottom()
+    scrollToBottom({ force: true })
 
     const pendingEvidence = normalizeAssistantEvidence({ isStreaming: true })
     messages.value.push({
@@ -187,10 +189,11 @@ export function useChat(threadRef) {
       evidenceError: '',
       citationDetails: [],
       citationDetailsTruncated: false,
-      retrievalSignal: null
+      retrievalSignal: null,
+      ragProcess: null
     })
     const assistantMsg = messages.value[messages.value.length - 1]
-    scrollToBottom()
+    scrollToBottom({ force: true })
 
     loading.value = true
     const activeConversation = conversations.value.find((conversation) => conversation.id === currentConversationId.value)
@@ -273,6 +276,7 @@ export function useChat(threadRef) {
             assistantMsg.citationDetails = []
             assistantMsg.citationDetailsTruncated = false
             assistantMsg.retrievalSignal = null
+            assistantMsg.ragProcess = normalizeRagProcessSummary(data.retrieval_summary)
             if (data.attachments?.length) {
               assistantMsg.attachments = data.attachments.map((a) => ({
                 ...a,
@@ -425,6 +429,7 @@ export function useChat(threadRef) {
     hasMoreConversations,
     loadingMore,
     loadEarlierMessages: loadEarlier,
+    handleThreadScroll,
     hasEarlierMessages,
     loadingEarlier,
     loadedRecords,

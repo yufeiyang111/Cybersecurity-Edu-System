@@ -1,6 +1,7 @@
 import { ref, computed, nextTick } from 'vue'
 import { qaAPI } from '@/api'
 import { normalizeAssistantEvidence } from '@/features/chat/citationPresentation'
+import { isNearStreamBottom } from '@/features/chat/streamFollowState'
 
 const PAGE_SIZE = 5
 
@@ -45,7 +46,8 @@ const buildMessages = (records) => {
         evidenceError: '',
         citationDetails: [],
         citationDetailsTruncated: false,
-        retrievalSignal: null
+        retrievalSignal: null,
+        ragProcess: null
       })
     }
   }
@@ -64,6 +66,7 @@ export function useConversationMessages(threadRef) {
   const totalRecords = ref(0)
   const loadingEarlier = ref(false)
   const loading = ref(false)
+  const shouldFollowStream = ref(true)
 
   const hasEarlierMessages = computed(() => hasMore.value)
 
@@ -76,11 +79,19 @@ export function useConversationMessages(threadRef) {
     return ids.size
   })
 
-  const scrollToBottom = () => {
+  const updateStreamFollowState = () => {
+    shouldFollowStream.value = isNearStreamBottom(threadRef.value)
+  }
+
+  const scrollToBottom = ({ force = false } = {}) => {
+    if (!force && !shouldFollowStream.value) {
+      return
+    }
     nextTick(() => {
-      if (threadRef.value) {
-        threadRef.value.scrollTop = threadRef.value.scrollHeight
+      if (!threadRef.value || (!force && !shouldFollowStream.value)) {
+        return
       }
+      threadRef.value.scrollTop = threadRef.value.scrollHeight
     })
   }
 
@@ -94,13 +105,20 @@ export function useConversationMessages(threadRef) {
       const meta = res.record_meta
       hasMore.value = meta ? !!meta.has_more : false
       totalRecords.value = meta?.total ?? loadedRecords.value
-      scrollToBottom()
+      shouldFollowStream.value = true
+      scrollToBottom({ force: true })
       return res.conversation
     } finally {
       loading.value = false
     }
   }
 
+  const handleThreadScroll = () => {
+    updateStreamFollowState()
+    if (threadRef.value && threadRef.value.scrollTop < 40) {
+      void loadEarlier()
+    }
+  }
   // 向上加载更早一页消息，插入头部并保持滚动位置
   const loadEarlier = async () => {
     if (loadingEarlier.value || !hasMore.value || !conversationId.value) return
@@ -135,6 +153,7 @@ export function useConversationMessages(threadRef) {
     hasMore.value = false
     totalRecords.value = 0
     loadingEarlier.value = false
+    shouldFollowStream.value = true
   }
 
   return {
@@ -146,6 +165,7 @@ export function useConversationMessages(threadRef) {
     totalRecords,
     loadInitial,
     loadEarlier,
+    handleThreadScroll,
     scrollToBottom,
     reset,
     nextKey: () => ++keySeed
