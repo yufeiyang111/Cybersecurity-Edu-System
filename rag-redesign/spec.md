@@ -456,6 +456,21 @@ Exit code `0` means `READY_FOR_CANARY`, `2` means `NEEDS_REVIEW`, and `3` means
 6. 日志不得使用 `print` 输出异常正文；使用结构化 logger，记录 error type、stage、trace ID 与安全摘要。
 
 
+
+### 10.4 MySQL migration compatibility
+
+The public RAG schema uses `BIGINT UNSIGNED` for `rag_eval_cases.id`; every
+foreign-key column targeting it, including `rag_evaluation_results.case_id`, must
+use the same type. `database/init.sql`, the additive migration, and the SQLAlchemy
+ORM contract must remain synchronized.
+
+The migration runner must support MySQL versions that do not accept `ADD COLUMN IF
+NOT EXISTS`. For only those statements, it executes standard `ADD COLUMN` and
+suppresses only MySQL error code `1060` (duplicate column). Any other database
+error must still fail the migration and must never be hidden. This preserves an
+idempotent, additive recovery path for a partially applied local development
+migration.
+
 ### 10.1 Runtime metric contract and rollback
 
 1. `RagRuntimeMetrics` is a thread-safe, worker-local in-process registry. Its returned `scope` must be `process`; it must never be described as an aggregate for multiple Flask workers, hosts, or deployments.

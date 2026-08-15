@@ -2,9 +2,16 @@
 问答相关模型
 """
 from datetime import datetime
-from sqlalchemy.dialects.mysql import MEDIUMTEXT
+from sqlalchemy.dialects.mysql import BIGINT, MEDIUMTEXT
 
 from app import db
+
+
+_UNSIGNED_BIGINT = (
+    db.BigInteger()
+    .with_variant(BIGINT(unsigned=True), "mysql")
+    .with_variant(db.Integer, "sqlite")
+)
 
 class QAConversation(db.Model):
     __tablename__ = "qa_conversations"
@@ -119,7 +126,7 @@ class QaRetrievalLog(db.Model):
 class RagEvalCase(db.Model):
     """RAG 离线评估集（query + 期望命中文档 + 期望答案）"""
     __tablename__ = "rag_eval_cases"
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(_UNSIGNED_BIGINT, primary_key=True)
     query = db.Column(db.String(500), nullable=False)
     expected_doc_ids = db.Column(db.JSON, nullable=False)
     expected_answer = db.Column(db.Text)
@@ -180,7 +187,11 @@ class RagEvaluationResult(db.Model):
     __tablename__ = "rag_evaluation_results"
     id = db.Column(db.Integer, primary_key=True)
     run_id = db.Column(db.Integer, db.ForeignKey("rag_evaluation_runs.id"), nullable=False)
-    case_id = db.Column(db.Integer, db.ForeignKey("rag_eval_cases.id"), nullable=False)
+    case_id = db.Column(
+        _UNSIGNED_BIGINT,
+        db.ForeignKey("rag_eval_cases.id"),
+        nullable=False,
+    )
     retrieval_metrics_json = db.Column(db.JSON)
     citation_metrics_json = db.Column(db.JSON)
     answer_metrics_json = db.Column(db.JSON)

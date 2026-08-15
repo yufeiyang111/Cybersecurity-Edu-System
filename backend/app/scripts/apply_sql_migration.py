@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
 
@@ -56,6 +57,30 @@ def _statements(sql: str) -> list[str]:
     return [statement.strip() for statement in "\n".join(lines).split(";") if statement.strip()]
 
 
+def _execute_statement(connection, statement: str) -> None:
+    if "ADD COLUMN IF NOT EXISTS" not in statement:
+        connection.exec_driver_sql(statement)
+        return
+
+    portable_statement = statement.replace(
+        "ADD COLUMN IF NOT EXISTS",
+        "ADD COLUMN",
+        1,
+    )
+    try:
+        connection.exec_driver_sql(portable_statement)
+    except SQLAlchemyError as error:
+        if _is_duplicate_column_error(error):
+            return
+        raise
+
+
+def _is_duplicate_column_error(error: SQLAlchemyError) -> bool:
+    original = getattr(error, "orig", None)
+    arguments = getattr(original, "args", ())
+    return bool(arguments) and str(arguments[0]) == "1060"
+
+
 def _migration_file(migration_id: str) -> Path:
     return MIGRATIONS_DIRECTORY / f"{migration_id}.sql"
 
@@ -86,7 +111,7 @@ def apply_security_scanning_migration() -> bool:
                 continue
 
             for statement in _statements(migration_file.read_text(encoding="utf-8")):
-                connection.exec_driver_sql(statement)
+                _execute_statement(connection, statement)
             connection.execute(
                 text("INSERT INTO schema_migrations (migration_id) VALUES (:migration_id)"),
                 {"migration_id": migration_id},

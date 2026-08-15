@@ -467,3 +467,20 @@ T02、T03、T04、T05、T06 的业务实现必须建立在 T01 的稳定契约�
 - [ ] Run the verifier against user-generated 200+ case legacy/V2 reports and record
   the result in the final evidence table. Automated comparison cannot replace the
   manual citation audit or rollback rehearsal.
+
+
+### T09 browser acceptance recovery: local MySQL migration compatibility
+
+**Status:** `[x]`
+
+- [x] Reproduced the real QA stream failure against the user-approved local
+  development database and identified the incompatible foreign-key types.
+- [x] Synced the unsigned `rag_eval_cases` foreign-key type across the additive
+  migration, `init.sql`, and ORM mapping; added contract regression coverage.
+- [x] Made the migration runner compatible with older MySQL `ADD COLUMN` syntax
+  while ignoring only the explicit duplicate-column error code.
+- [x] Re-applied the idempotent migration and browser-verified normal QA,
+  injection resistance, evidence-insufficient handling, knowledge browsing, and
+  favorite toggle behavior.
+- [ ] Enable and verify the V2 citation-manifest flow before claiming clickable,
+  verifiable QA citations in the release evidence.

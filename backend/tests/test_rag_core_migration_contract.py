@@ -5,6 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+from sqlalchemy.dialects import mysql
+from sqlalchemy.exc import ProgrammingError
+
 from app.models.qa import (
     QARecord,
     RagEvaluationResult,
@@ -31,6 +34,7 @@ def test_enterprise_rag_migration_is_registered_last_and_additive():
     assert "CREATE TABLE IF NOT EXISTS rag_retrieval_traces" in content
     assert "CREATE TABLE IF NOT EXISTS rag_evaluation_runs" in content
     assert "CREATE TABLE IF NOT EXISTS rag_evaluation_results" in content
+    assert "case_id BIGINT UNSIGNED NOT NULL" in content
     assert "ADD COLUMN IF NOT EXISTS answer_status" in content
     assert "ADD COLUMN IF NOT EXISTS expected_evidence_json" in content
     for forbidden in ("DROP TABLE", "DROP COLUMN", "TRUNCATE", "DELETE FROM", "RENAME"):
@@ -57,6 +61,7 @@ def test_init_sql_is_synced_with_enterprise_rag_migration():
         "difficulty VARCHAR(32) NULL",
         "is_active BOOLEAN NOT NULL DEFAULT TRUE",
         "updated_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP",
+        "case_id BIGINT UNSIGNED NOT NULL",
     ):
         assert column in content
 
@@ -78,6 +83,14 @@ def test_orm_models_match_new_rag_tables_and_additive_columns():
     assert eval_columns["expected_status"].nullable is True
     assert eval_columns["difficulty"].nullable is True
     assert eval_columns["is_active"].nullable is False
+    mysql_dialect = mysql.dialect()
+    assert eval_columns["id"].type.compile(dialect=mysql_dialect) == "BIGINT UNSIGNED"
+    assert (
+        RagEvaluationResult.__table__.columns["case_id"].type.compile(
+            dialect=mysql_dialect
+        )
+        == "BIGINT UNSIGNED"
+    )
 
 
 def test_legacy_qa_record_serializes_when_rag_core_fields_are_null():
@@ -163,3 +176,35 @@ def test_migration_runner_applies_empty_registry_once_and_skips_repeat(monkeypat
     assert migration_module.apply_security_scanning_migration() is False
     assert session.rollback_count == 0
     assert session.commit_count == 2
+
+class _DuplicateColumnDriverError(Exception):
+    pass
+
+
+class _DuplicateColumnConnection(_FakeMigrationConnection):
+    def exec_driver_sql(self, statement):
+        self.executed_statements.append(statement)
+        if "answer_status" in statement:
+            raise ProgrammingError(
+                statement,
+                {},
+                _DuplicateColumnDriverError(1060, "duplicate column"),
+            )
+
+
+def test_migration_runner_uses_portable_add_column_and_only_ignores_duplicate(monkeypatch):
+    from app.scripts import apply_sql_migration as migration_module
+
+    connection = _DuplicateColumnConnection()
+    session = _FakeMigrationSession(connection)
+    monkeypatch.setattr(migration_module, "db", SimpleNamespace(session=session))
+    monkeypatch.setattr(migration_module, "MIGRATION_IDS", (MIGRATION_ID,))
+
+    assert migration_module.apply_security_scanning_migration() is True
+    assert MIGRATION_ID in connection.applied_migrations
+    executed_add_column = next(
+        statement
+        for statement in connection.executed_statements
+        if "answer_status" in statement
+    )
+    assert "ADD COLUMN IF NOT EXISTS" not in executed_add_column

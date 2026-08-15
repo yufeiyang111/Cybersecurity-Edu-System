@@ -1706,7 +1706,7 @@ CREATE TABLE IF NOT EXISTS rag_evaluation_runs (
 CREATE TABLE IF NOT EXISTS rag_evaluation_results (
     id INT AUTO_INCREMENT PRIMARY KEY,
     run_id INT NOT NULL,
-    case_id INT NOT NULL,
+    case_id BIGINT UNSIGNED NOT NULL,
     retrieval_metrics_json JSON NULL,
     citation_metrics_json JSON NULL,
     answer_metrics_json JSON NULL,
