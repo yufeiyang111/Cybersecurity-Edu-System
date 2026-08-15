@@ -47,6 +47,7 @@
         <AnswerCitationList
           v-if="showCitations && message.evidenceLoadState === 'success'"
           :citations="citationDetails"
+          :answer-status="message.answerStatus"
           :retrieval-signal="message.retrievalSignal"
           :details-truncated="message.citationDetailsTruncated"
           @open-detail="handleOpenCitationDetail"

@@ -208,3 +208,10 @@
 
 - [x] 受版本控制的评测标签源包含 200 条 active case，类别覆盖 concept、identifier、defense、multihop、alias、insufficient、conflict、injection；标签源未复制知识库正文。
 - [ ] 仍需在用户管理的本地环境运行真实 legacy/v2 对照，确认 I-01、I-02、I-06 及发布门禁；该验证不能由数据库种子或 fake Pipeline 测试替代。
+
+### T10 完成记录（2026-08-15）
+
+- [x] 首页 QA 路由在首屏稳定后预加载，真实浏览器中从首页点击“智能问答”后成功进入 `/qa`；预加载器覆盖并发去重、失败后重试和未知路由边界。
+- [x] 证据不足回答不再显示“可核验引用”或“已验证引用”：摘要、按钮、资料列表和可访问性标签统一改为“相关参考资料”，并明确不支撑当前结论。
+- [x] `conflicting_evidence` 与未知/降级状态分别展示“冲突参考资料”与“待核验资料”，不展示主张覆盖数。
+- [x] 已执行：`node --test frontend\tests\chat-citation-presentation.test.mjs frontend\tests\home-route-prefetch.test.mjs`、`npm --prefix frontend run build`、`git diff --check`。

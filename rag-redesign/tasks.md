@@ -498,3 +498,12 @@ T02、T03、T04、T05、T06 的业务实现必须建立在 T01 的稳定契约�
   hidden configuration while the valid security question was answered.
 - [x] Reverted the local process to legacy mode after the smoke test because the
   200+ case release gate and manual citation audit remain incomplete.
+
+### T10 首页问答入口与引用语义修复
+
+**状态：** [x]
+
+- [x] 首页在空闲后预加载 QA 路由，消除首次点击“智能问答”时因异步 chunk 加载造成的明显延迟；加载失败不影响后续点击跳转。
+- [x] `supported`、`insufficient_evidence`、`conflicting_evidence` 与未知状态按不同语义展示引用资料，避免将证据不足时的检索候选误称为“可核验引用”。
+- [x] 为路由预加载并发、失败重试、未知路由，以及引用状态边界补充 Node 定向测试。
+- [x] 已完成真实浏览器验收：首页 QA 路由预热后跳转成功；证据不足回答显示“相关参考资料”及非支撑说明。

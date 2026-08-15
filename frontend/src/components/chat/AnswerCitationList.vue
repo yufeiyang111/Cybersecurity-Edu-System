@@ -1,9 +1,9 @@
 <template>
-  <section class="answer-citation-list" aria-label="可核验证据">
+  <section class="answer-citation-list" :aria-label="usage.ariaLabel">
     <header class="citation-list-header">
       <div>
-        <h3>引用证据</h3>
-        <p>原文预览由服务端按当前问答记录授权返回。</p>
+        <h3>{{ usage.title }}</h3>
+        <p>{{ usage.description }}</p>
       </div>
       <span
         class="retrieval-signal"
@@ -39,9 +39,9 @@
             {{ citation.titlePath }}
           </p>
           <div class="citation-meta">
-            <span class="citation-verified">已验证引用</span>
+            <span class="citation-verified">{{ usage.itemLabel }}</span>
             <span v-if="lineLabel">{{ lineLabel(citation) }}</span>
-            <span v-if="citation.claimCount > 0">覆盖 {{ citation.claimCount }} 个主张</span>
+            <span v-if="usage.showClaimCount && citation.claimCount > 0">覆盖 {{ citation.claimCount }} 个主张</span>
           </div>
           <p
             v-if="citation.preview?.text"
@@ -89,16 +89,22 @@ import { computed } from 'vue'
 import { BaseIcon } from '@/components/ui'
 import {
   hasNavigableDocument,
-  retrievalSignalPresentation
+  retrievalSignalPresentation,
+  citationUsagePresentation
 } from '@/features/chat/citationPresentation'
 
 const props = defineProps({
   citations: { type: Array, default: () => [] },
   retrievalSignal: { type: Object, default: null },
-  detailsTruncated: { type: Boolean, default: false }
+  detailsTruncated: { type: Boolean, default: false },
+  answerStatus: { type: String, default: null }
 })
 
 defineEmits(['open-detail', 'open-original'])
+
+const usage = computed(() => {
+  return citationUsagePresentation(props.answerStatus, props.citations.length)
+})
 
 const signal = computed(() => {
   return retrievalSignalPresentation(props.retrievalSignal)

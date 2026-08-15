@@ -14,7 +14,7 @@
         v-if="citationCount > 0"
         class="summary-meta"
       >
-        {{ citationCount }} 条可核验引用
+        {{ citationUsage.countLabel }}
       </p>
       <p
         v-else-if="citationState === 'legacy' && legacySourceCount > 0"
@@ -47,7 +47,10 @@
 <script setup>
 import { computed } from 'vue'
 import { BaseIcon } from '@/components/ui'
-import { answerStatusPresentation } from '@/features/chat/citationPresentation'
+import {
+  answerStatusPresentation,
+  citationUsagePresentation
+} from '@/features/chat/citationPresentation'
 
 const props = defineProps({
   answerStatus: { type: String, default: null },
@@ -63,6 +66,10 @@ defineEmits(['load-evidence'])
 
 const presentation = computed(() => {
   return answerStatusPresentation(props.answerStatus, props.citationState)
+})
+
+const citationUsage = computed(() => {
+  return citationUsagePresentation(props.answerStatus, props.citationCount)
 })
 
 const shouldRender = computed(() => {
@@ -83,7 +90,7 @@ const actionLabel = computed(() => {
   if (props.detailState === 'error') {
     return '重新加载'
   }
-  return '查看证据'
+  return citationUsage.value.actionLabel
 })
 
 const iconName = computed(() => {

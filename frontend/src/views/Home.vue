@@ -268,7 +268,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { knowledgeAPI } from '@/api'
@@ -276,6 +276,7 @@ import { ElMessage } from 'element-plus'
 import { User, ChatDotRound, Star, Setting, SwitchButton } from '@element-plus/icons-vue'
 import { useProfileStats } from '@/composables/user/useProfileStats'
 import { useHomeEffects } from '@/composables/home/useHomeEffects'
+import { createRoutePrefetcher } from '@/features/home/routePrefetch'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -329,27 +330,35 @@ const fetchHotKnowledge = async () => {
   }
 }
 
-// 悬停导航时预加载目标页 chunk，降低点击后的首屏等待
-const prefetchRoute = (name) => {
-  const loaders = {
-    home: () => import('@/views/Home.vue'),
-    qa: () => import('@/views/QA.vue'),
-    knowledge: () => import('@/views/Knowledge.vue'),
-    graph: () => import('@/views/KnowledgeGraph.vue'),
-    security: () => import('@/views/SecurityWorkbenchLayout.vue')
-  }
-  loaders[name]?.().catch(() => {})
-}
+let qaRoutePrefetchTimer = null
+
+const prefetchRoute = createRoutePrefetcher({
+  home: () => import('@/views/Home.vue'),
+  qa: () => import('@/views/QA.vue'),
+  knowledge: () => import('@/views/Knowledge.vue'),
+  graph: () => import('@/views/KnowledgeGraph.vue'),
+  security: () => import('@/views/SecurityWorkbenchLayout.vue')
+})
 
 const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
 
 onMounted(async () => {
   setTimeout(() => effects.start(), 80)
+  qaRoutePrefetchTimer = window.setTimeout(() => {
+    qaRoutePrefetchTimer = null
+    void prefetchRoute('qa')
+  }, 500)
   await fetchHotKnowledge()
   effects.refresh()
   setTimeout(() => {
     loadStats().then(() => effects.refresh())
   }, 800)
+})
+onBeforeUnmount(() => {
+  if (qaRoutePrefetchTimer !== null) {
+    window.clearTimeout(qaRoutePrefetchTimer)
+    qaRoutePrefetchTimer = null
+  }
 })
 </script>
 

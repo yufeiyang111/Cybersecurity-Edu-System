@@ -173,6 +173,57 @@ export function normalizeEvidenceResponse(value) {
   }
 }
 
+export function citationUsagePresentation(status, citationCount = 0) {
+  const count = Number.isInteger(citationCount) && citationCount > 0
+    ? citationCount
+    : 0
+
+  if (status === 'supported') {
+    return {
+      ariaLabel: '可核验证据',
+      title: '引用证据',
+      description: '原文预览由服务端按当前问答记录授权返回，可支撑本回答结论。',
+      countLabel: `${count} 条可核验引用`,
+      actionLabel: '查看证据',
+      itemLabel: '已验证引用',
+      showClaimCount: true
+    }
+  }
+
+  if (status === 'insufficient_evidence') {
+    return {
+      ariaLabel: '相关参考资料',
+      title: '相关参考资料',
+      description: '以下资料仅供继续阅读，未作为本回答结论的支撑依据。',
+      countLabel: `检索到 ${count} 条相关参考资料，未作为本回答的结论依据。`,
+      actionLabel: '查看相关资料',
+      itemLabel: '相关资料',
+      showClaimCount: false
+    }
+  }
+
+  if (status === 'conflicting_evidence') {
+    return {
+      ariaLabel: '存在冲突的参考资料',
+      title: '冲突参考资料',
+      description: '以下资料可能适用于不同条件或版本，不能作为单一结论的支撑依据。',
+      countLabel: `检索到 ${count} 条存在冲突的参考资料。`,
+      actionLabel: '查看冲突资料',
+      itemLabel: '冲突资料',
+      showClaimCount: false
+    }
+  }
+
+  return {
+    ariaLabel: '待核验资料',
+    title: '待核验资料',
+    description: '以下资料尚未完成完整证据校验，请结合原文谨慎判断。',
+    countLabel: `检索到 ${count} 条待核验资料。`,
+    actionLabel: '查看资料',
+    itemLabel: '待核验资料',
+    showClaimCount: false
+  }
+}
 export function answerStatusPresentation(status, citationState = 'ready') {
   if (citationState === 'pending') {
     return STATUS_PRESENTATIONS.pending
