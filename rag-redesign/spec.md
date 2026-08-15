@@ -443,6 +443,14 @@ venv\Scripts\python.exe -m app.scripts.rag_release_gate `
   --output-name rag_release_gate_<comparison>.json
 ```
 
+
+For local browser smoke verification, V2 and strict citations may be enabled only
+for the test process. The test must verify evidence status, a server-authorized
+preview, and an original-document route for one supported answer, plus
+insufficient-evidence and prompt-injection negative cases. Unless the release gate
+and manual audit are complete, the process must be returned to legacy mode after
+the test.
+
 Exit code `0` means `READY_FOR_CANARY`, `2` means `NEEDS_REVIEW`, and `3` means
 `BLOCKED`.
 

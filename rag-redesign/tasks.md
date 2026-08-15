@@ -484,3 +484,17 @@ T02、T03、T04、T05、T06 的业务实现必须建立在 T01 的稳定契约�
   favorite toggle behavior.
 - [ ] Enable and verify the V2 citation-manifest flow before claiming clickable,
   verifiable QA citations in the release evidence.
+
+
+### T09 local V2 citation browser smoke
+
+**Status:** `[x]`
+
+- [x] Started a local test-only V2 process with strict citations enabled and
+  verified a supported answer exposes evidence status, citation count, server-side
+  preview, and an original knowledge-document route.
+- [x] Verified V2 returns an insufficient-evidence status without inventing the
+  requested protocol reference, and that a prompt-injection request did not expose
+  hidden configuration while the valid security question was answered.
+- [x] Reverted the local process to legacy mode after the smoke test because the
+  200+ case release gate and manual citation audit remain incomplete.
