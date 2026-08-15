@@ -1,4 +1,4 @@
-﻿# CyberGuard 代码漏洞审查 Agent 改造执行任务书
+# CyberGuard 代码漏洞审查 Agent 改造执行任务书
 
 > 文档版本：1.1.0
 > 冻结日期：2026-08-12
@@ -1089,3 +1089,40 @@ git status --short --branch
 5. focused tests、后端全量、前端永久测试、前端 build 和真实浏览器门均通过。
 6. v1 兼容、v2 灰度和关闭 Flag 回滚均有证据。
 7. 工作区只包含意图内修改，没有秘密、日志、构建产物、临时脚本或用户改动污染。
+
+## T14 后验审计纠偏：真实默认路径、控制输入与证据绑定
+
+**状态：** `[-]（浏览器人工验收待独立恢复后补做）`
+
+**来源：** 2026-08-15 当前代码审计发现，既有 V2 Harness 协议实现与默认产品路径不一致；本任务以 `spec.md` 第 21 节为准，纠正静默失效和误导性展示。
+
+### T14.1 默认路径产品语义
+
+- [x] 新增前端纯函数 `resolveAgentRunExperience(run, featureFlags)`，覆盖 baseline、V2 关闭的 hybrid/deep_audit、V2 开启的 hybrid/deep_audit。
+- [x] `AgentGoalForm`、`AgentWorkbench`、`AgentChat` 不得把 baseline 描述为模型自主 Agent；仅 agentic 状态展示动态工具、重规划和推理承诺。
+- [x] 为展示判定补充 Node 单元测试和关键空/未知 flag 边界。
+
+### T14.2 控制输入不静默失效
+
+- [x] 先写 API/会话回归测试：V1 活跃 Run 追加方向返回 `409 AGENT_DYNAMIC_CONTROL_UNAVAILABLE`，且不产生消息、控制输入、计划版本或新 Run。
+- [x] V2 活跃 Run 继续写入有序 `user_message` Control Input，并保持同一 `client_message_id` 幂等。
+- [x] 统一 run 级与 conversation 级入口的错误映射和用户提示。
+
+### T14.3 Deep Review 位置与参考资料约束
+
+- [x] 先写 validator 回归测试：超出 Context Pack 切片范围的 file/line 必须失败；低置信且包含 proof gaps 的无位置结果保存为 `needs_more_evidence`。
+- [x] `ContextBuilder` 以真实字符数做预算，并优先围绕扫描 finding 行号构建切片。
+- [x] Prompt/Parser 支持白名单 `knowledge_reference_ids`；不再自动附加所有 RAG 资料，UI 明确标记背景参考。
+- [x] `ObservationService` 在 Deep Review 路径接收 evidence scope 并映射初始状态。
+
+### T14.4 验收与收口
+
+- [x] focused 后端测试：conversation/control inputs、Deep Review context、observation API/validator。
+- [x] 前端 Node 测试与 `npm --prefix frontend run build`。
+- [ ] `git diff --check`，真实浏览器验证 V1 workflow 文案、V2 agentic 文案和受限错误提示；不创建无关扫描任务。
+- [x] 更新 `spec.md/tasks.md/checklist.md` 的 T14 证据；提交前已执行全量测试与 diff 检查。
+### T14 实施证据（2026-08-15）
+
+- 后端 focused：`venv\Scripts\python.exe -m pytest tests\test_agent_deep_review.py tests\test_agent_message_replan_api.py tests\test_agent_loop_vertical_slice.py tests\test_agent_feature_flags.py tests\test_agent_conversations.py tests\test_agent_observations_api.py -q`，`66 passed`。
+- 前端：`npm --prefix frontend run test:agent`，`49 passed`；`npm --prefix frontend run build` 通过（仅既有 Sass legacy API 与 chunk 体积告警）。
+- 全量后端：`venv\Scripts\python.exe -m pytest tests -q`，`1309 passed, 1 skipped`；浏览器 DevTools 当前被已有 Chrome profile 锁占用，未通过杀进程绕过。

@@ -1,4 +1,4 @@
-﻿# CyberGuard 代码漏洞审查 Agent 改造验收清单
+# CyberGuard 代码漏洞审查 Agent 改造验收清单
 
 > 文档版本：1.1.0
 > 冻结日期：2026-08-12
@@ -507,3 +507,17 @@ git diff --check
 
 **最终结论：整体改造完成。** 代码与自动化（E1-E3）、真实 Provider/SSE/浏览器验收（E4）和灰度回滚演练（E4/E5）均已通过；Q-13 平板/手机视口经用户明确豁免（当前交付范围仅需电脑端）。
 
+
+### T14 后验审计纠偏（2026-08-15）
+
+> **状态：进行中。** 本段覆盖此前默认产品路径未被验收覆盖的真实性问题；在 T14 全部完成前，不得仅凭旧的 V2 灰度记录宣称默认代码审计入口是成熟自主 Agent。
+
+- [x] **T14-01 BLOCKER** 默认 `baseline` 必须在前端明确显示为基础审计工作流，不能展示模型自主工具调用或持续重规划承诺。
+- [x] **T14-02 BLOCKER** V1 工作流运行中追加方向返回 `409 AGENT_DYNAMIC_CONTROL_UNAVAILABLE`，且数据库不产生任何控制副作用。
+- [x] **T14-03 BLOCKER** V2 开启时追加方向仍以幂等 Control Input 进入 Loop，不由 HTTP 请求线程执行工具。
+- [x] **T14-04 BLOCKER** Deep Review location 必须服务端验证属于本次授权 `CodeSliceEvidence` 的路径和行号范围。
+- [x] **T14-05 BLOCKER** 无代码位置的模型结果只能是 low + proof gaps + `needs_more_evidence`，不得作为 `unverified` 漏洞结论。
+- [x] **T14-06** RAG citation 仅能由模型从白名单选择，并在 UI 标记“背景参考，不构成代码证据”。
+- [x] **T14-07** Context Pack 预算使用真实字符数，finding 驱动切片覆盖 finding 行附近代码。
+- [x] **T14-08** focused 后端、前端 Node、生产构建和 diff check 全部通过。
+- [ ] **T14-09** 完成真实浏览器验收，未创建无关扫描任务，记录 V1/V2 展示与错误语义（DevTools Chrome profile 锁占用，未绕过或终止用户浏览器）。

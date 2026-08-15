@@ -8,6 +8,7 @@ from app import db
 from app.models.conversation import AgentConversation
 from app.models.security import SecurityProject
 from app.services.security_agent.conversation_service import (
+    ConversationControlUnavailableError,
     ConversationError,
     ConversationService,
 )
@@ -174,6 +175,8 @@ def post_agent_conversation_message(conversation_id: int):
         ), 201
     except AuthorizationError as exc:
         return jsonify({"error": str(exc)}), 403
+    except ConversationControlUnavailableError as exc:
+        return jsonify({"error": str(exc), "error_code": exc.error_code}), 409
     except ConversationError as exc:
         return jsonify({"error": str(exc)}), 400
     except ValueError as exc:

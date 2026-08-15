@@ -95,7 +95,7 @@ def _make_plan_node_step(run):
         status=AgentPlanNodeStatus.READY.value,
         title="深度审查",
         tool_name="run_deep_review",
-        input_json={"focus": "审查 app.py"},
+        input_json={"focus": "审查 app.py", "file_hints": ["app.py"]},
     )
     db.session.add(node)
     db.session.flush()
@@ -205,6 +205,25 @@ def test_context_builder_reads_file_evidence(app, tmp_path):
         assert context.total_chars > 0
 
 
+def test_context_builder_enforces_character_budget(app, tmp_path):
+    """上下文预算按真实字符而不是按行数计算。"""
+    with app.app_context():
+        run, _ = _make_run(
+            app,
+            tmp_path,
+            snapshot_files={"app.py": ("安全" * 400 + "\n") * 3},
+        )
+        context = ContextBuilder().build(
+            run,
+            focus="审查字符预算",
+            file_hints=("app.py",),
+            max_total_chars=1000,
+        )
+
+        assert context.files
+        assert context.total_chars <= 1000
+        assert sum(len(line) for line in context.files[0].lines) <= 1000
+
 def test_context_builder_rejects_empty_focus(app, tmp_path):
     with app.app_context():
         run, _ = _make_run(app, tmp_path)
@@ -224,6 +243,43 @@ def test_context_builder_ignores_missing_files(app, tmp_path):
         assert context.files == ()
         assert context.total_chars == 0
 
+
+def test_context_builder_centers_high_finding_on_reported_line(app, tmp_path):
+    """没有显式文件方向时，Deep Review 应读取高危 finding 附近而不是文件头。"""
+    source = "".join(f"line {index}\n" for index in range(1, 251))
+    with app.app_context():
+        run, snapshot = _make_run(
+            app,
+            tmp_path,
+            snapshot_files={"app.py": source},
+        )
+        task = ScanTask(snapshot_id=snapshot.id, status="completed")
+        db.session.add(task)
+        db.session.flush()
+        db.session.add(
+            SecurityFinding(
+                task_id=task.id,
+                fingerprint="high-finding-window",
+                rule_id="SAST-001",
+                category="sast",
+                severity="high",
+                file_path="app.py",
+                start_line=150,
+                end_line=151,
+                message="危险调用",
+            )
+        )
+        db.session.commit()
+
+        with patch("app.services.enhanced_rag_engine.get_rag_engine") as engine_cls:
+            engine_cls.return_value.retrieve.return_value = []
+            context = ContextBuilder().build(run, focus="审查高危发现")
+
+        evidence = context.files[0]
+        assert evidence.file_path == "app.py"
+        assert evidence.start_line == 110
+        assert evidence.end_line == 191
+        assert evidence.lines[40] == "line 150"
 
 def test_context_builder_injection_docs_excluded(app, tmp_path):
     with app.app_context():
@@ -308,6 +364,109 @@ def test_deep_review_tool_persists_observation(app, tmp_path):
         assert observation.locations[0].file_path == "app.py"
         assert observation.run_id == run.id
 
+
+def test_deep_review_tool_marks_location_free_result_as_needs_more_evidence(app, tmp_path):
+    """无法落到代码位置的结果只能保留为待补证，不得伪装为漏洞结论。"""
+    insufficient_evidence = (
+        '{"title": "证据不足", "confidence": "low", '
+        '"summary": "现有切片不足以确认漏洞。", '
+        '"locations": [], "proof_gaps": ["需要读取实际调用链"]}'
+    )
+    with app.app_context():
+        run, _ = _make_run(app, tmp_path)
+        node, step = _make_plan_node_step(run)
+        provider = _fake_provider(insufficient_evidence)
+        with patch(
+            "app.services.security_agent.tools.review_tools.select_provider",
+            return_value=provider,
+        ), patch("app.services.enhanced_rag_engine.get_rag_engine") as engine_cls:
+            engine_cls.return_value.retrieve.return_value = []
+            result = ToolExecutor(get_tool_registry(), EventService()).execute(
+                run,
+                node,
+                step,
+                actor_id=run.created_by,
+                trace_id="insufficient-code-evidence",
+                input_payload=node.input_json,
+            )
+
+        assert result.status == "succeeded"
+        observation = db.session.get(AgentObservation, result.metrics["observation_id"])
+        assert observation.status == ObservationStatus.NEEDS_MORE_EVIDENCE.value
+        assert observation.confidence == "low"
+        assert observation.locations == []
+        assert observation.proof_gaps_json == ["需要读取实际调用链"]
+
+def test_deep_review_tool_persists_only_model_selected_background_reference(app, tmp_path):
+    """RAG 资料只可作为模型显式选择的背景参考，不能自动充当代码证据。"""
+    selected_reference = _valid_observation_json().replace(
+        '"proof_gaps": [',
+        '"knowledge_reference_ids": ["doc-safe"], "proof_gaps": [',
+    )
+    docs = [
+        {
+            "id": "doc-safe",
+            "text": "参数化查询避免 SQL 注入",
+            "metadata": {"doc_id": "doc-safe", "title": "安全编码规范"},
+        },
+        {
+            "id": "doc-unselected",
+            "text": "输出编码避免 XSS",
+            "metadata": {"doc_id": "doc-unselected", "title": "输出编码指南"},
+        },
+    ]
+    with app.app_context():
+        run, _ = _make_run(app, tmp_path)
+        node, step = _make_plan_node_step(run)
+        provider = _fake_provider(selected_reference)
+        with patch(
+            "app.services.security_agent.tools.review_tools.select_provider",
+            return_value=provider,
+        ), patch("app.services.enhanced_rag_engine.get_rag_engine") as engine_cls:
+            engine_cls.return_value.retrieve.return_value = docs
+            result = ToolExecutor(get_tool_registry(), EventService()).execute(
+                run,
+                node,
+                step,
+                actor_id=run.created_by,
+                trace_id="selected-reference",
+                input_payload=node.input_json,
+            )
+
+        assert result.status == "succeeded"
+        observation = db.session.get(AgentObservation, result.metrics["observation_id"])
+        assert [citation.document_id for citation in observation.citations] == ["doc-safe"]
+        assert observation.citations[0].source_type == "rag_background"
+
+def test_deep_review_tool_rejects_location_outside_authorized_context(app, tmp_path):
+    """模型只能引用本次 Context Pack 实际提供的代码行。"""
+    out_of_scope = (
+        '{"title": "越界行号", "confidence": "medium", '
+        '"summary": "模型声称存在漏洞。", '
+        '"locations": [{"file_path": "app.py", "start_line": 999, "role": "sink"}], '
+        '"proof_gaps": []}'
+    )
+    with app.app_context():
+        run, _ = _make_run(app, tmp_path)
+        node, step = _make_plan_node_step(run)
+        provider = _fake_provider(out_of_scope)
+        with patch(
+            "app.services.security_agent.tools.review_tools.select_provider",
+            return_value=provider,
+        ), patch("app.services.enhanced_rag_engine.get_rag_engine") as engine_cls:
+            engine_cls.return_value.retrieve.return_value = []
+            result = ToolExecutor(get_tool_registry(), EventService()).execute(
+                run,
+                node,
+                step,
+                actor_id=run.created_by,
+                trace_id="location-scope",
+                input_payload=node.input_json,
+            )
+
+        assert result.status == "failed"
+        assert "AGENT_PROVIDER_INVALID_RESPONSE" in (result.warning_codes or [])
+        assert AgentObservation.query.filter_by(run_id=run.id).count() == 0
 
 def test_deep_review_tool_fails_on_invalid_output(app, tmp_path):
     with app.app_context():

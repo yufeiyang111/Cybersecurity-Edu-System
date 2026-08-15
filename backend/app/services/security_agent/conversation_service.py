@@ -36,6 +36,11 @@ class ConversationNotFoundError(ConversationError):
     pass
 
 
+class ConversationControlUnavailableError(ConversationError):
+    """当前 Run 不会消费动态控制输入，拒绝静默写入。"""
+    error_code = "AGENT_DYNAMIC_CONTROL_UNAVAILABLE"
+
+
 class ConversationService:
     def __init__(self, run_service: AgentRunService | None = None) -> None:
         self._runs = run_service or AgentRunService()
@@ -113,6 +118,10 @@ class ConversationService:
 
         active_run = self._active_replanable_run(conversation)
         if active_run is not None:
+            if not self._supports_dynamic_control(active_run):
+                raise ConversationControlUnavailableError(
+                    "当前基础审计工作流不支持运行中追加方向；请等待本轮结束后创建下一轮审计。"
+                )
             message, control = self.append_follow_up_direction(
                 conversation,
                 content=normalized,
@@ -185,6 +194,11 @@ class ConversationService:
             ControlInputService,
         )
 
+        if not self._supports_dynamic_control(run):
+            raise ConversationControlUnavailableError(
+                "当前基础审计工作流不支持运行中追加方向；请等待本轮结束后创建下一轮审计。"
+            )
+
         normalized = content.strip()
         message = self._append_message(
             conversation,
@@ -210,6 +224,13 @@ class ConversationService:
         )
         db.session.commit()
         return message, control
+
+    @staticmethod
+    def _supports_dynamic_control(run: AgentRun) -> bool:
+        """只有 V2 Loop 会消费 Control Input，旧工作流必须显式拒绝。"""
+        from app.services.security_agent.feature_flags import AgentFeatureFlags
+
+        return AgentFeatureFlags().for_run(run).loop_v2
 
     def _active_replanable_run(self, conversation: AgentConversation) -> AgentRun | None:
         """最新活跃 Turn 的 Run 且处于可追加方向状态时返回，否则 None。"""

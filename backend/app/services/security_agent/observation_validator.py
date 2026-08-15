@@ -20,11 +20,15 @@ class ObservationValidationError(ValueError):
     pass
 
 
-def validate_observation(payload: dict) -> dict:
+def validate_observation(
+    payload: dict,
+    *,
+    allowed_code_slices: tuple[object, ...] | None = None,
+    require_code_evidence: bool = False,
+) -> dict:
     """校验并规范化 observation 输入；返回规整后的字典或抛异常。
 
-    必须包含：title、summary、locations（至少一个或至少一个 citation）。
-    locations 的 file_path 禁止绝对路径/相对逃逸（..），行号必须为正整数。
+    Deep Review 可传入本次 Context Pack 的代码切片，以拒绝模型伪造路径或行号。
     """
     if not isinstance(payload, dict):
         raise ObservationValidationError("observation 必须是对象")
@@ -58,16 +62,27 @@ def validate_observation(payload: dict) -> dict:
     citations_raw = payload.get("citations") or []
     if not isinstance(citations_raw, list):
         raise ObservationValidationError("citations 必须是数组")
-    if not locations_raw and not citations_raw:
+    if not locations_raw and not citations_raw and not require_code_evidence:
         raise ObservationValidationError("缺少证据：必须至少提供一个受影响位置或引用")
 
     locations = [_validate_location(item) for item in locations_raw]
+    if allowed_code_slices is not None:
+        _validate_locations_within_scope(locations, allowed_code_slices)
+
     proof_gaps = payload.get("proof_gaps") or []
     if not isinstance(proof_gaps, list):
         raise ObservationValidationError("proof_gaps 必须是数组")
     if len(proof_gaps) > MAX_PROOF_GAPS:
         raise ObservationValidationError(f"proof_gaps 不能超过 {MAX_PROOF_GAPS} 个")
     proof_gaps = [str(item)[:500] for item in proof_gaps]
+
+    needs_more_evidence = False
+    if require_code_evidence and not locations:
+        if confidence != ObservationConfidence.LOW.value:
+            raise ObservationValidationError("缺少代码位置时 confidence 必须为 low")
+        if not proof_gaps:
+            raise ObservationValidationError("缺少代码位置时必须说明 proof_gaps")
+        needs_more_evidence = True
 
     return {
         "title": title,
@@ -77,9 +92,9 @@ def validate_observation(payload: dict) -> dict:
         "locations": locations,
         "citations": citations_raw,
         "proof_gaps": proof_gaps,
+        "needs_more_evidence": needs_more_evidence,
         "detail": payload.get("detail") if isinstance(payload.get("detail"), dict) else {},
     }
-
 
 def _validate_location(item) -> dict:
     if not isinstance(item, dict):
@@ -120,3 +135,37 @@ def _reject_unsafe_path(file_path: str) -> None:
     for segment in normalized.split("/"):
         if segment and not _PATH_SEGMENT.match(segment):
             raise ObservationValidationError(f"location.file_path 含非法字符：{file_path[:80]}")
+
+
+def _validate_locations_within_scope(
+    locations: list[dict], allowed_code_slices: tuple[object, ...]
+) -> None:
+    """确保模型位置完全落在本次 Context Pack 授权的代码切片中。"""
+    allowed_ranges: list[tuple[str, int, int]] = []
+    for evidence in allowed_code_slices:
+        file_path = str(getattr(evidence, "file_path", "") or "").strip()
+        start_line = getattr(evidence, "start_line", None)
+        end_line = getattr(evidence, "end_line", None)
+        if not file_path:
+            continue
+        try:
+            start_line = int(start_line)
+            end_line = int(end_line)
+        except (TypeError, ValueError):
+            continue
+        if start_line > 0 and end_line >= start_line:
+            allowed_ranges.append((file_path, start_line, end_line))
+
+    for location in locations:
+        location_end = location["end_line"] or location["start_line"]
+        is_allowed = any(
+            file_path == location["file_path"]
+            and scope_start <= location["start_line"]
+            and location_end <= scope_end
+            for file_path, scope_start, scope_end in allowed_ranges
+        )
+        if not is_allowed:
+            raise ObservationValidationError(
+                "location 不在本次授权代码证据范围内："
+                f"{location['file_path']} 第 {location['start_line']}-{location_end} 行"
+            )

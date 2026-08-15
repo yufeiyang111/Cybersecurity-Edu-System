@@ -19,6 +19,11 @@
 
     <div class="ac-layout">
       <main class="ac-main">
+        <AgentRunExperienceNotice
+          v-if="store.run"
+          :run="store.run"
+          :feature-flags="store.featureFlags"
+        />
         <div ref="threadRef" class="ac-thread">
           <div v-if="loading && !store.run && !conversationMeta" class="ac-skeleton">
             <el-skeleton :rows="6" animated />
@@ -63,11 +68,11 @@
         </div>
 
         <ChatComposer
-          :disabled="sendingMessage"
+          :disabled="composerDisabled"
           :placeholder="composerPlaceholder"
           @send="handleSendMessage"
         />
-        <p class="ac-legal">每条消息创建一个新 Turn 并复用当前快照；Agent 的思考过程与工具调用会实时显示在对话中。</p>
+        <p class="ac-legal">{{ composerGuidance }}</p>
       </main>
 
       <aside class="ac-side">
@@ -191,6 +196,7 @@ import ChatComposer from '@/components/chat/ChatComposer.vue'
 import AgentThread from '@/components/security/agent/thread/AgentThread.vue'
 import LegacyThreadView from '@/components/security/agent/thread/LegacyThreadView.vue'
 import AgentApprovalQueue from '@/components/security/agent/AgentApprovalQueue.vue'
+import AgentRunExperienceNotice from '@/components/security/agent/AgentRunExperienceNotice.vue'
 import AgentConnectionStatus from '@/components/security/agent/AgentConnectionStatus.vue'
 import AgentCostPanel from '@/components/security/agent/AgentCostPanel.vue'
 import AgentCoverageFileTable from '@/components/security/agent/AgentCoverageFileTable.vue'
@@ -217,6 +223,7 @@ import { useAgentCosts } from '@/composables/security/useAgentCosts'
 import { useAgentCoverage } from '@/composables/security/useAgentCoverage'
 import { useAgentRun } from '@/composables/security/useAgentRun'
 import { agentStatusMeta } from '@/features/security/agent/statusMeta'
+import { resolveAgentRunExperience } from '@/features/security/agent/runExperience'
 import { formatSecurityDate, securityApiErrorMessage } from '@/features/security/presentation'
 
 const route = useRoute()
@@ -404,6 +411,28 @@ const conversationId = computed(() => Number(route.params.conversationId))
 const mode = computed(() => (conversationId.value ? 'conversation' : 'run'))
 
 const statusMeta = computed(() => agentStatusMeta(store.run?.status))
+const runExperience = computed(() => {
+  return resolveAgentRunExperience(store.run, store.featureFlags)
+})
+const composerDisabled = computed(() => {
+  return (
+    sendingMessage.value ||
+    Boolean(
+      store.run &&
+      !store.isTerminal &&
+      !runExperience.value.supportsDynamicControl
+    )
+  )
+})
+const composerGuidance = computed(() => {
+  if (store.run && !store.isTerminal && !runExperience.value.supportsDynamicControl) {
+    return '当前基础工作流不接收运行中补充指令；等待本轮结束后可创建下一轮审计。'
+  }
+  if (runExperience.value.supportsDynamicControl) {
+    return '运行中补充方向会以有序控制输入进入 Agent Loop，不会由页面直接执行工具。'
+  }
+  return '每条消息创建一个新 Turn 并复用当前快照；证据与工具过程会按实际执行状态展示。'
+})
 
 const lastProvider = computed(() => {
   if (store.lastProvider) return store.lastProvider
@@ -434,8 +463,11 @@ const planFallbackReason = computed(() => {
 
 const composerPlaceholder = computed(() => {
   if (!store.run && !conversationMeta.value) return '输入安全审计目标'
-  if (store.isTerminal || !store.run) return '继续输入目标，创建新 Turn，Agent 将执行 LLM 分析并回复'
-  return 'Agent 执行中…可输入补充指令'
+  if (store.isTerminal || !store.run) return '继续输入目标，创建新 Turn 并复用当前快照'
+  if (!runExperience.value.supportsDynamicControl) {
+    return '基础工作流执行中，完成后可发起下一轮审计'
+  }
+  return 'Agent Loop 执行中…可输入补充方向'
 })
 
 // ------------------------------------------------------------------ conversation
@@ -542,7 +574,7 @@ async function loadConversation(conversationIdValue) {
 
 async function handleSendMessage({ text }) {
   const content = (text || '').trim()
-  if (!content || sendingMessage.value) return
+  if (!content || composerDisabled.value) return
   sendingMessage.value = true
   try {
     if (mode.value === 'conversation') {

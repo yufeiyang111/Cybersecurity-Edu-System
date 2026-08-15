@@ -9,7 +9,7 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from app import db
 from app.models.agent_runtime import AgentRun
@@ -27,6 +27,15 @@ class CodeSliceEvidence:
     start_line: int
     end_line: int
     lines: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CodeEvidenceTarget:
+    """一次受限读取的目标文件与可选 finding 行号。"""
+
+    file_path: str
+    start_line: int | None = None
+    end_line: int | None = None
 
 
 @dataclass(frozen=True)
@@ -86,15 +95,18 @@ class ContextBuilder:
         if snapshot is None:
             raise DeepReviewContextError("快照不存在，无法构建上下文")
 
-        hints = file_hints or self._high_finding_files(run)
+        targets = self._evidence_targets(run, file_hints)
         file_evidence = self._collect_file_evidence(
-            snapshot, hints, file_limit, char_limit
+            snapshot,
+            targets,
+            file_limit,
+            char_limit,
         )
 
         citations, injected = self._collect_citations(
             normalized_focus, citation_limit
         )
-        total_chars = sum(len(evidence.lines) for evidence in file_evidence)
+        total_chars = sum(_evidence_char_count(evidence.lines) for evidence in file_evidence)
         return DeepReviewContext(
             focus=normalized_focus,
             entrypoints=tuple(entrypoints or ()),
@@ -106,7 +118,24 @@ class ContextBuilder:
 
     # ------------------------------------------------------------------ files
 
-    def _high_finding_files(self, run: AgentRun) -> tuple[str, ...]:
+    def _evidence_targets(
+        self,
+        run: AgentRun,
+        file_hints: tuple[str, ...],
+    ) -> tuple[CodeEvidenceTarget, ...]:
+        if file_hints:
+            return tuple(
+                CodeEvidenceTarget(file_path=file_path)
+                for file_path in file_hints
+                if file_path
+            )
+        return self._high_finding_targets(run)
+
+    def _high_finding_targets(
+        self,
+        run: AgentRun,
+    ) -> tuple[CodeEvidenceTarget, ...]:
+        """优先围绕最近扫描中高危 finding 的实际行号构建代码窗口。"""
         task = (
             ScanTask.query.filter_by(snapshot_id=run.snapshot_id)
             .order_by(ScanTask.id.desc())
@@ -115,7 +144,11 @@ class ContextBuilder:
         if task is None:
             return ()
         rows = (
-            db.session.query(SecurityFinding.file_path)
+            db.session.query(
+                SecurityFinding.file_path,
+                SecurityFinding.start_line,
+                SecurityFinding.end_line,
+            )
             .filter(
                 SecurityFinding.task_id == task.id,
                 SecurityFinding.severity.in_(["critical", "high"]),
@@ -123,16 +156,25 @@ class ContextBuilder:
             .order_by(SecurityFinding.id.asc())
             .all()
         )
-        seen: list[str] = []
-        for (path,) in rows:
-            if path and path not in seen:
-                seen.append(path)
-        return tuple(seen)
+        seen: set[str] = set()
+        targets: list[CodeEvidenceTarget] = []
+        for file_path, start_line, end_line in rows:
+            if not file_path or file_path in seen:
+                continue
+            seen.add(file_path)
+            targets.append(
+                CodeEvidenceTarget(
+                    file_path=file_path,
+                    start_line=start_line,
+                    end_line=end_line,
+                )
+            )
+        return tuple(targets)
 
     def _collect_file_evidence(
         self,
         snapshot: ProjectSnapshot,
-        hints: tuple[str, ...],
+        targets: tuple[CodeEvidenceTarget, ...],
         file_limit: int,
         char_limit: int,
     ) -> tuple[CodeSliceEvidence, ...]:
@@ -144,37 +186,49 @@ class ContextBuilder:
         )
 
         evidence: list[CodeSliceEvidence] = []
-        total_lines = 0
-        for file_path in hints:
-            if len(evidence) >= file_limit:
+        total_chars = 0
+        for target_spec in targets:
+            if len(evidence) >= file_limit or total_chars >= char_limit:
                 break
+            file_path = target_spec.file_path
             if not file_path or len(file_path) > 512:
                 continue
             try:
                 target = resolve_slice_path(snapshot, file_path)
-                line_count = sum(1 for _ in target.open(encoding="utf-8", errors="replace"))
+                line_count = sum(
+                    1
+                    for _ in target.open(encoding="utf-8", errors="replace")
+                )
             except (CodeSliceForbidden, CodeSliceError, OSError):
                 continue
             if line_count <= 0:
                 continue
-            end_line = min(DEFAULT_MAX_LINES_PER_FILE, line_count)
+
+            start_line, end_line = _slice_window(target_spec, line_count)
             try:
                 payload = read_code_slice(
-                    snapshot, file_path, 1, end_line, "deep_review"
+                    snapshot,
+                    file_path,
+                    start_line,
+                    end_line,
+                    "deep_review",
                 )
             except (CodeSliceForbidden, CodeSliceError):
                 continue
-            lines = tuple(payload.get("lines") or [])
+            lines = _fit_lines_to_char_budget(
+                tuple(payload.get("lines") or ()),
+                char_limit - total_chars,
+            )
             if not lines:
                 continue
-            if total_lines + len(lines) > char_limit:
-                break
-            total_lines += len(lines)
+
+            actual_end_line = start_line + len(lines) - 1
+            total_chars += _evidence_char_count(lines)
             evidence.append(
                 CodeSliceEvidence(
                     file_path=file_path,
-                    start_line=1,
-                    end_line=end_line,
+                    start_line=start_line,
+                    end_line=actual_end_line,
                     lines=lines,
                 )
             )
@@ -237,13 +291,53 @@ class ContextBuilder:
             budget -= len(block)
             parts.append(block)
         for index, citation in enumerate(context.citations, 1):
-            block = f"【参考资料 {index}】{citation.document_title}\n{citation.quote_preview}"
+            block = (
+                f"【背景参考 document_id={citation.document_id}】\n"
+                f"{citation.document_title}\n{citation.quote_preview}"
+            )
             if budget <= 0:
                 break
             budget -= len(block)
             parts.append(block)
         return "\n\n".join(parts)
 
+
+def _slice_window(
+    target: CodeEvidenceTarget,
+    line_count: int,
+) -> tuple[int, int]:
+    """在最大 200 行门禁内，为 finding 预留前后文窗口。"""
+    if target.start_line is None:
+        return 1, min(DEFAULT_MAX_LINES_PER_FILE, line_count)
+
+    finding_start = min(max(1, int(target.start_line)), line_count)
+    finding_end = target.end_line or finding_start
+    finding_end = min(max(finding_start, int(finding_end)), line_count)
+    start_line = max(1, finding_start - 40)
+    end_line = min(line_count, finding_end + 40)
+    if end_line - start_line + 1 > DEFAULT_MAX_LINES_PER_FILE:
+        end_line = start_line + DEFAULT_MAX_LINES_PER_FILE - 1
+    return start_line, end_line
+
+
+def _fit_lines_to_char_budget(
+    lines: tuple[str, ...],
+    remaining_chars: int,
+) -> tuple[str, ...]:
+    """保留完整代码行，严格不超过剩余字符预算。"""
+    selected: list[str] = []
+    used = 0
+    for line in lines:
+        line_cost = len(line) + (1 if selected else 0)
+        if used + line_cost > remaining_chars:
+            break
+        selected.append(line)
+        used += line_cost
+    return tuple(selected)
+
+
+def _evidence_char_count(lines: tuple[str, ...]) -> int:
+    return len("\n".join(lines))
 
 def _trust_score(doc: dict) -> float | None:
     similarity = doc.get("similarity")

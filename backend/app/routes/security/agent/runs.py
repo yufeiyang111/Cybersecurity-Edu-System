@@ -326,6 +326,7 @@ def post_agent_run_message(run_id: int):
     """
     from app.models.conversation import AgentConversationMessage
     from app.services.security_agent.conversation_service import (
+        ConversationControlUnavailableError,
         ConversationError,
         ConversationService,
     )
@@ -412,6 +413,8 @@ def post_agent_run_message(run_id: int):
         )
     except AuthorizationError as exc:
         return jsonify({"error": str(exc)}), 403
+    except ConversationControlUnavailableError as exc:
+        return jsonify({"error": str(exc), "error_code": exc.error_code}), 409
     except ConversationError as exc:
         return jsonify({"error": str(exc)}), 400
     except ValueError as exc:

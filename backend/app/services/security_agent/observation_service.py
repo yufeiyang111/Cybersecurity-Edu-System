@@ -61,12 +61,23 @@ class ObservationService:
         *,
         source_type: str = ObservationSourceType.DEEP_REVIEW.value,
         trace_id: str | None = None,
+        evidence_scope: tuple[object, ...] | None = None,
     ) -> AgentObservation:
-        normalized = validate_observation(payload)
+        normalized = validate_observation(
+            payload,
+            allowed_code_slices=evidence_scope,
+            require_code_evidence=(
+                source_type == ObservationSourceType.DEEP_REVIEW.value
+            ),
+        )
         observation = AgentObservation(
             run_id=run.id,
             title=normalized["title"],
-            status=ObservationStatus.UNVERIFIED.value,
+            status=(
+                ObservationStatus.NEEDS_MORE_EVIDENCE.value
+                if normalized["needs_more_evidence"]
+                else ObservationStatus.UNVERIFIED.value
+            ),
             cwe_id=normalized["cwe_id"],
             confidence=normalized["confidence"],
             summary=normalized["summary"],

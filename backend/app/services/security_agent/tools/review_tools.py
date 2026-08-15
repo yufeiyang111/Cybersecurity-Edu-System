@@ -135,13 +135,18 @@ def build_run_deep_review_handler(events: EventService | None = None):
             ) from exc
 
         parsed.setdefault("locations", [])
-        parsed.setdefault("citations", [])
         parsed.setdefault("proof_gaps", [])
-        parsed["citations"] = _attach_citations(parsed, review_context)
 
         try:
+            parsed["citations"] = _select_background_citations(
+                parsed,
+                review_context,
+            )
             observation = ObservationService(events).create(
-                ctx.run, parsed, trace_id=ctx.trace_id
+                ctx.run,
+                parsed,
+                trace_id=ctx.trace_id,
+                evidence_scope=review_context.files,
             )
         except ObservationValidationError as exc:
             _raise_invalid_response(ctx, str(exc))
@@ -182,18 +187,34 @@ def _string_list(value) -> tuple[str, ...]:
     return ()
 
 
-def _attach_citations(parsed: dict, review_context) -> list[dict]:
-    """LLM 未引用或引用不完整时，附上上下文构建器产出的可信引用。"""
-    attached = list(parsed.get("citations") or [])
-    existing_docs = {
-        str(item.get("document_id")) for item in attached if item.get("document_id")
+def _select_background_citations(parsed: dict, review_context) -> list[dict]:
+    """只持久化模型从当前 Context Pack 显式选中的背景资料。"""
+    requested_ids = parsed.pop("knowledge_reference_ids", [])
+    if requested_ids is None:
+        requested_ids = []
+    if not isinstance(requested_ids, list):
+        raise ObservationValidationError("knowledge_reference_ids 必须是数组")
+
+    allowed = {
+        citation.document_id: citation
+        for citation in review_context.citations
+        if citation.document_id
     }
-    for citation in review_context.citations:
-        if citation.document_id in existing_docs:
+    selected: list[dict] = []
+    seen: set[str] = set()
+    for raw_document_id in requested_ids:
+        document_id = str(raw_document_id or "").strip()
+        if not document_id or document_id in seen:
             continue
-        attached.append(
+        citation = allowed.get(document_id)
+        if citation is None:
+            raise ObservationValidationError(
+                f"knowledge_reference_ids 包含未授权文档：{document_id[:120]}"
+            )
+        seen.add(document_id)
+        selected.append(
             {
-                "source_type": "rag",
+                "source_type": "rag_background",
                 "document_id": citation.document_id,
                 "document_title": citation.document_title,
                 "trust_score": citation.trust_score,
@@ -202,7 +223,7 @@ def _attach_citations(parsed: dict, review_context) -> list[dict]:
                 "quote_preview": citation.quote_preview,
             }
         )
-    return attached
+    return selected
 
 
 def _record_success(ctx, provider, prompt: dict, response) -> None:

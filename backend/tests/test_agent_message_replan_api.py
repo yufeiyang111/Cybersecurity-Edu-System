@@ -117,8 +117,8 @@ def _make_active_run(application, user_id, workspace_id, project_id, snapshot_id
         return run.id, plan.id, conversation.id
 
 
-def test_post_message_to_active_run_enqueues_control_input(agent_api_app, tmp_path):
-    """T07：追加消息只入队 Control Input，不再直接创建新计划版本。"""
+def test_post_message_to_v1_workflow_is_rejected_without_side_effects(agent_api_app, tmp_path):
+    """基础工作流不会消费 Control Input，接口必须拒绝而非静默入队。"""
     from app.models.agent_control import AgentControlInput
 
     user_id, workspace_id = _make_user(agent_api_app)
@@ -137,6 +137,42 @@ def test_post_message_to_active_run_enqueues_control_input(agent_api_app, tmp_pa
                 "client_message_id": "msg-replan-0001",
             },
         )
+        assert response.status_code == 409
+        data = response.get_json()
+        assert data["error_code"] == "AGENT_DYNAMIC_CONTROL_UNAVAILABLE"
+        assert AgentConversationMessage.query.filter_by(
+            client_message_id="msg-replan-0001"
+        ).count() == 0
+        assert AgentControlInput.query.filter_by(
+            run_id=run_id, client_request_id="msg-replan-0001"
+        ).count() == 0
+        run = db.session.get(AgentRun, run_id)
+        assert run.plan_version == 1
+        assert run.replan_count == 0
+        assert AgentDecisionRecord.query.filter_by(run_id=run_id).count() == 0
+
+
+def test_post_message_to_v2_agent_run_enqueues_control_input(agent_api_app, tmp_path):
+    """V2 Loop 运行中追加消息只入队 Control Input，不直接创建新计划版本。"""
+    from app.models.agent_control import AgentControlInput
+
+    agent_api_app.config["AGENT_LOOP_V2_ENABLED"] = True
+    user_id, workspace_id = _make_user(agent_api_app, username="v2-bob")
+    project_id, snapshot_id = _make_project_snapshot(agent_api_app, user_id, workspace_id, tmp_path)
+    run_id, _, _ = _make_active_run(
+        agent_api_app, user_id, workspace_id, project_id, snapshot_id
+    )
+    headers = _auth_headers(agent_api_app, user_id)
+    with agent_api_app.app_context():
+        client = agent_api_app.test_client()
+        response = client.post(
+            f"/api/security/agent-runs/{run_id}/messages",
+            headers=headers,
+            json={
+                "content": "重点检查鉴权和登录逻辑",
+                "client_message_id": "msg-replan-v2-0001",
+            },
+        )
         assert response.status_code == 201
         data = response.get_json()
         assert data["replayed"] is False
@@ -148,17 +184,18 @@ def test_post_message_to_active_run_enqueues_control_input(agent_api_app, tmp_pa
         assert run.replan_count == 0
         assert AgentDecisionRecord.query.filter_by(run_id=run_id).count() == 0
         message = AgentConversationMessage.query.filter_by(
-            client_message_id="msg-replan-0001"
+            client_message_id="msg-replan-v2-0001"
         ).one()
         assert message.message_type == "follow_up"
         control = AgentControlInput.query.filter_by(
-            run_id=run_id, client_request_id="msg-replan-0001"
+            run_id=run_id, client_request_id="msg-replan-v2-0001"
         ).one()
         assert control.input_type == "user_message"
         assert control.status == "pending"
 
 
 def test_post_message_idempotent_retry(agent_api_app, tmp_path):
+    agent_api_app.config["AGENT_LOOP_V2_ENABLED"] = True
     user_id, workspace_id = _make_user(agent_api_app)
     project_id, snapshot_id = _make_project_snapshot(agent_api_app, user_id, workspace_id, tmp_path)
     run_id, _, _ = _make_active_run(
@@ -248,6 +285,7 @@ def test_post_message_requires_membership(agent_api_app, tmp_path):
 
 
 def test_list_plans_and_decisions(agent_api_app, tmp_path):
+    agent_api_app.config["AGENT_LOOP_V2_ENABLED"] = True
     user_id, workspace_id = _make_user(agent_api_app)
     project_id, snapshot_id = _make_project_snapshot(agent_api_app, user_id, workspace_id, tmp_path)
     run_id, _, _ = _make_active_run(
@@ -270,7 +308,47 @@ def test_list_plans_and_decisions(agent_api_app, tmp_path):
     assert len(records) == 0, "追加消息不写决策记录（未重规划）"
 
 
-def test_conversation_message_replans_active_run_instead_of_new_run(agent_api_app, tmp_path):
+def test_conversation_message_to_v1_workflow_is_rejected_without_side_effects(
+    agent_api_app, tmp_path
+):
+    """活跃基础工作流不能伪装成可追问 Agent，也不能落入半条消息。"""
+    from app.models.agent_control import AgentControlInput
+
+    user_id, workspace_id = _make_user(agent_api_app, username="conversation-v1")
+    project_id, snapshot_id = _make_project_snapshot(
+        agent_api_app, user_id, workspace_id, tmp_path
+    )
+    run_id, _, conversation_id = _make_active_run(
+        agent_api_app, user_id, workspace_id, project_id, snapshot_id
+    )
+    headers = _auth_headers(agent_api_app, user_id)
+    response = agent_api_app.test_client().post(
+        f"/api/security/agent-conversations/{conversation_id}/messages",
+        headers=headers,
+        json={
+            "content": "再重点看看数据库查询",
+            "client_message_id": "msg-conv-v1-0001",
+            "mode": "baseline",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.get_json()["error_code"] == "AGENT_DYNAMIC_CONTROL_UNAVAILABLE"
+    with agent_api_app.app_context():
+        assert AgentConversationMessage.query.filter_by(
+            client_message_id="msg-conv-v1-0001"
+        ).count() == 0
+        assert AgentControlInput.query.filter_by(
+            run_id=run_id, client_request_id="msg-conv-v1-0001"
+        ).count() == 0
+        assert AgentTurn.query.filter_by(conversation_id=conversation_id).count() == 1
+        run = db.session.get(AgentRun, run_id)
+        assert run.plan_version == 1
+        assert run.replan_count == 0
+
+def test_conversation_message_to_v2_agent_run_enqueues_control_input(agent_api_app, tmp_path):
+    """V2 会话在活跃 Run 上追加方向，不创建新 Turn 或计划。"""
+    agent_api_app.config["AGENT_LOOP_V2_ENABLED"] = True
     user_id, workspace_id = _make_user(agent_api_app)
     project_id, snapshot_id = _make_project_snapshot(agent_api_app, user_id, workspace_id, tmp_path)
     run_id, _, conversation_id = _make_active_run(

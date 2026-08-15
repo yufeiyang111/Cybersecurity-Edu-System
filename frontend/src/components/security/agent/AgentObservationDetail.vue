@@ -110,6 +110,12 @@
         <ul class="obs-detail__citations">
           <li v-for="citation in observation.citations" :key="citation.id">
             <span class="obs-detail__cite-title">{{ citation.document_title }}</span>
+            <span
+              v-if="citation.source_type === 'rag_background'"
+              class="obs-detail__cite-flag"
+            >
+              背景参考（不构成代码证据）
+            </span>
             <span v-if="citation.trust_score != null" class="obs-detail__cite-score">
               信任 {{ citation.trust_score }}
             </span>

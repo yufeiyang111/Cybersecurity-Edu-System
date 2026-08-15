@@ -20,9 +20,18 @@ export const agentRunStatusMeta = {
 }
 
 export const agentRunModeMeta = {
-  baseline: { label: '基线扫描', description: '确定性扫描 + 覆盖报告' },
-  hybrid: { label: '混合审计', description: '基线扫描 + Agent 语义分析' },
-  deep_audit: { label: '深度审计', description: '全链路 LLM 深度审查' }
+  baseline: {
+    label: '基础审计工作流',
+    description: '确定性扫描与覆盖评估；运行中不支持追加方向'
+  },
+  hybrid: {
+    label: '混合审计',
+    description: '启用 Agent Loop 时才提供模型在环能力'
+  },
+  deep_audit: {
+    label: '深度审计',
+    description: '启用 Agent Loop 时才允许模型基于工具结果继续审查'
+  }
 }
 
 export const stepStatusMeta = {

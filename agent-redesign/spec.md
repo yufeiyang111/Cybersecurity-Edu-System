@@ -1,4 +1,4 @@
-﻿# CyberGuard 代码漏洞审查 Agent 底层改造规格说明
+# CyberGuard 代码漏洞审查 Agent 底层改造规格说明
 
 > 文档版本：1.1.0
 > 冻结日期：2026-08-12
@@ -1331,3 +1331,59 @@ frontend/src/components/security/agent/timeline/
 reasoning 展示采用 Codex 式策略（v1.1）：展示模型真实输出的受限推理摘要（Reasoning Summary），不展示、不持久化完整原始思维链全文。
 
 后续 Agent 必须以此为最高设计基线，并按 `tasks.md` 的批次顺序实施、按 `checklist.md` 逐条提供完成证据。
+
+## 21. 后验审计纠偏与第一期产品收口（2026-08-15）
+
+> 本节在 2026-08-15 的代码审计后新增，优先级高于此前“整体改造完成”的历史验收记录。历史记录仅描述当时的协议和灰度演练，不能替代当前默认用户路径的真实性要求。
+
+### 21.1 当前问题与目标
+
+1. 默认 UI 选择 `baseline`，而默认配置的 `AGENT_LOOP_V2_ENABLED` 为关闭；因此默认路径必须被诚实描述为“基础代码安全审计工作流”，不得宣称模型在该路径中自主选择工具或持续重规划。
+2. 运行中追加消息只允许由 V2 Loop 消费。旧 Runner 不消费控制输入时，API 不得接受并静默持久化该方向；客户端必须收到明确的冲突/不可用语义。
+3. Deep Review 的漏洞位置必须由服务端绑定到本次 Context Pack 中实际读取的代码切片范围。模型写出的路径或行号超出该范围必须被拒绝，不能仅做路径格式和正整数校验。
+4. RAG 资料是背景参考而不是代码漏洞证明。只有模型在受限 document ID 白名单中明确选择的资料才可随 Observation 保存，并在 UI 中标为“背景参考，不构成代码证据”。不得自动把所有检索资料附加为漏洞证据。
+5. 无可验证代码位置的结果只能以 `needs_more_evidence` 保存，且必须是低置信度并有 proof gaps；不得伪装为已定位的漏洞。
+
+### 21.2 第一期开关与展示规则
+
+`resolveAgentExperience(mode, featureFlags)` 是前端唯一的展示判定：
+
+| 条件 | 类型 | 用户可见文案 |
+| --- | --- | --- |
+| `mode=baseline`，任意 flag | `workflow` | 基础代码安全审计工作流 |
+| V2 Loop 未启用，任意非 baseline mode | `workflow_limited` | 受限审计工作流（动态 Agent Loop 未启用） |
+| V2 Loop 启用且 `mode=hybrid/deep_audit` | `agentic` | 受控 AI 审计 Agent |
+
+页面只能按该判定展示 Agent 专有承诺（模型自主工具调用、运行中方向、重规划、推理摘要）。路由和既有 API 名称保持兼容，本期不删除历史 Run 或 Feature Flag。
+
+### 21.3 控制输入契约
+
+1. `POST /agent-runs/{id}/messages` 与会话级追加消息在当前 Run 为 V1 工作流时返回 HTTP `409`，错误码为 `AGENT_DYNAMIC_CONTROL_UNAVAILABLE`。
+2. 返回 `409` 不得创建 `AgentConversationMessage`、`AgentControlInput`、新计划版本或新 Run。
+3. V2 Loop 开启时保持现有幂等入队语义；HTTP 请求线程仍不得直接执行工具或重规划。
+4. 用户可在 V1 Run 终态后发起下一 Turn；该能力不变。
+
+### 21.4 Deep Review 证据绑定契约
+
+1. `ContextBuilder` 输出的每个 `CodeSliceEvidence` 是本次允许位置的唯一事实来源，包含 `file_path/start_line/end_line`。
+2. `ObservationService.create(..., evidence_scope=...)` 在 Deep Review 调用时必须验证每个 location 完全包含于至少一个授权切片。手工 Observation 或历史调用在未传 scope 时保持旧兼容行为。
+3. Prompt 输出新增可选 `knowledge_reference_ids`；仅允许选择 Context Pack 中的 document ID。服务端只持久化这些被明确选择的资料，`source_type=rag_background`。
+4. Context Pack 的预算按真实字符数累计，扫描 finding 驱动的代码读取优先使用 finding 行号附近的窗口，而不是固定从文件第 1 行读取。
+
+### 21.5 第一阶段非目标
+
+- 不在本期删除 `InlinePlanRunner`；它继续作为 V2 回滚兼容路径。
+- 不修改数据库 schema；证据范围由请求期不可变 Context Pack 传入，背景引用复用现有 Observation citation 表。
+- 不把 RAG 资料升级为漏洞结论的主张级证明；该能力属于后续 Observation Evidence Graph 阶段。
+- 不在本期重新设计全部 AgentChat 面板；只收紧默认工作流/Agent 的产品承诺和关键状态展示。
+### 21.6 第一期开关实现记录（2026-08-15）
+
+已实现：
+
+1. V1 活跃 Run 的 run 级和会话级追加方向统一返回 `409 AGENT_DYNAMIC_CONTROL_UNAVAILABLE`，并通过副作用为零的 API 回归测试验证；V2 Flag 开启时仍写入幂等 Control Input。
+2. Deep Review 将 Context Pack 代码切片传给 `ObservationService`；越界路径/行号被拒绝。没有代码位置的结果只有在低置信度且有 proof gaps 时可落库，初始状态为 `needs_more_evidence`。
+3. Context Pack 代码预算改为真实字符数；最近一次扫描的高危 finding 会生成覆盖其行号附近的窗口。
+4. Prompt 版本升级为 `deep_review_v2`：模型仅能通过 `knowledge_reference_ids` 选择当前 Context Pack 白名单中的 RAG 背景资料；持久化 `source_type=rag_background`，前端明确不将其显示为代码证据。
+5. 前端依据 `resolveAgentRunExperience` 呈现实际能力；基础工作流不显示运行中追问或自主 Agent 承诺，只有 V2 Loop 的 hybrid/deep_audit 显示模型在环语义。
+
+本期仍未完成真实浏览器人工验收（T14-09）。DevTools 当前报告 Chrome profile 被现有浏览器锁占用；为避免中断用户浏览器，本期未通过杀进程或重置 profile 绕过该限制。
