@@ -1,8 +1,9 @@
 # CyberGuard 代码漏洞审查 Agent 底层改造规格说明
 
-> 文档版本：1.1.0
-> 冻结日期：2026-08-12
+> 文档版本：1.2.0
+> 冻结日期：2026-08-16
 > 修订记录：
+> - v1.2.0（2026-08-16，待用户书面审阅）：Harness V3 增加 Provider 明确返回的原始 reasoning 实时展示例外；仅限任务发起人的活动 SSE 订阅，瞬时传输、不落库、不回放；隐藏 Chain-of-Thought 与 ToT 仍不实现。
 > - v1.1.0（2026-08-12，用户拍板）：reasoning 展示策略修订——不展示、不持久化**完整原始思维链全文**；允许展示与持久化**模型真实 reasoning 输出经脱敏限长的受限摘要（Reasoning Summary）**，以 Codex 风格按 sequence 进入统一时间线。
 > 适用仓库：`D:\workproject\work\work-5238`
 > 文档关系：本文件定义“做成什么”；`tasks.md` 定义“按什么顺序做”；`checklist.md` 定义“凭什么算完成”。
@@ -677,6 +678,10 @@ class AgentModelStreamEvent:
 
 ## 12. Reasoning、Reasoning Summary、Decision Summary 与安全边界
 
+> 本节的冻结规则适用于 baseline/V1/V2。Harness V3 对“Provider 明确返回的原始
+> reasoning”增加了 §25.3 的严格实时例外，但不放宽隐藏 Chain-of-Thought 禁止展示、
+> 不持久化、不回放，也不改变受控 Reasoning Summary 的历史契约。
+
 ### 12.1 冻结决策（v1.1 修订：用户拍板采用 Codex 式受限推理摘要）
 
 **不展示、不持久化、不重放模型完整原始隐藏思维链全文（raw chain-of-thought 逐 token 文本）。**
@@ -695,14 +700,18 @@ Reasoning Summary 的来源必须是模型真实输出（provider 的 `reasoning
 
 > "先核对扫描证据，再按调用链定位入口……"
 
-原始 reasoning 全文只在进程内存中瞬时累积用于生成摘要，流结束后必须丢弃；不得写入数据库、日志、审计或 API 原文。
+在 baseline/V1/V2 路径中，原始 reasoning 全文只在进程内存中瞬时累积用于生成摘要，
+流结束后必须丢弃；不得写入数据库、日志、审计或 API 原文。V3 的 Provider 原始 reasoning
+实时例外必须遵守 §25.3 的瞬时中继、创建者鉴权和不可回放约束。
 
 ### 12.2 对现有实现的要求（v1.1 修订）
 
 - `llm.reasoning_delta` / `llm_reasoning` 协议演进为 v2 `item.reasoning_summary.*`；旧事件迁移期可解析并作为 legacy 推理摘要展示，不再新增旧格式。
 - 用户未提交改动中把 `llm_reasoning` 写入 `AgentMessage` 的行为**保留并收紧**：只允许写入脱敏、限长（`REASONING_SUMMARY_MAX_CHARS`，默认 6000）的受限摘要，消息/Item 必须标注 `sensitive_level`；完整原始思维链全文不落库。
 - `reasoning_tokens` 仅作为 Usage 数字保留。
-- `internal_reasoning_boundary.py` 保持隐藏推理与可见文本隔离；原始 reasoning 只用于进程内生成摘要，不持久化。
+- `internal_reasoning_boundary.py` 保持隐藏推理与可见文本隔离；baseline/V1/V2 的原始
+  reasoning 只用于进程内生成摘要，不持久化；V3 Provider 原始 reasoning 只能按 §25.3
+  经过瞬时中继，不得进入持久层。
 - `redactor.py` 的 `redact_reasoning` 成为 Reasoning Summary 入库/入 SSE 前的强制门禁；不可安全脱敏的 delta 直接丢弃。
 - 前端组件命名从 `Thinking` 迁移为 `ReasoningSummary` / `DecisionSummary`，UI 明确标注“推理摘要”，不得伪装成完整思维链。
 
@@ -1195,7 +1204,9 @@ frontend/src/components/security/agent/timeline/
 - Tool Schema、风险、模式、审批和预算；
 - Completion Evaluator 的全部终态；
 - Event Reducer 的 sequence/delta/idempotency/gap；
-- 完整原始 Reasoning 不落库、不进 Event、不进日志；Reasoning Summary 脱敏、限长、可重放且刷新回放一致。
+- 隐藏 Chain-of-Thought 不落库、不进 Event、不进日志；Reasoning Summary 脱敏、限长、
+  可重放且刷新回放一致。V3 Provider 原始 reasoning 的实时例外按 §25.3 单独验证，不能
+  进入持久事件或历史回放。
 
 ### 20.2 集成测试
 
@@ -1312,7 +1323,10 @@ frontend/src/components/security/agent/timeline/
 6. Pause/Resume/Approval/Crash 均从 Checkpoint 恢复，不重复已完成工具。
 7. Tool Schema、权限、风险、预算、超时、重试、取消在 Executor 前后被强制执行。
 8. Completion Evaluator 正确区分五种终态。
-9. 完整原始思维链全文不存在于数据库、SSE Payload、API、日志和审计；Reasoning Summary 以脱敏受限形式存在于 Event/UI，刷新回放与流式一致，且 UI 标注“推理摘要”。
+9. baseline/V1/V2 中完整隐藏思维链全文不存在于数据库、SSE Payload、API、日志和审计；
+   Reasoning Summary 以脱敏受限形式存在于 Event/UI，刷新回放与流式一致，且 UI 标注
+   “推理摘要”。V3 的 Provider 原始 reasoning 仅按 §25.3 的创建者活动连接例外展示，
+   不进入持久事件、API 或回放。
 10. 前端按 sequence 显示统一时间线，SSE 与数据库顺序一致。
 11. 最终回答通过 delta 流式输出并持久化完成 Item。
 12. Snapshot Watermark + Last-Event-ID 重连无漏/重。
@@ -1328,7 +1342,9 @@ frontend/src/components/security/agent/timeline/
 
 > **每次模型决策都看到最新受控 Observation；每次工具调用都经过 Controller；每个状态和 Item 都以同一顺序持久化并流向前端；每个终态都由完成条件和证据决定。**
 
-reasoning 展示采用 Codex 式策略（v1.1）：展示模型真实输出的受限推理摘要（Reasoning Summary），不展示、不持久化完整原始思维链全文。
+reasoning 展示采用 Codex 式策略（v1.2，继承 v1.1）：默认展示模型真实输出的受限推理摘要
+（Reasoning Summary），不展示、不持久化模型隐藏思维链全文；V3 Provider 明确返回的
+原始 reasoning 仅按 §25.3 的实时例外展示。
 
 后续 Agent 必须以此为最高设计基线，并按 `tasks.md` 的批次顺序实施、按 `checklist.md` 逐条提供完成证据。
 
@@ -1442,16 +1458,28 @@ Reflection：检查证据缺口、反证和下一步价值
 `AGENT_HARNESS_V3_ENABLED` 灰度开启后进入 V3 路径。该选择避免把低成本基础扫描
 伪装成自主 Agent，并保留明确回滚路径。
 
-### 25.3 推理边界：不用原始 CoT，不实现 ToT
+### 25.3 推理边界：受限展示 Provider 原始 reasoning，不实现 ToT
 
-1. V3 不请求、持久化、SSE 透传或展示完整原始 Chain-of-Thought。
-2. 每轮只生成受控 `ReasoningSummary`，字段限定为：
+1. 系统不请求、重建或伪造任何模型隐藏 Chain-of-Thought。只有 Provider 明确返回
+   `reasoning_content` / reasoning delta 时，才可称为“Provider 原始 reasoning 输出”；
+   它不是已验证事实，也不能被重新包装为系统自身的完整思维链。
+2. 每轮仍生成可持久化、可回放的受控 `ReasoningSummary`，字段限定为：
    `hypothesis_id`、`action_reason`、`evidence_gap`、`next_step`、`sensitive_level`。
-3. `ReasoningSummary` 不得包含完整源码、Prompt、Authorization、Cookie、Provider
-   原始 reasoning 或未脱敏用户输入；继续复用既有脱敏、限长和回放契约。
-4. 不实现 Tree-of-Thought。多个候选漏洞路径由受限 `HypothesisQueue` 表示，最多
+3. 当 `AGENT_PROVIDER_RAW_REASONING_STREAM_ENABLED=true`、当前认证用户等于
+   `run.created_by`，并且该用户已经通过该 Run 的既有读取鉴权时，允许在该用户针对该
+   Run 的**活动 SSE 订阅**上原样转发 Provider 原始 reasoning delta。前端默认折叠，并
+   必须明确标注“Provider 原始推理输出，未经系统事实验证；刷新后不可回放”。
+4. 原始 reasoning 只能走无持久化的瞬时中继，事件名为
+   `provider_reasoning_raw_delta`；它不得进入 `AgentEvent`、`AgentMessage`、
+   Checkpoint、数据库、日志、分析指标、搜索索引、下载文件或历史接口。原始 SSE 帧
+   不得携带持久化 sequence，也不得推动 `Last-Event-ID` 水位。V3 不得复用当前会持久化
+   的 `llm.reasoning_delta` 通道承载 Provider 原始片段；该通道在 V3 中只能承载已治理
+   的摘要或保持空缺。SSE 断线、刷新和重连只回放受控 Event，不得补发此前原始 reasoning。
+5. Provider 未提供 reasoning channel、开关关闭、非任务发起人访问或连接已断开时，
+   系统不得生成、缓存或伪造原始 reasoning；只返回既有安全 `ReasoningSummary`。
+6. 不实现 Tree-of-Thought。多个候选漏洞路径由受限 `HypothesisQueue` 表示，最多
    保留少量、可解释、基于风险信号的候选项；它不是自由生成的思维树。
-5. Reflection 不是自言自语：其输出只能是结构化证据判定、缺口和下一工具动作，且
+7. Reflection 不是自言自语：其输出只能是结构化证据判定、缺口和下一工具动作，且
    必须可被代码规则校验。
 
 ### 25.4 深模块与接口
@@ -1514,6 +1542,22 @@ V3 必须以少量深模块实现，避免把新逻辑继续堆入 `loop/engine.
 - `AgentLoopEngine` 保留通用 Tool Calling / Control Input / Pause / Cancel 能力；
   V3 Coordinator 作为其领域编排 Adapter，而不是复制第二套 Loop。
 
+#### F. `ProviderRawReasoningRelay` 模块
+
+**Seam：** `publish(run, recipient_user_id, delta) -> None`
+
+- 只通过瞬时传输将 Provider 原始 reasoning delta 投递给匹配的活动 SSE 订阅者；不接收
+  持久化仓库、Event Writer、日志器或分析器依赖。执行器与 Web SSE 在同一进程时使用
+  进程内内存订阅；执行器位于 RQ worker 等独立进程时，才允许使用内部、非持久化的
+  Pub/Sub 作为瞬时桥接，禁止使用 Redis List、Stream、Cache/Key 或数据库。
+- 入口必须同时校验全局开关、`run.created_by == recipient_user_id`、当前连接归属和
+  Provider reasoning capability；任一条件不满足即静默不投递，不改写 Run 状态。SSE 路由
+  必须先完成既有 Run 读取鉴权，再建立内部订阅；浏览器不能选择中继主题或接触 Pub/Sub。
+- 断线或瞬时传输不可用时立即丢弃未发送片段并回到安全摘要；中继不实现查询、列表、
+  回放、导出或跨用户订阅接口。
+- 既有历史 `llm.reasoning_delta` 记录不迁移、不复制，也不得被新的原始 reasoning 面板
+  当作可回放内容；V3 仅对新产生的实时连接生效。
+
 ### 25.5 持久化、事件与前端
 
 新增加性持久化模型，所有历史 Run 保持可读：
@@ -1526,9 +1570,11 @@ V3 必须以少量深模块实现，避免把新逻辑继续堆入 `loop/engine.
   `harness_v3` 快照键。
 
 前端新增只读“攻击路径验证”展示：技能、假设、已验证证据、待补证据、Critic 决策和
-终态。内部 `loop_*` 事件继续折叠，不把原始模型 thought 当作证据。系统生成的审计
-假设不是用户可任意创建或硬删除的业务对象；为保护审计事实，用户只能读取并通过现有
-暂停、取消或审批流程中断 Run，内部状态变更全部留审计记录。
+终态。内部 `loop_*` 事件继续折叠，不把原始模型 thought 当作证据。任务发起人可在
+当前活动会话中展开“Provider 原始推理输出”面板；该面板不属于历史记录，刷新后显示
+“原始推理仅在生成期间可见，无法回放”。系统生成的审计假设不是用户可任意创建或硬
+删除的业务对象；为保护审计事实，用户只能读取并通过现有暂停、取消或审批流程中断
+Run，内部状态变更全部留审计记录。
 
 ### 25.6 Context 与预算策略
 
@@ -1550,6 +1596,7 @@ AGENT_HARNESS_V3_MAX_HYPOTHESES=3
 AGENT_HARNESS_V3_MAX_REFLECTIONS_PER_HYPOTHESIS=1
 AGENT_HARNESS_V3_DEEP_REVIEW_TOKEN_RESERVE=6000
 AGENT_HARNESS_V3_DEEP_REVIEW_CONTEXT_CHARS=12000
+AGENT_PROVIDER_RAW_REASONING_STREAM_ENABLED=false
 ```
 
 ### 25.7 验证与发布门禁
@@ -1563,6 +1610,8 @@ AGENT_HARNESS_V3_DEEP_REVIEW_CONTEXT_CHARS=12000
    只读本地测试数据，不输出源码、Prompt 或凭据。
 5. Feature Flag 仅对测试 Workspace 灰度；关闭 `harness_v3` 必须回到当前 V2 / V1 行为，
    历史 V3 Run、事件和假设均可读。
+6. Provider 原始 reasoning 实时通道必须验证：仅任务发起人的活动连接可见、刷新与重连
+   不可回放、数据库与 `AgentEvent` 均无原始片段、Provider 不支持时不伪造内容。
 
 ### 25.8 Definition of Done
 

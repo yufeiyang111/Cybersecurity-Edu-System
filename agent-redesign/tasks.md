@@ -41,7 +41,10 @@
 - 不执行、构建、安装依赖或导入被审查项目；所有新工具仍只能读取 CyberGuard 授权的不可变快照。
 - 不执行破坏性数据库命令；迁移只允许加性、幂等。
 - 不运行 `npm --prefix frontend run lint`，因为当前脚本带自动修复；前端使用 build、永久测试脚本和浏览器验收。
-- 不向数据库、SSE、API、日志或前端写入完整原始模型思维链全文；只允许经脱敏、限长并标注敏感等级的 Reasoning Summary 与 Decision Summary（spec v1.1 决策，用户已拍板）。
+- 不向数据库、持久化 SSE Event、API、日志或历史前端状态写入完整模型隐藏思维链全文；
+  默认只允许经脱敏、限长并标注敏感等级的 Reasoning Summary 与 Decision Summary（spec
+  v1.1 决策，用户已拍板）。V3 Provider 明确返回的原始 reasoning 仅按 §25.3 的活动连接
+  瞬时例外处理。
 - 当前工作区已有大量用户改动。目标文件出现既有 diff 时，必须保留并按 hunk 最小修改；无法安全隔离则暂停并报告。
 
 ### 0.4 任务依赖图
@@ -187,7 +190,7 @@ Set-Location D:\workproject\work\work-5238\backend
 - [ ] Action、Item、Event、Run status 使用单一来源枚举或常量，旧常量只做兼容映射。
 - [ ] `AgentLoopPolicy` 固化 `baseline/hybrid/deep_audit`、最大轮数、工具预算、重复调用上限、deadline、lease 和 heartbeat。
 - [ ] 定义 `DecisionSummary` 的允许字段，只包含目标、依据引用、选定动作、策略码和下一步；不得包含隐藏推理文本。
-- [ ] 定义 `ReasoningSummary` Item 契约（source_channel、redacted_text、max_chars、sensitive_level）；`AgentStreamEvent` 冻结 `reasoning_summary_delta`；任何持久化字段中出现完整原始思维链全文必须拒绝并记录安全告警码。
+- [ ] 定义 `ReasoningSummary` Item 契约（source_channel、redacted_text、max_chars、sensitive_level）；`AgentStreamEvent` 冻结 `reasoning_summary_delta`；任何持久化字段中出现完整原始思维链全文必须拒绝并记录安全告警码，V3 瞬时 raw relay 不得绕过该持久化门禁。
 - [ ] 保持现有文本型 `LLMRequest/LLMResponse` 向后兼容；新增 Agent 契约不得破坏 QA、RAG 和修复建议调用方。
 - [ ] 所有 Python 新文件包含 `# -*- coding: utf-8 -*-`，中文注释只解释关键边界。
 
@@ -203,7 +206,9 @@ Set-Location D:\workproject\work\work-5238\backend
   tests\test_agent_reasoning_redaction.py -q
 ```
 
-**完成条件：** v2 契约无需连接 Provider 或数据库即可被完整测试；旧 LLM 调用契约测试仍通过；不存在完整原始思维链可持久化字段，Reasoning Summary 是唯一受控摘要协议。
+**完成条件：** v2 契约无需连接 Provider 或数据库即可被完整测试；旧 LLM 调用契约测试仍通过；
+不存在完整原始思维链可持久化字段，Reasoning Summary 是唯一持久化的受控推理摘要协议；
+V3 的 Provider 原始 reasoning 只能作为 §25.3 定义的非持久化瞬时通道存在。
 
 **建议中文 commit：** `设计 Agent Loop v2 核心契约与推理边界`
 
@@ -1138,7 +1143,8 @@ git status --short --branch
 
 - [x] 记录真实深度审计的脱敏诊断基线：存在多工具调用但无代码证据位置、Deep Review
   次数有限且预算耗尽的现象。
-- [x] 明确选择有界 Plan-and-Execute + ReAct + Reflection；拒绝完整原始 CoT 和 ToT。
+- [x] 明确选择有界 Plan-and-Execute + ReAct + Reflection；拒绝隐藏 CoT 与 ToT，允许
+  Provider 明确返回的原始 reasoning 仅在任务发起人的活动连接中实时展示且不持久化。
 - [x] 在 `spec.md`、`tasks.md`、`checklist.md` 同步记录范围、非目标、接口、预算、测试与
   Feature Flag 策略。
 - [ ] 用户审阅并确认第 25 节书面设计后，才开始 T15.1 代码实施。
@@ -1151,7 +1157,8 @@ git status --short --branch
 - [ ] 新增 `AgentAuditHypothesis`、`AgentAuditHypothesisVerdict` 模型、加性迁移和
   `database/init.sql` 同步。
 - [ ] 设计并测试 `HypothesisValidator`：拒绝未注册技能、无证据条件、超限候选、越权路径。
-- [ ] 新增 V3 Feature Flag 常量、工作区覆盖、Run 快照和历史 Run 兼容读取。
+- [ ] 新增 V3 Feature Flag 常量、工作区覆盖、Run 快照和历史 Run 兼容读取；新增
+  `AGENT_PROVIDER_RAW_REASONING_STREAM_ENABLED` 原始 reasoning 实时通道开关。
 - [ ] 同步 `backend/.env.example` 与本机 `backend/.env` 的非秘密开关和值；不得读取或提交
   `.env` 既有内容。
 
@@ -1177,21 +1184,30 @@ git status --short --branch
 
 ### T15.4 Evidence Critic / Reflection
 
-**目标：** 引入独立、受限、可审计的证据反思，不使用原始 CoT。
+**目标：** 引入独立、受限、可审计的证据反思；Provider 原始 reasoning 仅可实时展示，
+不得持久化或回放。
 
 - [ ] 实现 `EvidenceCritic.evaluate(...)` 和严格 Verdict 解析/验证。
 - [ ] 只允许 `confirm_candidate`、`request_evidence`、`reject_hypothesis`、
   `needs_more_evidence`、`stop_for_budget` 五种结果。
 - [ ] 缺少代码位置或技能关键证据时强制降级，不得产生 confirmed / unverified 漏洞结论。
 - [ ] 输出受控 Reasoning Summary、Decision Summary 与事件；禁止原始 reasoning、Prompt、
-  源码全文、Token 或凭据泄露。
+  源码全文、Token 或凭据进入持久化事件、日志、指标或历史接口。
+- [ ] 实现 `ProviderRawReasoningRelay`：仅向 `run.created_by` 的活动 SSE 连接投递
+  `provider_reasoning_raw_delta`，不接入 Event Writer、数据库、日志、Checkpoint 或重放；
+  同进程使用内存订阅，RQ worker 跨进程仅使用非持久化 Pub/Sub，禁止 Redis List/Stream/Key。
+- [ ] 审计并改造当前会持久化 `llm.reasoning_delta` 的调用链：V3 Provider 原始片段绝不调用
+  `events.emit(...)`，历史事件不迁移、不复制，受控摘要仍按既有事件契约回放。
+- [ ] 覆盖开关关闭、Provider 无 reasoning、非任务发起人、断线、重连、瞬时传输不可用、
+  原始 SSE 不推进 Last-Event-ID，以及原始片段不落库的正反向测试。
 
 ### T15.5 API、前端与可观测性
 
 **目标：** 可读地呈现攻击路径验证事实，而不把内部 loop 或原始 thought 当作产品能力。
 
 - [ ] 新增带 workspace 鉴权、服务端分页的假设列表/详情只读接口；内部状态变化保留审计。
-- [ ] 新增“攻击路径验证”前端模块：技能、假设、证据、缺口、Critic 决策、预算与终态。
+- [ ] 新增“攻击路径验证”前端模块：技能、假设、证据、缺口、Critic 决策、预算与终态；
+  任务发起人可在当前会话展开原始 reasoning 面板，刷新后明确不可回放。
 - [ ] 完整处理 loading、empty、error、blocked、budget exhausted、历史 Run 和 V3 关闭状态。
 - [ ] 前端满足桌面/平板/手机断点、键盘可达、对比度和与现有 QA/安全工作台一致的样式。
 - [ ] 新增脱敏聚合指标：每技能候选数、代码证据覆盖、证据不足率、预算耗尽率、每候选成本。

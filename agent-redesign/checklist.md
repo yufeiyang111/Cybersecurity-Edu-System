@@ -225,9 +225,13 @@ HAVING COUNT(*) > 1;
 
 ## K. Reasoning、敏感数据与安全边界
 
-- [x] **K-01 BLOCKER / E2+E3+E4** 完整原始 chain-of-thought 全文不存在于数据库、Event payload、SSE、API、日志、Snapshot 或审计；Reasoning Summary 以脱敏、限长、带 `sensitive_level` 的形式存在于 Event/UI，且刷新回放与流式一致。
+- [x] **K-01 BLOCKER / E2+E3+E4** 完整模型隐藏 chain-of-thought 全文不存在于数据库、Event payload、API、日志、Snapshot 或审计；
+  baseline/V1/V2 的 SSE 仅含受控摘要，且 Reasoning Summary 以脱敏、限长、带 `sensitive_level` 的形式存在于 Event/UI、
+  刷新回放与流式一致。
+- [ ] **K-01a BLOCKER / E2+E4** V3 Provider 原始 reasoning 仅允许走 W-09a 的不可回放实时例外；
+  在实现完成前不得将该例外当作已验收能力。
 - [ ] **K-02 BLOCKER / E1+E2** `llm_analysis.py` 只保存脱敏、限长的 Reasoning Summary（不保存完整原始 `llm_reasoning` 全文）；既有用户改动经过 hunk 审查后安全合并。
-- [ ] **K-03 BLOCKER / E2** Provider reasoning channel 若存在，只用于生成受限 Reasoning Summary（脱敏、限长后持久化）或瞬时丢弃；完整原始文本不落库；持久层不接收原始推理全文。
+- [ ] **K-03 BLOCKER / E2** Provider reasoning channel 若存在，baseline/V1/V2 只用于生成受限 Reasoning Summary（脱敏、限长后持久化）或瞬时丢弃；V3 的原始输出仅按 W-09a 走创建者活动连接的瞬时中继。完整原始文本不落库；持久层不接收原始推理全文。
 - [ ] **K-04 BLOCKER / E2** Decision Summary 只含目标、证据引用、选定动作、策略码、下一步和受限说明。
 - [ ] **K-05 BLOCKER / E2+E3** 数据库/API/SSE/logger 扫描测试拒绝密码、Token、Cookie、Authorization、私钥、重置链接、验证码、原始 Prompt 和 Provider body。
 - [ ] **K-06 BLOCKER / E2+E3** 完整源码和大 Tool Result 不写事件或日志；只保存授权 Artifact、digest、范围和脱敏摘要。
@@ -269,7 +273,7 @@ HAVING COUNT(*) > 1;
 - [ ] **M-08 BLOCKER / E2** Agent SSE 只有一个 parser，正确处理 id/event/data、多行 data、heartbeat、尾帧和错误帧。
 - [ ] **M-09 BLOCKER / E2+E4** Assistant Message delta 更新同一 item；刷新后文本与流累计内容逐字一致。
 - [ ] **M-10 BLOCKER / E4** UI 真实交错显示用户、意图、计划、工具、结果、Observation、决策、审批、警告和最终回答。
-- [ ] **M-11 BLOCKER / E4** UI 不显示完整原始思维链；只显示标注“推理摘要”的受限 Reasoning Summary 与可审计的“决策摘要/过程摘要”，不恢复原始隐藏字段。
+- [ ] **M-11 BLOCKER / E4** UI 不显示模型隐藏思维链；baseline/V1/V2 只显示标注“推理摘要”的受限 Reasoning Summary 与可审计的“决策摘要/过程摘要”，不恢复原始隐藏字段。V3 Provider 原始 reasoning 仅按 W-09a 在任务发起人的当前活动连接中展示，刷新后不可回放。
 - [ ] **M-12 BLOCKER / E2** `AgentChat.vue` 只做页面编排；复杂转换、API、Store 和 Item 渲染已拆分。
 - [ ] **M-13 / E1+E4** 组件优先复用 BaseIcon/BaseButton/BaseBadge/BasePanel；样式 scoped SCSS，无行内 style。
 - [ ] **M-14 BLOCKER / E4** loading、empty、error、success、waiting approval、degraded、partial、terminal 状态均有真实 UI。
@@ -527,7 +531,8 @@ git diff --check
 
 - [x] **W-01** 已记录真实运行诊断基线；未在文档、事件或界面中写入源码、Prompt、Provider
   原始响应或凭据。
-- [x] **W-02** 已选择 Plan-and-Execute + ReAct + Reflection；明确不实现完整原始 CoT 与 ToT。
+- [x] **W-02** 已选择 Plan-and-Execute + ReAct + Reflection；不实现隐藏 CoT 与 ToT，
+  仅允许 Provider 明确返回的原始 reasoning 在任务发起人的活动连接中实时展示。
 - [x] **W-03** baseline 保持确定性工作流，V3 仅作用于 hybrid/deep_audit 且受 Run 快照灰度控制。
 - [ ] **W-04 BLOCKER** `AuditSkillCatalog` 是受版本控制的深模块；模型和用户不能动态注册工具、
   技能或越过 Tool Registry。
@@ -536,12 +541,18 @@ git diff --check
   required evidence / CodeSliceEvidence 校验。
 - [ ] **W-07 BLOCKER** ReAct 工具观察能够推进假设；重复、无进展、预算耗尽和无授权位置安全收口。
 - [ ] **W-08 BLOCKER** Evidence Critic 独立于 Planner；无代码位置或关键证据时不得确认漏洞。
-- [ ] **W-09** Reasoning Summary 只含受控假设、行动理由、证据缺口和下一步；完整原始 CoT 不落库、
+- [ ] **W-09** Reasoning Summary 只含受控假设、行动理由、证据缺口和下一步；隐藏 CoT 不落库、
   不进 SSE、不进 API、不进日志。
+- [ ] **W-09a BLOCKER** Provider 原始 reasoning 只可通过 `provider_reasoning_raw_delta` 投递给
+  `run.created_by` 的活动连接；同进程使用瞬时内存中继，RQ worker 跨进程只允许非持久化
+  Pub/Sub；不写数据库、`AgentEvent`、日志、Checkpoint、指标或历史 API，原始帧不推进
+  Last-Event-ID，刷新/重连不得回放，传输不可用时安全丢弃并保留摘要。
+- [ ] **W-09b BLOCKER** V3 不得复用会持久化的 `llm.reasoning_delta` 存放 Provider 原始片段；
+  历史 raw-like 事件不迁移、不复制，新面板不支持回放。
 - [ ] **W-10** 深度审查保留 token/context 预算，用户显式预算不被静默覆盖；预算耗尽文案可解释。
 - [ ] **W-11** 假设/判定持久化、加性迁移、初始化 SQL、历史 Run 兼容和 Feature Flag 回滚全部验证。
 - [ ] **W-12** 假设列表与详情接口有 workspace 鉴权、服务端分页和安全序列化；不泄露源码、Prompt、
-  Token、Cookie 或 Provider 原始输出。
+  Token、Cookie 或 Provider 原始输出。原始 reasoning 只能走 W-09a 的实时直连通道，不能进入接口响应。
 - [ ] **W-13** 前端攻击路径验证视图覆盖 loading、empty、error、blocked、历史 Run 和移动端。
 - [ ] **W-14** 已知漏洞与安全对照夹具覆盖 SQL 注入、越权、SSRF/路径穿越、不安全执行/反序列化，
   且每个 confirmed candidate 有代码证据位置。
