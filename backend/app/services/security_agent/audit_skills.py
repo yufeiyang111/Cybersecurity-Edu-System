@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -42,7 +43,11 @@ DEFAULT_AUDIT_SKILLS: tuple[AuditSkill, ...] = (
         languages=("python", "javascript", "typescript", "java", "go"),
         frameworks=("flask", "django", "express", "spring", "gin"),
         recommended_tools=("get_findings", "search_code", "run_deep_review"),
-        required_evidence=("untrusted_input", "query_or_command_sink", "parameterization_or_absence"),
+        required_evidence=(
+            "untrusted_input",
+            "query_or_command_sink",
+            "parameterization_or_absence",
+        ),
         falsification_conditions=("参数化绑定", "严格 allowlist", "输入不可控"),
         max_attempts=2,
     ),
@@ -66,7 +71,11 @@ DEFAULT_AUDIT_SKILLS: tuple[AuditSkill, ...] = (
         languages=("python", "javascript", "typescript", "java", "go"),
         frameworks=("flask", "django", "express", "spring", "gin"),
         recommended_tools=("get_findings", "search_code", "run_deep_review"),
-        required_evidence=("untrusted_path_or_url", "file_or_network_sink", "allowlist_or_absence"),
+        required_evidence=(
+            "untrusted_path_or_url",
+            "file_or_network_sink",
+            "allowlist_or_absence",
+        ),
         falsification_conditions=("根目录约束", "内部地址阻断", "安全路径规范化"),
         max_attempts=2,
     ),
@@ -98,3 +107,75 @@ class AuditSkillCatalog:
 
     def all(self) -> tuple[AuditSkill, ...]:
         return self._skills
+
+    def select(
+        self,
+        *,
+        snapshot_summary: object | None,
+        evidence_summary: object | None,
+        run_mode: str,
+        finding_signals: Iterable[object] = (),
+        limit: int = 3,
+    ) -> tuple[AuditSkill, ...]:
+        """从固定技能中选择与确定性扫描元数据最匹配的少量候选。
+
+        只读取 finding 的规则名、分类、CWE、路径和消息等元数据，绝不读取源码切片；
+        选择阈值采用相对最高分，避免一个很弱的关键字把无关技能一起扩展为伪多 Agent。
+        """
+        del snapshot_summary, evidence_summary
+        if str(run_mode or "").strip().lower() not in {"hybrid", "deep_audit"}:
+            return ()
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
+            return ()
+
+        texts = tuple(_signal_text(signal) for signal in finding_signals)
+        texts = tuple(text for text in texts if text)
+        if not texts:
+            return ()
+
+        scored: list[tuple[int, AuditSkill]] = []
+        for skill in self._skills:
+            score = sum(
+                1
+                for trigger in skill.trigger_signals
+                if any(trigger.lower() in text for text in texts)
+            )
+            if score > 0:
+                scored.append((score, skill))
+        if not scored:
+            return ()
+
+        highest_score = max(score for score, _ in scored)
+        threshold = max(1, (highest_score * 3 + 4) // 5)
+        selected = [
+            (score, skill)
+            for score, skill in scored
+            if score >= threshold
+        ]
+        selected.sort(key=lambda item: (-item[0], item[1].key))
+        return tuple(skill for _, skill in selected[:limit])
+
+
+def _signal_text(signal: object) -> str:
+    """归一化可公开的扫描元数据，不返回或存储源码内容。"""
+    searchable = getattr(signal, "searchable_text", None)
+    if callable(searchable):
+        value = searchable()
+        return str(value or "").lower()
+    if isinstance(signal, dict):
+        fields = (
+            signal.get("rule_id"),
+            signal.get("category"),
+            signal.get("cwe_id"),
+            signal.get("file_path"),
+            signal.get("message"),
+        )
+    else:
+        fields = (
+            getattr(signal, "rule_id", None),
+            getattr(signal, "category", None),
+            getattr(signal, "cwe_id", None),
+            getattr(signal, "file_path", None),
+            getattr(signal, "message", None),
+        )
+    return " ".join(str(value or "") for value in fields).lower()

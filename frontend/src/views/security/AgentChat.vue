@@ -182,6 +182,28 @@
           :state-version="store.stateVersion"
           :reasoning-live="store.reasoningLive"
         />
+        <AgentProviderRawReasoning
+          :eligible="canViewProviderRawReasoning"
+          :text="store.providerRawReasoning"
+          :live="store.providerRawReasoningLive && !store.isTerminal"
+          :terminal="store.isTerminal"
+        />
+        <AgentAttackPathPanel
+          v-if="isAttackPathAuditMode"
+          :enabled="isV3AttackPathAudit"
+          :loading="hypothesesLoading"
+          :detail-loading="hypothesisDetailLoading"
+          :detail-error-message="hypothesisDetailErrorMessage"
+          :terminal="store.isTerminal"
+          :run-status="store.run?.status || ''"
+          :error-message="hypothesesErrorMessage"
+          :items="hypotheses"
+          :metrics="hypothesisMetrics"
+          :selected-id="selectedHypothesisId"
+          :selected-detail="selectedHypothesisDetail"
+          @retry="reloadAuditHypotheses"
+          @select="selectAuditHypothesis"
+        />
         <AgentPlannerPanel
           :plan="store.plan"
           :fallback-reason="planFallbackReason"
@@ -297,6 +319,8 @@ import LegacyThreadView from '@/components/security/agent/thread/LegacyThreadVie
 import AgentApprovalQueue from '@/components/security/agent/AgentApprovalQueue.vue'
 import AgentRunExperienceNotice from '@/components/security/agent/AgentRunExperienceNotice.vue'
 import AgentConnectionStatus from '@/components/security/agent/AgentConnectionStatus.vue'
+import AgentProviderRawReasoning from '@/components/security/agent/AgentProviderRawReasoning.vue'
+import AgentAttackPathPanel from '@/components/security/agent/AgentAttackPathPanel.vue'
 import AgentCostPanel from '@/components/security/agent/AgentCostPanel.vue'
 import AgentCoverageFileTable from '@/components/security/agent/AgentCoverageFileTable.vue'
 import AgentCoverageOverview from '@/components/security/agent/AgentCoverageOverview.vue'
@@ -319,11 +343,16 @@ import ProjectSecurityGraph from '@/components/security/agent/ProjectSecurityGra
 import SecurityGraphNodeDetail from '@/components/security/agent/SecurityGraphNodeDetail.vue'
 import { agentAPI } from '@/api'
 import { useAgentCosts } from '@/composables/security/useAgentCosts'
+import { useAuditHypotheses } from '@/composables/security/useAuditHypotheses'
 import { useAgentCoverage } from '@/composables/security/useAgentCoverage'
 import { useAgentRun } from '@/composables/security/useAgentRun'
 import { agentStatusMeta } from '@/features/security/agent/statusMeta'
 import { shouldLoadAgentRunSupplementalData } from '@/features/security/agent/runAccessGuard'
 import { resolveAgentRunExperience } from '@/features/security/agent/runExperience'
+import {
+  isAttackPathMode,
+  isV3AttackPathRun
+} from '@/features/security/agent/hypothesisPresentation'
 import { formatSecurityDate, securityApiErrorMessage } from '@/features/security/presentation'
 
 const route = useRoute()
@@ -356,6 +385,20 @@ const {
   invocations,
   loadCosts
 } = useAgentCosts(() => currentRunId.value)
+const {
+  loading: hypothesesLoading,
+  detailLoading: hypothesisDetailLoading,
+  errorMessage: hypothesesErrorMessage,
+  detailErrorMessage: hypothesisDetailErrorMessage,
+  items: hypotheses,
+  metrics: hypothesisMetrics,
+  selectedId: selectedHypothesisId,
+  selectedDetail: selectedHypothesisDetail,
+  load: loadAuditHypotheses,
+  select: selectAuditHypothesisDetail,
+  clearSelection: clearAuditHypothesisSelection,
+  clear: clearAuditHypotheses
+} = useAuditHypotheses()
 const sendingMessage = ref(false)
 const threadRef = ref(null)
 const conversationMeta = ref(null)
@@ -410,7 +453,8 @@ async function loadRunPage(runIdValue) {
   await Promise.all([
     loadPlanVersions(runIdValue),
     loadObservations(runIdValue),
-    loadApprovals(runIdValue)
+    loadApprovals(runIdValue),
+    loadAuditHypothesesForRun(runIdValue)
   ])
   return true
 }
@@ -443,6 +487,33 @@ async function loadObservations(runIdValue) {
   }
 }
 
+async function loadAuditHypothesesForRun(runIdValue) {
+  if (
+    !runIdValue ||
+    accessDenied.value ||
+    !isV3AttackPathAudit.value
+  ) {
+    clearAuditHypotheses()
+    return false
+  }
+  return loadAuditHypotheses(runIdValue)
+}
+
+async function reloadAuditHypotheses() {
+  await loadAuditHypothesesForRun(currentRunId.value || runId.value)
+}
+
+async function selectAuditHypothesis(hypothesisId) {
+  if (!hypothesisId) return
+  if (selectedHypothesisId.value === hypothesisId) {
+    clearAuditHypothesisSelection()
+    return
+  }
+  await selectAuditHypothesisDetail(
+    currentRunId.value || runId.value,
+    hypothesisId
+  )
+}
 async function openObservation(item) {
   if (!item || !currentRunId.value) return
   observationVisible.value = true
@@ -554,6 +625,19 @@ const runExperience = computed(() => {
     executionFeatureFlags.value,
     workspaceFeatureFlags.value
   )
+})
+const canViewProviderRawReasoning = computed(() => {
+  return Boolean(
+    executionFeatureFlags.value?.harness_v3 &&
+    executionFeatureFlags.value?.provider_raw_reasoning_stream &&
+    store.run?.can_view_provider_raw_reasoning
+  )
+})
+const isAttackPathAuditMode = computed(() => {
+  return isAttackPathMode(store.run)
+})
+const isV3AttackPathAudit = computed(() => {
+  return isV3AttackPathRun(store.run, executionFeatureFlags.value)
 })
 const composerDisabled = computed(() => {
   return (
@@ -830,6 +914,7 @@ function goBack() {
 watch(
   () => [
     store.reasoningStream,
+    store.providerRawReasoning,
     store.toolCalls.length,
     store.llmAnalysis,
     store.run?.status
@@ -845,7 +930,9 @@ watch(
     if (accessDenied.value || length <= previous) return
     const latest = store.toolCalls[store.toolCalls.length - 1]
     if (latest?.tool_name === 'run_deep_review' && latest.status === 'succeeded') {
-      loadObservations(currentRunId.value || runId.value)
+      const targetRunId = currentRunId.value || runId.value
+      loadObservations(targetRunId)
+      loadAuditHypothesesForRun(targetRunId)
     }
   }
 )
@@ -867,6 +954,7 @@ watch(
       }
       loadCoverage('')
       loadCosts()
+      loadAuditHypothesesForRun(currentRunId.value || runId.value)
       nextTickScroll()
     }
   }

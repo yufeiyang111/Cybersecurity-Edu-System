@@ -9,6 +9,7 @@ from app.routes.security.agent import coverage as _coverage  # noqa: F401
 from app.routes.security.agent import events as _events  # noqa: F401
 from app.routes.security.agent import flags as _flags  # noqa: F401
 from app.routes.security.agent import graph as _graph  # noqa: F401
+from app.routes.security.agent import hypotheses as _hypotheses  # noqa: F401
 from app.routes.security.agent import observations as _observations  # noqa: F401
 from app.routes.security.agent import observability as _observability  # noqa: F401
 from app.routes.security.agent import providers as _providers  # noqa: F401

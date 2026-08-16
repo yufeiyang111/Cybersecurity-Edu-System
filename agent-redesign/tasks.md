@@ -1205,48 +1205,56 @@ git status --short --branch
 
 **目标：** Hybrid/Deep 在 V3 灰度开启后生成少量可验证假设，并以工具观察推进。
 
-- [ ] 实现 `HypothesisPlanner.build(...)` 严格 JSON / 规则降级 / 来源标记。
-- [ ] 实现 `HypothesisExecutionOrchestrator.advance(...)`，复用现有 Tool Registry、
+- [x] 实现 `HypothesisPlanner.build(...)` 严格 JSON / 规则降级 / 来源标记。
+- [x] 实现 `HypothesisExecutionOrchestrator.advance(...)`，复用现有 Tool Registry、
   Tool Executor、Event Writer、状态机与 Control Input。
-- [ ] 每条假设最多一次主审查和一次补证据行动；重复工具和无进展必须收口。
-- [ ] 为 baseline、V2、V3 三种路径补充不互相污染的回归测试。
+- [x] 每条假设最多一次主审查和一次补证据行动；重复工具和无进展必须收口。
+- [x] 为 baseline、V2、V3 三种路径补充不互相污染的回归测试。
 
 ### T15.4 Evidence Critic / Reflection
 
 **目标：** 引入独立、受限、可审计的证据反思；Provider 原始 reasoning 仅可实时展示，
 不得持久化或回放。
 
-- [ ] 实现 `EvidenceCritic.evaluate(...)` 和严格 Verdict 解析/验证。
-- [ ] 只允许 `confirm_candidate`、`request_evidence`、`reject_hypothesis`、
+- [x] 实现 `EvidenceCritic.evaluate(...)` 和严格 Verdict 解析/验证。
+- [x] 只允许 `confirm_candidate`、`request_evidence`、`reject_hypothesis`、
   `needs_more_evidence`、`stop_for_budget` 五种结果。
-- [ ] 缺少代码位置或技能关键证据时强制降级，不得产生 confirmed / unverified 漏洞结论。
-- [ ] 输出受控 Reasoning Summary、Decision Summary 与事件；禁止原始 reasoning、Prompt、
+- [x] 缺少代码位置或技能关键证据时强制降级，不得产生 confirmed / unverified 漏洞结论。
+- [x] 输出受控 Reasoning Summary、Decision Summary 与事件；禁止原始 reasoning、Prompt、
   源码全文、Token 或凭据进入持久化事件、日志、指标或历史接口。
-- [ ] 实现 `ProviderRawReasoningRelay`：仅向 `run.created_by` 的活动 SSE 连接投递
+- [x] 实现 `ProviderRawReasoningRelay`：仅向 `run.created_by` 的活动 SSE 连接投递
   `provider_reasoning_raw_delta`，不接入 Event Writer、数据库、日志、Checkpoint 或重放；
   同进程使用内存订阅，RQ worker 跨进程仅使用非持久化 Pub/Sub，禁止 Redis List/Stream/Key。
-- [ ] 审计并改造当前会持久化 `llm.reasoning_delta` 的调用链：V3 Provider 原始片段绝不调用
+- [x] 审计并改造当前会持久化 `llm.reasoning_delta` 的调用链：V3 Provider 原始片段绝不调用
   `events.emit(...)`，历史事件不迁移、不复制，受控摘要仍按既有事件契约回放。
-- [ ] 覆盖开关关闭、Provider 无 reasoning、非任务发起人、断线、重连、瞬时传输不可用、
+- [x] 覆盖开关关闭、Provider 无 reasoning、非任务发起人、断线、重连、瞬时传输不可用、
   原始 SSE 不推进 Last-Event-ID，以及原始片段不落库的正反向测试。
 
 ### T15.5 API、前端与可观测性
 
 **目标：** 可读地呈现攻击路径验证事实，而不把内部 loop 或原始 thought 当作产品能力。
 
-- [ ] 新增带 workspace 鉴权、服务端分页的假设列表/详情只读接口；内部状态变化保留审计。
-- [ ] 新增“攻击路径验证”前端模块：技能、假设、证据、缺口、Critic 决策、预算与终态；
+- [x] 新增带 workspace 鉴权、服务端分页的假设列表/详情只读接口；内部状态变化保留审计。
+- [x] 新增“攻击路径验证”前端模块：技能、假设、证据、缺口、Critic 决策、预算与终态；
   任务发起人可在当前会话展开原始 reasoning 面板，刷新后明确不可回放。
-- [ ] 完整处理 loading、empty、error、blocked、budget exhausted、历史 Run 和 V3 关闭状态。
-- [ ] 前端满足桌面/平板/手机断点、键盘可达、对比度和与现有 QA/安全工作台一致的样式。
-- [ ] 新增脱敏聚合指标：每技能候选数、代码证据覆盖、证据不足率、预算耗尽率、每候选成本。
+- [x] 完整处理 loading、empty、error、blocked、budget exhausted、历史 Run 和 V3 关闭状态。
+- [-] 前端代码已提供桌面/平板/手机断点、键盘可达、对比度和与现有 QA/安全工作台一致的样式；真实三断点浏览器验收仍待服务更新后完成。
+- [x] 新增脱敏聚合指标：每技能候选数、代码证据覆盖、证据不足率、预算耗尽率、每候选成本。
+
+### T15.3-T15.5 实施证据（2026-08-16）
+
+- 新增 V3 协调器、假设规划/执行、Evidence Critic、受控 Reasoning Summary；baseline 保持确定性路径，V2 与 V3 由 Run 快照隔离。
+- Provider 仅在其明确提供 reasoning 时向任务发起人的**当前活动 SSE 连接**转发 `provider_reasoning_raw_delta`；该帧不带 SSE id、不能回放、不写 `AgentEvent`、数据库、日志、Checkpoint、指标或历史 API。系统不显示隐藏 CoT / ToT。
+- 新增假设列表/详情只读 API（workspace 鉴权、数据库分页、跨 Run 404），服务端与前端均采用显式白名单序列化；Critic `next_action` 只返回动作标识，避免后续字段扩展意外泄露 Provider 内容或源码摘录。
+- 新增攻击路径验证面板、Critic 判定、脱敏指标和 Provider 实时原始 reasoning 面板。空态明确区分 V3 未开启、执行中、阻断、预算收口与历史终态；原始 reasoning 默认折叠且刷新不可回放。
+- 验证：`venv\Scripts\python.exe -m pytest tests -q` → `1369 passed, 1 skipped`；`npm --prefix frontend run test:agent` → `75 passed`；`npm --prefix frontend run build` → 通过。已知 Sass、CSS nesting、大 chunk 与 SQLAlchemy 旧 API / SQLite FK 拆表警告未在本批次扩大范围。
 
 ### T15.6 评测、真实验收与灰度
 
 - [ ] 新建漏洞/安全对照测试夹具和 Provider Fake 回归矩阵，不连接真实外部 API。
-- [ ] 运行受影响 focused tests、后端全量 pytest、前端 Node 测试、前端 build 与 diff check。
-- [ ] 经用户授权在本地测试 Workspace 发起真实 Hybrid / Deep V3 Run，记录脱敏指标和浏览器
-  证据；不创建无关任务，不输出源码、Prompt、日志或凭据。
+- [x] 运行受影响 focused tests、后端全量 pytest、前端 Node 测试、前端 build 与 diff check。
+- [!] 经用户授权在本地测试 Workspace 发起真实 Hybrid / Deep V3 Run，记录脱敏指标和浏览器
+  证据；不创建无关任务，不输出源码、Prompt、日志或凭据。阻塞证据：当前用户维护的后端进程启动时间早于本批次代码；热重载默认关闭，且执行 Agent 无权擅自重启。恢复入口：由用户手动重启后端后，使用固定脱敏夹具完成一次真实 V3 Run 与浏览器验收。
 - [ ] 对 V3 开关执行开启、关闭、历史 Run 可读和回滚演练；更新 checklist 最终证据表。
 - [ ] 每个独立阶段先检查 `git status` / `git diff`，只提交本阶段文件，中文 commit；不推送
   除非用户明确要求。

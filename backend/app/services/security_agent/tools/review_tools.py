@@ -20,6 +20,9 @@ from app.services.security_agent.context_builder import (
 )
 from app.services.security_agent.event_service import EventService
 from app.services.security_agent.feature_flags import AgentFeatureFlags
+from app.services.security_agent.harness_v3.deep_review_provider import (
+    DeepReviewProviderInvoker,
+)
 from app.services.security_agent.harness_v3.deep_review import (
     TargetedContextBuildError,
     TargetedDeepReviewContextBuilder,
@@ -102,6 +105,11 @@ def build_run_deep_review_handler(events: EventService | None = None):
             focus=review_context.focus,
             context_text=context_text,
             max_tokens=resolve_provider_max_tokens(provider, 1500),
+            required_evidence=(
+                v3_request.required_evidence
+                if v3_request is not None
+                else ()
+            ),
         )
         request = LLMRequest(
             prompt=prompt["user_prompt"],
@@ -124,10 +132,11 @@ def build_run_deep_review_handler(events: EventService | None = None):
             if getattr(candidate, "provider_name", None)
             != getattr(provider, "provider_name", None)
         ]
-        response, used, _ = router.generate_with_failover(
+        response, used = DeepReviewProviderInvoker().invoke(
             run=ctx.run,
             candidates=ordered,
             request=request,
+            router=router,
             trace_id=ctx.trace_id,
             operation=DEEP_REVIEW_OPERATION,
         )
@@ -158,6 +167,8 @@ def build_run_deep_review_handler(events: EventService | None = None):
         parsed.setdefault("proof_gaps", [])
 
         try:
+            if v3_request is not None:
+                _normalize_v3_evidence_satisfied(parsed, v3_request)
             parsed["citations"] = _select_background_citations(
                 parsed,
                 review_context,
@@ -175,8 +186,6 @@ def build_run_deep_review_handler(events: EventService | None = None):
                 warning_code="AGENT_PROVIDER_INVALID_RESPONSE",
             ) from exc
 
-        if v3_request is not None:
-            _record_v3_hypothesis_progress(v3_request.hypothesis, ctx)
 
         return ToolResult(
             status="succeeded",
@@ -195,6 +204,11 @@ def build_run_deep_review_handler(events: EventService | None = None):
                 "injected_docs": list(review_context.injected_doc_ids),
                 "hypothesis_id": v3_request.hypothesis_id if v3_request is not None else None,
                 "review_kind": v3_request.review_kind if v3_request is not None else None,
+                "satisfied_evidence": (
+                    (parsed.get("detail") or {}).get("v3_evidence_satisfied", [])
+                    if v3_request is not None
+                    else []
+                ),
             },
         )
 
@@ -211,16 +225,35 @@ def _uses_v3_harness(run) -> bool:
     return bool(flags.harness_v3) and mode in {"hybrid", "deep_audit"}
 
 
-def _record_v3_hypothesis_progress(hypothesis, ctx: ToolExecutionContext) -> None:
-    """仅记录结构化工具关联；源码与 Prompt 不进入假设持久化记录。"""
-    status = getattr(getattr(hypothesis, "status", None), "value", hypothesis.status)
-    if status == "queued":
-        hypothesis.status = "active"
-    hypothesis.execution_attempt_count = (hypothesis.execution_attempt_count or 0) + 1
-    tool_call_id = getattr(getattr(ctx, "tool_call", None), "id", None)
-    if isinstance(tool_call_id, int) and tool_call_id > 0:
-        hypothesis.related_tool_call_id = tool_call_id
-    db.session.commit()
+def _normalize_v3_evidence_satisfied(parsed: dict, request) -> None:
+    """将 Provider 的证据声明收敛为当前假设的固定证据条件。"""
+    detail = parsed.get("detail")
+    if detail is None:
+        detail = {}
+    if not isinstance(detail, dict):
+        raise ObservationValidationError("detail 必须是对象")
+
+    raw_values = detail.get("evidence_satisfied", [])
+    if raw_values is None:
+        raw_values = []
+    if not isinstance(raw_values, list):
+        raise ObservationValidationError("detail.evidence_satisfied 必须是数组")
+    allowed = set(request.required_evidence)
+    if len(raw_values) > len(allowed):
+        raise ObservationValidationError("detail.evidence_satisfied 超过假设证据条件数量")
+
+    normalized: list[str] = []
+    for raw_value in raw_values:
+        if not isinstance(raw_value, str):
+            raise ObservationValidationError("detail.evidence_satisfied 必须是字符串数组")
+        value = raw_value.strip()
+        if not value or value not in allowed or value in normalized:
+            raise ObservationValidationError("detail.evidence_satisfied 包含未授权证据条件")
+        normalized.append(value)
+
+    detail.pop("evidence_satisfied", None)
+    detail["v3_evidence_satisfied"] = normalized
+    parsed["detail"] = detail
 
 
 def _string_list(value) -> tuple[str, ...]:

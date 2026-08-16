@@ -354,6 +354,10 @@ export const agentAPI = {
   getRunDecisions: (runId) => api.get(`/security/agent-runs/${runId}/decisions`),
   getObservations: (runId, params) =>
     api.get(`/security/agent-runs/${runId}/observations`, { params }),
+  getHypotheses: (runId, params) =>
+    api.get(`/security/agent-runs/${runId}/hypotheses`, { params }),
+  getHypothesis: (runId, hypothesisId) =>
+    api.get(`/security/agent-runs/${runId}/hypotheses/${hypothesisId}`),
   getObservation: (runId, observationId) =>
     api.get(`/security/agent-runs/${runId}/observations/${observationId}`),
   reviewObservation: (runId, observationId, data) =>

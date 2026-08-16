@@ -64,3 +64,43 @@ test('v2 reasoning 事件保持顺序推进 lastSequence', () => {
   assert.equal(state.lastSequence, 3)
   assert.equal(state.reasoningStream, '工具执行后继续分析')
 })
+
+test('Provider 原始 reasoning 是瞬时帧：不推进 sequence、不进入历史事件尾部', () => {
+  let state = createAgentRunState()
+  state = reduceAgentEvent(state, evt(5, 'item.tool_call.started', {
+    tool_call_id: 1,
+    name: 'run_deep_review'
+  }))
+  const eventCount = state.events.length
+  state = reduceAgentEvent(state, {
+    event_type: 'provider_reasoning_raw_delta',
+    sequence: null,
+    transient: true,
+    payload: {
+      transient: true,
+      source: 'provider',
+      delta: 'Provider 实际返回的 reasoning delta'
+    }
+  })
+
+  assert.equal(state.providerRawReasoning, 'Provider 实际返回的 reasoning delta')
+  assert.equal(state.providerRawReasoningLive, true)
+  assert.equal(state.lastSequence, 5)
+  assert.equal(state.events.length, eventCount)
+})
+
+test('伪造或非瞬时 Provider reasoning 帧必须被忽略', () => {
+  const state = createAgentRunState()
+  const next = reduceAgentEvent(state, {
+    event_type: 'provider_reasoning_raw_delta',
+    sequence: null,
+    transient: false,
+    payload: {
+      transient: false,
+      delta: '不应展示'
+    }
+  })
+
+  assert.equal(next.providerRawReasoning, '')
+  assert.equal(next.lastSequence, 0)
+})

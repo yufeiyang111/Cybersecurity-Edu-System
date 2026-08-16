@@ -3,6 +3,7 @@ import { normalizeRunStatistics } from './runStatistics.js'
 const STEP_CAP = 50
 const TOOL_CALL_CAP = 50
 const EVENT_TAIL_CAP = 100
+const PROVIDER_RAW_REASONING_EVENT = 'provider_reasoning_raw_delta'
 
 export function createAgentRunState() {
   return {
@@ -20,11 +21,19 @@ export function createAgentRunState() {
     reasoningStream: '',
     reasoningLive: false,
     reasoningSensitiveLevel: 'internal',
+    providerRawReasoning: '',
+    providerRawReasoningLive: false,
     llmAnalysis: null,
     lastProvider: null,
     connectionState: 'connecting',
     gapDetected: false,
-    featureFlags: { loop_v2: false, event_schema_v2: false, timeline_v2: false }
+    featureFlags: {
+      loop_v2: false,
+      event_schema_v2: false,
+      timeline_v2: false,
+      harness_v3: false,
+      provider_raw_reasoning_stream: false
+    }
   }
 }
 
@@ -53,6 +62,8 @@ export function hydrateAgentRunState(snapshot) {
     reasoningStream: agentReasoning?.content || '',
     reasoningLive: false,
     reasoningSensitiveLevel: 'internal',
+    providerRawReasoning: '',
+    providerRawReasoningLive: false,
     llmAnalysis: agentAnalysis?.content || null,
     lastProvider: startedEvent?.payload
       ? { provider: startedEvent.payload.provider, model: startedEvent.payload.model }
@@ -62,7 +73,9 @@ export function hydrateAgentRunState(snapshot) {
     featureFlags: snapshot.feature_flags || {
       loop_v2: false,
       event_schema_v2: false,
-      timeline_v2: false
+      timeline_v2: false,
+      harness_v3: false,
+      provider_raw_reasoning_stream: false
     }
   }
 }
@@ -116,6 +129,25 @@ function incrementStatistic(state, key, amount = 1) {
 }
 
 export function reduceAgentEvent(state, event) {
+  if (event?.event_type === PROVIDER_RAW_REASONING_EVENT) {
+    const payload = event.payload || {}
+    const delta = payload.delta
+    if (
+      event.transient !== true ||
+      payload.transient !== true ||
+      payload.source !== 'provider' ||
+      typeof delta !== 'string' ||
+      !delta
+    ) {
+      return state
+    }
+    return {
+      ...state,
+      providerRawReasoning: state.providerRawReasoning + delta,
+      providerRawReasoningLive: true
+    }
+  }
+
   if (!event || event.sequence == null) return state
   if (event.sequence <= state.lastSequence) return state
 

@@ -296,3 +296,78 @@ def test_v3_budget_default_never_overwrites_explicit_user_budget():
         explicit_chars=1800,
         config={"AGENT_HARNESS_V3_DEEP_REVIEW_CONTEXT_CHARS": 12000},
     ) == 1800
+
+
+def test_targeted_context_clamps_authorized_window_to_actual_file_end(app, tmp_path):
+    """规划器扩展的授权窗口超过 EOF 时，仍只能读取同一授权文件的有效部分。"""
+    with app.app_context():
+        run = _make_v3_run(
+            tmp_path,
+            files={"app.py": "line-1\nline-2\nline-3\n"},
+        )
+        hypothesis = _make_hypothesis(
+            run,
+            scopes=[{"file_path": "app.py", "start_line": 2, "end_line": 99}],
+        )
+        request = V3DeepReviewInputResolver().resolve(run, _v3_payload(hypothesis))
+
+        context = TargetedDeepReviewContextBuilder(
+            citation_collector=lambda _focus, _limit: ((), ())
+        ).build(run, request, max_context_chars=1000)
+
+        assert len(context.files) == 1
+        evidence = context.files[0]
+        assert evidence.file_path == "app.py"
+        assert evidence.start_line == 2
+        assert evidence.end_line == 3
+        assert evidence.lines == ("line-2", "line-3")
+
+def test_v3_review_rejects_provider_claims_outside_required_evidence(app, tmp_path):
+    """模型不得把未在假设中声明的证据条件写进持久化 Observation。"""
+    class FakeResponse:
+        text = (
+            '{"title":"候选风险","confidence":"medium",'
+            '"summary":"代码位置需要进一步核验。",'
+            '"locations":[{"file_path":"app.py","start_line":10,'
+            '"end_line":11,"role":"sink"}],'
+            '"proof_gaps":[],'
+            '"detail":{"evidence_satisfied":["prompt_invented_evidence"]}}'
+        )
+        is_success = True
+        usage = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+        latency_ms = 1
+        warning_code = None
+
+    class FakeProvider:
+        provider_name = "v3-evidence-test"
+        model = "fake-model"
+
+        @staticmethod
+        def generate(_request):
+            return FakeResponse()
+
+    with app.app_context():
+        lines = "\n".join(f"line-{index}" for index in range(1, 31)) + "\n"
+        run = _make_v3_run(tmp_path, files={"app.py": lines})
+        hypothesis = _make_hypothesis(run)
+        node, step = _make_deep_review_node(run, _v3_payload(hypothesis))
+
+        with patch(
+            "app.services.security_agent.tools.review_tools.select_provider",
+            return_value=FakeProvider(),
+        ), patch(
+            "app.services.security_agent.harness_v3.deep_review.ContextBuilder._collect_citations",
+            return_value=((), ()),
+        ):
+            result = ToolExecutor(get_tool_registry(), EventService()).execute(
+                run,
+                node,
+                step,
+                actor_id=run.created_by,
+                trace_id="v3-invalid-evidence-claim",
+                input_payload=node.input_json,
+            )
+
+        assert result.status == "failed"
+        assert result.error_code == "AGENT_TOOL_FAILED"
+        assert "AGENT_PROVIDER_INVALID_RESPONSE" in (result.warning_codes or [])

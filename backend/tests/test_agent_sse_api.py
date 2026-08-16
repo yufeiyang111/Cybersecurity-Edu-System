@@ -7,6 +7,7 @@ from flask_jwt_extended import create_access_token
 
 from app import db
 from app.models.security import ProjectSnapshot, SecurityProject
+from app.models.agent_runtime import AgentRun, AgentRunMode, AgentRunStatus
 from app.models.user import User
 from app.services.workspaces import get_or_create_personal_workspace
 
@@ -120,3 +121,66 @@ def test_stream_requires_workspace_membership(agent_api_app, tmp_path):
         headers=auth_headers(agent_api_app, outsider_id),
     )
     assert response.status_code == 403
+
+
+def test_raw_reasoning_capability_is_exposed_only_to_v3_run_creator(agent_api_app, tmp_path):
+    owner_id, workspace_id = make_user(
+        agent_api_app,
+        "raw-owner",
+        "raw-owner@example.test",
+    )
+    viewer_id, _ = make_user(
+        agent_api_app,
+        "raw-viewer",
+        "raw-viewer@example.test",
+    )
+    project_id, snapshot_id = make_project_and_snapshot(
+        agent_api_app,
+        tmp_path,
+        owner_id,
+        workspace_id,
+    )
+    with agent_api_app.app_context():
+        from app.models.security import WorkspaceMember
+
+        db.session.add(
+            WorkspaceMember(
+                workspace_id=workspace_id,
+                user_id=viewer_id,
+                role="viewer",
+            )
+        )
+        run = AgentRun(
+            workspace_id=workspace_id,
+            project_id=project_id,
+            snapshot_id=snapshot_id,
+            created_by=owner_id,
+            goal_text="仅验证原始 reasoning 可见性",
+            mode=AgentRunMode.DEEP_AUDIT.value,
+            status=AgentRunStatus.COMPLETED.value,
+            feature_flags_snapshot_json={
+                "loop_v2": True,
+                "event_schema_v2": True,
+                "timeline_v2": True,
+                "harness_v3": True,
+                "provider_raw_reasoning_stream": True,
+            },
+        )
+        db.session.add(run)
+        db.session.commit()
+        run_id = run.id
+
+    client = agent_api_app.test_client()
+    owner_payload = client.get(
+        f"/api/security/agent-runs/{run_id}",
+        headers=auth_headers(agent_api_app, owner_id),
+    ).get_json()
+    viewer_payload = client.get(
+        f"/api/security/agent-runs/{run_id}",
+        headers=auth_headers(agent_api_app, viewer_id),
+    ).get_json()
+
+    assert owner_payload["run"]["can_view_provider_raw_reasoning"] is True
+    assert viewer_payload["run"]["can_view_provider_raw_reasoning"] is False
+    assert "provider_reasoning_raw_delta" not in repr(owner_payload)
+    assert "provider_reasoning_raw_delta" not in repr(viewer_payload)

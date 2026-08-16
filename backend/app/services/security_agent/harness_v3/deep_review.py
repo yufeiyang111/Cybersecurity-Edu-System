@@ -21,6 +21,7 @@ from app.services.project_security_graph.code_slice import (
     CodeSliceError,
     CodeSliceForbidden,
     read_code_slice,
+    resolve_slice_path,
 )
 from app.services.security_agent.audit_skills import AuditSkillCatalog
 from app.services.security_agent.context_builder import (
@@ -233,7 +234,20 @@ class TargetedDeepReviewContextBuilder:
         for scope in scopes:
             if len(evidence) >= file_limit or used_chars >= char_budget:
                 break
-            end_line = min(scope.end_line, scope.start_line + _MAX_SCOPE_SLICE_LINES - 1)
+            try:
+                target = resolve_slice_path(snapshot, scope.file_path)
+                with target.open(encoding="utf-8", errors="replace") as source:
+                    line_count = sum(1 for _ in source)
+            except (CodeSliceError, CodeSliceForbidden, OSError):
+                continue
+            if line_count < scope.start_line:
+                continue
+
+            end_line = min(
+                scope.end_line,
+                line_count,
+                scope.start_line + _MAX_SCOPE_SLICE_LINES - 1,
+            )
             range_key = (scope.file_path, scope.start_line, end_line)
             if range_key in seen_ranges:
                 continue
@@ -248,7 +262,10 @@ class TargetedDeepReviewContextBuilder:
                 )
             except (CodeSliceError, CodeSliceForbidden):
                 continue
-            lines = _fit_lines(tuple(payload.get("lines") or ()), char_budget - used_chars)
+            lines = _fit_lines(
+                tuple(payload.get("lines") or ()),
+                char_budget - used_chars,
+            )
             if not lines:
                 continue
             actual_end = scope.start_line + len(lines) - 1

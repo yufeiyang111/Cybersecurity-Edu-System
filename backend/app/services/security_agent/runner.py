@@ -73,7 +73,16 @@ class InlinePlanRunner:
             if run is not None:
                 from app.services.security_agent.feature_flags import AgentFeatureFlags
 
-                if AgentFeatureFlags().for_run(run).loop_v2:
+                flags = AgentFeatureFlags().for_run(run)
+                mode = getattr(getattr(run, "mode", None), "value", run.mode)
+                if flags.harness_v3 and mode in {"hybrid", "deep_audit"}:
+                    from app.services.security_agent.harness_v3.coordinator import (
+                        HarnessV3Coordinator,
+                    )
+
+                    HarnessV3Coordinator().run_hybrid_or_deep(run_id, trace_id)
+                    return
+                if flags.loop_v2:
                     from app.services.security_agent.loop.engine import AgentLoopEngine
 
                     AgentLoopEngine().run_until_interrupt(run_id, trace_id)

@@ -9,6 +9,9 @@ from app.models.agent_runtime import AgentDecisionRecord, AgentPlan, AgentRun
 from app.models.security import ProjectSnapshot, SecurityProject
 from app.services.security_agent.contracts import AGENT_RUN_MODES
 from app.services.security_agent.cost_service import run_costs
+from app.services.security_agent.harness_v3.raw_reasoning import (
+    get_provider_raw_reasoning_relay,
+)
 from app.services.security_agent.service import AgentRunService
 from app.services.security_agent.state_machine import AgentStateError
 
@@ -94,6 +97,12 @@ def get_agent_run(run_id: int):
         from app.services.security_agent.timeline.snapshot_service import SnapshotService
 
         payload = _service.get_run_payload(run)
+        payload["run"]["can_view_provider_raw_reasoning"] = (
+            get_provider_raw_reasoning_relay().can_stream(
+                run,
+                _current_user_id(),
+            )
+        )
         snapshot = SnapshotService().build_snapshot(run.id)
         payload["items"] = snapshot["items"]
         payload["snapshot_watermark"] = snapshot["snapshot_watermark"]

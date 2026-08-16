@@ -74,3 +74,14 @@ test('空输入返回 null', () => {
   assert.equal(parseSseFrame(''), null)
   assert.equal(parseSseFrame(null), null)
 })
+
+test('Provider 原始 reasoning 瞬时帧没有 id，仍可解析', () => {
+  const frame = parseSseFrame(
+    'event: provider_reasoning_raw_delta\n' +
+      'data: {"run_id": 8, "delta": "真实 reasoning", "transient": true, "source": "provider"}\n'
+  )
+  assert.equal(frame.id, null)
+  assert.equal(frame.event, 'provider_reasoning_raw_delta')
+  assert.equal(frame.data.transient, true)
+  assert.equal(frame.data.delta, '真实 reasoning')
+})

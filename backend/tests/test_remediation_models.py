@@ -306,6 +306,7 @@ def test_phase_three_schema_is_in_init_sql_and_ordered_migration_runner():
         "039_qa_record_attachments",
         "040_agent_harness_state_contract",
         "041_agent_run_feature_flags_snapshot",
+        "042_agent_audit_hypotheses",
     )
     assert len(_statements(migration_sql)) == 3
     for table_name in (

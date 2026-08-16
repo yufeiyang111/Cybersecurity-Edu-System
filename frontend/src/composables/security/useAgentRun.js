@@ -36,11 +36,13 @@ export function useAgentRun() {
       if (requestGeneration !== generation) return false
       store.hydrate(snapshot)
       attachStream(runId, (frame) => {
+        const isProviderRawReasoning = frame.event === 'provider_reasoning_raw_delta'
         store.applyEvent({
           id: frame.id,
           sequence: frame.id,
           event_type: frame.event,
-          payload: frame.data?.payload || {},
+          payload: isProviderRawReasoning ? (frame.data || {}) : (frame.data?.payload || {}),
+          transient: isProviderRawReasoning && frame.data?.transient === true,
           state_version: frame.data?.state_version ?? null,
           occurred_at: frame.data?.occurred_at || null,
           iteration: frame.data?.iteration ?? 0

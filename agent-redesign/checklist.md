@@ -536,26 +536,33 @@ git diff --check
 - [x] **W-03** baseline 保持确定性工作流，V3 仅作用于 hybrid/deep_audit 且受 Run 快照灰度控制。
 - [x] **W-04 BLOCKER** `AuditSkillCatalog` 是受版本控制的深模块；模型和用户不能动态注册工具、
   技能或越过 Tool Registry。
-- [ ] **W-05 BLOCKER** 每条审计假设都绑定 skill、目标、证据条件、授权代码范围和可审计状态。
+- [x] **W-05 BLOCKER** 每条审计假设都绑定 skill、目标、证据条件、授权代码范围和可审计状态。
 - [x] **W-06 BLOCKER** V3 Deep Review 已不接受自由文本 focus；输入必须引用当前 Run 的 hypothesis /
   required evidence / 已持久化授权 CodeSliceEvidence 范围，损坏或无可读范围时拒绝且不回退。
-- [ ] **W-07 BLOCKER** ReAct 工具观察能够推进假设；重复、无进展、预算耗尽和无授权位置安全收口。
-- [ ] **W-08 BLOCKER** Evidence Critic 独立于 Planner；无代码位置或关键证据时不得确认漏洞。
-- [ ] **W-09** Reasoning Summary 只含受控假设、行动理由、证据缺口和下一步；隐藏 CoT 不落库、
+- [x] **W-07 BLOCKER** ReAct 工具观察能够推进假设；重复、无进展、预算耗尽和无授权位置安全收口。
+- [x] **W-08 BLOCKER** Evidence Critic 独立于 Planner；无代码位置或关键证据时不得确认漏洞。
+- [x] **W-09** Reasoning Summary 只含受控假设、行动理由、证据缺口和下一步；隐藏 CoT 不落库、
   不进 SSE、不进 API、不进日志。
-- [ ] **W-09a BLOCKER** Provider 原始 reasoning 只可通过 `provider_reasoning_raw_delta` 投递给
+- [x] **W-09a BLOCKER** Provider 原始 reasoning 只可通过 `provider_reasoning_raw_delta` 投递给
   `run.created_by` 的活动连接；同进程使用瞬时内存中继，RQ worker 跨进程只允许非持久化
   Pub/Sub；不写数据库、`AgentEvent`、日志、Checkpoint、指标或历史 API，原始帧不推进
   Last-Event-ID，刷新/重连不得回放，传输不可用时安全丢弃并保留摘要。
-- [ ] **W-09b BLOCKER** V3 不得复用会持久化的 `llm.reasoning_delta` 存放 Provider 原始片段；
+- [x] **W-09b BLOCKER** V3 不得复用会持久化的 `llm.reasoning_delta` 存放 Provider 原始片段；
   历史 raw-like 事件不迁移、不复制，新面板不支持回放。
-- [ ] **W-10** 深度审查保留 token/context 预算，用户显式预算不被静默覆盖；预算耗尽文案可解释。
-- [ ] **W-11** 假设/判定持久化、加性迁移、初始化 SQL、历史 Run 兼容和 Feature Flag 回滚全部验证。
-- [ ] **W-12** 假设列表与详情接口有 workspace 鉴权、服务端分页和安全序列化；不泄露源码、Prompt、
+- [x] **W-10** 深度审查保留 token/context 预算，用户显式预算不被静默覆盖；预算耗尽文案可解释。
+- [x] **W-11** 假设/判定持久化、加性迁移、初始化 SQL、历史 Run 兼容和 Feature Flag 回滚全部验证。
+- [x] **W-12** 假设列表与详情接口有 workspace 鉴权、服务端分页和安全序列化；不泄露源码、Prompt、
   Token、Cookie 或 Provider 原始输出。原始 reasoning 只能走 W-09a 的实时直连通道，不能进入接口响应。
-- [ ] **W-13** 前端攻击路径验证视图覆盖 loading、empty、error、blocked、历史 Run 和移动端。
+- [-] **W-13** 前端攻击路径验证视图已实现 loading、empty、error、blocked、预算收口、历史 Run 与 V3 关闭语义；真实移动端/平板浏览器验收待服务更新后完成。
 - [ ] **W-14** 已知漏洞与安全对照夹具覆盖 SQL 注入、越权、SSRF/路径穿越、不安全执行/反序列化，
   且每个 confirmed candidate 有代码证据位置。
-- [ ] **W-15** focused/backend 全量/前端 Node/build/diff check 全通过；真实 Provider 与浏览器验收
+- [!] **W-15** focused/backend 全量/前端 Node/build/diff check 已通过；真实 Provider 与浏览器验收
   仅在用户授权的测试 Workspace 完成，并记录脱敏结果。
-- [ ] **W-16** V3 开关灰度启用、关闭与回滚后，baseline、V2、历史 V3 Run 均保持语义正确可读。
+- [-] **W-16** Run 快照与 baseline/V2/V3 回归已由自动化覆盖；真实工作区的开关启用、关闭与浏览器回滚演练待服务更新后完成。
+
+### W. 实施证据（2026-08-16）
+
+- 原始 reasoning 的产品边界：仅展示 Provider 明确返回的内容；仅 Run 创建者的活动 SSE 连接可见；无 SSE id、不可重放、不持久化。隐藏 CoT / ToT 不实现也不展示。
+- API 防泄露回归：列表和详情按显式白名单响应；跨 Run 返回 404、跨工作区返回 403；分页参数越界返回 400；Critic `next_action` 仅返回 `action`，夹具中的 `provider_raw_reasoning` / `source_excerpt` 不会透传。
+- 自动化证据：后端全量 `1369 passed, 1 skipped`；Agent 前端 Node `75 passed`；生产构建通过；已对已跟踪和 33 个未跟踪目标文件执行 `git diff --check`。
+- 浏览器已验证用户登录、安全工作台和 Agent 工作台可访问且无控制台错误；但监听 5001 的用户维护后端进程未包含本批次代码，V3 端到端及三断点验收必须在用户手动重启后再记录，不以旧进程结果冒充验收。

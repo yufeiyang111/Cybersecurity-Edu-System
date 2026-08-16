@@ -19,6 +19,9 @@ from sqlalchemy import func
 from app import db
 from app.models.agent_events import AgentEvent
 from app.models.agent_runtime import AgentRun
+from app.services.security_agent.harness_v3.raw_reasoning import (
+    provider_raw_reasoning_frame,
+)
 from app.services.security_agent.state_machine import TERMINAL_STATUSES
 
 
@@ -98,6 +101,7 @@ def agent_event_stream(
     *,
     heartbeat_seconds: int = 15,
     poll_seconds: float = 0.5,
+    raw_subscription=None,
 ) -> object:
     """Yield SSE frames for one agent run; used with flask Response + stream_with_context."""
     sequence = max(0, int(last_event_id or 0))
@@ -119,6 +123,11 @@ def agent_event_stream(
     last_yield_epoch = time.monotonic()
 
     while True:
+        if raw_subscription is not None:
+            for envelope in raw_subscription.drain():
+                # 原始 reasoning 是瞬时帧：没有 id，不会写入或推进 sequence。
+                yield provider_raw_reasoning_frame(envelope)
+                last_yield_epoch = time.monotonic()
         try:
             with db.session() as session:
                 events = (
