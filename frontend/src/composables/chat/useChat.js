@@ -157,18 +157,30 @@ export function useChat(threadRef) {
     }
   }
 
-  const sendMessage = async ({ text, files }) => {
+  const sendMessage = async ({ text, files, attachmentMeta }) => {
     if (loading.value) return
+
+    const initialAttachments = (attachmentMeta && attachmentMeta.length)
+      ? attachmentMeta.map(a => ({
+          name: a.name,
+          type: a.type,
+          size: a.size,
+          preview: a.preview,
+          file: null
+        }))
+      : (files || []).map((f) => ({
+          name: f.name,
+          type: f.type.startsWith('image/') ? 'image' : 'file',
+          size: f.size,
+          preview: null,
+          file: f
+        }))
 
     messages.value.push({
       key: nextKey(),
       role: 'user',
       content: text,
-      attachments: (files || []).map((f) => ({
-        name: f.name,
-        type: f.type.startsWith('image/') ? 'image' : 'file',
-        preview: null
-      }))
+      attachments: initialAttachments
     })
     const userMsg = messages.value[messages.value.length - 1]
     scrollToBottom({ force: true })
@@ -278,11 +290,10 @@ export function useChat(threadRef) {
             assistantMsg.retrievalSignal = null
             assistantMsg.ragProcess = normalizeRagProcessSummary(data.retrieval_summary)
             if (data.attachments?.length) {
-              assistantMsg.attachments = data.attachments.map((a) => ({
+              userMsg.attachments = data.attachments.map((a) => ({
                 ...a,
                 type: a.type === 'image' ? 'image' : 'file'
               }))
-              userMsg.attachments = assistantMsg.attachments
             }
             if (data.conversation_id && !currentConversationId.value) {
               // 无会话直接提问时，后端自动创建了新会话：更新前端状态，侧栏立即显示

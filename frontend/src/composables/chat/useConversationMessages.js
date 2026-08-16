@@ -15,7 +15,15 @@ const buildMessages = (records) => {
       key: ++keySeed,
       role: 'user',
       content: r.question,
-      recordId: r.id
+      recordId: r.id,
+      attachments: (r.attachments || []).map((a) => ({
+        name: a.name,
+        type: a.type,
+        size: a.size,
+        url: a.url,
+        preview: a.preview,
+        text: a.text
+      }))
     })
     if (r.answer) {
       const evidence = normalizeAssistantEvidence({

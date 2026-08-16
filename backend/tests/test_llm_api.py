@@ -241,7 +241,7 @@ def test_analytics_cache_hit_rate_is_null_when_no_input_tokens(llm_api_app):
 def test_analytics_trend_supports_hour_and_day_granularity(llm_api_app):
     user_id = _make_user(llm_api_app, "llm-granularity-user")
     with llm_api_app.app_context():
-        now = datetime.utcnow()
+        now = datetime.utcnow().replace(hour=12, minute=0, second=0, microsecond=0)
         db.session.add_all(
             [
                 LLMCallLog(

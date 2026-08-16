@@ -23,7 +23,7 @@ _INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "system_override",
         re.compile(
-            r"(?i)(?:从现在开始|现在开始|接下来|please|from\s+now\s+on)(?:你)?(?:是|扮演|作为).{0,12}(?:系统|system|assistant|管理员)"
+            r"(?i)(?:从现在开始|现在开始|接下来)(?:你)?(?:是|扮演|作为).{0,12}(?:系统|system|assistant|管理员)"
             r"|\byou\s+are\s+(?:the\s+)?(?:system|assistant)\b"
             r"|act\s+as\s+(?:a\s+)?(?:system|assistant)"
             r"|override\s+(?:the\s+)?(?:system|instructions)"
@@ -33,7 +33,8 @@ _INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "new_instructions",
         re.compile(
-            r"(?i)(?:从今以后|现在开始|按照以下|遵循以下|执行以下).{0,25}(?:指令|规则|要求)"
+            r"(?i)(?:从现在开始|从(?:今|这)以后|从此刻起).{0,6}(?:你|您)?(?:的)?(?:新|唯一|全部|所有).{0,4}(?:指令|规则|要求)"
+            r"|(?:忽略|无视|不再(?:遵守|遵循)).{0,6}(?:之前|原有).{0,4}(?:指令|规则|要求)"
             r"|your\s+(?:new\s+)?(?:instructions?|rules?)\s+(?:are|is)\s*[:：]"
         ),
     ),
@@ -47,7 +48,7 @@ _INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "delimiter_escape",
         re.compile(
-            r"(?i)(?:参考|资料|上文|上下文).{0,8}(?:结束|到此为止|分隔|分割)"
+            r"(?i)(?:不要再|请(?:勿|别)|停止|无需).{0,6}(?:参考|遵循|理会).{0,6}(?:以上|上文|前面|之前).{0,6}(?:内容|资料|信息|要求)"
             r"|end\s+of\s+(?:context|reference|document)"
             r"|disregard\s+(?:everything\s+)?(?:above|before)"
         ),

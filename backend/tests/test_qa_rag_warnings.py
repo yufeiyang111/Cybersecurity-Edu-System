@@ -523,14 +523,18 @@ def test_stream_interruption_marks_event_degraded_without_leaking_exception(qa_a
     )
 
     assert response.status_code == 200
-    error_event = next(
+    response_text = response.get_data(as_text=True)
+    done_event = next(
         event
-        for event in response.get_data(as_text=True).split("\n\n")
-        if event.startswith("event: error")
+        for event in response_text.split("\n\n")
+        if event.startswith("event: done")
     )
-    payload = json.loads(error_event.split("data: ", 1)[1])
+    payload = json.loads(done_event.split("data: ", 1)[1])
     assert payload["answer_status"] == "degraded"
-    assert payload["citations"] == []
+    assert payload["warning_code"] == "RAG_STREAM_INTERRUPTED"
+    assert payload["rag_warnings"] == ["RAG_STREAM_INTERRUPTED"]
+    assert payload["citations"]["citations"] == []
+    assert "event: error" not in response_text
     assert "provider details" not in json.dumps(payload, ensure_ascii=False)
 
 

@@ -18,6 +18,7 @@ os.environ.setdefault("RERANKER_API_KEY", "")
 os.environ.setdefault("EMBEDDING_API_ENABLED", "false")
 os.environ.setdefault("RERANKER_API_ENABLED", "false")
 os.environ.setdefault("RERANK_ENABLED", "false")
+os.environ.setdefault("RAG_PIPELINE_V2_ENABLED", "false")
 
 
 class TestConfig:

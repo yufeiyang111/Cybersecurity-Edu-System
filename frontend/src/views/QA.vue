@@ -123,8 +123,8 @@ const {
   handleThreadScroll
 } = useChat(threadRef)
 
-const handleSend = ({ text, files }) => {
-  sendMessage({ text, files })
+const handleSend = ({ text, files, attachmentMeta }) => {
+  sendMessage({ text, files, attachmentMeta })
   scrollToBottom()
 }
 

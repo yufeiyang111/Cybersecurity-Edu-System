@@ -8,6 +8,7 @@ RAG核心引擎 - 增强版
 import time
 import json
 import uuid
+import dataclasses
 from time import perf_counter
 from typing import List, Dict, Any, Optional, Tuple
 from app.config import Config
@@ -328,6 +329,27 @@ class EnhancedRAGEngine:
         """从用户偏好解析 QA 回答最大 tokens；缺失或非法时回退引擎默认。"""
         return resolve_qa_max_tokens(user_preferences)
 
+    def _provider_call_with_max_tokens_fallback(
+        self,
+        provider,
+        request: LLMRequest,
+        preferred_max_tokens: int,
+    ) -> LLMResponse | None:
+        """调用 provider；参数类失败（如用户偏好 max_tokens 不被模型接受）时
+        用引擎默认 max_tokens 重试一次，避免因个别模型参数限制导致回答整体失败。
+        返回 None 表示两次调用均失败。
+        """
+        response = provider.generate(request)
+        if response is not None and response.is_success:
+            return response
+        if request.max_tokens == DEFAULT_QA_MAX_TOKENS:
+            return response
+        retry_request = dataclasses.replace(request, max_tokens=DEFAULT_QA_MAX_TOKENS)
+        retry_response = provider.generate(retry_request)
+        if retry_response is not None and retry_response.is_success:
+            return retry_response
+        return response
+
     def generate(
         self,
         query: str,
@@ -363,7 +385,11 @@ class EnhancedRAGEngine:
             ),
         )
         try:
-            response = provider.generate(request)
+            response = self._provider_call_with_max_tokens_fallback(
+                provider,
+                request,
+                request.max_tokens,
+            )
         except Exception:
             return self._provider_failure_result(
                 provider,
@@ -597,6 +623,29 @@ class EnhancedRAGEngine:
                     break
         except Exception:
             warning_code = "LLM_PROVIDER_REQUEST_FAILED"
+
+        # 参数类失败（未产出任何内容，如用户偏好 max_tokens 不被模型接受）：
+        # 用引擎默认 max_tokens 重试一次，避免因个别模型参数限制导致回答整体失败。
+        if (not text_parts and not reasoning_parts and warning_code
+                and request.max_tokens != DEFAULT_QA_MAX_TOKENS):
+            retry_request = dataclasses.replace(request, max_tokens=DEFAULT_QA_MAX_TOKENS)
+            retry_warning: str | None = None
+            try:
+                for chunk in stream_method(retry_request):
+                    if chunk.delta:
+                        text_parts.append(chunk.delta)
+                        yield {"type": "delta", "content": chunk.delta}
+                    if chunk.reasoning_delta:
+                        reasoning_parts.append(chunk.reasoning_delta)
+                        yield {"type": "reasoning", "delta": chunk.reasoning_delta}
+                    if chunk.warning_code:
+                        retry_warning = chunk.warning_code
+                    if chunk.finished:
+                        break
+            except Exception:
+                retry_warning = "LLM_PROVIDER_REQUEST_FAILED"
+            if text_parts or reasoning_parts:
+                warning_code = retry_warning
 
         answer = "".join(text_parts).strip()
         if not answer or warning_code:

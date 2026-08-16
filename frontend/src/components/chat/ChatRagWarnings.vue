@@ -10,8 +10,7 @@
     <ul class="crw-list">
       <li v-for="item in items" :key="item.id + item.flagsText" class="crw-item">
         <code>{{ item.id }}</code>
-        <span v-if="item.flagsText">{{ item.flagsText }}</span>
-        <span v-else>{{ t('warnings.injection') }}</span>
+        <span>{{ item.flagsText || warningCodeLabel(item.id) }}</span>
       </li>
     </ul>
     <p class="crw-note">{{ t('warnings.note') }}</p>
@@ -20,7 +19,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { parseRagWarning } from '@/features/security/warningCodes'
+import { parseRagWarning, warningCodeLabel } from '@/features/security/warningCodes'
 import { useI18n } from '@/features/chat/i18n'
 
 const props = defineProps({

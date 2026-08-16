@@ -241,6 +241,7 @@ export function retrievalSignalPresentation(signal) {
   const normalized = normalizeRetrievalSignal(signal)
   return {
     ...RETRIEVAL_SIGNAL_PRESENTATIONS[normalized.level],
+    level: normalized.level,
     isCalibrated: false
   }
 }

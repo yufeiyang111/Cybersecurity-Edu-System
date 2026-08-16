@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """问答流式端点 /api/qa/ask/stream 集成测试（真实 qa 蓝图 + 内存库 + mock 引擎）"""
 from __future__ import annotations
 
@@ -154,7 +155,8 @@ def test_ask_stream_with_existing_conversation_keeps_it(qa_app, monkeypatch):
     assert f'"conversation_id": {conv_id}' in text
 
 
-def test_ask_stream_error_event_does_not_leak_internals(qa_app, monkeypatch):
+def test_ask_stream_emits_degraded_done_when_engine_interrupts(qa_app, monkeypatch):
+    """底层 RAG 流异常时仍返回可呈现的降级结果，不让 UI 只得到泛化 error 事件。"""
     from app.routes import qa as qa_module
 
     monkeypatch.setattr(qa_module, "get_rag_engine", lambda: _BoomEngine())
@@ -168,5 +170,36 @@ def test_ask_stream_error_event_does_not_leak_internals(qa_app, monkeypatch):
 
     assert resp.status_code == 200
     text = resp.get_data(as_text=True)
-    assert "event: error" in text
+    assert "event: done" in text
+    assert '"answer_status": "degraded"' in text
+    assert "RAG_STREAM_INTERRUPTED" in text
+    assert "event: error" not in text
     assert "secret internal detail" not in text
+
+
+def test_ask_stream_keeps_completed_answer_when_history_persistence_fails(qa_app, monkeypatch):
+    """已经生成的回答不能因历史落库失败被替换成 SSE error。"""
+    from app.routes import qa as qa_module
+
+    monkeypatch.setattr(qa_module, "get_rag_engine", lambda: _FakeStreamEngine())
+
+    def raise_history_error(*args, **kwargs):
+        raise RuntimeError("database persistence internals must not leak")
+
+    monkeypatch.setattr(qa_module, "_save_qa_record", raise_history_error)
+    client = qa_app.test_client()
+
+    resp = client.post(
+        "/api/qa/ask/stream",
+        json={"question": "什么是SQL注入"},
+        headers=_auth_header(qa_app),
+    )
+
+    assert resp.status_code == 200
+    text = resp.get_data(as_text=True)
+    assert "event: done" in text
+    assert "你好，世界" in text
+    assert '"id": null' in text
+    assert "QA_HISTORY_NOT_SAVED" in text
+    assert "event: error" not in text
+    assert "database persistence internals" not in text

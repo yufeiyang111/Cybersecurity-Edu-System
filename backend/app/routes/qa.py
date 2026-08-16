@@ -6,8 +6,9 @@ import json
 import inspect
 import os
 import uuid
+import base64
 from datetime import datetime
-from flask import Blueprint, request, jsonify, current_app, Response, stream_with_context
+from flask import Blueprint, request, jsonify, current_app, Response, stream_with_context, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models.qa import QAConversation, QARecord, Favorite, FeedbackLog
@@ -22,7 +23,11 @@ from app.services.rag_core.qa_record_payload import (
     rag_core_record_fields,
     rag_core_response_fields,
 )
-
+from app.services.rag_core.qa_stream_delivery import (
+    add_rag_warning,
+    build_interrupted_stream_result,
+    build_stream_done_payload,
+)
 qa_bp = Blueprint("qa", __name__)
 
 QA_ATTACHMENT_FOLDER = 'uploads/qa_attachments'
@@ -55,9 +60,18 @@ def _save_qa_attachments(files) -> list:
             "name": display_name,
             "type": "image" if ext in _IMAGE_ATTACHMENT_EXTS else ("text" if ext in _TEXT_ATTACHMENT_EXTS else "file"),
             "size": os.path.getsize(filepath),
+            "url": f"/api/qa/attachments/{stored_name}",
             "text": ""
         }
-        if ext in _TEXT_ATTACHMENT_EXTS:
+        if ext in _IMAGE_ATTACHMENT_EXTS:
+            try:
+                with open(filepath, "rb") as img_f:
+                    mime = f"image/{ext}" if ext != 'svg' else "image/svg+xml"
+                    b64_data = base64.b64encode(img_f.read()).decode('utf-8')
+                    entry["preview"] = f"data:{mime};base64,{b64_data}"
+            except Exception:
+                entry["preview"] = f"/api/qa/attachments/{stored_name}"
+        elif ext in _TEXT_ATTACHMENT_EXTS:
             try:
                 should_clean = ext not in ('html', 'htm', 'md', 'markdown', 'docx', 'doc', 'pdf')
                 result = parse_document(filepath, clean_text=should_clean)
@@ -66,6 +80,25 @@ def _save_qa_attachments(files) -> list:
                 entry["text"] = ""
         attachments.append(entry)
     return attachments
+
+
+def _attachment_meta(attachments: list) -> list:
+    """从保存后的附件条目中提取可持久化的元数据。
+
+    只存文件名/类型/大小/静态访问地址；不持久化 base64 preview 与文本正文，
+    避免数据库膨胀，历史回显时通过 url 按需加载。
+    """
+    meta = []
+    for att in attachments or []:
+        if not isinstance(att, dict):
+            continue
+        meta.append({
+            "name": att.get("name"),
+            "type": att.get("type"),
+            "size": att.get("size"),
+            "url": att.get("url"),
+        })
+    return meta
 
 
 def _sse_event(name: str, data: dict) -> str:
@@ -130,7 +163,11 @@ def _prepare_ask_inputs(user_id: int):
 
 
 def _save_qa_record(user_id: int, conversation_id: int, question: str, result: dict, attachments: list) -> QARecord:
-    """保存问答记录（ask / ask_stream 复用）"""
+    """保存问答记录（ask / ask_stream 复用）
+
+    attachments 为附件元数据列表（不含二进制），持久化到 QARecord.attachments，
+    供历史会话回显缩略图/文件名/预览地址。
+    """
     record = QARecord(
         conversation_id=conversation_id,
         user_id=user_id,
@@ -142,6 +179,7 @@ def _save_qa_record(user_id: int, conversation_id: int, question: str, result: d
         model_name=result.get("model_name"),
         response_time=result.get("response_time"),
         rag_warnings=result.get("rag_warnings") or None,
+        attachments=_attachment_meta(attachments),
         **rag_core_record_fields(result),
     )
     db.session.add(record)
@@ -155,6 +193,17 @@ def _save_qa_record(user_id: int, conversation_id: int, question: str, result: d
             conversation.updated_at = datetime.utcnow()
     db.session.commit()
     return record
+
+
+def _persisted_conversation_id(user_id: int, conversation_id: int | None) -> int | None:
+    """落库失败回滚后，仅返回真实存在且归属当前用户的会话。"""
+    if conversation_id is None:
+        return None
+    conversation = QAConversation.query.filter_by(
+        id=conversation_id,
+        user_id=user_id,
+    ).first()
+    return conversation.id if conversation is not None else None
 
 
 def _engine_call(method, *args, user_id: int, **kwargs):
@@ -279,77 +328,171 @@ def ask_question_stream():
     memories = _retrieve_memories(int(user_id), engine_query, conversation_id)
 
     def generate():
+        """将引擎流、历史持久化和辅助观测隔离为独立失败边界。"""
         try:
-            for event in _engine_call(
+            stream = _engine_call(
                 rag_engine.ask_stream,
                 engine_query,
                 conversation_history,
                 user_preferences=preferences,
                 user_id=int(user_id),
                 memories=memories,
-            ):
-                if event["type"] in ("delta", "reasoning"):
-                    yield _sse_event(event["type"], {"delta": event.get("content") or event.get("delta") or ""})
-                elif event["type"] == "done":
-                    record = _save_qa_record(user_id, conversation_id, question, event, attachments)
+            )
+            for event in stream:
+                if not isinstance(event, dict):
+                    raise TypeError("RAG stream event must be an object")
+                event_type = event.get("type")
+                if event_type in ("delta", "reasoning"):
+                    yield _sse_event(
+                        event_type,
+                        {"delta": event.get("content") or event.get("delta") or ""},
+                    )
+                    continue
+                if event_type != "done":
+                    continue
+
+                try:
+                    record = _save_qa_record(
+                        user_id,
+                        conversation_id,
+                        question,
+                        event,
+                        attachments,
+                    )
+                except Exception as exc:  # noqa: BLE001 回答已经生成，历史失败不能中断 SSE
+                    db.session.rollback()
+                    current_app.logger.warning(
+                        "qa.stream_history_persist_failed error_type=%s",
+                        type(exc).__name__,
+                    )
+                    persisted_conversation_id = _persisted_conversation_id(
+                        user_id,
+                        conversation_id,
+                    )
+                    yield _sse_event(
+                        "done",
+                        build_stream_done_payload(
+                            add_rag_warning(event, "QA_HISTORY_NOT_SAVED"),
+                            record=None,
+                            conversation_id=persisted_conversation_id,
+                            attachments=attachments,
+                        ),
+                    )
+                    return
+
+                completed_event = event
+                try:
                     persist_trace_for_qa_record(
                         user_id=int(user_id),
                         record=record,
                         result=event,
                     )
-                    # 检索结果落库（离线评估用）
-                    try:
-                        from app.services.qa_retrieval_log import log_retrieval
+                except Exception as exc:  # noqa: BLE001 辅助追踪不可影响已保存回答
+                    current_app.logger.warning(
+                        "qa.stream_trace_persist_failed error_type=%s",
+                        type(exc).__name__,
+                    )
+                    completed_event = add_rag_warning(
+                        completed_event,
+                        "QA_TRACE_PERSIST_FAILED",
+                    )
 
-                        log_retrieval(
-                            user_id=int(user_id),
-                            query=engine_query,
-                            conversation_id=conversation_id,
-                            record_id=record.id,
-                            result=event,
-                            retrieval_ms=getattr(rag_engine, "last_retrieval_ms", 0),
-                        )
-                    except Exception:
-                        pass
-                    # 先发 done（含回答与资料），让客户端立即渲染；
-                    # 记忆抽取是一次独立 LLM 调用（数秒），放在 done 之后执行，
-                    # 避免阻塞资料展示，完成后通过 memory 事件通知前端。
-                    yield _sse_event("done", {
-                        "id": record.id,
-                        "conversation_id": conversation_id,
-                        "answer": event.get("answer"),
-                        "reasoning": event.get("reasoning"),
-                        "sources": event.get("retrieved_docs") or event.get("sources") or [],
-                        "confidence": event.get("confidence"),
-                        "response_time": event.get("response_time"),
-                        "attachments": attachments,
-                        "memory_changes": {"added": 0, "updated": 0, "skipped": 0},
-                        "created_at": record.created_at.isoformat() if record.created_at else None,
-                        "warning_code": event.get("warning_code"),
-                        "rag_warnings": event.get("rag_warnings") or [],
-                        **rag_core_response_fields(record, event),
-                    })
-                    memory_changes = {"added": 0, "updated": 0, "skipped": 0}
-                    try:
-                        memory_changes = memory_service.capture_interaction(
-                            user_id=int(user_id),
-                            conversation_id=conversation_id,
-                            record_id=record.id,
-                            question=question,
-                            answer=event.get("answer") or "",
-                        )
-                    except Exception:
-                        pass
-                    yield _sse_event("memory", memory_changes)
-        except Exception:
-            # 不向客户端泄漏内部实现细节
-            yield _sse_event("error", {
-                "error": "生成答案时发生异常，请稍后重试。",
-                "answer_status": "degraded",
-                "citations": [],
-                "rag_warnings": ["SSE_GENERATION_INTERRUPTED"],
-            })
+                try:
+                    from app.services.qa_retrieval_log import log_retrieval
 
+                    log_retrieval(
+                        user_id=int(user_id),
+                        query=engine_query,
+                        conversation_id=conversation_id,
+                        record_id=record.id,
+                        result=completed_event,
+                        retrieval_ms=getattr(rag_engine, "last_retrieval_ms", 0),
+                    )
+                except Exception as exc:  # noqa: BLE001 离线评估日志不可影响用户回答
+                    current_app.logger.warning(
+                        "qa.stream_retrieval_log_failed error_type=%s",
+                        type(exc).__name__,
+                    )
+                    completed_event = add_rag_warning(
+                        completed_event,
+                        "QA_RETRIEVAL_LOG_NOT_SAVED",
+                    )
+
+                yield _sse_event(
+                    "done",
+                    build_stream_done_payload(
+                        completed_event,
+                        record=record,
+                        conversation_id=conversation_id,
+                        attachments=attachments,
+                    ),
+                )
+
+                memory_changes = {"added": 0, "updated": 0, "skipped": 0}
+                try:
+                    memory_changes = memory_service.capture_interaction(
+                        user_id=int(user_id),
+                        conversation_id=conversation_id,
+                        record_id=record.id,
+                        question=question,
+                        answer=completed_event.get("answer") or "",
+                    )
+                except Exception as exc:  # noqa: BLE001 记忆是回答后的可选能力
+                    current_app.logger.warning(
+                        "qa.stream_memory_capture_failed error_type=%s",
+                        type(exc).__name__,
+                    )
+                yield _sse_event("memory", memory_changes)
+                return
+
+            current_app.logger.warning("qa.stream_missing_terminal_event")
+            yield _sse_event(
+                "done",
+                build_stream_done_payload(
+                    build_interrupted_stream_result(),
+                    record=None,
+                    conversation_id=_persisted_conversation_id(user_id, conversation_id),
+                    attachments=attachments,
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001 内部异常必须变成受控降级结果
+            current_app.logger.warning(
+                "qa.stream_generation_interrupted error_type=%s",
+                type(exc).__name__,
+            )
+            interrupted_result = build_interrupted_stream_result()
+            record = None
+            try:
+                record = _save_qa_record(
+                    user_id,
+                    conversation_id,
+                    question,
+                    interrupted_result,
+                    attachments,
+                )
+            except Exception as persist_exc:  # noqa: BLE001 仍需保证用户能收到终态
+                db.session.rollback()
+                current_app.logger.warning(
+                    "qa.stream_interrupted_history_persist_failed error_type=%s",
+                    type(persist_exc).__name__,
+                )
+                interrupted_result = add_rag_warning(
+                    interrupted_result,
+                    "QA_HISTORY_NOT_SAVED",
+                )
+            yield _sse_event(
+                "done",
+                build_stream_done_payload(
+                    interrupted_result,
+                    record=record,
+                    conversation_id=(
+                        conversation_id
+                        if record is not None
+                        else _persisted_conversation_id(user_id, conversation_id)
+                    ),
+                    attachments=attachments,
+                ),
+            )
     response = Response(stream_with_context(generate()), mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache"
     response.headers["X-Accel-Buffering"] = "no"
@@ -764,3 +907,11 @@ def remove_favorite(favorite_id):
     db.session.commit()
 
     return jsonify({"message": "取消收藏成功"}), 200
+
+
+@qa_bp.route("/attachments/<path:filename>", methods=["GET"])
+def get_qa_attachment(filename):
+    """获取问答附件文件（图片预览/文件查看）"""
+    safe_name = os.path.basename(filename)
+    upload_path = os.path.join(current_app.root_path, '..', QA_ATTACHMENT_FOLDER)
+    return send_from_directory(upload_path, safe_name)

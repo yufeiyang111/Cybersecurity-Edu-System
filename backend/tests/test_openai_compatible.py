@@ -1,4 +1,5 @@
 import json
+import logging
 
 from app.services.llm.contracts import LLMRequest
 from app.services.llm.openai_compatible import OpenAICompatibleProvider
@@ -57,6 +58,101 @@ def test_generate_normalizes_openai_chat_completion_response():
     assert kwargs["headers"]["Authorization"] == "Bearer private-api-key"
     assert kwargs["json"]["messages"][0] == {"role": "system", "content": "be safe"}
 
+
+
+def test_generate_logs_only_response_metadata_without_sensitive_content(app, caplog):
+    prompt_secret = "prompt-secret-must-not-be-logged"
+    system_secret = "system-secret-must-not-be-logged"
+    response_secret = "response-secret-must-not-be-logged"
+    api_key_secret = "api-key-secret-must-not-be-logged"
+    private_endpoint = "https://private-llm.internal/v1"
+    model_secret = "private-model-must-not-be-logged"
+    client = _FakeClient(
+        _FakeResponse(
+            payload={
+                "model": model_secret,
+                "choices": [
+                    {
+                        "message": {"content": response_secret},
+                        "finish_reason": "stop",
+                    }
+                ],
+            }
+        )
+    )
+    provider = OpenAICompatibleProvider(
+        provider_name="private",
+        base_url=private_endpoint,
+        api_key=api_key_secret,
+        model=model_secret,
+        http_client=client,
+    )
+
+    with app.app_context(), caplog.at_level(logging.DEBUG, logger=app.logger.name):
+        response = provider.generate(
+            LLMRequest(
+                prompt=prompt_secret,
+                system_prompt=system_secret,
+            )
+        )
+
+    assert response.is_success
+    assert response.text == response_secret
+    assert "OpenAICompatibleProvider HTTP response metadata" in caplog.text
+    assert "response_bytes=" in caplog.text
+    assert "response_sha256=" in caplog.text
+    for secret in (
+        prompt_secret,
+        system_secret,
+        response_secret,
+        api_key_secret,
+        private_endpoint,
+        model_secret,
+    ):
+        assert secret not in caplog.text
+
+def test_generate_empty_content_logs_no_raw_provider_body(app, caplog):
+    response_secret = "empty-content-secret-must-not-be-logged"
+    api_key_secret = "empty-api-key-secret-must-not-be-logged"
+    private_endpoint = "https://empty-provider.internal/v1"
+    model_secret = "empty-model-secret-must-not-be-logged"
+    client = _FakeClient(
+        _FakeResponse(
+            payload={
+                "model": model_secret,
+                "choices": [
+                    {
+                        "message": {
+                            "content": f"<think>{response_secret}</think>",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ],
+            }
+        )
+    )
+    provider = OpenAICompatibleProvider(
+        provider_name="private",
+        base_url=private_endpoint,
+        api_key=api_key_secret,
+        model=model_secret,
+        http_client=client,
+    )
+
+    with app.app_context(), caplog.at_level(logging.DEBUG, logger=app.logger.name):
+        response = provider.generate(LLMRequest(prompt="empty-content-prompt"))
+
+    assert response.is_success is False
+    assert response.warning_code == "LLM_OUTPUT_INVALID"
+    assert "OpenAICompatible empty response metadata" in caplog.text
+    for secret in (
+        response_secret,
+        api_key_secret,
+        private_endpoint,
+        model_secret,
+        "empty-content-prompt",
+    ):
+        assert secret not in caplog.text
 
 def test_generate_stream_yields_content_and_finished_chunk():
     lines = [

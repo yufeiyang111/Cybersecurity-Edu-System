@@ -1,7 +1,8 @@
-﻿"""OpenAI-compatible chat completion adapter with safe response handling."""
+"""OpenAI-compatible chat completion adapter with safe response handling."""
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import re
 import time
@@ -144,9 +145,11 @@ class OpenAICompatibleProvider:
         started = perf_counter()
         request = self._apply_provider_max_tokens(request)
         payload = _payload(request, self.model, stream=False)
-        _log(current_app.logger.warning if has_app_context() else None,
-             "OpenAICompatibleProvider.generate called (provider=%s, base_url=%s, model=%s)",
-             self.provider_name, self.base_url, self.model)
+        _log(
+            current_app.logger.debug if has_app_context() else None,
+            "OpenAICompatibleProvider request metadata (provider=%s)",
+            self.provider_name,
+        )
         max_retries = _max_retries()
         for attempt in range(max_retries + 1):
             try:
@@ -157,21 +160,43 @@ class OpenAICompatibleProvider:
                     timeout=_timeout(),
                     allow_redirects=False,
                 )
-                raw_text = getattr(response, "text", None)
-                if raw_text is None:
-                    raw_text = safe_decode(getattr(response, "content", b""))
-                _log(current_app.logger.warning if has_app_context() else None,
-                     "OpenAICompatibleProvider HTTP raw response (provider=%s, status=%s, raw=%r)",
-                     self.provider_name, getattr(response, "status_code", None), raw_text[:1500])
                 if _response_too_large(response):
-                    return _failure(self, "LLM_PROVIDER_RESPONSE_TOO_LARGE", started, status_code=413)
+                    response_bytes, response_sha256 = _response_metadata(response)
+                    _log(
+                        current_app.logger.warning if has_app_context() else None,
+                        "OpenAICompatibleProvider response rejected "
+                        "(provider=%s, status=%s, response_bytes=%s, response_sha256=%s)",
+                        self.provider_name,
+                        getattr(response, "status_code", None),
+                        response_bytes,
+                        response_sha256,
+                    )
+                    return _failure(
+                        self,
+                        "LLM_PROVIDER_RESPONSE_TOO_LARGE",
+                        started,
+                        status_code=413,
+                    )
+                response_bytes, response_sha256 = _response_metadata(response)
+                _log(
+                    current_app.logger.debug if has_app_context() else None,
+                    "OpenAICompatibleProvider HTTP response metadata "
+                    "(provider=%s, status=%s, response_bytes=%s, response_sha256=%s)",
+                    self.provider_name,
+                    getattr(response, "status_code", None),
+                    response_bytes,
+                    response_sha256,
+                )
                 status_code = _status_code(response)
                 if status_code != 200:
                     if _should_retry_status(status_code) and attempt < max_retries:
                         _log(
                             current_app.logger.warning if has_app_context() else None,
                             "LLM retry (provider=%s, attempt=%s/%s, status=%s)",
-                            self.provider_name, attempt + 1, max_retries, status_code,
+                            self.provider_name,
+                            attempt + 1,
+                            max_retries,
+                            status_code,
                         )
                         time.sleep(_retry_delay(attempt))
                         continue
@@ -246,7 +271,10 @@ class OpenAICompatibleProvider:
                         _log(
                             current_app.logger.warning if has_app_context() else None,
                             "LLM stream retry (provider=%s, attempt=%s/%s, status=%s)",
-                            self.provider_name, attempt + 1, max_retries, status_code,
+                            self.provider_name,
+                            attempt + 1,
+                            max_retries,
+                            status_code,
                         )
                         time.sleep(_retry_delay(attempt))
                         continue
@@ -757,14 +785,20 @@ def _agent_failure(
     )
 
 
-def _success_response(provider: OpenAICompatibleProvider, body: object, started: float) -> LLMResponse:
+def _success_response(
+    provider: OpenAICompatibleProvider,
+    body: object,
+    started: float,
+) -> LLMResponse:
+    body_bytes, body_sha256 = _body_metadata(body)
     _log(
-        current_app.logger.info if has_app_context() else None,
-        "OpenAICompatible _success_response (provider=%s, body_type=%s, body_keys=%s, body=%r)",
+        current_app.logger.debug if has_app_context() else None,
+        "OpenAICompatible success response metadata "
+        "(provider=%s, body_type=%s, body_bytes=%s, body_sha256=%s)",
         provider.provider_name,
         type(body).__name__,
-        list(body.keys()) if isinstance(body, dict) else "N/A",
-        body,
+        body_bytes,
+        body_sha256,
     )
     if not isinstance(body, dict):
         _log(
@@ -787,11 +821,12 @@ def _success_response(provider: OpenAICompatibleProvider, body: object, started:
             warning_code = "LLM_OUTPUT_INVALID"
         _log(
             current_app.logger.warning if has_app_context() else None,
-            "OpenAICompatible: empty content from %s (base_url=%s, model=%s, warning_code=%s). "
-            "choices=%r, body_keys=%r, choice=%r, message=%r, content=%r, reasoning=%r",
-            provider.provider_name, provider.base_url, provider.model, warning_code,
-            body.get("choices"), list(body.keys()),
-            choice, message, repr(raw_content), repr(reasoning),
+            "OpenAICompatible empty response metadata "
+            "(provider=%s, warning_code=%s, body_bytes=%s, body_sha256=%s)",
+            provider.provider_name,
+            warning_code,
+            body_bytes,
+            body_sha256,
         )
         return _failure(provider, warning_code, started, status_code=200)
     raw_usage = body.get("usage") if isinstance(body.get("usage"), dict) else {}
@@ -817,10 +852,12 @@ def _failure(
 ) -> LLMResponse:
     _log(
         current_app.logger.warning if has_app_context() else None,
-        "OpenAICompatible provider failure (provider=%s, base_url=%s, model=%s, "
-        "warning_code=%r, status_code=%s, latency_ms=%s)",
-        provider.provider_name, provider.base_url, provider.model,
-        warning_code, status_code, _latency_ms(started),
+        "OpenAICompatible provider failure "
+        "(provider=%s, warning_code=%s, status_code=%s, latency_ms=%s)",
+        provider.provider_name,
+        warning_code,
+        status_code,
+        _latency_ms(started),
     )
     return LLMResponse(
         text=None,
@@ -854,6 +891,32 @@ def _max_response_bytes() -> int:
         return 2 * 1024 * 1024
     return max(1024, int(current_app.config.get("LLM_PROVIDER_MAX_RESPONSE_BYTES", 2 * 1024 * 1024)))
 
+
+def _response_metadata(response: object) -> tuple[int, str]:
+    content = getattr(response, "content", b"")
+    if isinstance(content, str):
+        raw = content.encode("utf-8", errors="replace")
+    elif isinstance(content, (bytes, bytearray)):
+        raw = bytes(content)
+    else:
+        text = getattr(response, "text", "")
+        raw = str(text or "").encode("utf-8", errors="replace")
+    return len(raw), hashlib.sha256(raw).hexdigest()
+
+
+def _body_metadata(body: object) -> tuple[int, str]:
+    try:
+        serialized = json.dumps(
+            body,
+            ensure_ascii=False,
+            sort_keys=True,
+            default=str,
+            separators=(",", ":"),
+        )
+    except (TypeError, ValueError):
+        serialized = type(body).__name__
+    raw = serialized.encode("utf-8", errors="replace")
+    return len(raw), hashlib.sha256(raw).hexdigest()
 
 def _response_too_large(response: object) -> bool:
     content = getattr(response, "content", b"")

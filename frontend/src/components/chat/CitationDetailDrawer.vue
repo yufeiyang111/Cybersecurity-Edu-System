@@ -3,7 +3,7 @@
     class="citation-detail-drawer"
     :model-value="visible"
     direction="rtl"
-    size="420px"
+    size="460px"
     :with-header="false"
     @close="$emit('close')"
   >
@@ -12,42 +12,50 @@
       class="citation-detail"
     >
       <header class="detail-header">
-        <div class="detail-id">{{ citation.citationId }}</div>
-        <div class="detail-heading">
-          <p>引用详情</p>
-          <h2>{{ citation.title }}</h2>
+        <div class="detail-header-top">
+          <div class="detail-id" :data-accent="signal.level === 'low' ? 'warn' : (signal.level === 'high' ? 'ok' : '')">{{ citation.citationId }}</div>
+          <span class="detail-eyebrow">引用详情</span>
+          <button class="detail-close" title="关闭" @click="$emit('close')">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
         </div>
+        <h2 class="detail-title">{{ citation.title }}</h2>
+        <p class="detail-source" v-if="citation.source">
+          {{ citation.source }}
+        </p>
       </header>
 
       <div class="detail-body">
         <div class="detail-grid">
           <div class="detail-metric">
-            <span>文档定位</span>
-            <strong>{{ lineLabel }}</strong>
+            <span class="metric-label">文档定位</span>
+            <strong class="metric-value">{{ lineLabel }}</strong>
           </div>
           <div class="detail-metric">
-            <span>主张覆盖</span>
-            <strong>{{ claimLabel }}</strong>
+            <span class="metric-label">主张覆盖</span>
+            <strong class="metric-value">{{ claimLabel }}</strong>
           </div>
           <div class="detail-metric">
-            <span>检索辅助信号</span>
-            <strong>{{ signal.label }}</strong>
+            <span class="metric-label">检索辅助信号</span>
+            <strong class="metric-value">{{ signal.label }}</strong>
           </div>
           <div class="detail-metric">
-            <span>资料版本</span>
-            <strong>{{ citation.corpusVersion || '未提供' }}</strong>
+            <span class="metric-label">资料版本</span>
+            <strong class="metric-value">{{ citation.corpusVersion || '未提供' }}</strong>
           </div>
         </div>
 
         <section class="preview-section" aria-labelledby="citation-preview-title">
-          <h3 id="citation-preview-title">原文预览</h3>
-          <p
+          <h3 id="citation-preview-title" class="preview-title">原文预览</h3>
+          <blockquote
             v-if="citation.preview?.text"
             class="preview-content"
           >
             {{ citation.preview.text }}
-            <span v-if="citation.preview.isTruncated">…</span>
-          </p>
+            <span v-if="citation.preview.isTruncated" class="preview-truncated">…（内容已截断）</span>
+          </blockquote>
           <p
             v-else
             class="preview-unavailable"
@@ -72,6 +80,14 @@
         </button>
       </div>
     </section>
+
+    <div v-else class="detail-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+        <path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6z" />
+        <path d="M14 3v6h6" />
+      </svg>
+      <p>请选择一条引用查看详情</p>
+    </div>
   </el-drawer>
 </template>
 
@@ -109,128 +125,202 @@ const claimLabel = computed(() => {
 </script>
 
 <style scoped lang="scss">
-:deep(.el-drawer) {
-  background: var(--chat-canvas);
-  color: var(--chat-ink);
-}
+.citation-detail-drawer {
+  :deep(.el-drawer) {
+    background: var(--chat-canvas);
+    color: var(--chat-ink);
+    border-left: 1px solid var(--chat-hairline);
+  }
 
-:deep(.el-drawer__body) {
-  padding: 0;
+  :deep(.el-drawer__body) {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 .citation-detail {
+  display: flex;
+  flex-direction: column;
   min-height: 100%;
+  height: 100%;
 }
 
 .detail-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 18px;
+  flex: 0 0 auto;
+  padding: 20px 20px 16px;
   border-bottom: 1px solid var(--chat-hairline);
+  background: linear-gradient(180deg, var(--chat-bubble) 0%, transparent 100%);
+}
+
+.detail-header-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .detail-id {
   display: inline-flex;
-  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 8px;
   color: var(--chat-ink);
-  background: var(--chat-bubble);
+  background: var(--chat-accent-soft, rgba(37, 99, 235, 0.12));
   font-size: calc(11px * var(--chat-font-scale));
   font-weight: 700;
+  flex: 0 0 auto;
+
+  &[data-accent='warn'] {
+    background: var(--chat-warning-bg, rgba(245, 158, 11, 0.15));
+    color: var(--chat-warning-ink, #b45309);
+  }
+
+  &[data-accent='ok'] {
+    background: rgba(34, 197, 94, 0.15);
+    color: #15803d;
+  }
 }
 
-.detail-heading {
-  min-width: 0;
+.detail-eyebrow {
+  color: var(--chat-hollow);
+  font-size: calc(11px * var(--chat-font-scale));
+  letter-spacing: 0.02em;
+}
 
-  p {
-    margin: 0;
-    color: var(--chat-hollow);
-    font-size: calc(11px * var(--chat-font-scale));
-  }
+.detail-close {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--chat-hollow);
 
-  h2 {
-    margin: 4px 0 0;
+  &:hover {
+    background: var(--chat-hover);
     color: var(--chat-ink);
-    font-size: calc(16px * var(--chat-font-scale));
-    line-height: 1.45;
-    word-break: break-word;
   }
+
+  svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+  }
+}
+
+.detail-title {
+  margin: 14px 0 0;
+  color: var(--chat-ink);
+  font-size: calc(18px * var(--chat-font-scale));
+  font-weight: 650;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.detail-source {
+  margin: 6px 0 0;
+  color: var(--chat-hollow);
+  font-size: calc(12px * var(--chat-font-scale));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detail-body {
-  padding: 18px;
+  flex: 1 1 auto;
+  padding: 18px 20px 24px;
+  overflow-y: auto;
 }
 
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .detail-metric {
   min-width: 0;
-  padding: 9px;
-  border-radius: 8px;
-  background: var(--chat-bubble);
+  padding: 12px 14px;
+  border: 1px solid var(--chat-hairline);
+  border-radius: 10px;
+  background: var(--chat-canvas);
 
-  span,
-  strong {
+  .metric-label,
+  .metric-value {
     display: block;
   }
 
-  span {
-    margin-bottom: 4px;
+  .metric-label {
+    margin-bottom: 6px;
     color: var(--chat-hollow);
     font-size: calc(11px * var(--chat-font-scale));
   }
 
-  strong {
+  .metric-value {
     overflow: hidden;
     color: var(--chat-ink);
-    font-size: calc(12px * var(--chat-font-scale));
+    font-size: calc(13px * var(--chat-font-scale));
+    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 }
 
 .preview-section {
-  margin-top: 18px;
+  margin-top: 20px;
 
-  h3 {
-    margin: 0 0 8px;
+  .preview-title {
+    margin: 0 0 10px;
     color: var(--chat-ink);
     font-size: calc(13px * var(--chat-font-scale));
+    font-weight: 600;
   }
 }
 
-.preview-content,
-.preview-unavailable {
+.preview-content {
   margin: 0;
-  padding: 11px 12px;
-  border-left: 2px solid var(--chat-ink);
-  border-radius: 0 7px 7px 0;
+  padding: 14px 16px;
+  border-left: 3px solid var(--chat-accent);
+  border-radius: 0 10px 10px 0;
   color: var(--chat-muted);
   background: var(--chat-bubble);
   font-size: calc(13px * var(--chat-font-scale));
   line-height: 1.7;
   white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.preview-truncated {
+  color: var(--chat-hollow);
+  font-size: calc(12px * var(--chat-font-scale));
 }
 
 .preview-unavailable {
-  border-left-color: var(--chat-hairline-strong);
+  margin: 0;
+  padding: 14px 16px;
+  border-left: 3px solid var(--chat-hairline-strong);
+  border-radius: 0 10px 10px 0;
   color: var(--chat-hollow);
+  background: var(--chat-bubble);
+  font-size: calc(13px * var(--chat-font-scale));
 }
 
 .signal-note {
-  margin: 12px 0 0;
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--chat-bubble);
   color: var(--chat-hollow);
   font-size: calc(12px * var(--chat-font-scale));
-  line-height: 1.55;
+  line-height: 1.6;
 }
 
 .open-document {
@@ -238,27 +328,28 @@ const claimLabel = computed(() => {
   width: 100%;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  min-height: 38px;
+  gap: 8px;
+  min-height: 40px;
   margin-top: 18px;
-  padding: 8px 12px;
-  border: 1px solid var(--chat-accent);
-  border-radius: 7px;
-  color: var(--chat-field);
+  padding: 9px 14px;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
   background: var(--chat-accent);
   font: inherit;
   font-size: calc(13px * var(--chat-font-scale));
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
 
   &:hover:not(:disabled) {
-    filter: brightness(0.92);
+    filter: brightness(0.94);
   }
 
   &:disabled {
-    border-color: var(--chat-hairline-strong);
     color: var(--chat-hollow);
     background: var(--chat-bubble);
+    box-shadow: none;
     cursor: not-allowed;
   }
 
@@ -268,20 +359,42 @@ const claimLabel = computed(() => {
   }
 }
 
+.detail-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  color: var(--chat-hollow);
+  font-size: calc(13px * var(--chat-font-scale));
+
+  svg {
+    width: 42px;
+    height: 42px;
+    stroke: var(--chat-hairline-strong);
+  }
+}
+
 @media (min-width: 768px) and (max-width: 1200px) {
-  :deep(.el-drawer) {
-    width: min(390px, 70vw) !important;
+  .citation-detail-drawer {
+    :deep(.el-drawer) {
+      width: min(400px, 75vw) !important;
+    }
   }
 }
 
 @media (max-width: 767px) {
-  :deep(.el-drawer) {
-    width: 100% !important;
+  .citation-detail-drawer {
+    :deep(.el-drawer) {
+      width: 100% !important;
+    }
   }
 
   .detail-header,
   .detail-body {
-    padding: 16px 14px;
+    padding-left: 14px;
+    padding-right: 14px;
   }
 }
 </style>
