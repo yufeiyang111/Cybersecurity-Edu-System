@@ -6,6 +6,7 @@ backend/venv.cmd
 backend/venv.ps1
 backend/data/
 backend/logs/
+logs/
 backend/security-workspaces/
 backend/uploads/
 
