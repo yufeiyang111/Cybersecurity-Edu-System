@@ -57,6 +57,7 @@ class QARecord(db.Model):
     citation_manifest_json = db.Column(db.JSON)
     rag_trace_id = db.Column(db.Integer)
     pipeline_version_key = db.Column(db.String(64))
+    attachments = db.Column(db.JSON)
     feedback = db.Column(db.Enum("good", "neutral", "bad"))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -81,6 +82,7 @@ class QARecord(db.Model):
             "citations": self.citation_manifest_json,
             "rag_trace_id": self.rag_trace_id,
             "pipeline_version": self.pipeline_version_key,
+            "attachments": self.attachments or [],
             "feedback": self.feedback,
             "is_favorited": len(self.favorites) > 0,
             "created_at": self.created_at.isoformat() if self.created_at else None

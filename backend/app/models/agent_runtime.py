@@ -33,7 +33,9 @@ class AgentRunStatus(str, Enum):
     GENERATING_REPORT = "generating_report"
     COMPLETED = "completed"
     COMPLETED_WITH_WARNINGS = "completed_with_warnings"
-    PARTIAL = "partial"
+    BLOCKED = "blocked"
+    CANCEL_REQUESTED = "cancel_requested"
+    PARTIAL = "partial"  # 兼容历史 Run，新的终态不再使用该状态
     FAILED = "failed"
     CANCELED = "canceled"
 
@@ -109,6 +111,7 @@ class AgentRun(db.Model):
     max_iterations = db.Column(db.Integer)
     current_item_public_id = db.Column(db.String(64))
     policy_snapshot_json = db.Column(db.JSON)
+    feature_flags_snapshot_json = db.Column(db.JSON)
     tool_catalog_digest = db.Column(db.String(64))
     context_watermark = db.Column(db.Integer, nullable=False, default=0)
     last_checkpoint_id = db.Column(db.Integer)
@@ -162,6 +165,11 @@ class AgentRun(db.Model):
             "max_iterations": self.max_iterations,
             "current_item_public_id": self.current_item_public_id,
             "policy_snapshot_json": self.policy_snapshot_json,
+            "feature_flags_snapshot": (
+                self.feature_flags_snapshot_json
+                if isinstance(self.feature_flags_snapshot_json, dict)
+                else None
+            ),
             "tool_catalog_digest": self.tool_catalog_digest,
             "context_watermark": self.context_watermark,
             "last_checkpoint_id": self.last_checkpoint_id,
@@ -185,7 +193,7 @@ class AgentRun(db.Model):
             "has_error": bool(self.error_code),
             "can_pause": status in PAUSABLE_RUN_STATUSES,
             "can_resume": status == AgentRunStatus.PAUSED.value,
-            "can_cancel": status not in _TERMINAL_RUN_STATUSES,
+            "can_cancel": status not in _TERMINAL_RUN_STATUSES | {AgentRunStatus.CANCEL_REQUESTED.value},
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "finished_at": self.finished_at.isoformat() if self.finished_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -196,24 +204,17 @@ class AgentRun(db.Model):
 _TERMINAL_RUN_STATUSES = {
     AgentRunStatus.COMPLETED.value,
     AgentRunStatus.COMPLETED_WITH_WARNINGS.value,
+    AgentRunStatus.BLOCKED.value,
     AgentRunStatus.PARTIAL.value,
     AgentRunStatus.FAILED.value,
     AgentRunStatus.CANCELED.value,
 }
 
 PAUSABLE_RUN_STATUSES = {
-    AgentRunStatus.CREATED.value,
-    AgentRunStatus.QUEUED.value,
-    AgentRunStatus.PREPARING.value,
-    AgentRunStatus.MAPPING_REPOSITORY.value,
-    AgentRunStatus.PLANNING.value,
-    AgentRunStatus.VALIDATING_PLAN.value,
     AgentRunStatus.EXECUTING_TOOLS.value,
-    AgentRunStatus.EVALUATING_EVIDENCE.value,
     AgentRunStatus.REPLANNING.value,
     AgentRunStatus.DEEP_REVIEWING.value,
     AgentRunStatus.AWAITING_APPROVAL.value,
-    AgentRunStatus.GENERATING_REPORT.value,
 }
 
 

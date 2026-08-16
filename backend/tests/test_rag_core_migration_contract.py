@@ -24,11 +24,12 @@ INIT_SQL = BACKEND_ROOT / "database" / "init.sql"
 MIGRATION_ID = "038_enterprise_rag_core"
 
 
-def test_enterprise_rag_migration_is_registered_last_and_additive():
+def test_enterprise_rag_migration_is_registered_and_additive():
     path = MIGRATIONS_DIR / f"{MIGRATION_ID}.sql"
     content = path.read_text(encoding="utf-8")
 
-    assert MIGRATION_IDS[-1] == MIGRATION_ID
+    assert MIGRATION_ID in MIGRATION_IDS
+    assert MIGRATION_IDS.index(MIGRATION_ID) < len(MIGRATION_IDS) - 1
     assert path.is_file()
     assert "CREATE TABLE IF NOT EXISTS rag_pipeline_versions" in content
     assert "CREATE TABLE IF NOT EXISTS rag_retrieval_traces" in content

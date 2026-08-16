@@ -14,6 +14,9 @@ AGENT_LOOP_MIGRATION = "035_agent_loop_items"
 AGENT_FLAGS_MIGRATION = "036_workspace_agent_feature_flags"
 AGENT_SSE_HEALTH_MIGRATION = "037_agent_sse_health"
 ENTERPRISE_RAG_CORE_MIGRATION = "038_enterprise_rag_core"
+QA_ATTACHMENTS_MIGRATION = "039_qa_record_attachments"
+HARNESS_STATE_MIGRATION = "040_agent_harness_state_contract"
+RUN_FEATURE_FLAGS_SNAPSHOT_MIGRATION = "041_agent_run_feature_flags_snapshot"
 
 
 def test_migration_ids_unique_and_ordered():
@@ -29,21 +32,42 @@ def test_agent_loop_migration_precedes_all_later_migrations_in_order():
         "036_workspace_agent_feature_flags",
         "037_agent_sse_health",
         "038_enterprise_rag_core",
+        "039_qa_record_attachments",
+        "040_agent_harness_state_contract",
+        "041_agent_run_feature_flags_snapshot",
     )
 
 
-def test_agent_flags_migration_precedes_sse_and_enterprise_rag_core():
+def test_agent_flags_migration_precedes_later_agent_and_rag_migrations():
     assert AGENT_FLAGS_MIGRATION in MIGRATION_IDS
     assert AGENT_SSE_HEALTH_MIGRATION in MIGRATION_IDS
     assert ENTERPRISE_RAG_CORE_MIGRATION in MIGRATION_IDS
+    assert QA_ATTACHMENTS_MIGRATION in MIGRATION_IDS
+    assert HARNESS_STATE_MIGRATION in MIGRATION_IDS
+    assert RUN_FEATURE_FLAGS_SNAPSHOT_MIGRATION in MIGRATION_IDS
     flags_index = MIGRATION_IDS.index(AGENT_FLAGS_MIGRATION)
     sse_index = MIGRATION_IDS.index(AGENT_SSE_HEALTH_MIGRATION)
     rag_core_index = MIGRATION_IDS.index(ENTERPRISE_RAG_CORE_MIGRATION)
+    attachments_index = MIGRATION_IDS.index(QA_ATTACHMENTS_MIGRATION)
+    harness_index = MIGRATION_IDS.index(HARNESS_STATE_MIGRATION)
+    snapshot_index = MIGRATION_IDS.index(RUN_FEATURE_FLAGS_SNAPSHOT_MIGRATION)
     assert flags_index == sse_index - 1
     assert sse_index == rag_core_index - 1
-    assert rag_core_index == len(MIGRATION_IDS) - 1
+    assert rag_core_index == attachments_index - 1
+    assert attachments_index == harness_index - 1
+    assert harness_index == snapshot_index - 1
+    assert snapshot_index == len(MIGRATION_IDS) - 1
 
 
+
+
+def test_run_feature_flags_snapshot_migration_file_and_init_sql_synced():
+    path = MIGRATIONS_DIR / f"{RUN_FEATURE_FLAGS_SNAPSHOT_MIGRATION}.sql"
+    assert path.is_file()
+    content = path.read_text(encoding="utf-8")
+    assert "ADD COLUMN IF NOT EXISTS feature_flags_snapshot_json" in content
+    init_sql = INIT_SQL.read_text(encoding="utf-8")
+    assert "feature_flags_snapshot_json JSON NULL" in init_sql
 
 def test_agent_flags_migration_file_and_init_sql_synced():
     path = MIGRATIONS_DIR / f"{AGENT_FLAGS_MIGRATION}.sql"

@@ -48,6 +48,9 @@ MIGRATION_IDS = (
     "036_workspace_agent_feature_flags",
     "037_agent_sse_health",
     "038_enterprise_rag_core",
+    "039_qa_record_attachments",
+    "040_agent_harness_state_contract",
+    "041_agent_run_feature_flags_snapshot",
 )
 
 

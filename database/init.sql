@@ -175,7 +175,8 @@ CREATE TABLE IF NOT EXISTS qa_records (
     citation_manifest_json JSON NULL COMMENT '结构化 citation manifest（不含正文）',
     rag_trace_id INT NULL COMMENT '脱敏检索 trace ID',
     pipeline_version_key VARCHAR(64) NULL COMMENT 'RAG pipeline version key',
-    feedback ENUM('good', 'neutral', 'bad') COMMENT '鐢ㄦ埛鍙嶉',
+    attachments JSON NULL COMMENT '问答附件元数据（name/type/size/url/preview）',
+    feedback ENUM('good', 'neutral', 'bad') COMMENT '鐢ㄦ埛鍙嶉',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES qa_conversations(id) ON DELETE SET NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -575,7 +576,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     created_by INT NULL,
     goal_text VARCHAR(4000) NOT NULL,
     mode ENUM('baseline', 'hybrid', 'deep_audit') NOT NULL DEFAULT 'baseline',
-    status ENUM('created', 'queued', 'preparing', 'mapping_repository', 'planning', 'validating_plan', 'executing_tools', 'evaluating_evidence', 'replanning', 'deep_reviewing', 'awaiting_approval', 'paused', 'generating_report', 'completed', 'completed_with_warnings', 'partial', 'failed', 'canceled') NOT NULL DEFAULT 'created',
+    status ENUM('created', 'queued', 'preparing', 'mapping_repository', 'planning', 'validating_plan', 'executing_tools', 'evaluating_evidence', 'replanning', 'deep_reviewing', 'awaiting_approval', 'paused', 'generating_report', 'completed', 'completed_with_warnings', 'blocked', 'cancel_requested', 'partial', 'failed', 'canceled') NOT NULL DEFAULT 'created',
     state_version INT NOT NULL DEFAULT 0,
     plan_version INT NOT NULL DEFAULT 0,
     planner_source VARCHAR(64) NULL,
@@ -776,7 +777,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     created_by INT NULL,
     goal_text VARCHAR(4000) NOT NULL,
     mode ENUM('baseline', 'hybrid', 'deep_audit') NOT NULL DEFAULT 'baseline',
-    status ENUM('created', 'queued', 'preparing', 'mapping_repository', 'planning', 'validating_plan', 'executing_tools', 'evaluating_evidence', 'replanning', 'deep_reviewing', 'awaiting_approval', 'paused', 'generating_report', 'completed', 'completed_with_warnings', 'partial', 'failed', 'canceled') NOT NULL DEFAULT 'created',
+    status ENUM('created', 'queued', 'preparing', 'mapping_repository', 'planning', 'validating_plan', 'executing_tools', 'evaluating_evidence', 'replanning', 'deep_reviewing', 'awaiting_approval', 'paused', 'generating_report', 'completed', 'completed_with_warnings', 'blocked', 'cancel_requested', 'partial', 'failed', 'canceled') NOT NULL DEFAULT 'created',
     state_version INT NOT NULL DEFAULT 0,
     plan_version INT NOT NULL DEFAULT 0,
     planner_source VARCHAR(64) NULL,
@@ -1720,3 +1721,8 @@ CREATE TABLE IF NOT EXISTS rag_evaluation_results (
     UNIQUE KEY uq_rag_evaluation_results_run_case (run_id, case_id),
     INDEX ix_rag_evaluation_results_failure_stage (failure_stage)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Enterprise RAG evaluation case results';
+-- =========================================
+-- Agent Run Feature Flag Snapshot（041 同步）
+-- =========================================
+ALTER TABLE agent_runs
+    ADD COLUMN feature_flags_snapshot_json JSON NULL;
