@@ -7,7 +7,8 @@
   （灰度时先为测试 workspace 开启，回滚时关闭）。写入端点
   （/workspaces/{id}/agent-feature-flags）要求 workspace owner/
   security_admin 角色——未经授权的成员无法自行开启高自治模式；
-- 旧 Run 按创建时的协议读取，新建 Run 按解析结果选择协议。
+- 新建 Run 保存解析后的完整快照，执行期间不受后续工作区开关影响；
+- 未保存快照的历史 Run 兼容读取当前工作区配置，详情接口会额外尝试从事件还原执行事实。
 """
 from __future__ import annotations
 
@@ -94,7 +95,25 @@ class AgentFeatureFlags:
         values.update(self._workspace_overrides(workspace_id))
         return AgentFlagSnapshot(**values)
 
+    def snapshot_for_run(self, run) -> AgentFlagSnapshot | None:
+        """读取 Run 创建时保存的完整开关快照；缺失或畸形快照返回 None。"""
+        raw_snapshot = getattr(run, "feature_flags_snapshot_json", None)
+        if not isinstance(raw_snapshot, dict):
+            return None
+
+        values: dict[str, bool] = {}
+        for key in AGENT_FEATURE_FLAG_KEYS:
+            value = raw_snapshot.get(key)
+            if not isinstance(value, bool):
+                return None
+            values[key] = value
+        return AgentFlagSnapshot(**values)
+
     def for_run(self, run) -> AgentFlagSnapshot:
+        """优先使用创建时快照，历史 Run 缺失快照时再兼容当前工作区配置。"""
+        snapshot = self.snapshot_for_run(run)
+        if snapshot is not None:
+            return snapshot
         workspace_id = getattr(run, "workspace_id", None)
         return self.for_workspace(workspace_id)
 

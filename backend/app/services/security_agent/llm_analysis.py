@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Agent LLM 分析服务：把多轮对话接入统一 LLM Provider 与事件契约。
 
 职责边界（独立于 runner / tools，避免巨型模块）：
@@ -444,7 +444,11 @@ class AgentLlmAnalysisService:
         if current is None:
             return True
         status = current.status.value if hasattr(current.status, "value") else str(current.status)
-        return status in {AgentRunStatus.PAUSED.value, AgentRunStatus.CANCELED.value}
+        return status in {
+            AgentRunStatus.PAUSED.value,
+            AgentRunStatus.CANCEL_REQUESTED.value,
+            AgentRunStatus.CANCELED.value,
+        }
 
 
 # ------------------------------------------------------------------ module helpers

@@ -41,18 +41,31 @@ def build_user_prompt(
     snapshot_summary: dict | None,
     available_tools: list[dict],
     budget: dict | None,
+    run_mode: str,
 ) -> str:
     tools_text = "\n".join(
         f"- {tool['name']}：{tool['description']}" for tool in available_tools
     )
     summary_text = json.dumps(snapshot_summary or {}, ensure_ascii=False)[:2000]
     budget_text = json.dumps(budget or {}, ensure_ascii=False)
+    mode_requirement = ""
+    if run_mode == "deep_audit":
+        mode_requirement = (
+            "Deep Audit 固定契约：必须包含以下节点及工具："
+            "inventory/inventory_snapshot、baseline_scan/run_baseline_scan、"
+            "coverage_analysis/get_scan_coverage、risk_ranking/rank_findings、"
+            "deep_review/run_deep_review、report/finalize_agent_report。"
+            "deep_review 必须依赖 coverage_analysis 与 risk_ranking，"
+            "report 必须依赖 deep_review。\n"
+        )
     return (
         f"用户目标：{goal[:2000]}\n"
+        f"运行模式：{run_mode}\n"
         f"关注点：{json.dumps(intent, ensure_ascii=False)}\n"
         f"快照摘要：{summary_text}\n"
         f"可用工具：\n{tools_text}\n"
         f"运行预算：{budget_text}\n"
+        f"{mode_requirement}"
         "请只输出 PlanEnvelope JSON。"
     )
 

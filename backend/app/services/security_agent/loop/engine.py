@@ -149,6 +149,8 @@ class AgentLoopEngine:
                     return "failed"
                 if self._is_terminal(run):
                     return self._status_value(run.status)
+                if self._status_value(run.status) == AgentRunStatus.CANCEL_REQUESTED.value:
+                    return self._complete_cancel_request(run, trace_id)
                 self._leases.refresh(run_id, owner, lease_seconds=lease_seconds)
                 try:
                     boot = self._bootstrap_run(run, trace_id)
@@ -1149,14 +1151,7 @@ class AgentLoopEngine:
             input_type = control.input_type
             if input_type == "cancel":
                 self._controls.apply(control, iteration=run.iteration_count or 0)
-                self._state.transition(
-                    run,
-                    AgentRunStatus.CANCELED,
-                    actor_id=run.created_by,
-                    reason="控制输入：取消",
-                    trace_id=trace_id,
-                )
-                return "canceled"
+                return self._complete_cancel_request(run, trace_id)
             if input_type == "pause":
                 self._controls.apply(control, iteration=run.iteration_count or 0)
                 self._state.transition(
@@ -1182,17 +1177,69 @@ class AgentLoopEngine:
             self._controls.apply(control, iteration=run.iteration_count or 0)
         return ""
 
+    def _complete_cancel_request(self, run: AgentRun, trace_id: str) -> str:
+        """完成已请求取消的安全收尾，不再执行新的工具调用。"""
+        if self._status_value(run.status) != AgentRunStatus.CANCEL_REQUESTED.value:
+            self._state.transition(
+                run,
+                AgentRunStatus.CANCEL_REQUESTED,
+                actor_id=run.created_by,
+                reason="控制输入：取消请求已接收",
+                trace_id=trace_id,
+            )
+
+        plan = self._latest_plan(run.id)
+        if plan is not None:
+            for node in plan.nodes:
+                if self._status_value(node.status) in {
+                    AgentPlanNodeStatus.PENDING.value,
+                    AgentPlanNodeStatus.READY.value,
+                    AgentPlanNodeStatus.RUNNING.value,
+                }:
+                    node.status = AgentPlanNodeStatus.CANCELED.value
+
+        self._state.transition(
+            run,
+            AgentRunStatus.CANCELED,
+            actor_id=run.created_by,
+            reason="未执行节点已取消，任务安全结束",
+            trace_id=trace_id,
+        )
+        return AgentRunStatus.CANCELED.value
     def _enforce_limits(self, run: AgentRun, trace_id: str) -> str:
         if (run.iteration_count or 0) >= self.max_iterations:
-            return self._finalize(
-                run, "partial", ["AGENT_ITERATION_LIMIT_REACHED"], trace_id
+            return self._finalize_limit(
+                run,
+                "AGENT_ITERATION_LIMIT_REACHED",
+                trace_id,
             )
         budget = budget_status(run)
         if budget["exhausted"]:
-            return self._finalize(
-                run, "partial", ["AGENT_BUDGET_EXHAUSTED"], trace_id
+            return self._finalize_limit(
+                run,
+                "AGENT_BUDGET_EXHAUSTED",
+                trace_id,
             )
         return ""
+
+    def _finalize_limit(
+        self,
+        run: AgentRun,
+        limit_code: str,
+        trace_id: str,
+    ) -> str:
+        """先用当前证据评估结果，再把硬限制映射到明确终态。"""
+        from app.models.agent_review import AgentObservation
+
+        plan = self._latest_plan(run.id)
+        observations_count = AgentObservation.query.filter_by(run_id=run.id).count()
+        verdict = self._evaluator.evaluate(
+            run,
+            plan,
+            evidence={"observations_count": observations_count},
+            limit_code=limit_code,
+        )
+        return self._finalize_verdict(run, verdict, trace_id)
 
     # ---------------------------------------------------------------- finalize
 

@@ -7,6 +7,7 @@ from app.models.agent_events import AgentEvent
 from app.models.agent_runtime import AgentRun, AgentRunStatus
 from app.models.security import Workspace
 from app.services.security_agent.feature_flags import AgentFeatureFlags
+from app.services.security_agent.service import AgentRunService
 from app.services.security_agent.timeline.event_writer import EventWriter
 from app.services.security_agent.timeline.item_service import ItemService
 
@@ -79,6 +80,92 @@ def test_workspace_can_downgrade_enabled_flag(app):
             "timeline_v2": True,
         }
 
+
+
+def test_run_snapshot_stays_stable_after_workspace_flag_changes(app):
+    """执行中的 Run 必须读取创建时快照，而不是被工作区后来开关改写。"""
+    with app.app_context():
+        snapshot = {
+            "loop_v2": True,
+            "event_schema_v2": True,
+            "timeline_v2": True,
+        }
+        workspace = _make_workspace("ws-run-snapshot", dict(snapshot))
+        run = _make_run(workspace.id)
+        run.feature_flags_snapshot_json = dict(snapshot)
+        db.session.flush()
+
+        workspace.agent_feature_flags = {
+            "loop_v2": False,
+            "event_schema_v2": False,
+            "timeline_v2": False,
+        }
+        db.session.flush()
+
+        assert AgentFeatureFlags().for_run(run).as_dict() == snapshot
+
+
+def test_legacy_run_falls_back_to_current_workspace_flags_without_snapshot(app):
+    """没有创建时快照的历史任务仍可按当前工作区配置兼容读取。"""
+    with app.app_context():
+        workspace = _make_workspace(
+            "ws-legacy-workspace-fallback",
+            {
+                "loop_v2": False,
+                "event_schema_v2": False,
+                "timeline_v2": False,
+            },
+        )
+        run = _make_run(workspace.id)
+
+        assert AgentFeatureFlags().for_run(run).as_dict() == {
+            "loop_v2": False,
+            "event_schema_v2": False,
+            "timeline_v2": False,
+        }
+
+
+def test_run_payload_recovers_legacy_v2_execution_from_recorded_events(app):
+    """旧任务缺少快照时，以已持久化 v2 事件还原真实执行方式。"""
+    with app.app_context():
+        workspace = _make_workspace(
+            "ws-legacy-observed-v2",
+            {
+                "loop_v2": False,
+                "event_schema_v2": False,
+                "timeline_v2": False,
+            },
+        )
+        run = _make_run(workspace.id)
+        run.mode = "deep_audit"
+        run.iteration_count = 1
+        run.llm_call_count = 1
+        db.session.add(
+            AgentEvent(
+                run_id=run.id,
+                sequence=1,
+                state_version=1,
+                event_type="item.reasoning_summary.completed",
+                schema_version=2,
+                payload_json={"summary": "已完成证据复核"},
+            )
+        )
+        db.session.commit()
+
+        payload = AgentRunService().get_run_payload(run)
+
+        assert payload["feature_flag_source"] == "legacy_observed"
+        assert payload["feature_flags"] == {
+            "loop_v2": True,
+            "event_schema_v2": True,
+            "timeline_v2": True,
+        }
+        assert payload["workspace_feature_flags"] == {
+            "loop_v2": False,
+            "event_schema_v2": False,
+            "timeline_v2": False,
+        }
+        assert payload["run"]["execution_feature_flag_source"] == "legacy_observed"
 
 def test_event_writer_keeps_v2_when_flag_on(app):
     with app.app_context():

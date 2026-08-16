@@ -146,7 +146,7 @@ def _echo_registry() -> ToolRegistry:
     return registry
 
 
-def test_iteration_limit_reached_stops_loop(app):
+def test_iteration_limit_with_missing_required_evidence_blocks_loop(app):
     run_id = _make_run(app, max_iterations=3)
     provider = _ToolLoopProvider()
     with app.app_context():
@@ -159,12 +159,13 @@ def test_iteration_limit_reached_stops_loop(app):
         )
         result = engine.run_until_interrupt(run_id, "t-iter")
         run = db.session.get(AgentRun, run_id)
-        assert result in {"partial", "completed_with_warnings"}
+        assert result == AgentRunStatus.BLOCKED.value
+        assert run.status == AgentRunStatus.BLOCKED.value
         assert run.iteration_count >= 3
         assert "AGENT_ITERATION_LIMIT_REACHED" in (run.warning_codes or [])
 
 
-def test_budget_exhausted_stops_new_tools(app):
+def test_budget_exhausted_with_missing_required_evidence_blocks_loop(app):
     run_id = _make_run(app, max_tool_calls=1)
     provider = _ToolLoopProvider()
     with app.app_context():
@@ -179,7 +180,8 @@ def test_budget_exhausted_stops_new_tools(app):
         )
         result = engine.run_until_interrupt(run_id, "t-budget")
         run = db.session.get(AgentRun, run_id)
-        assert result in {"partial", "completed_with_warnings"}
+        assert result == AgentRunStatus.BLOCKED.value
+        assert run.status == AgentRunStatus.BLOCKED.value
         assert "AGENT_BUDGET_EXHAUSTED" in (run.warning_codes or [])
 
 

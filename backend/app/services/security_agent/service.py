@@ -11,6 +11,7 @@ import uuid
 from flask import current_app
 
 from app import db
+from app.models.agent_events import AgentEvent
 from app.models.agent_runtime import (
     AgentDecisionRecord,
     AgentMessage,
@@ -31,7 +32,9 @@ from app.services.security_agent.contracts import (
     EVENT_RUN_RESUMED,
 )
 from app.services.security_agent.event_service import EventService
+from app.services.security_agent.feature_flags import AgentFeatureFlags
 from app.services.security_agent.runner import InlinePlanRunner
+from app.services.security_agent.run_statistics import build_run_statistics
 from app.services.security_agent.state_machine import AgentStateMachine
 
 
@@ -72,6 +75,9 @@ class AgentRunService:
         mode_value = mode if mode in {item.value for item in AgentRunMode} else AgentRunMode.BASELINE.value
         trace_id = uuid.uuid4().hex
         budget_values = _parse_budget(budget or {})
+        feature_flags_snapshot = AgentFeatureFlags().for_workspace(
+            project.workspace_id
+        ).as_dict()
         run = AgentRun(
             workspace_id=project.workspace_id,
             project_id=project.id,
@@ -79,6 +85,7 @@ class AgentRunService:
             created_by=user_id,
             goal_text=goal_text,
             mode=mode_value,
+            feature_flags_snapshot_json=feature_flags_snapshot,
             **budget_values,
         )
         db.session.add(run)
@@ -104,6 +111,7 @@ class AgentRunService:
                     "project_id": run.project_id,
                     "snapshot_id": run.snapshot_id,
                     "mode": mode_value,
+                    "feature_flags_snapshot": feature_flags_snapshot,
                     "event_sequence": run.last_event_sequence,
                 },
             )
@@ -149,17 +157,30 @@ class AgentRunService:
         return run
 
     def cancel_run(self, run: AgentRun, actor_id: int | None) -> AgentRun:
+        """以可审计的两阶段流程取消任务。
+
+        ``cancel_requested`` 不是终态：先记录取消意图，再取消未执行节点，最后
+        才写入 ``canceled``。这样前端和审计日志都能区分“正在收尾”与“已停止”。
+        """
+        current_status = _status_value(run.status)
+        if current_status != AgentRunStatus.CANCEL_REQUESTED.value:
+            self._state.transition(
+                run,
+                AgentRunStatus.CANCEL_REQUESTED,
+                actor_id=actor_id,
+                reason="用户请求取消，等待安全收尾",
+            )
+            self._agent_log.run_event("run.cancel_requested", run)
+
+        self._runner._cancel_remaining_nodes(run)
         self._state.transition(
             run,
             AgentRunStatus.CANCELED,
             actor_id=actor_id,
-            reason="鐢ㄦ埛鍙栨秷",
+            reason="未执行节点已取消，任务安全结束",
         )
-        self._runner._cancel_remaining_nodes(run)
         self._agent_log.run_event("run.canceled", run)
-        db.session.commit()
         return run
-
     def get_run_payload(self, run: AgentRun) -> dict:
         db.session.refresh(run)
         plan = (
@@ -197,9 +218,23 @@ class AgentRunService:
                 .all()
             )
         )
+        stats = build_run_statistics(run, plan)
+        execution_feature_flags, feature_flag_source = _execution_feature_flags(run)
+        workspace_feature_flags = AgentFeatureFlags().for_workspace(
+            run.workspace_id
+        ).as_dict()
+        run_payload = run.to_dict()
+        run_payload.update(
+            {
+                "execution_feature_flags": execution_feature_flags,
+                "execution_feature_flag_source": feature_flag_source,
+                "workspace_feature_flags": workspace_feature_flags,
+            }
+        )
         return {
-            "run": run.to_dict(),
+            "run": run_payload,
             "plan": plan.to_dict() if plan is not None else None,
+            "stats": stats,
             "steps": [step.to_dict() for step in steps],
             "tool_calls": [tool_call.to_dict() for tool_call in tool_calls],
             "events": [event.to_dict() for event in events],
@@ -208,7 +243,9 @@ class AgentRunService:
             "scan_summary": _scan_summary(run.snapshot_id),
             "last_sequence": run.last_event_sequence,
             "state_version": run.state_version,
-            "feature_flags": _resolved_feature_flags(run),
+            "feature_flags": execution_feature_flags,
+            "feature_flag_source": feature_flag_source,
+            "workspace_feature_flags": workspace_feature_flags,
         }
 
     def list_events(
@@ -274,6 +311,11 @@ class AgentRunService:
         return job.id
 
 
+
+
+def _status_value(value) -> str:
+    """兼容 SQLAlchemy Enum 与字符串状态。"""
+    return value.value if hasattr(value, "value") else str(value)
 SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 
 _BUDGET_FIELDS = (
@@ -310,11 +352,65 @@ def _parse_budget(budget: dict) -> dict:
     return values
 
 
-def _resolved_feature_flags(run: AgentRun) -> dict:
-    """返回 run 所在 workspace 解析后的 v2 Feature Flag（spec §22.1）。"""
-    from app.services.security_agent.feature_flags import AgentFeatureFlags
+def _execution_feature_flags(run: AgentRun) -> tuple[dict, str]:
+    """返回本次 Run 的实际协议快照及其证据来源。"""
+    flags = AgentFeatureFlags()
+    snapshot = flags.snapshot_for_run(run)
+    if snapshot is not None:
+        return snapshot.as_dict(), "run_snapshot"
 
-    return AgentFeatureFlags().for_run(run).as_dict()
+    observed = _observed_legacy_feature_flags(run)
+    if observed is not None:
+        return observed, "legacy_observed"
+
+    return flags.for_workspace(run.workspace_id).as_dict(), "workspace_fallback"
+
+
+def _observed_legacy_feature_flags(run: AgentRun) -> dict | None:
+    """仅凭已持久化的 v2 事件还原没有快照的历史 Run，避免伪造执行事实。"""
+    has_v2_event = (
+        AgentEvent.query.filter(
+            AgentEvent.run_id == run.id,
+            AgentEvent.schema_version >= 2,
+        )
+        .limit(1)
+        .first()
+        is not None
+    )
+    if not has_v2_event:
+        has_v2_event = (
+            AgentEvent.query.filter(
+                AgentEvent.run_id == run.id,
+                AgentEvent.event_type.like("item.%"),
+            )
+            .limit(1)
+            .first()
+            is not None
+        )
+    if not has_v2_event:
+        return None
+
+    has_reasoning_summary = (
+        AgentEvent.query.filter(
+            AgentEvent.run_id == run.id,
+            AgentEvent.event_type.like("item.reasoning_summary.%"),
+        )
+        .limit(1)
+        .first()
+        is not None
+    )
+    mode = getattr(getattr(run, "mode", None), "value", getattr(run, "mode", None))
+    is_loop_mode = mode != AgentRunMode.BASELINE.value
+    has_loop_activity = (
+        has_reasoning_summary
+        or int(getattr(run, "iteration_count", 0) or 0) > 0
+        or int(getattr(run, "llm_call_count", 0) or 0) > 0
+    )
+    return {
+        "loop_v2": bool(is_loop_mode and has_loop_activity),
+        "event_schema_v2": True,
+        "timeline_v2": True,
+    }
 
 
 def _scan_summary(snapshot_id: int) -> dict | None:

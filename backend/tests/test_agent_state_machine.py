@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from app import db
-from app.models.agent_runtime import AgentRun, AgentRunMode, AgentRunStatus
+from app.models.agent_runtime import AgentRun, AgentRunMode, AgentRunStatus, PAUSABLE_RUN_STATUSES
 from app.models.security import AuditEvent, Workspace, WorkspaceMember, WorkspaceMemberRole
 from app.models.agent_events import AgentEvent
 from app.models.user import User
@@ -81,6 +81,14 @@ def test_terminal_status_rejects_any_further_transition(seeded_app, app):
     with app.app_context():
         machine = AgentStateMachine()
         run = db.session.get(AgentRun, seeded_app["run"].id)
+        with pytest.raises(AgentStateError):
+            machine.transition(run, AgentRunStatus.CANCELED, actor_id=seeded_app["user"].id)
+        machine.transition(
+            run,
+            AgentRunStatus.CANCEL_REQUESTED,
+            actor_id=seeded_app["user"].id,
+        )
+        assert not machine.is_terminal("cancel_requested")
         machine.transition(run, AgentRunStatus.CANCELED, actor_id=seeded_app["user"].id)
         with pytest.raises(AgentStateError):
             machine.transition(run, AgentRunStatus.COMPLETED)
@@ -125,3 +133,12 @@ def test_allowed_transitions_table_is_complete(app):
         assert allowed.issubset(statuses - {status}), f"{status} 指向自身或未定义状态"
     for status in statuses:
         assert status in {member.value for member in AgentRunStatus}
+
+def test_pause_capability_matches_state_machine():
+    expected = {
+        status
+        for status in (member.value for member in AgentRunStatus)
+        if AgentRunStatus.PAUSED.value in AgentStateMachine.allowed_transitions(status)
+    }
+
+    assert PAUSABLE_RUN_STATUSES == expected

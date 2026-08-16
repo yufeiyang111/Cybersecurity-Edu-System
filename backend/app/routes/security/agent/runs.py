@@ -262,7 +262,7 @@ def list_agent_run_decisions(run_id: int):
 @projects_bp.route("/agent-runs/<int:run_id>/retry", methods=["POST"])
 @jwt_required()
 def retry_agent_run(run_id: int):
-    """Retry API（spec §16.2，L-05）：只接受可恢复的 failed/partial Run。
+    """Retry API（spec §16.2，L-05）：只接受可恢复的 failed/partial/blocked Run。
 
     转为 system_retry 控制输入 + QUEUED 重新入队 dispatch；HTTP 线程
     不同步执行工具或推进 Loop。

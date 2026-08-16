@@ -13,6 +13,7 @@ AVAILABLE_NODE_TYPES = frozenset(
         AgentPlanNodeType.RISK_RANKING.value,
         AgentPlanNodeType.REPORT_GENERATION.value,
         AgentPlanNodeType.REPOSITORY_MAPPING.value,
+        AgentPlanNodeType.SEMANTIC_REVIEW.value,
     }
 )
 
@@ -24,6 +25,7 @@ TOOL_BY_TYPE = {
     AgentPlanNodeType.RISK_RANKING.value: "rank_findings",
     AgentPlanNodeType.REPORT_GENERATION.value: "finalize_agent_report",
     AgentPlanNodeType.REPOSITORY_MAPPING.value: "map_repository",
+    AgentPlanNodeType.SEMANTIC_REVIEW.value: "run_deep_review",
 }
 
 # repository_mapping 节点可选的图浏览/代码证据工具（A4），建图后用于按图取上下文
@@ -43,6 +45,15 @@ GRAPH_TOOLS = frozenset(
 MANDATORY_NODE_TYPES = frozenset(
     {AgentPlanNodeType.INVENTORY.value, AgentPlanNodeType.BASELINE_SCAN.value}
 )
+
+DEEP_AUDIT_REQUIRED_NODES = {
+    "inventory": AgentPlanNodeType.INVENTORY.value,
+    "baseline_scan": AgentPlanNodeType.BASELINE_SCAN.value,
+    "coverage_analysis": AgentPlanNodeType.COVERAGE_ANALYSIS.value,
+    "risk_ranking": AgentPlanNodeType.RISK_RANKING.value,
+    "deep_review": AgentPlanNodeType.SEMANTIC_REVIEW.value,
+    "report": AgentPlanNodeType.REPORT_GENERATION.value,
+}
 
 DEFAULT_MAX_NODES = 8
 DEFAULT_MAX_DEPTH = 6
@@ -100,6 +111,8 @@ def validate_envelope(
         raise PlanValidationError("edges 必须是数组")
     normalized_edges = [_normalize_edge(edge, node_keys, index) for index, edge in enumerate(edges)]
     _require_acyclic(normalized_edges, node_keys, max_depth=max_depth)
+    if run_mode == "deep_audit":
+        _require_deep_audit_contract(normalized_nodes, normalized_edges)
 
     completion_criteria = envelope.get("completion_criteria")
     if not isinstance(completion_criteria, list) or not completion_criteria:
@@ -126,6 +139,42 @@ def validate_envelope(
         "completion_criteria": _string_list(completion_criteria, "completion_criteria", limit=10),
         "decision_summary": str(envelope.get("decision_summary") or "")[:2000],
     }
+
+
+def _require_deep_audit_contract(nodes: list[dict], edges: list[dict]) -> None:
+    nodes_by_key = {node["key"]: node for node in nodes}
+    invalid_keys = [
+        key
+        for key, expected_type in DEEP_AUDIT_REQUIRED_NODES.items()
+        if nodes_by_key.get(key, {}).get("type") != expected_type
+    ]
+    if invalid_keys:
+        raise PlanValidationError(
+            "deep_audit 计划缺少或错误配置固定节点："
+            + ", ".join(invalid_keys)
+        )
+
+    incoming = {
+        key: {
+            edge["from"]
+            for edge in edges
+            if edge["to"] == key
+        }
+        for key in DEEP_AUDIT_REQUIRED_NODES
+    }
+    missing_review_dependencies = {
+        "coverage_analysis",
+        "risk_ranking",
+    } - incoming["deep_review"]
+    if missing_review_dependencies:
+        raise PlanValidationError(
+            "deep_audit 的 deep_review 必须依赖："
+            + ", ".join(sorted(missing_review_dependencies))
+        )
+    if "deep_review" not in incoming["report"]:
+        raise PlanValidationError(
+            "deep_audit 的 report 必须依赖 deep_review"
+        )
 
 
 def _normalize_node(raw_node: object, index: int) -> dict:

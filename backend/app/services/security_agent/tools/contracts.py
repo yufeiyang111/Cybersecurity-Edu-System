@@ -108,7 +108,10 @@ class ToolExecutionContext:
         if reloaded is None:
             return True
         status = reloaded.status.value if hasattr(reloaded.status, "value") else reloaded.status
-        return status == AgentRunStatus.CANCELED.value
+        return status in {
+            AgentRunStatus.CANCEL_REQUESTED.value,
+            AgentRunStatus.CANCELED.value,
+        }
 
 
 @dataclass

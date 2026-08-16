@@ -5,7 +5,12 @@ from __future__ import annotations
 import json
 
 from app import db
-from app.models.agent_runtime import AgentPlan, AgentPlanNodeStatus
+from app.models.agent_runtime import (
+    AgentPlan,
+    AgentPlanNodeStatus,
+    AgentPlanNodeType,
+    AgentRunMode,
+)
 from app.services.llm.contracts import LLMResponse
 from app.services.security_agent.event_service import EventService
 from app.services.security_agent.planner import PlanPlanner
@@ -33,6 +38,67 @@ VALID_ENVELOPE = {
     "decision_summary": "先基线扫描再分析覆盖与风险",
 }
 
+
+VALID_DEEP_ENVELOPE = {
+    "objective": "检查项目高风险攻击路径",
+    "hypotheses": ["高风险发现可能存在可利用调用路径"],
+    "nodes": [
+        {
+            "key": "inventory",
+            "type": "inventory",
+            "title": "清点快照文件",
+            "description": "清点",
+            "tool_name": "inventory_snapshot",
+        },
+        {
+            "key": "baseline_scan",
+            "type": "baseline_scan",
+            "title": "执行基线扫描",
+            "description": "扫描",
+            "tool_name": "run_baseline_scan",
+        },
+        {
+            "key": "coverage_analysis",
+            "type": "coverage_analysis",
+            "title": "分析覆盖",
+            "description": "覆盖",
+            "tool_name": "get_scan_coverage",
+        },
+        {
+            "key": "risk_ranking",
+            "type": "risk_ranking",
+            "title": "风险排序",
+            "description": "排序",
+            "tool_name": "rank_findings",
+        },
+        {
+            "key": "deep_review",
+            "type": "semantic_review",
+            "title": "执行深度证据审查",
+            "description": "核查高风险发现的代码位置、调用路径、可利用性与证据缺口。",
+            "tool_name": "run_deep_review",
+        },
+        {
+            "key": "report",
+            "type": "report_generation",
+            "title": "生成摘要",
+            "description": "报告",
+            "tool_name": "finalize_agent_report",
+        },
+    ],
+    "edges": [
+        {"from": "inventory", "to": "baseline_scan", "type": "success"},
+        {"from": "baseline_scan", "to": "coverage_analysis", "type": "success"},
+        {"from": "baseline_scan", "to": "risk_ranking", "type": "success"},
+        {"from": "coverage_analysis", "to": "deep_review", "type": "success"},
+        {"from": "risk_ranking", "to": "deep_review", "type": "success"},
+        {"from": "coverage_analysis", "to": "report", "type": "success"},
+        {"from": "risk_ranking", "to": "report", "type": "success"},
+        {"from": "deep_review", "to": "report", "type": "success"},
+    ],
+    "completion_criteria": ["基线节点完成", "deep_review 完成", "报告完成"],
+    "decision_summary": "先执行基线扫描，再完成深度证据审查与运行摘要。",
+}
 
 class _PlannerProvider:
     provider_name = "planner-fake"
@@ -89,6 +155,76 @@ def test_no_provider_falls_back_to_rule_plan_with_reason(app, monkeypatch):
         assert created.payload_json["planner_source"] == "rule_based_policy"
         assert "未配置 LLM Provider" in created.payload_json["fallback_reason"]
         assert "llm_live" not in created.payload_json["planner_source"]
+
+
+
+
+def test_deep_audit_fallback_plan_contains_required_deep_review(app, monkeypatch):
+    """无 Provider 时 Deep Audit 也必须落下真实可执行的深度审查节点。"""
+    with app.app_context():
+        run = _make_run()
+        run.mode = AgentRunMode.DEEP_AUDIT.value
+        db.session.commit()
+        _patch_provider(monkeypatch, None)
+
+        plan = PlanPlanner(EventService()).generate_plan(run, trace_id="p-deep-fallback")
+
+        nodes = {node.node_key: node for node in plan.nodes}
+        assert plan.planner_source == "rule_based_policy"
+        assert len(nodes) == 6
+        assert nodes["deep_review"].node_type == AgentPlanNodeType.SEMANTIC_REVIEW.value
+        assert nodes["deep_review"].tool_name == "run_deep_review"
+        assert nodes["deep_review"].depends_on_json == [
+            "coverage_analysis",
+            "risk_ranking",
+        ]
+        assert nodes["deep_review"].input_json["focus"]
+        assert "deep_review" in nodes["report"].depends_on_json
+        assert any("deep_review" in item for item in plan.completion_criteria_json)
+        assert "深度证据审查" in plan.decision_summary
+
+
+def test_deep_audit_llm_plan_missing_deep_review_falls_back(app, monkeypatch):
+    """LLM 漏掉深度审查时必须修复一次，仍不合格则回退安全策略计划。"""
+    with app.app_context():
+        run = _make_run()
+        run.mode = AgentRunMode.DEEP_AUDIT.value
+        db.session.commit()
+        provider = _PlannerProvider(
+            [
+                _ok_response(json.dumps(VALID_ENVELOPE, ensure_ascii=False)),
+                _ok_response(json.dumps(VALID_ENVELOPE, ensure_ascii=False)),
+            ]
+        )
+        _patch_provider(monkeypatch, provider)
+
+        plan = PlanPlanner(EventService()).generate_plan(run, trace_id="p-deep-repair")
+
+        assert plan.planner_source == "rule_based_policy"
+        assert len(provider.requests) == 2
+        assert "deep_review" in provider.requests[0].prompt
+        assert any(node.node_key == "deep_review" for node in plan.nodes)
+
+
+def test_deep_audit_llm_plan_persists_safe_default_review_focus(app, monkeypatch):
+    """LLM 只声明审查节点，服务端仍负责补入安全、可复现的审查焦点。"""
+    with app.app_context():
+        run = _make_run()
+        run.mode = AgentRunMode.DEEP_AUDIT.value
+        db.session.commit()
+        provider = _PlannerProvider(
+            [_ok_response(json.dumps(VALID_DEEP_ENVELOPE, ensure_ascii=False))]
+        )
+        _patch_provider(monkeypatch, provider)
+
+        plan = PlanPlanner(EventService()).generate_plan(run, trace_id="p-deep-llm")
+
+        deep_review = next(node for node in plan.nodes if node.node_key == "deep_review")
+        assert plan.planner_source == "llm_live"
+        assert deep_review.node_type == AgentPlanNodeType.SEMANTIC_REVIEW.value
+        assert deep_review.tool_name == "run_deep_review"
+        assert deep_review.input_json["focus"]
+        assert "高危" in deep_review.input_json["focus"]
 
 
 def test_valid_envelope_persists_llm_plan(app, monkeypatch):

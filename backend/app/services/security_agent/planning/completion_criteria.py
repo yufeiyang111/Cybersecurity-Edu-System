@@ -24,6 +24,7 @@ _MODE_MANDATORY_NODES = {
         "baseline_scan",
         "coverage_analysis",
         "risk_ranking",
+        "deep_review",
         "report",
     ),
 }

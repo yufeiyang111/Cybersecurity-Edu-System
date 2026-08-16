@@ -28,6 +28,7 @@ TERMINAL_STATUSES = frozenset(
     {
         AgentRunStatus.COMPLETED.value,
         AgentRunStatus.COMPLETED_WITH_WARNINGS.value,
+        AgentRunStatus.BLOCKED.value,
         AgentRunStatus.PARTIAL.value,
         AgentRunStatus.FAILED.value,
         AgentRunStatus.CANCELED.value,
@@ -121,6 +122,41 @@ TRANSITIONS: dict[str, frozenset[str]] = {
         }
     ),
 }
+
+# 取消请求是非终态：任何可中断阶段必须先记录 cancel_requested，安全收尾后
+# 才进入 canceled。直接从工作态跳到 canceled 会丢失“正在收尾”的审计事实。
+_INTERRUPTIBLE_STATUSES = (
+    AgentRunStatus.CREATED.value,
+    AgentRunStatus.QUEUED.value,
+    AgentRunStatus.PREPARING.value,
+    AgentRunStatus.MAPPING_REPOSITORY.value,
+    AgentRunStatus.PLANNING.value,
+    AgentRunStatus.VALIDATING_PLAN.value,
+    AgentRunStatus.EXECUTING_TOOLS.value,
+    AgentRunStatus.EVALUATING_EVIDENCE.value,
+    AgentRunStatus.REPLANNING.value,
+    AgentRunStatus.DEEP_REVIEWING.value,
+    AgentRunStatus.AWAITING_APPROVAL.value,
+    AgentRunStatus.PAUSED.value,
+    AgentRunStatus.GENERATING_REPORT.value,
+)
+
+# ``blocked`` 是可解释、可恢复的终态：可用结果不足或需人工补充证据时，
+# 任何工作阶段都可以安全停在这里。历史 ``partial`` 仍保留兼容读取。
+for _status in _INTERRUPTIBLE_STATUSES:
+    existing = TRANSITIONS.get(_status, frozenset())
+    TRANSITIONS[_status] = frozenset(
+        target
+        for target in existing
+        if target != AgentRunStatus.CANCELED.value
+    ) | {
+        AgentRunStatus.BLOCKED.value,
+        AgentRunStatus.CANCEL_REQUESTED.value,
+    }
+
+TRANSITIONS[AgentRunStatus.CANCEL_REQUESTED.value] = frozenset(
+    {AgentRunStatus.CANCELED.value}
+)
 
 for _status in TERMINAL_STATUSES:
     TRANSITIONS.setdefault(_status, frozenset())
@@ -226,14 +262,18 @@ class AgentStateMachine:
         return new_version
 
     def retry(self, run: AgentRun, *, actor_id: int | None = None, reason: str | None = None, trace_id: str | None = None) -> int:
-        """受控恢复转换（L-05 Retry API）：failed/partial → QUEUED 重新入队。
+        """受控恢复转换（L-05 Retry API）：failed/partial/blocked → QUEUED 重新入队。
 
         终态转换不在普通 TRANSITIONS 表中，由本方法显式允许——只接受
-        failed/partial 两种可恢复终态，并保留 finished_at 与既有证据。
+        failed/partial/blocked 三种可恢复终态，并保留 finished_at 与既有证据。
         """
         current_value = run.status.value if isinstance(run.status, AgentRunStatus) else str(run.status)
-        if current_value not in {AgentRunStatus.FAILED.value, AgentRunStatus.PARTIAL.value}:
-            raise AgentStateError(f"只有 failed/partial 任务可以重试（当前 {current_value}）")
+        if current_value not in {
+            AgentRunStatus.FAILED.value,
+            AgentRunStatus.PARTIAL.value,
+            AgentRunStatus.BLOCKED.value,
+        }:
+            raise AgentStateError(f"只有 failed/partial/blocked 任务可以重试（当前 {current_value}）")
 
         expected = run.state_version
         now = datetime.utcnow()

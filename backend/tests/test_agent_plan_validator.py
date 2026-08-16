@@ -116,6 +116,100 @@ def test_non_success_edge_rejected():
     with pytest.raises(PlanValidationError, match="success"):
         validate_envelope(_envelope(edges=edges), available_tools=AVAILABLE_TOOLS)
 
+
+_DEEP_AUDIT_TOOLS = AVAILABLE_TOOLS | {"run_deep_review"}
+
+
+def _deep_audit_nodes(*, key="deep_review"):
+    return [
+        {
+            "key": "inventory",
+            "type": "inventory",
+            "title": "清点",
+            "tool_name": "inventory_snapshot",
+        },
+        {
+            "key": "baseline_scan",
+            "type": "baseline_scan",
+            "title": "扫描",
+            "tool_name": "run_baseline_scan",
+        },
+        {
+            "key": "coverage_analysis",
+            "type": "coverage_analysis",
+            "title": "覆盖",
+            "tool_name": "get_scan_coverage",
+        },
+        {
+            "key": "risk_ranking",
+            "type": "risk_ranking",
+            "title": "排序",
+            "tool_name": "rank_findings",
+        },
+        {
+            "key": key,
+            "type": "semantic_review",
+            "title": "执行深度证据审查",
+            "tool_name": "run_deep_review",
+        },
+        {
+            "key": "report",
+            "type": "report_generation",
+            "title": "报告",
+            "tool_name": "finalize_agent_report",
+        },
+    ]
+
+
+def _deep_audit_edges(*, key="deep_review"):
+    return [
+        {"from": "inventory", "to": "baseline_scan", "type": "success"},
+        {"from": "baseline_scan", "to": "coverage_analysis", "type": "success"},
+        {"from": "baseline_scan", "to": "risk_ranking", "type": "success"},
+        {"from": "coverage_analysis", "to": key, "type": "success"},
+        {"from": "risk_ranking", "to": key, "type": "success"},
+        {"from": "coverage_analysis", "to": "report", "type": "success"},
+        {"from": "risk_ranking", "to": "report", "type": "success"},
+        {"from": key, "to": "report", "type": "success"},
+    ]
+
+def test_deep_audit_requires_named_deep_review_node():
+    with pytest.raises(PlanValidationError, match="deep_review"):
+        validate_envelope(
+            _envelope(),
+            available_tools=_DEEP_AUDIT_TOOLS,
+            run_mode="deep_audit",
+        )
+
+
+def test_deep_audit_accepts_named_semantic_review_node():
+    result = validate_envelope(
+        _envelope(
+            nodes=_deep_audit_nodes(),
+            edges=_deep_audit_edges(),
+        ),
+        available_tools=_DEEP_AUDIT_TOOLS,
+        run_mode="deep_audit",
+    )
+
+    assert any(
+        node["key"] == "deep_review"
+        and node["type"] == "semantic_review"
+        and node["tool_name"] == "run_deep_review"
+        for node in result["nodes"]
+    )
+
+
+def test_deep_audit_rejects_semantic_review_with_unstable_key():
+    with pytest.raises(PlanValidationError, match="deep_review"):
+        validate_envelope(
+            _envelope(
+                nodes=_deep_audit_nodes(key="review"),
+                edges=_deep_audit_edges(key="review"),
+            ),
+            available_tools=_DEEP_AUDIT_TOOLS,
+            run_mode="deep_audit",
+        )
 # ------------------------------------------------------------------ A4
 
 _A4_TOOLS = AVAILABLE_TOOLS | {

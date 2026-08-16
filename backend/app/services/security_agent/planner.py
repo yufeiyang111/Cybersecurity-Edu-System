@@ -110,9 +110,10 @@ class PlanPlanner:
         """One or two attempts at an LLM plan; returns a validated envelope or None."""
         intent = parse_intent(run.goal_text)
         snapshot_summary = _snapshot_summary(run)
+        registry = get_tool_registry()
         tools = [
             {"name": descriptor.name, "description": descriptor.description}
-            for descriptor in get_tool_registry().descriptors()
+            for descriptor in registry.descriptors()
         ]
         budget = _budget_payload(run)
         base_prompt = build_user_prompt(
@@ -121,8 +122,8 @@ class PlanPlanner:
             snapshot_summary=snapshot_summary,
             available_tools=tools,
             budget=budget,
+            run_mode=_run_mode(run),
         )
-
         last_error = ""
         for attempt in range(MAX_REPAIR_ATTEMPTS):
             if attempt > 0:
@@ -139,7 +140,12 @@ class PlanPlanner:
                 envelope = parse_plan_envelope(response.text)
                 return validate_envelope(
                     envelope,
-                    available_tools=get_tool_registry().names(),
+                    available_tools=registry.names(),
+                    tool_allowed_modes={
+                        descriptor.name: set(descriptor.allowed_modes)
+                        for descriptor in registry.descriptors()
+                    },
+                    run_mode=_run_mode(run),
                 )
             except (ValueError, PlanValidationError) as exc:
                 last_error = str(exc)[:500]
@@ -283,18 +289,25 @@ class PlanPlanner:
             planner_source=planner_source,
             objective=(envelope or {}).get("objective") or run.goal_text,
             decision_summary=(envelope or {}).get("decision_summary")
-            or ("本地策略基线：清点快照 → 确定性基线扫描 → 覆盖分析 → 风险排序 → 运行摘要。"),
+            or _rule_decision_summary(run),
             hypotheses_json=(envelope or {}).get("hypotheses") or [],
-            completion_criteria_json=(envelope or {}).get("completion_criteria")
-            or ["inventory 完成", "baseline_scan 完成", "coverage 完成", "risk 完成", "report 完成"],
+            completion_criteria_json=_plan_completion_criteria(run, envelope),
         )
         db.session.add(plan)
         db.session.flush()
 
-        nodes = _envelope_nodes(plan.id, envelope) if envelope else _rule_nodes(plan.id)
+        nodes = (
+            _envelope_nodes(plan.id, envelope, run)
+            if envelope
+            else _rule_nodes(plan.id, run)
+        )
         db.session.add_all(nodes)
         db.session.flush()
-        edges = _envelope_edges(plan.id, envelope) if envelope else _rule_edges(plan.id)
+        edges = (
+            _envelope_edges(plan.id, envelope)
+            if envelope
+            else _rule_edges(plan.id, run)
+        )
         db.session.add_all(edges)
 
         run.plan_version = plan.plan_version
@@ -356,8 +369,52 @@ class PlanPlanner:
 # ------------------------------------------------------------------ plan builders
 
 
-def _rule_nodes(plan_id: int) -> list[AgentPlanNode]:
-    return [
+_DEEP_AUDIT_REVIEW_FOCUS = (
+    "围绕已完成基线扫描中的高危发现，核查代码位置、调用路径、"
+    "输入传播、可利用性与证据缺口。"
+)
+
+
+def _run_mode(run: AgentRun) -> str:
+    mode = run.mode
+    return mode.value if hasattr(mode, "value") else str(mode)
+
+
+def _is_deep_audit(run: AgentRun) -> bool:
+    return _run_mode(run) == "deep_audit"
+
+
+def _rule_decision_summary(run: AgentRun) -> str:
+    if _is_deep_audit(run):
+        return (
+            "本地策略深度审计：清点快照 → 确定性基线扫描 → 覆盖分析与风险排序 "
+            "→ 深度证据审查 → 运行摘要。"
+        )
+    return (
+        "本地策略基线：清点快照 → 确定性基线扫描 → 覆盖分析 → 风险排序 "
+        "→ 运行摘要。"
+    )
+
+
+def _plan_completion_criteria(run: AgentRun, envelope: dict | None) -> list[str]:
+    criteria = list((envelope or {}).get("completion_criteria") or [])
+    if not criteria:
+        criteria = [
+            "inventory 完成",
+            "baseline_scan 完成",
+            "coverage_analysis 完成",
+            "risk_ranking 完成",
+            "report 完成",
+        ]
+    if _is_deep_audit(run) and not any(
+        "deep_review" in criterion for criterion in criteria
+    ):
+        criteria.append("deep_review 完成并产出可核验证据")
+    return criteria
+
+
+def _rule_nodes(plan_id: int, run: AgentRun) -> list[AgentPlanNode]:
+    nodes = [
         AgentPlanNode(
             plan_id=plan_id,
             node_key="inventory",
@@ -397,6 +454,27 @@ def _rule_nodes(plan_id: int) -> list[AgentPlanNode]:
             tool_name="rank_findings",
             depends_on_json=["baseline_scan"],
         ),
+    ]
+    report_dependencies = ["coverage_analysis", "risk_ranking"]
+    if _is_deep_audit(run):
+        nodes.append(
+            AgentPlanNode(
+                plan_id=plan_id,
+                node_key="deep_review",
+                node_type=AgentPlanNodeType.SEMANTIC_REVIEW.value,
+                status=AgentPlanNodeStatus.PENDING.value,
+                title="执行深度证据审查",
+                description=(
+                    "围绕高危扫描发现核查代码位置、调用路径、输入传播、"
+                    "可利用性与证据缺口。"
+                ),
+                tool_name="run_deep_review",
+                input_json={"focus": _DEEP_AUDIT_REVIEW_FOCUS},
+                depends_on_json=["coverage_analysis", "risk_ranking"],
+            )
+        )
+        report_dependencies.append("deep_review")
+    nodes.append(
         AgentPlanNode(
             plan_id=plan_id,
             node_key="report",
@@ -405,22 +483,76 @@ def _rule_nodes(plan_id: int) -> list[AgentPlanNode]:
             title="生成运行摘要",
             description="汇总已完成的确定性证据，生成运行摘要 Artifact。",
             tool_name="finalize_agent_report",
-            depends_on_json=["coverage_analysis", "risk_ranking"],
+            depends_on_json=report_dependencies,
+        )
+    )
+    return nodes
+
+
+def _rule_edges(plan_id: int, run: AgentRun) -> list[AgentPlanEdge]:
+    edges = [
+        AgentPlanEdge(
+            plan_id=plan_id,
+            from_node="inventory",
+            to_node="baseline_scan",
+            edge_type=AgentPlanEdgeType.SUCCESS.value,
+        ),
+        AgentPlanEdge(
+            plan_id=plan_id,
+            from_node="baseline_scan",
+            to_node="coverage_analysis",
+            edge_type=AgentPlanEdgeType.SUCCESS.value,
+        ),
+        AgentPlanEdge(
+            plan_id=plan_id,
+            from_node="baseline_scan",
+            to_node="risk_ranking",
+            edge_type=AgentPlanEdgeType.SUCCESS.value,
+        ),
+        AgentPlanEdge(
+            plan_id=plan_id,
+            from_node="coverage_analysis",
+            to_node="report",
+            edge_type=AgentPlanEdgeType.SUCCESS.value,
+        ),
+        AgentPlanEdge(
+            plan_id=plan_id,
+            from_node="risk_ranking",
+            to_node="report",
+            edge_type=AgentPlanEdgeType.SUCCESS.value,
         ),
     ]
+    if _is_deep_audit(run):
+        edges.extend(
+            [
+                AgentPlanEdge(
+                    plan_id=plan_id,
+                    from_node="coverage_analysis",
+                    to_node="deep_review",
+                    edge_type=AgentPlanEdgeType.SUCCESS.value,
+                ),
+                AgentPlanEdge(
+                    plan_id=plan_id,
+                    from_node="risk_ranking",
+                    to_node="deep_review",
+                    edge_type=AgentPlanEdgeType.SUCCESS.value,
+                ),
+                AgentPlanEdge(
+                    plan_id=plan_id,
+                    from_node="deep_review",
+                    to_node="report",
+                    edge_type=AgentPlanEdgeType.SUCCESS.value,
+                ),
+            ]
+        )
+    return edges
 
 
-def _rule_edges(plan_id: int) -> list[AgentPlanEdge]:
-    return [
-        AgentPlanEdge(plan_id=plan_id, from_node="inventory", to_node="baseline_scan", edge_type=AgentPlanEdgeType.SUCCESS.value),
-        AgentPlanEdge(plan_id=plan_id, from_node="baseline_scan", to_node="coverage_analysis", edge_type=AgentPlanEdgeType.SUCCESS.value),
-        AgentPlanEdge(plan_id=plan_id, from_node="baseline_scan", to_node="risk_ranking", edge_type=AgentPlanEdgeType.SUCCESS.value),
-        AgentPlanEdge(plan_id=plan_id, from_node="coverage_analysis", to_node="report", edge_type=AgentPlanEdgeType.SUCCESS.value),
-        AgentPlanEdge(plan_id=plan_id, from_node="risk_ranking", to_node="report", edge_type=AgentPlanEdgeType.SUCCESS.value),
-    ]
-
-
-def _envelope_nodes(plan_id: int, envelope: dict) -> list[AgentPlanNode]:
+def _envelope_nodes(
+    plan_id: int,
+    envelope: dict,
+    run: AgentRun,
+) -> list[AgentPlanNode]:
     """Map validated envelope nodes to durable rows; first node is READY."""
     nodes = []
     for index, item in enumerate(envelope["nodes"]):
@@ -429,14 +561,36 @@ def _envelope_nodes(plan_id: int, envelope: dict) -> list[AgentPlanNode]:
                 plan_id=plan_id,
                 node_key=item["key"],
                 node_type=item["type"],
-                status=AgentPlanNodeStatus.READY.value if index == 0 else AgentPlanNodeStatus.PENDING.value,
+                status=(
+                    AgentPlanNodeStatus.READY.value
+                    if index == 0
+                    else AgentPlanNodeStatus.PENDING.value
+                ),
                 title=item["title"],
                 description=item["description"],
                 tool_name=item["tool_name"],
-                depends_on_json=[edge["from"] for edge in envelope["edges"] if edge["to"] == item["key"]] or None,
+                input_json=_envelope_node_input(run, item),
+                depends_on_json=(
+                    [
+                        edge["from"]
+                        for edge in envelope["edges"]
+                        if edge["to"] == item["key"]
+                    ]
+                    or None
+                ),
             )
         )
     return nodes
+
+
+def _envelope_node_input(run: AgentRun, item: dict) -> dict | None:
+    if (
+        _is_deep_audit(run)
+        and item["key"] == "deep_review"
+        and item["type"] == AgentPlanNodeType.SEMANTIC_REVIEW.value
+    ):
+        return {"focus": _DEEP_AUDIT_REVIEW_FOCUS}
+    return None
 
 
 def _envelope_edges(plan_id: int, envelope: dict) -> list[AgentPlanEdge]:

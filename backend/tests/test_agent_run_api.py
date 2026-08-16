@@ -131,6 +131,33 @@ def test_create_run_without_snapshot_conflicts(agent_api_app):
     assert response.status_code == 409
 
 
+def test_preparing_run_is_not_advertised_as_pausable(agent_api_app, tmp_path):
+    user_id, workspace_id = make_user(agent_api_app, "preparing-user", "preparing@example.test")
+    project_id, snapshot_id = make_project_and_snapshot(agent_api_app, tmp_path, user_id, workspace_id)
+    client = agent_api_app.test_client()
+    headers = auth_headers(agent_api_app, user_id)
+
+    with agent_api_app.app_context():
+        run = AgentRun(
+            workspace_id=workspace_id,
+            project_id=project_id,
+            snapshot_id=snapshot_id,
+            created_by=user_id,
+            goal_text="g",
+            mode="baseline",
+            status=AgentRunStatus.PREPARING.value,
+        )
+        db.session.add(run)
+        db.session.commit()
+        run_id = run.id
+
+    detail = client.get(f"/api/security/agent-runs/{run_id}", headers=headers)
+    assert detail.status_code == 200
+    assert detail.json["run"]["can_pause"] is False
+
+    paused = client.post(f"/api/security/agent-runs/{run_id}/pause", headers=headers)
+    assert paused.status_code == 409
+
 def test_pause_resume_cancel_flow(agent_api_app, tmp_path):
     user_id, workspace_id = make_user(agent_api_app, "dave", "dave@example.test")
     project_id, snapshot_id = make_project_and_snapshot(agent_api_app, tmp_path, user_id, workspace_id)
@@ -190,3 +217,12 @@ def test_cancel_stops_remaining_nodes_and_no_new_tool_calls(agent_api_app, tmp_p
     detail = client.get(f"/api/security/agent-runs/{run_id}", headers=headers)
     assert detail.json["tool_calls"] == []
     assert detail.json["steps"] == []
+
+    events = client.get(f"/api/security/agent-runs/{run_id}/events", headers=headers)
+    assert events.status_code == 200
+    state_changes = [
+        item["payload"].get("status")
+        for item in events.json["items"]
+        if item["event_type"] == "run.state_changed"
+    ]
+    assert state_changes[-2:] == ["cancel_requested", "canceled"]
