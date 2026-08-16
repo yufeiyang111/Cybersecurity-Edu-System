@@ -1178,11 +1178,28 @@ git status --short --branch
 
 **目标：** 让 Deep Review 围绕攻击路径和证据条件读取最小充分代码，而不是泛化 focus。
 
-- [ ] 扩展 `run_deep_review` 受验证输入：`hypothesis_id`、`skill_key`、
+- [x] 扩展 `run_deep_review` 受验证输入：`hypothesis_id`、`skill_key`、
   `required_evidence`、授权 CodeSliceEvidence 引用。
-- [ ] 提取目标化 Context Builder Adapter，优先 source、sink、guard、调用者与扫描 Finding。
-- [ ] 实现 Deep Review token/context 预算预留；显式预算不得被静默覆盖。
-- [ ] 覆盖 Context 截断、无授权位置、证据窗口不足、预算耗尽和安全对照夹具。
+- [x] 提取目标化 Context Builder Adapter：V3 只读取已持久化授权范围，拒绝自由 `focus` /
+  `file_hints`，无证据时不回退到无关文件。
+- [x] 实现 Deep Review 默认 token/context 预算：仅未传预算的 V3 `deep_audit` 使用 16,000
+  token 默认值；显式用户预算不被静默覆盖，Context 默认 12,000 字符且仍受 20,000 硬上限。
+- [x] 覆盖 Context 截断、损坏/越权授权位置、无可读证据、V3 自由 focus 拒绝和显式预算优先。
+
+### T15.2 实施证据（2026-08-16）
+
+- 新增 `harness_v3/deep_review.py`：`V3DeepReviewInputResolver` 仅接受当前 Run 的
+  已持久化假设、匹配技能和完整证据条件；V3 不接收模型自由扩展的文件/范围。
+- 新增 `TargetedDeepReviewContextBuilder`：源码只在内存 `DeepReviewContext` 中，读取范围严格
+  限于 `authorized_scopes_json`，无可读范围即拒绝而非回退到高危 finding 或 file hint。
+- 新增预算默认值与启动期范围校验：`AGENT_HARNESS_V3_MAX_HYPOTHESES`、
+  `AGENT_HARNESS_V3_MAX_REFLECTIONS_PER_HYPOTHESIS`、`AGENT_HARNESS_V3_DEEP_AUDIT_DEFAULT_TOKENS`、
+  `AGENT_HARNESS_V3_DEEP_REVIEW_TOKEN_RESERVE`、`AGENT_HARNESS_V3_DEEP_REVIEW_CONTEXT_CHARS`；
+  已同步 `.env.example` 与本机 `.env`，未读取、输出或提交 `.env` 既有内容。
+- focused：`venv\Scripts\python.exe -m pytest tests\test_agent_harness_v3_deep_review.py
+  tests\test_agent_deep_review.py tests\test_agent_feature_flags.py tests\test_agent_harness_v3_contracts.py
+  tests\test_agent_budget.py tests\test_agent_tool_input_validation.py tests\test_agent_tool_registry.py -q`，
+  `67 passed`。
 
 ### T15.3 Plan-and-Execute 与有界 ReAct
 

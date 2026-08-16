@@ -57,6 +57,14 @@ def _env_int(name: str, default: int) -> int:
     return int(raw.strip())
 
 
+def _env_bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    """读取受范围约束的整数配置，非法配置在启动期显式失败。"""
+    value = _env_int(name, default)
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
 def _env_float(name: str, default: float) -> float:
     raw = os.getenv(name)
     if raw is None or raw.strip() == "":
@@ -411,6 +419,36 @@ class Config:
     AGENT_PROVIDER_RAW_REASONING_STREAM_ENABLED = _env_bool(
         "AGENT_PROVIDER_RAW_REASONING_STREAM_ENABLED",
         False,
+    )
+    AGENT_HARNESS_V3_MAX_HYPOTHESES = _env_bounded_int(
+        "AGENT_HARNESS_V3_MAX_HYPOTHESES",
+        3,
+        1,
+        10,
+    )
+    AGENT_HARNESS_V3_MAX_REFLECTIONS_PER_HYPOTHESIS = _env_bounded_int(
+        "AGENT_HARNESS_V3_MAX_REFLECTIONS_PER_HYPOTHESIS",
+        1,
+        0,
+        3,
+    )
+    AGENT_HARNESS_V3_DEEP_AUDIT_DEFAULT_TOKENS = _env_bounded_int(
+        "AGENT_HARNESS_V3_DEEP_AUDIT_DEFAULT_TOKENS",
+        16000,
+        1000,
+        200000,
+    )
+    AGENT_HARNESS_V3_DEEP_REVIEW_TOKEN_RESERVE = _env_bounded_int(
+        "AGENT_HARNESS_V3_DEEP_REVIEW_TOKEN_RESERVE",
+        6000,
+        500,
+        100000,
+    )
+    AGENT_HARNESS_V3_DEEP_REVIEW_CONTEXT_CHARS = _env_bounded_int(
+        "AGENT_HARNESS_V3_DEEP_REVIEW_CONTEXT_CHARS",
+        12000,
+        1000,
+        20000,
     )
     AGENT_LOOP_LEASE_SECONDS = _env_int("AGENT_LOOP_LEASE_SECONDS", 60)
     SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE = _env_int("SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE", DEFAULT_SECURITY_EXPENSIVE_RATE_LIMIT_PER_MINUTE)

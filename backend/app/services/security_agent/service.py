@@ -33,6 +33,7 @@ from app.services.security_agent.contracts import (
 )
 from app.services.security_agent.event_service import EventService
 from app.services.security_agent.feature_flags import AgentFeatureFlags
+from app.services.security_agent.harness_v3.budget import apply_v3_default_budget
 from app.services.security_agent.runner import InlinePlanRunner
 from app.services.security_agent.run_statistics import build_run_statistics
 from app.services.security_agent.state_machine import AgentStateMachine
@@ -78,6 +79,12 @@ class AgentRunService:
         feature_flags_snapshot = AgentFeatureFlags().for_workspace(
             project.workspace_id
         ).as_dict()
+        budget_values = apply_v3_default_budget(
+            mode=mode_value,
+            budget=budget_values,
+            feature_flags=feature_flags_snapshot,
+            config=current_app.config,
+        )
         run = AgentRun(
             workspace_id=project.workspace_id,
             project_id=project.id,

@@ -537,8 +537,8 @@ git diff --check
 - [x] **W-04 BLOCKER** `AuditSkillCatalog` 是受版本控制的深模块；模型和用户不能动态注册工具、
   技能或越过 Tool Registry。
 - [ ] **W-05 BLOCKER** 每条审计假设都绑定 skill、目标、证据条件、授权代码范围和可审计状态。
-- [ ] **W-06 BLOCKER** Deep Review 不能只接受自由文本 focus；其输入必须通过 hypothesis /
-  required evidence / CodeSliceEvidence 校验。
+- [x] **W-06 BLOCKER** V3 Deep Review 已不接受自由文本 focus；输入必须引用当前 Run 的 hypothesis /
+  required evidence / 已持久化授权 CodeSliceEvidence 范围，损坏或无可读范围时拒绝且不回退。
 - [ ] **W-07 BLOCKER** ReAct 工具观察能够推进假设；重复、无进展、预算耗尽和无授权位置安全收口。
 - [ ] **W-08 BLOCKER** Evidence Critic 独立于 Planner；无代码位置或关键证据时不得确认漏洞。
 - [ ] **W-09** Reasoning Summary 只含受控假设、行动理由、证据缺口和下一步；隐藏 CoT 不落库、

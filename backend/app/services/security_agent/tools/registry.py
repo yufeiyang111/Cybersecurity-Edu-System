@@ -380,17 +380,33 @@ def _register_graph_tools(registry: ToolRegistry) -> None:
             version="1.0",
             category="review",
             description=(
-                "对指定焦点执行多文件深度审查：读取受限代码切片、检索 RAG 知识引用，"
-                "调用 LLM 生成带证据链与引用（默认 unverified）的 Observation 结论。"
+                "对受限代码证据执行深度审查：V3 必须绑定已授权漏洞假设、技能和证据条件；"
+                "兼容路径才允许指定焦点。调用 LLM 生成带证据链与背景参考的 Observation 结论。"
             ),
             input_schema={
                 "type": "object",
                 "properties": {
-                    "focus": {"type": "string"},
-                    "entrypoints": {"type": "array", "items": {"type": "string"}},
-                    "file_hints": {"type": "array", "items": {"type": "string"}},
+                    "focus": {"type": "string", "maxLength": 500},
+                    "entrypoints": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
+                    "file_hints": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
+                    "hypothesis_id": {"type": "integer", "minimum": 1},
+                    "skill_key": {"type": "string", "minLength": 1, "maxLength": 64},
+                    "required_evidence": {
+                        "type": "array",
+                        "items": {"type": "string", "minLength": 1, "maxLength": 64},
+                        "minItems": 1,
+                        "maxItems": 8,
+                    },
+                    "context_budget_chars": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 20000,
+                    },
+                    "review_kind": {
+                        "type": "string",
+                        "enum": ["primary", "supplemental"],
+                    },
                 },
-                "required": ["focus"],
                 "additionalProperties": False,
             },
             risk_level="sensitive_read",

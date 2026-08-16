@@ -19,6 +19,13 @@ from app.services.security_agent.context_builder import (
     DeepReviewContextError,
 )
 from app.services.security_agent.event_service import EventService
+from app.services.security_agent.feature_flags import AgentFeatureFlags
+from app.services.security_agent.harness_v3.deep_review import (
+    TargetedContextBuildError,
+    TargetedDeepReviewContextBuilder,
+    V3DeepReviewInputError,
+    V3DeepReviewInputResolver,
+)
 from app.services.security_agent.llm_invocation import (
     USAGE_SOURCE_PROVIDER_REPORTED,
     record_invocation,
@@ -53,20 +60,33 @@ def build_run_deep_review_handler(events: EventService | None = None):
             return ToolResult(
                 status="failed", summary="任务已取消，未执行深度审查", error_code="AGENT_TOOL_FAILED"
             )
-        focus = (ctx.input.get("focus") or "").strip()
-        entrypoints = _string_list(ctx.input.get("entrypoints"))
-        file_hints = tuple(_string_list(ctx.input.get("file_hints")))[:MAX_INPUT_FILES]
-
-        try:
-            review_context = ContextBuilder().build(
-                ctx.run,
-                focus=focus,
-                entrypoints=entrypoints,
-                file_hints=file_hints,
-                max_files=ctx.run.max_deep_review_files,
-            )
-        except DeepReviewContextError as exc:
-            raise ToolExecutionError(str(exc)) from exc
+        v3_request = None
+        if _uses_v3_harness(ctx.run):
+            try:
+                v3_request = V3DeepReviewInputResolver().resolve(ctx.run, ctx.input)
+                review_context = TargetedDeepReviewContextBuilder().build(
+                    ctx.run,
+                    v3_request,
+                )
+            except (V3DeepReviewInputError, TargetedContextBuildError) as exc:
+                raise ToolExecutionError(
+                    str(exc),
+                    warning_code="AGENT_V3_DEEP_REVIEW_INPUT_INVALID",
+                ) from exc
+        else:
+            focus = (ctx.input.get("focus") or "").strip()
+            entrypoints = _string_list(ctx.input.get("entrypoints"))
+            file_hints = tuple(_string_list(ctx.input.get("file_hints")))[:MAX_INPUT_FILES]
+            try:
+                review_context = ContextBuilder().build(
+                    ctx.run,
+                    focus=focus,
+                    entrypoints=entrypoints,
+                    file_hints=file_hints,
+                    max_files=ctx.run.max_deep_review_files,
+                )
+            except DeepReviewContextError as exc:
+                raise ToolExecutionError(str(exc)) from exc
 
         provider = select_provider(
             user_id=ctx.run.created_by, operation=DEEP_REVIEW_OPERATION
@@ -155,6 +175,9 @@ def build_run_deep_review_handler(events: EventService | None = None):
                 warning_code="AGENT_PROVIDER_INVALID_RESPONSE",
             ) from exc
 
+        if v3_request is not None:
+            _record_v3_hypothesis_progress(v3_request.hypothesis, ctx)
+
         return ToolResult(
             status="succeeded",
             summary=(
@@ -170,6 +193,8 @@ def build_run_deep_review_handler(events: EventService | None = None):
                 "citation_count": len(observation.citations),
                 "proof_gap_count": len(parsed["proof_gaps"]),
                 "injected_docs": list(review_context.injected_doc_ids),
+                "hypothesis_id": v3_request.hypothesis_id if v3_request is not None else None,
+                "review_kind": v3_request.review_kind if v3_request is not None else None,
             },
         )
 
@@ -177,6 +202,25 @@ def build_run_deep_review_handler(events: EventService | None = None):
 
 
 # ------------------------------------------------------------------ helpers
+
+
+def _uses_v3_harness(run) -> bool:
+    """只让已灰度的 Hybrid / Deep Audit 使用假设绑定的 Deep Review。"""
+    mode = getattr(getattr(run, "mode", None), "value", getattr(run, "mode", None))
+    flags = AgentFeatureFlags().for_run(run)
+    return bool(flags.harness_v3) and mode in {"hybrid", "deep_audit"}
+
+
+def _record_v3_hypothesis_progress(hypothesis, ctx: ToolExecutionContext) -> None:
+    """仅记录结构化工具关联；源码与 Prompt 不进入假设持久化记录。"""
+    status = getattr(getattr(hypothesis, "status", None), "value", hypothesis.status)
+    if status == "queued":
+        hypothesis.status = "active"
+    hypothesis.execution_attempt_count = (hypothesis.execution_attempt_count or 0) + 1
+    tool_call_id = getattr(getattr(ctx, "tool_call", None), "id", None)
+    if isinstance(tool_call_id, int) and tool_call_id > 0:
+        hypothesis.related_tool_call_id = tool_call_id
+    db.session.commit()
 
 
 def _string_list(value) -> tuple[str, ...]:
