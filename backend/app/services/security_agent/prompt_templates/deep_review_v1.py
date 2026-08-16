@@ -20,7 +20,7 @@ _SYSTEM_PROMPT = (
     '  "confidence": "low|medium|high",\n'
     '  "summary": "结论与依据（简体中文，3-8 句）",\n'
     '  "locations": [{"file_path": "相对路径", "start_line": 1, '
-    '"end_line": 10, "role": "source|sink|entry|guard|evidence"}],\n'
+    '"end_line": 10, "role": "source|sink|entry|guard|configuration|evidence"}],\n'
     '  "knowledge_reference_ids": ["仅填写背景参考中给出的 document_id"],\n'
     '  "proof_gaps": ["仍无法确认的点（最多 3 条，无代码证据时至少 1 条）"],\n'
     '  "detail": {"evidence_chain": ["证据链描述"], "impact": "风险影响", '

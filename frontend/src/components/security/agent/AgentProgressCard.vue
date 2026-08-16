@@ -41,9 +41,9 @@
         class="runtime-metrics"
       >
         <div class="runtime-metric">
-          <span class="runtime-metric__label">模型轮次</span>
-          <strong class="runtime-metric__value">{{ statistics.turn_total }}</strong>
-          <small>每次模型决策算 1 轮</small>
+          <span class="runtime-metric__label">{{ modelActivity.label }}</span>
+          <strong class="runtime-metric__value">{{ modelActivity.value }}</strong>
+          <small>{{ modelActivity.hint }}</small>
         </div>
         <div class="runtime-metric">
           <span class="runtime-metric__label">工具调用</span>
@@ -81,7 +81,10 @@
 <script setup>
 import { computed } from 'vue'
 import { agentStatusMeta } from '@/features/security/agent/statusMeta'
-import { resolveRunStatistics } from '@/features/security/agent/runStatistics'
+import {
+  resolveModelActivityMetric,
+  resolveRunStatistics
+} from '@/features/security/agent/runStatistics'
 
 const props = defineProps({
   plan: {
@@ -108,6 +111,12 @@ const statistics = computed(() => {
     stats: props.stats,
     run: props.run,
     plan: props.plan
+  })
+})
+const modelActivity = computed(() => {
+  return resolveModelActivityMetric({
+    run: props.run,
+    statistics: statistics.value
   })
 })
 const totalNodes = computed(() => statistics.value.plan_node_total)

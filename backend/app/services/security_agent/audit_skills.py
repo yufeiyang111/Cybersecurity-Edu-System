@@ -79,13 +79,32 @@ DEFAULT_AUDIT_SKILLS: tuple[AuditSkill, ...] = (
         falsification_conditions=("根目录约束", "内部地址阻断", "安全路径规范化"),
         max_attempts=2,
     ),
+    AuditSkill(
+        key="unsafe_runtime_configuration",
+        title="运行时危险配置验证",
+        cwe_tags=("CWE-16", "CWE-489"),
+        trigger_signals=("debug", "configuration", "cwe-489", "exposure"),
+        languages=("python", "javascript", "typescript", "java", "go"),
+        frameworks=("flask", "django", "express", "spring", "gin"),
+        recommended_tools=("get_findings", "search_code", "run_deep_review"),
+        required_evidence=(
+            "unsafe_runtime_setting",
+            "production_guard_or_absence",
+        ),
+        falsification_conditions=(
+            "危险运行时开关仅在受控开发环境启用",
+            "生产环境存在显式禁用守卫",
+            "部署配置覆盖并关闭危险开关",
+        ),
+        max_attempts=2,
+    ),
 )
 
 
 class AuditSkillCatalog:
     """只读技能目录；调用方只能按 key 查询既有定义。"""
 
-    VERSION = "v3.1"
+    VERSION = "v3.2"
 
     def __init__(self, skills: tuple[AuditSkill, ...] = DEFAULT_AUDIT_SKILLS) -> None:
         self._skills = tuple(skills)

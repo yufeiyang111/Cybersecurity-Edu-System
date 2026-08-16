@@ -93,6 +93,7 @@ def test_catalog_is_fixed_and_does_not_allow_runtime_registration():
         "injection_dataflow",
         "unsafe_execution_deserialization",
         "untrusted_file_network",
+        "unsafe_runtime_configuration",
     )
     assert catalog.get("unknown_prompt_skill") is None
     assert catalog.get("unsafe_execution_deserialization") is not None

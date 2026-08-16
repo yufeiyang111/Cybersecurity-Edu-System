@@ -4,7 +4,15 @@ const MODE_LABELS = {
   deep_audit: '深度审计'
 }
 
-const FLAG_KEYS = ['loop_v2', 'event_schema_v2', 'timeline_v2']
+const FLAG_KEYS = [
+  'loop_v2',
+  'event_schema_v2',
+  'timeline_v2',
+  'harness_v3',
+  'provider_raw_reasoning_stream'
+]
+
+const V3_AUDIT_MODES = new Set(['hybrid', 'deep_audit'])
 
 function hasResolvedFlags(flags) {
   return FLAG_KEYS.some((key) => typeof flags?.[key] === 'boolean')
@@ -40,6 +48,7 @@ export function resolveAgentRunExperience(run, featureFlags = {}, workspaceFeatu
   const mode = String(run?.mode || 'baseline')
   const source = resolveExecutionSource(run)
   const loopV2Enabled = featureFlags?.loop_v2 === true
+  const harnessV3Enabled = featureFlags?.harness_v3 === true
   const note = configurationNote(source, featureFlags, workspaceFeatureFlags)
 
   if (mode === 'baseline') {
@@ -50,6 +59,17 @@ export function resolveAgentRunExperience(run, featureFlags = {}, workspaceFeatu
       configurationNote: note,
       supportsDynamicControl: false,
       supportsAutonomousTools: false
+    }
+  }
+
+  if (harnessV3Enabled && V3_AUDIT_MODES.has(mode)) {
+    return {
+      kind: 'harness_v3',
+      label: (MODE_LABELS[mode] || '审计') + ' · Harness V3',
+      description: '基于确定性基线和受限技能生成漏洞假设，由独立 Critic 校验证据与攻击路径；不等同于自由 Agent Loop。',
+      configurationNote: note,
+      supportsDynamicControl: false,
+      supportsAutonomousTools: true
     }
   }
 

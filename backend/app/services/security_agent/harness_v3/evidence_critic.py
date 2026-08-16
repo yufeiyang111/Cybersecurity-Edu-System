@@ -22,6 +22,8 @@ _EVIDENCE_ROLE_REQUIREMENTS: dict[str, frozenset[str]] = {
     "untrusted_path_or_url": frozenset({"source", "entry"}),
     "file_or_network_sink": frozenset({"sink"}),
     "allowlist_or_absence": frozenset({"guard"}),
+    "unsafe_runtime_setting": frozenset({"configuration"}),
+    "production_guard_or_absence": frozenset({"configuration", "guard"}),
 }
 
 

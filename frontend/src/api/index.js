@@ -372,6 +372,10 @@ export const agentAPI = {
     api.get(`/security/workspaces/${workspaceId}/agent-provider-policy`),
   updateProviderPolicy: (workspaceId, data) =>
     api.put(`/security/workspaces/${workspaceId}/agent-provider-policy`, data),
+  getFeatureFlags: (workspaceId) =>
+    api.get(`/security/workspaces/${workspaceId}/agent-feature-flags`),
+  updateFeatureFlags: (workspaceId, data) =>
+    api.patch(`/security/workspaces/${workspaceId}/agent-feature-flags`, data),
   getObservabilityOverview: (params) =>
     api.get(`/security/agent/observability/overview`, { params }),
   getObservabilityRuns: (params) =>

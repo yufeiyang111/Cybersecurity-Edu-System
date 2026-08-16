@@ -1,12 +1,12 @@
 # CyberGuard 代码漏洞审查 Agent 改造执行任务书
 
-> 文档版本：1.1.0
-> 冻结日期：2026-08-12
+> 文档版本：1.2.0
+> 冻结日期：2026-08-16
 > 适用仓库：`D:\workproject\work\work-5238`
 > 上位规格：`agent-redesign/spec.md`
 > 验收依据：`agent-redesign/checklist.md`
 > 执行对象：后续负责落地改造的编码 Agent；允许按批次更换 Agent，但不得跳过交接证据。
-> 修订记录：v1.1.0（2026-08-12）随 spec.md v1.1.0 修订 reasoning 展示策略——引入 Reasoning Summary（模型真实输出受限摘要），同步更新 T01/T11/T12 的契约、组件与清理任务。
+> 修订记录：v1.2.0（2026-08-16）补齐 V3 运行时危险配置技能、真实 Provider 调用统计口径、三断点浏览器验收与平板导航修复；v1.1.0（2026-08-12）引入 Reasoning Summary（模型真实输出受限摘要），同步更新 T01/T11/T12 的契约、组件与清理任务。
 
 ---
 
@@ -1153,7 +1153,7 @@ git status --short --branch
 
 **目标：** 建立 `AuditSkillCatalog`、`HypothesisPlanner` 的深模块接口和可持久化假设。
 
-- [x] 新增受版本控制的四个初始技能定义，禁止模型/用户动态注册工具或任意 Prompt Skill。
+- [x] 新增受版本控制的五个初始技能定义（含运行时危险配置），禁止模型/用户动态注册工具或任意 Prompt Skill。
 - [x] 新增 `AgentAuditHypothesis`、`AgentAuditHypothesisVerdict` 模型、加性迁移和
   `database/init.sql` 同步。
 - [x] 设计并测试 `HypothesisValidator`：拒绝未注册技能、无证据条件、超限候选、越权路径。
@@ -1164,7 +1164,7 @@ git status --short --branch
 
 ### T15.1 实施证据（2026-08-16）
 
-- 新增 `AuditSkillCatalog` 四项冻结技能、无源码 `AuditHypothesisDraft` / `CodeLocationScope`
+- 新增 `AuditSkillCatalog` 五项冻结技能（含 `unsafe_runtime_configuration`）、无源码 `AuditHypothesisDraft` / `CodeLocationScope`
   契约与 `HypothesisValidator`，覆盖未知技能、缺少关键证据、候选超限和越权位置负例。
 - 新增 `agent_audit_hypotheses`、`agent_audit_hypothesis_verdicts` 模型和 042 加性迁移，并同步
   `database/init.sql`、迁移注册表；`apply-security-migrations` 已成功执行。
@@ -1238,7 +1238,7 @@ git status --short --branch
 - [x] 新增“攻击路径验证”前端模块：技能、假设、证据、缺口、Critic 决策、预算与终态；
   任务发起人可在当前会话展开原始 reasoning 面板，刷新后明确不可回放。
 - [x] 完整处理 loading、empty、error、blocked、budget exhausted、历史 Run 和 V3 关闭状态。
-- [-] 前端代码已提供桌面/平板/手机断点、键盘可达、对比度和与现有 QA/安全工作台一致的样式；真实三断点浏览器验收仍待服务更新后完成。
+- [x] 前端已通过真实浏览器完成桌面/平板/手机断点验收；平板在 `<=1200px` 收起顶部导航，避免逐字压缩，手机侧栏抽屉和遮罩可独立操作。
 - [x] 新增脱敏聚合指标：每技能候选数、代码证据覆盖、证据不足率、预算耗尽率、每候选成本。
 
 ### T15.3-T15.5 实施证据（2026-08-16）
@@ -1247,14 +1247,23 @@ git status --short --branch
 - Provider 仅在其明确提供 reasoning 时向任务发起人的**当前活动 SSE 连接**转发 `provider_reasoning_raw_delta`；该帧不带 SSE id、不能回放、不写 `AgentEvent`、数据库、日志、Checkpoint、指标或历史 API。系统不显示隐藏 CoT / ToT。
 - 新增假设列表/详情只读 API（workspace 鉴权、数据库分页、跨 Run 404），服务端与前端均采用显式白名单序列化；Critic `next_action` 只返回动作标识，避免后续字段扩展意外泄露 Provider 内容或源码摘录。
 - 新增攻击路径验证面板、Critic 判定、脱敏指标和 Provider 实时原始 reasoning 面板。空态明确区分 V3 未开启、执行中、阻断、预算收口与历史终态；原始 reasoning 默认折叠且刷新不可回放。
-- 验证：`venv\Scripts\python.exe -m pytest tests -q` → `1369 passed, 1 skipped`；`npm --prefix frontend run test:agent` → `75 passed`；`npm --prefix frontend run build` → 通过。已知 Sass、CSS nesting、大 chunk 与 SQLAlchemy 旧 API / SQLite FK 拆表警告未在本批次扩大范围。
+- 验证：`venv\Scripts\python.exe -m pytest tests -q` → `1373 passed, 1 skipped`；`npm --prefix frontend run test:agent` → `82 passed`；`npm --prefix frontend run build` → 通过。已知 Sass、CSS nesting、大 chunk 与 SQLAlchemy 旧 API / SQLite FK 拆表警告未在本批次扩大范围。
 
 ### T15.6 评测、真实验收与灰度
 
 - [ ] 新建漏洞/安全对照测试夹具和 Provider Fake 回归矩阵，不连接真实外部 API。
 - [x] 运行受影响 focused tests、后端全量 pytest、前端 Node 测试、前端 build 与 diff check。
-- [!] 经用户授权在本地测试 Workspace 发起真实 Hybrid / Deep V3 Run，记录脱敏指标和浏览器
-  证据；不创建无关任务，不输出源码、Prompt、日志或凭据。阻塞证据：当前用户维护的后端进程启动时间早于本批次代码；热重载默认关闭，且执行 Agent 无权擅自重启。恢复入口：由用户手动重启后端后，使用固定脱敏夹具完成一次真实 V3 Run 与浏览器验收。
-- [ ] 对 V3 开关执行开启、关闭、历史 Run 可读和回滚演练；更新 checklist 最终证据表。
+- [x] 经用户授权重启已验证的本地 venv 后端实例，并在测试 Workspace 发起一条真实 Hybrid V3
+  审计；配置风险被收敛为受限假设，完成两次 Deep Review 和一次 Reflection，因关键代码证据
+  不足而明确显示证据不足，不输出源码、Prompt、日志或凭据。页面刷新后仍显示真实 Provider
+  调用数；Provider 未明确返回 reasoning 时，原始推理面板保持为空且不伪造内容。
+- [-] 已验证真实 Workspace 的 V3 启用快照、历史读取和浏览器语义；完整关闭开关与回滚演练仍待在同一测试 Workspace 完成，更新 checklist 最终证据表后才能标记完成。
 - [ ] 每个独立阶段先检查 `git status` / `git diff`，只提交本阶段文件，中文 commit；不推送
   除非用户明确要求。
+
+### T15.7 v1.3 实施与验收补充（2026-08-16）
+
+- [x] `AuditSkillCatalog v3.2` 已新增 `unsafe_runtime_configuration`，并把配置证据角色写入 Deep Review 契约与 Evidence Critic；缺少危险开关或生产守卫证据时只收口为证据不足。
+- [x] Run 统计新增 `llm_call_total`；V3 前端显示“Provider 调用”，历史快照与非 V3 Loop 的边界均有回归测试，避免错误展示“模型轮次 0”。
+- [x] 真机浏览器检查完成：桌面显示真实 V3 结果；约 1025px 平板顶部导航已收起且无横向溢出；手机侧栏与遮罩可打开/关闭，攻击路径和统计卡可读。
+- [ ] 继续补充已知漏洞/安全对照夹具，以及 V3 关闭开关和完整回滚演练；未完成前不得宣称 V3 已具备发布级完整覆盖。

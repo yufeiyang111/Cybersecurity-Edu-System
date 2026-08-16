@@ -1,12 +1,12 @@
 # CyberGuard 代码漏洞审查 Agent 改造验收清单
 
-> 文档版本：1.1.0
-> 冻结日期：2026-08-12
+> 文档版本：1.2.0
+> 冻结日期：2026-08-16
 > 适用仓库：`D:\workproject\work\work-5238`
 > 规格依据：`agent-redesign/spec.md`
 > 执行依据：`agent-redesign/tasks.md`
 > 用途：本文件是阻断式验收门，不是建议列表。所有 `BLOCKER` 必须有可复核证据，才能宣布整体改造完成。
-> 修订记录：v1.1.0（2026-08-12）随 spec.md v1.1.0 修订 reasoning 相关验收措辞（K-01/K-02/K-03/M-11/O-06/U-05、总体验收规则），新增 C-13 Reasoning Summary 验收项。
+> 修订记录：v1.2.0（2026-08-16）补充 V3 配置审计、真实 Provider 调用统计和三断点浏览器验收证据；v1.1.0（2026-08-12）修订 reasoning 相关验收措辞并新增 C-13 Reasoning Summary 验收项。
 
 ---
 
@@ -553,16 +553,20 @@ git diff --check
 - [x] **W-11** 假设/判定持久化、加性迁移、初始化 SQL、历史 Run 兼容和 Feature Flag 回滚全部验证。
 - [x] **W-12** 假设列表与详情接口有 workspace 鉴权、服务端分页和安全序列化；不泄露源码、Prompt、
   Token、Cookie 或 Provider 原始输出。原始 reasoning 只能走 W-09a 的实时直连通道，不能进入接口响应。
-- [-] **W-13** 前端攻击路径验证视图已实现 loading、empty、error、blocked、预算收口、历史 Run 与 V3 关闭语义；真实移动端/平板浏览器验收待服务更新后完成。
+- [x] **W-13** 前端攻击路径验证视图已实现 loading、empty、error、blocked、预算收口、历史 Run 与 V3 关闭语义；真实浏览器已覆盖桌面、约 1025px 平板和手机断点，平板导航收起且手机抽屉/遮罩可操作。
 - [ ] **W-14** 已知漏洞与安全对照夹具覆盖 SQL 注入、越权、SSRF/路径穿越、不安全执行/反序列化，
   且每个 confirmed candidate 有代码证据位置。
-- [!] **W-15** focused/backend 全量/前端 Node/build/diff check 已通过；真实 Provider 与浏览器验收
-  仅在用户授权的测试 Workspace 完成，并记录脱敏结果。
-- [-] **W-16** Run 快照与 baseline/V2/V3 回归已由自动化覆盖；真实工作区的开关启用、关闭与浏览器回滚演练待服务更新后完成。
+- [x] **W-15** focused/backend 全量/前端 Node/build/diff check 已通过；用户授权的测试 Workspace
+  已完成真实 Hybrid V3 与浏览器验收，记录了脱敏的证据不足结果和真实 Provider 调用数。
+- [-] **W-16** Run 快照与 baseline/V2/V3 回归已由自动化覆盖，真实 Workspace 的 V3 启用快照和浏览器语义已验证；关闭开关与完整回滚演练仍未完成。
+- [x] **W-17** V3 运行进度卡显示真实 Provider 调用总数而非旧 Loop 轮次；Provider 未返回 raw reasoning 时面板保持为空，并明确不支持刷新回放。
 
 ### W. 实施证据（2026-08-16）
 
 - 原始 reasoning 的产品边界：仅展示 Provider 明确返回的内容；仅 Run 创建者的活动 SSE 连接可见；无 SSE id、不可重放、不持久化。隐藏 CoT / ToT 不实现也不展示。
 - API 防泄露回归：列表和详情按显式白名单响应；跨 Run 返回 404、跨工作区返回 403；分页参数越界返回 400；Critic `next_action` 仅返回 `action`，夹具中的 `provider_raw_reasoning` / `source_excerpt` 不会透传。
-- 自动化证据：后端全量 `1369 passed, 1 skipped`；Agent 前端 Node `75 passed`；生产构建通过；已对已跟踪和 33 个未跟踪目标文件执行 `git diff --check`。
-- 浏览器已验证用户登录、安全工作台和 Agent 工作台可访问且无控制台错误；但监听 5001 的用户维护后端进程未包含本批次代码，V3 端到端及三断点验收必须在用户手动重启后再记录，不以旧进程结果冒充验收。
+- 配置审计回归：`unsafe_runtime_configuration` 仅在配置风险信号下产生假设；危险开关和生产守卫任一缺失时 Critic 只允许 `needs_more_evidence`，不能确认漏洞。
+- 统计口径回归：V3 首项显示真实 `llm_call_total` 的“Provider 调用”；历史 V3 快照与非 V3 Loop 的边界均有前端测试覆盖，避免已执行的受限审查显示为“模型轮次 0”。
+- 自动化证据：后端全量 `1373 passed, 1 skipped`；Agent 前端 Node `82 passed`；生产构建通过；`git diff --check` 通过。
+- 用户授权后重启已验证的本地 venv 后端实例并发起一条真实 Hybrid V3 审计：配置风险形成一个受限假设，完成两次 Deep Review 和一次 Reflection，最终为证据不足；页面显示真实 Provider 调用数，Provider 未显式返回 reasoning 时不伪造原始输出。
+- 真实浏览器检查桌面、约 1025px 平板和手机 CSS 视口：平板导航在 `<=1200px` 收起且无横向溢出；手机侧栏可打开，遮罩可关闭，攻击路径和统计卡保持可读。

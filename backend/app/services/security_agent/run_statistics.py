@@ -21,6 +21,7 @@ def build_run_statistics(run: AgentRun, plan: AgentPlan | None) -> dict[str, int
 
     统计口径明确区分：
     - ``turn_total`` 只来自模型循环轮次 ``iteration_count``；
+    - ``llm_call_total`` 只来自持久化的 Provider 调用计数 ``llm_call_count``；
     - 工具调用数量来自持久化 ``agent_tool_calls``，不使用前端当前页长度；
     - Observation 的代码证据必须有 location.role=evidence；背景引用不会计入代码证据。
     """
@@ -70,6 +71,7 @@ def build_run_statistics(run: AgentRun, plan: AgentPlan | None) -> dict[str, int
         "plan_node_completed": node_completed,
         "plan_node_failed": node_failed,
         "turn_total": int(run.iteration_count or 0),
+        "llm_call_total": int(run.llm_call_count or 0),
         "tool_call_total": int(tool_total),
         "tool_call_succeeded": int(tool_succeeded),
         "tool_call_failed": int(tool_failed),

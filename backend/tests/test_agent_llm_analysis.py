@@ -338,6 +338,75 @@ def test_stream_analysis_collects_reasoning_usage_and_persists_events(app, monke
         assert reloaded.total_tokens == 42
 
 
+def test_non_v3_run_removes_provider_v3_acceptance_claims(app, monkeypatch):
+    """旧工作流不能把用户目标中的 V3 字样放大成已完成的 V3 验收。"""
+    with app.app_context():
+        run = _make_run()
+        run.feature_flags_snapshot_json = {
+            "loop_v2": False,
+            "event_schema_v2": False,
+            "timeline_v2": False,
+            "harness_v3": False,
+            "provider_raw_reasoning_stream": False,
+        }
+        db.session.commit()
+        provider = _FakeStreamProvider(
+            [
+                LLMStreamChunk(
+                    delta=(
+                        "1. 结论\n"
+                        "本轮验收结果：部分通过（条件性确认）。"
+                        "理由：扫描发现 debug 配置缺陷，符合 Harness V3 验收标准。"
+                        "建议在生产环境关闭 debug 模式。"
+                    )
+                ),
+                LLMStreamChunk(finished=True),
+            ]
+        )
+        _patch_provider(monkeypatch, provider)
+
+        result = AgentLlmAnalysisService(EventService()).analyze(
+            run,
+            trace_id="t-non-v3-claim",
+        )
+
+        assert result["degraded"] is False
+        assert "【执行模式说明】本轮未启用 Harness V3" in result["analysis"]
+        assert "本轮验收结果" not in result["analysis"]
+        assert "符合 Harness V3 验收标准" not in result["analysis"]
+        assert "建议在生产环境关闭 debug 模式" in result["analysis"]
+        assert "本轮未启用 Harness V3" in provider.requests[0].system_prompt
+
+
+def test_v3_run_preserves_provider_v3_analysis(app, monkeypatch):
+    """已启用 V3 的任务不应被旧工作流的输出守卫误删内容。"""
+    with app.app_context():
+        run = _make_run()
+        run.feature_flags_snapshot_json = {
+            "loop_v2": False,
+            "event_schema_v2": False,
+            "timeline_v2": False,
+            "harness_v3": True,
+            "provider_raw_reasoning_stream": True,
+        }
+        db.session.commit()
+        analysis = "Harness V3 已完成攻击路径证据审查。"
+        provider = _FakeStreamProvider(
+            [
+                LLMStreamChunk(delta=analysis),
+                LLMStreamChunk(finished=True),
+            ]
+        )
+        _patch_provider(monkeypatch, provider)
+
+        result = AgentLlmAnalysisService(EventService()).analyze(
+            run,
+            trace_id="t-v3-claim",
+        )
+
+        assert result["analysis"] == analysis
+        assert "本轮未启用 Harness V3" not in provider.requests[0].system_prompt
+
 def test_stream_analysis_redacts_key_split_across_deltas(app, monkeypatch):
     with app.app_context():
         run = _make_run(with_turn=True)

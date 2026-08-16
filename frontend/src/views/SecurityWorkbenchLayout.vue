@@ -447,7 +447,7 @@ watch(() => route.path, () => {
   background: #fff;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
   .topbar .top-nav {
     display: none;
   }

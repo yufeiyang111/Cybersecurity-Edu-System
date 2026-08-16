@@ -33,16 +33,30 @@
             @start="startAudit"
             @view="openProject"
           />
-          <AgentProjectInspector
-            ref="inspectorRef"
-            :project="selectedProject"
-            :submitting="creating"
-            :conversations="conversations"
-            :conversations-loading="conversationsLoading"
-            @start="startAudit"
-            @view="openProject"
-            @open-conversation="openConversation"
-          />
+          <div class="home-side">
+            <AgentProjectInspector
+              ref="inspectorRef"
+              :project="selectedProject"
+              :submitting="creating"
+              :conversations="conversations"
+              :conversations-loading="conversationsLoading"
+              @start="startAudit"
+              @view="openProject"
+              @open-conversation="openConversation"
+            />
+            <AgentFeatureFlagPanel
+              v-if="selectedProject"
+              :workspace-id="selectedWorkspaceId"
+              :resolved="featureFlagsResolved"
+              :overrides="featureFlagsOverrides"
+              :loading="featureFlagsLoading"
+              :saving="featureFlagsSaving"
+              :access-denied="featureFlagsAccessDenied"
+              :error-message="featureFlagsErrorMessage"
+              @save="saveV3FeatureFlags"
+              @reset="resetV3FeatureFlagOverrides"
+            />
+          </div>
         </div>
       </template>
     </section>
@@ -90,12 +104,14 @@ import { ElMessage } from '@/features/security/feedback'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import AgentGoalForm from '@/components/security/agent/AgentGoalForm.vue'
 import AgentWorkbenchHeader from '@/components/security/agent/home/AgentWorkbenchHeader.vue'
+import AgentFeatureFlagPanel from '@/components/security/agent/home/AgentFeatureFlagPanel.vue'
 import AgentProjectFilters from '@/components/security/agent/home/AgentProjectFilters.vue'
 import AgentProjectInspector from '@/components/security/agent/home/AgentProjectInspector.vue'
 import AgentProjectTable from '@/components/security/agent/home/AgentProjectTable.vue'
 import { BaseIcon } from '@/components/ui'
 import { agentAPI, securityAPI } from '@/api'
 import { useAgentConversations } from '@/composables/security/useAgentConversations'
+import { useAgentFeatureFlags } from '@/composables/security/useAgentFeatureFlags'
 import { languageMeta } from '@/features/security/languageMeta'
 import { securityApiErrorMessage } from '@/features/security/presentation'
 
@@ -114,6 +130,20 @@ const projectSearch = ref('')
 const projectLanguage = ref('all')
 const projectSort = ref('recent')
 const inspectorRef = ref(null)
+const selectedWorkspaceId = computed(() => {
+  const workspaceId = Number(selectedProject.value?.workspace_id)
+  return Number.isInteger(workspaceId) && workspaceId > 0 ? workspaceId : null
+})
+const {
+  loading: featureFlagsLoading,
+  saving: featureFlagsSaving,
+  accessDenied: featureFlagsAccessDenied,
+  errorMessage: featureFlagsErrorMessage,
+  resolved: featureFlagsResolved,
+  overrides: featureFlagsOverrides,
+  saveV3Flags,
+  resetV3Overrides
+} = useAgentFeatureFlags(() => selectedWorkspaceId.value)
 
 const projectId = computed(() => Number(route.params.id))
 const mode = computed(() => (projectId.value ? 'project' : 'home'))
@@ -155,6 +185,28 @@ async function focusSelectedProject() {
 
 function openProject(project) {
   if (project?.id) router.push(`/security/projects/${project.id}`)
+}
+
+async function saveV3FeatureFlags(flags) {
+  const saved = await saveV3Flags(flags)
+  if (saved) {
+    ElMessage.success('Harness V3 开关已保存；后续新建任务将使用该快照。')
+    return
+  }
+  if (featureFlagsErrorMessage.value) {
+    ElMessage.error(featureFlagsErrorMessage.value)
+  }
+}
+
+async function resetV3FeatureFlagOverrides() {
+  const restored = await resetV3Overrides()
+  if (restored) {
+    ElMessage.success('已恢复 Harness V3 的工作区默认值。')
+    return
+  }
+  if (featureFlagsErrorMessage.value) {
+    ElMessage.error(featureFlagsErrorMessage.value)
+  }
 }
 
 async function startAudit(payload) {
@@ -252,6 +304,7 @@ onMounted(() => {
 /* ===== 首页（项目选择） ===== */
 .agent-home { height: 100%; display: flex; flex-direction: column; padding: 24px 28px 28px; }
 .home-layout { display: grid; grid-template-columns: minmax(0, 1fr) 346px; flex: 1 1 auto; min-height: 0; gap: 16px; align-items: stretch; }
+.home-side { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; gap: 12px; }
 .home-skeleton { display: flex; flex-direction: column; gap: 10px; }
 
 /* ===== 项目入口 ===== */
@@ -271,6 +324,7 @@ onMounted(() => {
 @media (max-width: 960px) {
   .project-layout { grid-template-columns: 1fr; }
   .home-layout { grid-template-columns: 1fr; overflow-y: auto; }
+  .home-side { grid-template-rows: auto; }
   .agent-home { height: auto; min-height: calc(100vh - 60px); overflow: visible; }
 }
 

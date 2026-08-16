@@ -86,6 +86,21 @@ def _signals() -> tuple[FindingSignal, ...]:
     )
 
 
+def _configuration_signal() -> tuple[FindingSignal, ...]:
+    """复现真实浏览器验收中命中的 Flask Debug 配置风险。"""
+    return (
+        FindingSignal(
+            file_path="backend/app/config.py",
+            start_line=74,
+            end_line=74,
+            severity="medium",
+            rule_id="PY-FLASK-DEBUG",
+            category="configuration",
+            cwe_id="CWE-489",
+            message="Flask Debug mode is enabled in a runtime configuration.",
+        ),
+    )
+
 def _persisted_hypothesis(run: AgentRun) -> AgentAuditHypothesis:
     planner = HypothesisPlanner(
         provider_selector=lambda **_kwargs: None,
@@ -231,3 +246,94 @@ def test_evidence_critic_requires_authorized_code_roles_before_confirming(app, t
         assert "代码位置" in " ".join(insufficient.evidence_gaps)
         assert confirmed.verdict == "confirm_candidate"
         assert confirmed.next_action["action"] == "complete_hypothesis"
+
+
+def test_rule_planner_covers_runtime_debug_configuration_findings(app, tmp_path: Path):
+    """配置类 Finding 也必须生成受限 V3 假设，不能静默落成零候选。"""
+    with app.app_context():
+        run = _make_v3_run(tmp_path)
+        planner = HypothesisPlanner(
+            provider_selector=lambda **_kwargs: None,
+            finding_reader=lambda _run: _configuration_signal(),
+        )
+
+        batch = planner.build(run, evidence_summary=None)
+
+        assert batch.planner_source == "rule_based_policy"
+        assert batch.fallback_reason == "provider_unavailable"
+        assert len(batch.drafts) == 1
+        draft = batch.drafts[0]
+        assert draft.skill_key == "unsafe_runtime_configuration"
+        assert draft.required_evidence == (
+            "unsafe_runtime_setting",
+            "production_guard_or_absence",
+        )
+        assert draft.authorized_scopes[0].file_path == "backend/app/config.py"
+        assert (
+            draft.authorized_scopes[0].start_line
+            <= 74
+            <= draft.authorized_scopes[0].end_line
+        )
+
+
+def test_configuration_critic_requires_runtime_setting_and_deployment_context(app, tmp_path: Path):
+    """配置类假设至少需要设置项与部署守卫证据，不能只凭单一文字结论确认。"""
+    with app.app_context():
+        run = _make_v3_run(tmp_path)
+        planner = HypothesisPlanner(
+            provider_selector=lambda **_kwargs: None,
+            finding_reader=lambda _run: _configuration_signal(),
+        )
+        hypothesis = HypothesisPersistenceService().persist(
+            run,
+            planner.build(run, evidence_summary=None),
+        )[0]
+        critic = EvidenceCritic()
+
+        insufficient = critic.evaluate(
+            hypothesis,
+            HypothesisEvidence(
+                observation_id=3,
+                locations=(
+                    HypothesisEvidenceLocation(
+                        "backend/app/config.py",
+                        74,
+                        74,
+                        "configuration",
+                    ),
+                ),
+                claimed_satisfied=("unsafe_runtime_setting",),
+                proof_gaps=(),
+            ),
+            budget_exhausted=False,
+        )
+        confirmed = critic.evaluate(
+            hypothesis,
+            HypothesisEvidence(
+                observation_id=4,
+                locations=(
+                    HypothesisEvidenceLocation(
+                        "backend/app/config.py",
+                        74,
+                        74,
+                        "configuration",
+                    ),
+                    HypothesisEvidenceLocation(
+                        "backend/app/config.py",
+                        75,
+                        75,
+                        "guard",
+                    ),
+                ),
+                claimed_satisfied=(
+                    "unsafe_runtime_setting",
+                    "production_guard_or_absence",
+                ),
+                proof_gaps=(),
+            ),
+            budget_exhausted=False,
+        )
+
+        assert insufficient.verdict == "request_evidence"
+        assert "production_guard_or_absence" in insufficient.evidence_gaps[0]
+        assert confirmed.verdict == "confirm_candidate"

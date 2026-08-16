@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 
 import {
   normalizeRunStatistics,
+  resolveModelActivityMetric,
   resolveRunStatistics
 } from '../../frontend/src/features/security/agent/runStatistics.js'
 import {
@@ -47,6 +48,80 @@ test('服务端统计优先于当前分页步骤和工具列表', () => {
   assert.equal(stats.tool_call_total, 50)
   assert.equal(stats.tool_call_succeeded, 49)
   assert.equal(stats.observation_with_code_evidence, 2)
+})
+
+test('Harness V3 展示真实 Provider 调用，而非零次 Loop 轮次', () => {
+  const run = {
+    mode: 'hybrid',
+    execution_feature_flags: {
+      harness_v3: true
+    },
+    iteration_count: 0,
+    llm_call_count: 4
+  }
+  const statistics = resolveRunStatistics({
+    stats: null,
+    run,
+    plan: null
+  })
+  const metric = resolveModelActivityMetric({
+    run,
+    statistics
+  })
+
+  assert.equal(statistics.llm_call_total, 4)
+  assert.deepEqual(metric, {
+    label: 'Provider 调用',
+    value: 4,
+    hint: '受限规划与 Deep Review 的真实 Provider 调用'
+  })
+})
+
+test('历史 V3 特性快照也使用 Provider 调用口径', () => {
+  const run = {
+    mode: 'deep_audit',
+    feature_flags_snapshot: {
+      harness_v3: true
+    },
+    iteration_count: 0,
+    llm_call_count: 2
+  }
+  const metric = resolveModelActivityMetric({
+    run,
+    statistics: resolveRunStatistics({
+      stats: null,
+      run,
+      plan: null
+    })
+  })
+
+  assert.equal(metric.label, 'Provider 调用')
+  assert.equal(metric.value, 2)
+})
+
+test('非 V3 执行模式继续展示 Loop 模型轮次', () => {
+  const run = {
+    mode: 'hybrid',
+    execution_feature_flags: {
+      harness_v3: false
+    },
+    iteration_count: 3,
+    llm_call_count: 9
+  }
+  const metric = resolveModelActivityMetric({
+    run,
+    statistics: resolveRunStatistics({
+      stats: null,
+      run,
+      plan: null
+    })
+  })
+
+  assert.deepEqual(metric, {
+    label: '模型轮次',
+    value: 3,
+    hint: '每次模型决策算 1 轮'
+  })
 })
 
 test('旧快照缺少 stats 时使用安全降级，不把数组页长度伪装成总量', () => {

@@ -56,6 +56,9 @@ const experience = computed(() => {
 })
 
 const badgeType = computed(() => {
+  if (experience.value.kind === 'harness_v3') {
+    return 'green'
+  }
   if (experience.value.kind === 'agentic') {
     return 'blue'
   }
@@ -66,6 +69,9 @@ const badgeType = computed(() => {
 })
 
 const badgeLabel = computed(() => {
+  if (experience.value.kind === 'harness_v3') {
+    return '证据驱动 V3'
+  }
   if (experience.value.kind === 'agentic') {
     return '模型在环'
   }

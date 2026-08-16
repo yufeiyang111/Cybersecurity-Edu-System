@@ -26,6 +26,25 @@ test('未开启 V2 的混合或深度模式必须降级说明，不能伪装成 
   assert.match(experience.description, /未启用/)
 })
 
+test('Harness V3 优先于 Loop 状态展示，不能错误标记为受限旧工作流', () => {
+  const experience = resolveAgentRunExperience(
+    { mode: 'hybrid', execution_feature_flag_source: 'run_snapshot' },
+    {
+      loop_v2: false,
+      event_schema_v2: false,
+      timeline_v2: false,
+      harness_v3: true,
+      provider_raw_reasoning_stream: true
+    }
+  )
+
+  assert.equal(experience.kind, 'harness_v3')
+  assert.match(experience.label, /Harness V3/)
+  assert.doesNotMatch(experience.label, /Loop 未启用/)
+  assert.match(experience.description, /Critic/)
+  assert.equal(experience.supportsDynamicControl, false)
+  assert.equal(experience.supportsAutonomousTools, true)
+})
 test('仅开启 V2 Loop 的混合或深度模式展示模型在环能力', () => {
   const experience = resolveAgentRunExperience(
     { mode: 'hybrid' },

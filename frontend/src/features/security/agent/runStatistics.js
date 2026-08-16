@@ -3,6 +3,7 @@ const RUN_STATISTIC_KEYS = [
   'plan_node_completed',
   'plan_node_failed',
   'turn_total',
+  'llm_call_total',
   'tool_call_total',
   'tool_call_succeeded',
   'tool_call_failed',
@@ -72,6 +73,10 @@ export function resolveRunStatistics({ stats, run, plan } = {}) {
     ),
     plan_node_failed: numberOrFallback(stats?.plan_node_failed, nodeFallback.failed),
     turn_total: numberOrFallback(stats?.turn_total, numberOrFallback(run?.iteration_count)),
+    llm_call_total: numberOrFallback(
+      stats?.llm_call_total,
+      numberOrFallback(run?.llm_call_count)
+    ),
     tool_call_total: numberOrFallback(
       stats?.tool_call_total,
       numberOrFallback(run?.tool_call_count)
@@ -87,5 +92,39 @@ export function resolveRunStatistics({ stats, run, plan } = {}) {
     ),
     approval_pending: normalized.approval_pending,
     warning_total: numberOrFallback(stats?.warning_total, warningFallback)
+  }
+}
+
+function isHarnessV3Run(run) {
+  const mode = typeof run?.mode === 'string' ? run.mode : ''
+  if (!['hybrid', 'deep_audit'].includes(mode)) {
+    return false
+  }
+
+  const featureFlags = run?.execution_feature_flags ?? run?.feature_flags_snapshot
+  return featureFlags?.harness_v3 === true
+}
+
+/**
+ * 将不同 Harness 的模型活动转化为不误导用户的展示指标。
+ *
+ * V3 的 ``iteration_count`` 仅代表旧 Loop 决策轮次，不能用它覆盖
+ * Provider 规划和 Deep Review 的真实调用；旧执行模式继续保留原有轮次口径。
+ */
+export function resolveModelActivityMetric({ run, statistics } = {}) {
+  const source = statistics && typeof statistics === 'object' ? statistics : {}
+
+  if (isHarnessV3Run(run)) {
+    return {
+      label: 'Provider 调用',
+      value: numberOrFallback(source.llm_call_total, numberOrFallback(run?.llm_call_count)),
+      hint: '受限规划与 Deep Review 的真实 Provider 调用'
+    }
+  }
+
+  return {
+    label: '模型轮次',
+    value: numberOrFallback(source.turn_total, numberOrFallback(run?.iteration_count)),
+    hint: '每次模型决策算 1 轮'
   }
 }

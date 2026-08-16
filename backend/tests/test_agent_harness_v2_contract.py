@@ -219,6 +219,7 @@ def test_run_detail_exposes_consistent_statistics(app):
             goal_text="统计契约测试",
             mode="hybrid",
             iteration_count=3,
+            llm_call_count=4,
             replan_count=2,
             warning_codes=["AGENT_PROVIDER_TIMEOUT"],
         )
@@ -311,6 +312,7 @@ def test_run_detail_exposes_consistent_statistics(app):
         "plan_node_completed": 1,
         "plan_node_failed": 1,
         "turn_total": 3,
+        "llm_call_total": 4,
         "tool_call_total": 2,
         "tool_call_succeeded": 1,
         "tool_call_failed": 1,

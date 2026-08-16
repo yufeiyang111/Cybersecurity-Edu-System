@@ -35,6 +35,10 @@ from app.services.security_agent.contracts import (
     EVENT_WARNING_RAISED,
 )
 from app.services.security_agent.event_service import EventService
+from app.services.security_agent.execution_mode_disclosure import (
+    analysis_execution_instruction,
+    guard_analysis_for_execution_mode,
+)
 from app.services.security_agent.llm_invocation import (
     USAGE_SOURCE_ESTIMATED,
     USAGE_SOURCE_PROVIDER_REPORTED,
@@ -118,7 +122,7 @@ class AgentLlmAnalysisService:
             status="started",
             trace_id=trace_id,
         )
-        request = self._build_request(goal, evidence, provider)
+        request = self._build_request(run, goal, evidence, provider)
         self._last_prompt = request.prompt
         try:
             return self._consume_stream(run, provider, request, evidence, trace_id)
@@ -248,7 +252,7 @@ class AgentLlmAnalysisService:
             prompt_template_version="analysis-v1",
             trace_id=trace_id,
         )
-        summary = analysis[:MAX_ANALYSIS_CHARS]
+        summary = guard_analysis_for_execution_mode(run, analysis)[:MAX_ANALYSIS_CHARS]
         db.session.add(
             AgentMessage(
                 run_id=run.id,
@@ -308,7 +312,7 @@ class AgentLlmAnalysisService:
     ) -> dict:
         """显式降级：确定性摘要 + llm.failed + warning.raised，不伪装成功。"""
         analysis = _deterministic_summary(agent_warning_code, evidence)
-        summary = analysis[:MAX_ANALYSIS_CHARS]
+        summary = guard_analysis_for_execution_mode(run, analysis)[:MAX_ANALYSIS_CHARS]
         self._events.emit(
             run,
             EVENT_LLM_FAILED,
@@ -393,7 +397,13 @@ class AgentLlmAnalysisService:
 
     # ------------------------------------------------------------------ helpers
 
-    def _build_request(self, goal: str, evidence: dict, provider: object) -> LLMRequest:
+    def _build_request(
+        self,
+        run: AgentRun,
+        goal: str,
+        evidence: dict,
+        provider: object,
+    ) -> LLMRequest:
         evidence_text = json.dumps(evidence, ensure_ascii=False)[:MAX_EVIDENCE_CHARS]
         return LLMRequest(
             prompt=f"本轮目标：{goal}\n\n确定性工具证据：\n{evidence_text}",
@@ -401,6 +411,7 @@ class AgentLlmAnalysisService:
                 "你是 CyberGuard 安全分析助手。请基于给定的确定性扫描证据，"
                 "用简体中文回答本轮目标。输出结构：1）结论；2）关键风险（引用具体证据）；"
                 "3）修复建议。只能依据证据作答，禁止编造证据之外的发现。"
+                f"\n\n{analysis_execution_instruction(run)}"
             ),
             temperature=0.3,
             max_tokens=resolve_provider_max_tokens(provider, 1200),

@@ -1,14 +1,15 @@
 # CyberGuard 代码漏洞审查 Agent 底层改造规格说明
 
-> 文档版本：1.2.0
+> 文档版本：1.3.0
 > 冻结日期：2026-08-16
 > 修订记录：
-> - v1.2.0（2026-08-16，待用户书面审阅）：Harness V3 增加 Provider 明确返回的原始 reasoning 实时展示例外；仅限任务发起人的活动 SSE 订阅，瞬时传输、不落库、不回放；隐藏 Chain-of-Thought 与 ToT 仍不实现。
+> - v1.3.0（2026-08-16，实施与验收补充）：补齐 `unsafe_runtime_configuration` 受限审计技能与配置证据角色；V3 前端以真实 Provider 调用数替代旧 Loop 零轮次误导；真实浏览器验证桌面、平板和手机断点，平板顶部导航在 `<=1200px` 收起，避免逐字压缩。
+> - v1.2.0（2026-08-16，用户已确认）：Harness V3 增加 Provider 明确返回的原始 reasoning 实时展示例外；仅限任务发起人的活动 SSE 订阅，瞬时传输、不落库、不回放；隐藏 Chain-of-Thought 与 ToT 仍不实现。
 > - v1.1.0（2026-08-12，用户拍板）：reasoning 展示策略修订——不展示、不持久化**完整原始思维链全文**；允许展示与持久化**模型真实 reasoning 输出经脱敏限长的受限摘要（Reasoning Summary）**，以 Codex 风格按 sequence 进入统一时间线。
 > 适用仓库：`D:\workproject\work\work-5238`
 > 文档关系：本文件定义“做成什么”；`tasks.md` 定义“按什么顺序做”；`checklist.md` 定义“凭什么算完成”。
 > 执行对象：后续接手本项目的一个或多个编码 Agent。
-> 本轮边界：只交付设计与执行文档，不修改业务代码、不迁移数据库、不启动或重启服务。
+> 本轮状态：第 25 节的核心 V3 纵向切片已实施并完成授权真实浏览器验收；已知漏洞/安全对照夹具与完整开关回滚演练仍是未完成发布门禁。
 
 ---
 
@@ -1492,8 +1493,9 @@ V3 必须以少量深模块实现，避免把新逻辑继续堆入 `loop/engine.
 **Seam：** `select(snapshot_summary, evidence_summary, run_mode) -> tuple[AuditSkill, ...]`
 
 - 内部维护受版本控制的技能定义，不接受模型、用户或 RAG 文档动态注册工具。
-- 初期内置四类技能：`injection_dataflow`、`authorization_boundary`、
-  `untrusted_file_network`、`unsafe_execution_deserialization`。
+- 初期内置五类技能：`injection_dataflow`、`authorization_boundary`、
+  `untrusted_file_network`、`unsafe_execution_deserialization`、
+  `unsafe_runtime_configuration`。
 - 每项技能定义触发信号、适用语言/框架、推荐工具序列、所需代码证据、证伪条件、
   CWE 标签和最大尝试次数。
 - 调用方只需要知道选择后的技能列表；风险模式匹配、优先级和安全限制隐藏在模块内。
@@ -1622,3 +1624,24 @@ AGENT_PROVIDER_RAW_REASONING_STREAM_ENABLED=false
 - Reflection 不输出原始 CoT，且不能绕过代码证据验证；
 - 已知漏洞/安全对照夹具、后端测试、前端测试、构建、真实浏览器和灰度回滚全部通过；
 - 报告中明确区分确定性扫描结果、模型候选、已验证证据和未证实风险。
+
+---
+
+## 26. V3 实施补充与真实验收（2026-08-16）
+
+### 26.1 配置风险技能与证据约束
+
+- `AuditSkillCatalog v3.2` 增加 `unsafe_runtime_configuration`：仅由配置风险信号触发，支持 `CWE-16` / `CWE-489`，并限制在既有受控工具序列内执行。
+- 该技能的关键证据是 `unsafe_runtime_setting`（`configuration` 位置）和 `production_guard_or_absence`（`configuration` 加 `guard` 位置）。任一缺失时，独立 Critic 只能输出 `needs_more_evidence`，不得把确定性扫描的风险信号夸大成确认漏洞。
+
+### 26.2 真实执行口径与响应式展示
+
+- 开启 `harness_v3` 的 `hybrid` / `deep_audit` 首项运行指标显示持久化 `llm_call_count` 的“Provider 调用”；V1/V2 保留 `iteration_count` 的“模型轮次”。历史 V3 快照可从 `feature_flags_snapshot` 恢复口径，避免 V3 受限审查显示为“模型轮次 0”。
+- Provider 未显式返回 reasoning 时，“Provider 原始推理输出”保持为空且不可伪造；刷新、重连和历史详情也不回放 raw reasoning。
+- 安全工作台在 `<=1200px` 隐藏顶部导航，避免平板将菜单逐字压缩；手机继续使用可关闭的侧栏抽屉与独立遮罩。
+
+### 26.3 本机授权验收边界
+
+- 真实 Hybrid V3 审计围绕配置风险创建一个 `unsafe_runtime_configuration` 假设，执行两次 Deep Review 与一次 Reflection，因关键代码证据不足而得到明确的“证据不足”结论。
+- 页面刷新后显示真实 Provider 调用数；本次 Provider 未返回 raw reasoning，产品没有补写或伪造思考内容。真实浏览器已检查桌面、约 1025px 平板和手机视口，无横向溢出，手机侧栏可打开且遮罩可关闭。
+- 这只证明本机测试 Workspace 的当前纵向切片；已知漏洞/安全对照夹具，以及 `harness_v3` 的关闭与完整回滚演练仍是发布前必须完成的门禁。
