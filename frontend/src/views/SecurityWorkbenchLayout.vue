@@ -21,10 +21,22 @@
       <div class="top-actions">
         <el-button class="btn-doc" plain :icon="DocumentIcon" @click="onDocClick">文档</el-button>
         <el-button class="btn-gh" :icon="GithubIcon" @click="goWithQuery('import')">GitHub 导入</el-button>
-        <el-button type="primary" :icon="PlusIcon" @click="goWithQuery('new')">新建项目</el-button>
+        <el-button
+          class="top-actions__create"
+          type="primary"
+          :icon="PlusIcon"
+          @click="goWithQuery('new')"
+        >
+          新建项目
+        </el-button>
         <el-dropdown trigger="click" @command="handleCommand">
           <span class="user-trigger">
-            <el-avatar class="user-avatar" :size="32" :src="userStore.user?.avatar_url || undefined">
+            <el-avatar
+              class="user-avatar"
+              :size="32"
+              :src="userStore.user?.avatar_url || undefined"
+              :alt="`${displayName} 的头像`"
+            >
               {{ avatarText }}
             </el-avatar>
             <span class="user-name">{{ displayName }}</span>
@@ -41,6 +53,18 @@
 
     <div class="wb-body">
       <aside class="sidebar" :class="{ 'sidebar--open': mobileSidebarOpen }">
+        <div class="sidebar-mobile-header">
+          <span>导航</span>
+          <button
+            class="sidebar-close-btn"
+            type="button"
+            title="关闭导航"
+            aria-label="关闭导航"
+            @click.stop="mobileSidebarOpen = false"
+          >
+            <el-icon><Close /></el-icon>
+          </button>
+        </div>
         <div class="side-group">
           <p class="side-title">工作台</p>
           <router-link class="side-item" :class="{ 'side-item--active': route.path.startsWith('/security/projects') }" to="/security/projects">
@@ -114,7 +138,7 @@
           </span>
         </div>
       </aside>
-      <button v-if="mobileSidebarOpen" class="sidebar-backdrop" type="button" aria-label="关闭导航" @click="mobileSidebarOpen = false" />
+      <button v-if="mobileSidebarOpen" class="sidebar-backdrop" type="button" aria-label="关闭导航遮罩" @click="mobileSidebarOpen = false" />
 
       <main class="wb-main">
         <router-view />
@@ -127,7 +151,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Box, Collection, DataLine, Document, Grid, Key, List, Menu, Monitor, Odometer, Promotion, Setting, User, Warning } from '@element-plus/icons-vue'
+import { Box, Close, Collection, DataLine, Document, Grid, Key, List, Menu, Monitor, Odometer, Promotion, Setting, User, Warning } from '@element-plus/icons-vue'
 import { securityAPI } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { DocumentIcon, GithubIcon, PlusIcon } from '@/components/icons'
@@ -226,7 +250,7 @@ watch(() => route.path, () => {
 
     .brand-sub {
       font-size: 12px;
-      color: #94a3b8;
+      color: #64748b;
     }
   }
 
@@ -268,7 +292,7 @@ watch(() => route.path, () => {
       }
 
       &--disabled {
-        color: #cbd5e1;
+        color: #64748b;
         cursor: not-allowed;
       }
     }
@@ -279,6 +303,28 @@ watch(() => route.path, () => {
     align-items: center;
     gap: 10px;
     flex: 0 0 auto;
+
+    .top-actions__create {
+      --el-button-bg-color: #15803d;
+      --el-button-border-color: #15803d;
+      --el-button-hover-bg-color: #166534;
+      --el-button-hover-border-color: #166534;
+      --el-button-hover-text-color: #fff;
+      --el-button-active-bg-color: #166534;
+      --el-button-active-border-color: #166534;
+      --el-button-active-text-color: #fff;
+      --el-button-text-color: #fff;
+      background: #15803d;
+      border-color: #15803d;
+      color: #fff;
+
+      &:hover,
+      &:focus-visible {
+        background: #166534;
+        border-color: #166534;
+        color: #fff;
+      }
+    }
 
     .user-trigger {
       display: inline-flex;
@@ -332,7 +378,7 @@ watch(() => route.path, () => {
     margin: 0 0 8px;
     padding: 0 10px;
     font-size: 12px;
-    color: #94a3b8;
+    color: #52627a;
     letter-spacing: 0.08em;
   }
 
@@ -366,7 +412,7 @@ watch(() => route.path, () => {
     }
 
     &--disabled {
-      color: #cbd5e1;
+      color: #64748b;
       cursor: not-allowed;
     }
 
@@ -385,6 +431,10 @@ watch(() => route.path, () => {
       justify-content: center;
     }
   }
+}
+
+.sidebar-mobile-header {
+  display: none;
 }
 
 .sidebar-backdrop {
@@ -436,9 +486,45 @@ watch(() => route.path, () => {
     }
   }
 
+  .sidebar-mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 42px;
+    margin: -4px 0 12px;
+    padding: 0 6px 0 10px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .sidebar-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    color: #475569;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      border-color: #2563eb;
+      color: #2563eb;
+      outline: none;
+    }
+  }
+
   .sidebar-backdrop {
     position: fixed;
-    inset: 60px 0 0;
+    top: 60px;
+    right: 0;
+    bottom: 0;
+    left: min(280px, 86vw);
     z-index: 110;
     display: block;
     border: 0;

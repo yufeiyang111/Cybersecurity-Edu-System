@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { isTerminalAgentRunStatus } from '@/features/security/agent/statusMeta'
 import {
   createAgentRunState,
   hydrateAgentRunState,
@@ -22,7 +23,7 @@ export const useAgentRunStore = defineStore('agentRun', {
     statusLabel: (state) => state.run?.status || null,
     isTerminal: (state) => {
       const status = state.run?.status
-      return ['completed', 'completed_with_warnings', 'partial', 'failed', 'canceled'].includes(status)
+      return isTerminalAgentRunStatus(status)
     },
     canPause: (state) => Boolean(state.run?.can_pause),
     canResume: (state) => Boolean(state.run?.can_resume),

@@ -14,10 +14,21 @@ export const agentRunStatusMeta = {
   generating_report: { label: '生成报告', tagType: 'primary' },
   completed: { label: '已完成', tagType: 'success' },
   completed_with_warnings: { label: '完成（有警告）', tagType: 'warning' },
-  partial: { label: '部分完成', tagType: 'warning' },
+  blocked: { label: '证据不足，待补充', tagType: 'warning' },
+  cancel_requested: { label: '取消收尾中', tagType: 'warning' },
+  partial: { label: '历史部分结果', tagType: 'warning' },
   failed: { label: '失败', tagType: 'danger' },
   canceled: { label: '已取消', tagType: 'info' }
 }
+
+const terminalRunStatuses = new Set([
+  'completed',
+  'completed_with_warnings',
+  'blocked',
+  'partial',
+  'failed',
+  'canceled'
+])
 
 export const agentRunModeMeta = {
   baseline: {
@@ -57,6 +68,9 @@ export const connectionStateMeta = {
   closed: { label: '已结束', tagType: 'info' }
 }
 
+export function isTerminalAgentRunStatus(status) {
+  return terminalRunStatuses.has(status)
+}
 export function agentStatusMeta(status) {
   return agentRunStatusMeta[status] || { label: status || '-', tagType: 'info' }
 }
@@ -93,7 +107,8 @@ const TOOL_NAME_LABELS = {
   finalize_agent_report: '生成摘要',
   map_repository: '映射仓库',
   search_code: '代码搜索',
-  read_code_slice: '代码切片'
+  read_code_slice: '代码切片',
+  run_deep_review: '执行深度证据审查'
 }
 
 export function toolNameLabel(toolName) {

@@ -15,6 +15,12 @@
     <p class="run-experience__description">
       {{ experience.description }}
     </p>
+    <p
+      v-if="experience.configurationNote"
+      class="run-experience__configuration"
+    >
+      <strong>配置说明：</strong>{{ experience.configurationNote }}
+    </p>
     <p class="run-experience__evidence">
       代码位置必须来自本轮授权的代码切片；知识库资料仅作为背景参考，不构成代码证据。
     </p>
@@ -34,11 +40,19 @@ const props = defineProps({
   featureFlags: {
     type: Object,
     default: () => ({})
+  },
+  workspaceFeatureFlags: {
+    type: Object,
+    default: () => ({})
   }
 })
 
 const experience = computed(() => {
-  return resolveAgentRunExperience(props.run, props.featureFlags)
+  return resolveAgentRunExperience(
+    props.run,
+    props.featureFlags,
+    props.workspaceFeatureFlags
+  )
 })
 
 const badgeType = computed(() => {
@@ -94,9 +108,19 @@ const badgeLabel = computed(() => {
   line-height: 1.65;
 }
 
+.run-experience__configuration {
+  margin: 8px 0 0;
+  padding: 7px 9px;
+  border-left: 3px solid #93c5fd;
+  background: #eff6ff;
+  color: #365274;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .run-experience__evidence {
   margin: 8px 0 0;
-  color: #728197;
+  color: #52627a;
   font-size: 12px;
   line-height: 1.6;
 }

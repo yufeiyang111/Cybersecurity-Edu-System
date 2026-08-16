@@ -1,3 +1,5 @@
+import { normalizeRunStatistics } from './runStatistics.js'
+
 const STEP_CAP = 50
 const TOOL_CALL_CAP = 50
 const EVENT_TAIL_CAP = 100
@@ -6,6 +8,7 @@ export function createAgentRunState() {
   return {
     run: null,
     plan: null,
+    stats: null,
     steps: [],
     toolCalls: [],
     events: [],
@@ -38,6 +41,7 @@ export function hydrateAgentRunState(snapshot) {
   return {
     run: snapshot.run || null,
     plan: snapshot.plan || null,
+    stats: snapshot.stats ? normalizeRunStatistics(snapshot.stats) : null,
     steps: snapshot.steps || [],
     toolCalls: snapshot.tool_calls || [],
     events: snapshot.events || [],
@@ -80,9 +84,42 @@ function applyRunStateChange(state, event) {
   state.run = run
 }
 
+function applyIteration(state, event) {
+  if (!Number.isSafeInteger(event.iteration) || event.iteration < 1) {
+    return state
+  }
+
+  const next = { ...state }
+  if (next.run) {
+    next.run = {
+      ...next.run,
+      iteration_count: Math.max(next.run.iteration_count || 0, event.iteration)
+    }
+  }
+  if (next.stats) {
+    next.stats = {
+      ...next.stats,
+      turn_total: Math.max(next.stats.turn_total || 0, event.iteration)
+    }
+  }
+  return next
+}
+
+function incrementStatistic(state, key, amount = 1) {
+  if (!state.stats) {
+    return
+  }
+  state.stats = {
+    ...state.stats,
+    [key]: Math.max(0, (state.stats[key] || 0) + amount)
+  }
+}
+
 export function reduceAgentEvent(state, event) {
   if (!event || event.sequence == null) return state
   if (event.sequence <= state.lastSequence) return state
+
+  state = applyIteration(state, event)
 
   if (event.event_type === 'llm.reasoning_delta') {
     // 直通事件：只实时累积，不写入历史列表；刷新后由 snapshot 清空。
@@ -130,6 +167,7 @@ export function reduceAgentEvent(state, event) {
 
   switch (event.event_type) {
     case 'run.state_changed':
+    case 'run.state.changed':
       applyRunStateChange(next, event)
       break
     case 'run.paused':
@@ -137,7 +175,22 @@ export function reduceAgentEvent(state, event) {
       applyRunStateChange(next, { ...event, payload: { ...(event.payload || {}), status: event.event_type === 'run.paused' ? 'paused' : 'executing_tools' } })
       break
     case 'run.completed':
-      applyRunStateChange(next, { ...event, payload: { ...(event.payload || {}), status: 'completed' } })
+      applyRunStateChange(next, {
+        ...event,
+        payload: { ...(event.payload || {}), status: 'completed' }
+      })
+      break
+    case 'run.failed':
+      applyRunStateChange(next, {
+        ...event,
+        payload: { ...(event.payload || {}), status: 'failed' }
+      })
+      break
+    case 'run.canceled':
+      applyRunStateChange(next, {
+        ...event,
+        payload: { ...(event.payload || {}), status: 'canceled' }
+      })
       break
     case 'plan.created': {
       const payload = event.payload || {}
@@ -160,8 +213,13 @@ export function reduceAgentEvent(state, event) {
         new_nodes: payload.new_nodes || []
       }
       if (next.run) {
-        next.run = { ...next.run, plan_version: payload.plan_version ?? next.run.plan_version, replan_count: (next.run.replan_count || 0) + 1 }
+        next.run = {
+          ...next.run,
+          plan_version: payload.plan_version ?? next.run.plan_version,
+          replan_count: (next.run.replan_count || 0) + 1
+        }
       }
+      incrementStatistic(next, 'replan_total')
       break
     }
     case 'decision.recorded': {
@@ -230,17 +288,54 @@ export function reduceAgentEvent(state, event) {
         artifact_refs: payload.artifact_refs || [],
         metrics: payload.metrics || null
       }, TOOL_CALL_CAP)
-      if (event.event_type === 'tool.started' && next.run) {
-        next.run = { ...next.run, tool_call_count: (next.run.tool_call_count || 0) + 1 }
+      if (event.event_type === 'tool.started') {
+        incrementStatistic(next, 'tool_call_total')
+        if (next.run) {
+          next.run = {
+            ...next.run,
+            tool_call_count: (next.run.tool_call_count || 0) + 1
+          }
+        }
+      }
+      if (event.event_type === 'tool.completed') {
+        incrementStatistic(next, 'tool_call_succeeded')
+      }
+      if (event.event_type === 'tool.failed') {
+        incrementStatistic(next, 'tool_call_failed')
       }
       break
     }
+    case 'observation.created':
+    case 'item.observation.created': {
+      const payload = event.payload || {}
+      incrementStatistic(next, 'observation_total')
+      if (payload.status === 'unverified') {
+        incrementStatistic(next, 'observation_unverified')
+      }
+      break
+    }
+    case 'approval.requested':
+    case 'item.approval.requested':
+      incrementStatistic(next, 'approval_pending')
+      break
+    case 'approval.resolved':
+    case 'item.approval.resolved':
+      incrementStatistic(next, 'approval_pending', -1)
+      break
     case 'warning.raised': {
       const payload = event.payload || {}
       if (Array.isArray(payload.warning_codes)) {
         const run = { ...(next.run || {}) }
-        run.warning_codes = [...new Set([...(run.warning_codes || []), ...payload.warning_codes])]
+        run.warning_codes = [
+          ...new Set([...(run.warning_codes || []), ...payload.warning_codes])
+        ]
         next.run = run
+        if (next.stats) {
+          next.stats = {
+            ...next.stats,
+            warning_total: Math.max(next.stats.warning_total || 0, run.warning_codes.length)
+          }
+        }
       }
       break
     }

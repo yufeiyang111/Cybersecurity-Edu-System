@@ -99,7 +99,7 @@ function formatTime(value) {
 }
 
 .decision-card__empty {
-  color: #8494a8;
+  color: #52627a;
   font-size: 12.5px;
 }
 
@@ -142,7 +142,7 @@ function formatTime(value) {
   margin: 4px 0 0;
   font-size: 12px;
   line-height: 1.5;
-  color: #6a7890;
+  color: #52627a;
 }
 
 .decision-item__nodes {
@@ -155,6 +155,6 @@ function formatTime(value) {
   display: block;
   margin-top: 4px;
   font-size: 11.5px;
-  color: #a0aaba;
+  color: #64748b;
 }
 </style>

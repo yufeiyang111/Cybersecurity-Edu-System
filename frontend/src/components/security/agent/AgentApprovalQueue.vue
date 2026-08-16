@@ -155,7 +155,7 @@ function formatTime(value) {
 }
 
 .approval-card__empty {
-  color: #8494a8;
+  color: #52627a;
   font-size: 12.5px;
 }
 
@@ -203,7 +203,7 @@ function formatTime(value) {
 .approval-item__goal {
   margin: 4px 0 0;
   font-size: 12px;
-  color: #6a7890;
+  color: #52627a;
 }
 
 .approval-item__actions {
@@ -221,13 +221,13 @@ function formatTime(value) {
 .approval-item__decision {
   margin: 6px 0 0;
   font-size: 12px;
-  color: #6a7890;
+  color: #52627a;
 }
 
 .approval-item__expires {
   display: block;
   margin-top: 4px;
   font-size: 11.5px;
-  color: #a0aaba;
+  color: #64748b;
 }
 </style>

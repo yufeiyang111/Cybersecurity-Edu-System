@@ -42,7 +42,8 @@ export function useAgentRun() {
           event_type: frame.event,
           payload: frame.data?.payload || {},
           state_version: frame.data?.state_version ?? null,
-          occurred_at: frame.data?.occurred_at || null
+          occurred_at: frame.data?.occurred_at || null,
+          iteration: frame.data?.iteration ?? 0
         })
       })
       return true

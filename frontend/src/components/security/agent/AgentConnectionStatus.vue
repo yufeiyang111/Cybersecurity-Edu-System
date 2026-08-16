@@ -26,14 +26,26 @@ const meta = computed(() => connectionStateMetaOf(props.connectionState))
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #fff;
+  flex-wrap: wrap;
+  padding: 8px 14px;
   border: 1px solid #e2e7ee;
   border-radius: 8px;
-  padding: 8px 14px;
+  background: #fff;
+  color: #52627a;
   font-size: 12.5px;
-  color: #6a7890;
-  flex-wrap: wrap;
 }
-.connection-bar__meta { font-variant-numeric: tabular-nums; }
-.connection-bar__reasoning { color: #0b7fd1; }
+
+.connection-bar :deep(.el-tag--info) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #52627a;
+}
+
+.connection-bar__meta {
+  font-variant-numeric: tabular-nums;
+}
+
+.connection-bar__reasoning {
+  color: #0b7fd1;
+}
 </style>

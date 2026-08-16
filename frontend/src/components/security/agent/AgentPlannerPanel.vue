@@ -64,6 +64,12 @@
         </div>
       </div>
 
+      <p
+        v-if="technicalNodeCount"
+        class="planner-card__runtime-hint"
+      >
+        已收纳 {{ technicalNodeCount }} 个运行时节点到“更多数据”，避免干扰审计计划阅读。
+      </p>
       <div v-if="plan.completion_criteria?.length" class="planner-card__block">
         <span class="planner-card__label">完成条件</span>
         <ul class="planner-card__list">
@@ -81,6 +87,7 @@
 <script setup>
 import { computed } from 'vue'
 import { plannerSourceLabel, toolNameLabel } from '@/features/security/agent/statusMeta'
+import { presentPlanNodes } from '@/features/security/agent/planPresentation'
 
 const props = defineProps({
   plan: { type: Object, default: null },
@@ -101,15 +108,22 @@ const nodeTitles = {
   report: '运行摘要'
 }
 
+const nodePresentation = computed(() => {
+  return presentPlanNodes(props.plan?.nodes)
+})
+
 const nodeItems = computed(() => {
-  const nodes = props.plan?.nodes || []
-  return nodes.map((node) => ({
+  return nodePresentation.value.nodes.map((node) => ({
     node_key: node.node_key,
     title: nodeTitles[node.node_key] || node.title || node.node_key,
     toolName: node.tool_name ? toolNameLabel(node.tool_name) : '',
     status: node.status,
     statusLabel: nodeStatusLabel(node.status)
   }))
+})
+
+const technicalNodeCount = computed(() => {
+  return nodePresentation.value.technicalNodeCount
 })
 
 function nodeStatusLabel(status) {
@@ -162,16 +176,16 @@ function nodeStatusLabel(status) {
 
 .planner-badge--warning {
   background: #fef3c7;
-  color: #b45309;
+  color: #92400e;
 }
 
 .planner-badge--info {
   background: #eef2f7;
-  color: #6a7890;
+  color: #52627a;
 }
 
 .planner-card__empty {
-  color: #8494a8;
+  color: #52627a;
   font-size: 12.5px;
 }
 
@@ -260,13 +274,13 @@ function nodeStatusLabel(status) {
 
 .plan-node__tool {
   font-size: 11.5px;
-  color: #8494a8;
+  color: #52627a;
   flex: none;
 }
 
 .plan-node__status {
   font-size: 11.5px;
-  color: #6a7890;
+  color: #52627a;
   flex: none;
 }
 
@@ -283,6 +297,12 @@ function nodeStatusLabel(status) {
   color: #2563eb;
 }
 
+.planner-card__runtime-hint {
+  margin: 0 0 10px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.55;
+}
 .planner-card__block {
   margin-bottom: 8px;
 }
@@ -290,7 +310,7 @@ function nodeStatusLabel(status) {
 .planner-card__label {
   font-size: 12px;
   font-weight: 600;
-  color: #6a7890;
+  color: #52627a;
 }
 
 .planner-card__list {

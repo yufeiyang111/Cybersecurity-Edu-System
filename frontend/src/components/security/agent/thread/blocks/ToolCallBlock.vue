@@ -54,9 +54,12 @@
           {{ summary }}
         </div>
       </div>
-      <div v-if="tool.error_code" class="tbx-section">
-        <span class="tbx-section__label">错误</span>
-        <div class="tbx-section__value tbx-section__value--error">{{ tool.error_code }}</div>
+      <div v-if="errorPresentation" class="tbx-section">
+        <span class="tbx-section__label">执行提示</span>
+        <div class="tbx-section__value tbx-section__value--error">
+          <strong>{{ errorPresentation.title }}</strong>
+          <p>{{ errorPresentation.detail }}</p>
+        </div>
       </div>
       <div v-if="metricsText" class="tbx-section">
         <span class="tbx-section__label">指标</span>
@@ -73,6 +76,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { toolNameLabel } from '@/features/security/agent/statusMeta'
+import { presentAgentWarnings } from '@/features/security/agent/warningPresentation'
 
 const props = defineProps({
   tool: { type: Object, required: true }
@@ -113,6 +117,10 @@ const summary = computed(() => {
   } catch (e) {
     return String(raw)
   }
+})
+
+const errorPresentation = computed(() => {
+  return presentAgentWarnings([props.tool.error_code])[0] || null
 })
 
 const metricsText = computed(() => {

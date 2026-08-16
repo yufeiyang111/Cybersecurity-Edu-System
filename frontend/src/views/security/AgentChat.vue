@@ -1,5 +1,8 @@
 <template>
-  <div class="agent-chat-page">
+    <div
+    class="agent-chat-page"
+    :class="{ 'agent-chat-page--terminal': store.isTerminal }"
+  >
     <header class="ac-head">
       <el-button
         text
@@ -118,7 +121,8 @@
         <AgentRunExperienceNotice
           v-if="store.run"
           :run="store.run"
-          :feature-flags="store.featureFlags"
+          :feature-flags="executionFeatureFlags"
+          :workspace-feature-flags="workspaceFeatureFlags"
         />
         <div ref="threadRef" class="ac-thread">
           <div v-if="loading && !store.run && !conversationMeta" class="ac-skeleton">
@@ -138,7 +142,7 @@
               </button>
             </div>
             <LegacyThreadView
-              v-if="!store.featureFlags.timeline_v2"
+              v-if="!executionFeatureFlags.timeline_v2"
               :messages="store.messages"
               :steps="store.steps"
               :llm-analysis="store.llmAnalysis || ''"
@@ -186,8 +190,7 @@
         <AgentProgressCard
           :plan="store.plan"
           :run="store.run"
-          :steps="store.steps"
-          :tool-calls="store.toolCalls"
+          :stats="store.stats"
           :loading="loading"
         />
         <AgentDecisionTimeline
@@ -202,7 +205,7 @@
         />
         <AgentProviderSelector :workspace-id="store.run?.workspace_id || null" />
         <BasePanel
-          v-if="store.featureFlags.timeline_v2"
+          v-if="executionFeatureFlags.timeline_v2"
           title="统一时间线"
           subtitle="按事件 sequence 顺序（v2）"
           class="ac-timeline-panel"
@@ -537,8 +540,20 @@ const conversationId = computed(() => Number(route.params.conversationId))
 const mode = computed(() => (conversationId.value ? 'conversation' : 'run'))
 
 const statusMeta = computed(() => agentStatusMeta(store.run?.status))
+const executionFeatureFlags = computed(() => {
+  return store.run?.execution_feature_flags || store.featureFlags
+})
+
+const workspaceFeatureFlags = computed(() => {
+  return store.run?.workspace_feature_flags || {}
+})
+
 const runExperience = computed(() => {
-  return resolveAgentRunExperience(store.run, store.featureFlags)
+  return resolveAgentRunExperience(
+    store.run,
+    executionFeatureFlags.value,
+    workspaceFeatureFlags.value
+  )
 })
 const composerDisabled = computed(() => {
   return (
@@ -875,6 +890,43 @@ onMounted(() => {
   background: var(--chat-canvas);
   color: var(--chat-ink);
   font-family: var(--chat-font-family);
+}
+
+.agent-chat-page--terminal {
+  height: auto;
+  min-height: calc(100vh - 60px);
+  overflow: visible;
+}
+
+.agent-chat-page--terminal .ac-layout {
+  flex: 0 0 auto;
+  min-height: calc(100vh - 60px);
+  overflow: visible;
+  align-items: start;
+}
+
+.agent-chat-page--terminal .ac-main,
+.agent-chat-page--terminal .ac-thread,
+.agent-chat-page--terminal .ac-side {
+  min-height: auto;
+  overflow: visible;
+}
+
+.agent-chat-page--terminal .ac-thread {
+  flex: 0 0 auto;
+}
+
+.agent-chat-page--terminal .ac-side {
+  align-self: start;
+}
+/* 在 Agent 工作台内统一修正 Element Plus 警告标签的文字对比度。 */
+.agent-chat-page :deep(.el-tag--warning) {
+  --el-tag-bg-color: #fef3c7;
+  --el-tag-border-color: #fcd34d;
+  --el-tag-text-color: #92400e;
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
 }
 
 .ac-head {
