@@ -1126,3 +1126,82 @@ git status --short --branch
 - 后端 focused：`venv\Scripts\python.exe -m pytest tests\test_agent_deep_review.py tests\test_agent_message_replan_api.py tests\test_agent_loop_vertical_slice.py tests\test_agent_feature_flags.py tests\test_agent_conversations.py tests\test_agent_observations_api.py -q`，`66 passed`。
 - 前端：`npm --prefix frontend run test:agent`，`49 passed`；`npm --prefix frontend run build` 通过（仅既有 Sass legacy API 与 chunk 体积告警）。
 - 全量后端：`venv\Scripts\python.exe -m pytest tests -q`，`1309 passed, 1 skipped`；浏览器 DevTools 当前被已有 Chrome profile 锁占用，未通过杀进程绕过。
+---
+
+## T15 证据驱动 Harness V3：Plan-and-Execute、ReAct、Reflection 与审计技能（2026-08-16）
+
+> **前置：** 用户已确认保留 `baseline` 确定性工作流，仅升级 `hybrid` / `deep_audit`。
+> 本任务以 `spec.md` 第 25 节为唯一设计基线；不得用展示更多 reasoning 或 Prompt 堆砌
+> 代替真实代码取证。
+
+### T15.0 设计冻结与诊断基线
+
+- [x] 记录真实深度审计的脱敏诊断基线：存在多工具调用但无代码证据位置、Deep Review
+  次数有限且预算耗尽的现象。
+- [x] 明确选择有界 Plan-and-Execute + ReAct + Reflection；拒绝完整原始 CoT 和 ToT。
+- [x] 在 `spec.md`、`tasks.md`、`checklist.md` 同步记录范围、非目标、接口、预算、测试与
+  Feature Flag 策略。
+- [ ] 用户审阅并确认第 25 节书面设计后，才开始 T15.1 代码实施。
+
+### T15.1 审计技能与漏洞假设数据契约
+
+**目标：** 建立 `AuditSkillCatalog`、`HypothesisPlanner` 的深模块接口和可持久化假设。
+
+- [ ] 新增受版本控制的四个初始技能定义，禁止模型/用户动态注册工具或任意 Prompt Skill。
+- [ ] 新增 `AgentAuditHypothesis`、`AgentAuditHypothesisVerdict` 模型、加性迁移和
+  `database/init.sql` 同步。
+- [ ] 设计并测试 `HypothesisValidator`：拒绝未注册技能、无证据条件、超限候选、越权路径。
+- [ ] 新增 V3 Feature Flag 常量、工作区覆盖、Run 快照和历史 Run 兼容读取。
+- [ ] 同步 `backend/.env.example` 与本机 `backend/.env` 的非秘密开关和值；不得读取或提交
+  `.env` 既有内容。
+
+### T15.2 目标化 Context 与预算预留
+
+**目标：** 让 Deep Review 围绕攻击路径和证据条件读取最小充分代码，而不是泛化 focus。
+
+- [ ] 扩展 `run_deep_review` 受验证输入：`hypothesis_id`、`skill_key`、
+  `required_evidence`、授权 CodeSliceEvidence 引用。
+- [ ] 提取目标化 Context Builder Adapter，优先 source、sink、guard、调用者与扫描 Finding。
+- [ ] 实现 Deep Review token/context 预算预留；显式预算不得被静默覆盖。
+- [ ] 覆盖 Context 截断、无授权位置、证据窗口不足、预算耗尽和安全对照夹具。
+
+### T15.3 Plan-and-Execute 与有界 ReAct
+
+**目标：** Hybrid/Deep 在 V3 灰度开启后生成少量可验证假设，并以工具观察推进。
+
+- [ ] 实现 `HypothesisPlanner.build(...)` 严格 JSON / 规则降级 / 来源标记。
+- [ ] 实现 `HypothesisExecutionOrchestrator.advance(...)`，复用现有 Tool Registry、
+  Tool Executor、Event Writer、状态机与 Control Input。
+- [ ] 每条假设最多一次主审查和一次补证据行动；重复工具和无进展必须收口。
+- [ ] 为 baseline、V2、V3 三种路径补充不互相污染的回归测试。
+
+### T15.4 Evidence Critic / Reflection
+
+**目标：** 引入独立、受限、可审计的证据反思，不使用原始 CoT。
+
+- [ ] 实现 `EvidenceCritic.evaluate(...)` 和严格 Verdict 解析/验证。
+- [ ] 只允许 `confirm_candidate`、`request_evidence`、`reject_hypothesis`、
+  `needs_more_evidence`、`stop_for_budget` 五种结果。
+- [ ] 缺少代码位置或技能关键证据时强制降级，不得产生 confirmed / unverified 漏洞结论。
+- [ ] 输出受控 Reasoning Summary、Decision Summary 与事件；禁止原始 reasoning、Prompt、
+  源码全文、Token 或凭据泄露。
+
+### T15.5 API、前端与可观测性
+
+**目标：** 可读地呈现攻击路径验证事实，而不把内部 loop 或原始 thought 当作产品能力。
+
+- [ ] 新增带 workspace 鉴权、服务端分页的假设列表/详情只读接口；内部状态变化保留审计。
+- [ ] 新增“攻击路径验证”前端模块：技能、假设、证据、缺口、Critic 决策、预算与终态。
+- [ ] 完整处理 loading、empty、error、blocked、budget exhausted、历史 Run 和 V3 关闭状态。
+- [ ] 前端满足桌面/平板/手机断点、键盘可达、对比度和与现有 QA/安全工作台一致的样式。
+- [ ] 新增脱敏聚合指标：每技能候选数、代码证据覆盖、证据不足率、预算耗尽率、每候选成本。
+
+### T15.6 评测、真实验收与灰度
+
+- [ ] 新建漏洞/安全对照测试夹具和 Provider Fake 回归矩阵，不连接真实外部 API。
+- [ ] 运行受影响 focused tests、后端全量 pytest、前端 Node 测试、前端 build 与 diff check。
+- [ ] 经用户授权在本地测试 Workspace 发起真实 Hybrid / Deep V3 Run，记录脱敏指标和浏览器
+  证据；不创建无关任务，不输出源码、Prompt、日志或凭据。
+- [ ] 对 V3 开关执行开启、关闭、历史 Run 可读和回滚演练；更新 checklist 最终证据表。
+- [ ] 每个独立阶段先检查 `git status` / `git diff`，只提交本阶段文件，中文 commit；不推送
+  除非用户明确要求。

@@ -1387,3 +1387,189 @@ reasoning 展示采用 Codex 式策略（v1.1）：展示模型真实输出的�
 5. 前端依据 `resolveAgentRunExperience` 呈现实际能力；基础工作流不显示运行中追问或自主 Agent 承诺，只有 V2 Loop 的 hybrid/deep_audit 显示模型在环语义。
 
 本期仍未完成真实浏览器人工验收（T14-09）。DevTools 当前报告 Chrome profile 被现有浏览器锁占用；为避免中断用户浏览器，本期未通过杀进程或重置 profile 绕过该限制。
+---
+
+## 25. 基于证据的漏洞审计 Harness V3（2026-08-16）
+
+> **状态：设计已获用户口头确认，待用户审阅本节后按 T15 分阶段实现。**
+>
+> 本节纠正“有工具调用和时间线就等于漏洞发现 Agent”的误解。V3 的目标不是
+> 增加更多展示事件，而是让 `hybrid` / `deep_audit` 能围绕受限代码证据提出、验证、
+> 证伪和收敛漏洞假设。
+
+### 25.1 诊断基线与问题定义
+
+对真实历史深度审计运行的脱敏统计显示：一次 `deep_audit` 虽进行了多轮工具调用，
+但实际 Deep Review 次数很少；模型输出均为 `needs_more_evidence` / `low`，没有
+代码证据位置，同时总 token 超过该 Run 的预算。这说明当前实现的主要瓶颈不是
+“没有模型”，而是：
+
+1. 初始计划可以由 `rule_based_policy` 生成，工具执行偏向扫描结果汇总；
+2. 深度审查没有稳定地绑定“漏洞假设 → source/sink/guard → 代码位置”的验证任务；
+3. 代码 Context 与 token 预算未为 Deep Review 和证据反思预留额度；
+4. 当前 `EvidenceEvaluator` / `Replanner` 是规则式收口，缺少独立的证据 Critic；
+5. 已有 V2 Loop 可以完成工具调用与结果回填，但没有把这一能力收敛成可测的漏洞
+   审计范式。
+
+本节不以任何历史 Run 的标题、源码、Prompt、Provider 原始响应或用户数据作为
+设计输入或持久化对象。
+
+### 25.2 范式选择
+
+比较三种方案：
+
+| 方案 | 优点 | 缺点 | 决策 |
+|---|---|---|---|
+| 只强化 Prompt / 直接展示 CoT | 改动少 | 不能保证工具取证，容易制造“会思考”的错觉，也违反原始思维链治理边界 | 拒绝 |
+| 全量 Tree-of-Thought（多分支搜索） | 可探索多个攻击假设 | 成本、延迟和伪分支显著增加；不能替代真实代码证据 | 拒绝 |
+| **有界 Plan-and-Execute + ReAct + Reflection** | 计划、工具取证、反证与终态可审计；可限预算、可测试、可灰度 | 需要新增明确模块和评测夹具 | **采用** |
+
+V3 的分层职责如下：
+
+```text
+确定性扫描与风险信号
+        ↓
+Plan-and-Execute：选择有限技能与攻击路径假设
+        ↓
+ReAct：假设 → 受限工具行动 → 观察 → 下一行动
+        ↓
+Reflection：检查证据缺口、反证和下一步价值
+        ↓
+确认 / 证据不足 / 受限重规划 / 终止
+```
+
+`baseline` 保持现有确定性基础审计工作流；只有 `hybrid` 和 `deep_audit` 在
+`AGENT_HARNESS_V3_ENABLED` 灰度开启后进入 V3 路径。该选择避免把低成本基础扫描
+伪装成自主 Agent，并保留明确回滚路径。
+
+### 25.3 推理边界：不用原始 CoT，不实现 ToT
+
+1. V3 不请求、持久化、SSE 透传或展示完整原始 Chain-of-Thought。
+2. 每轮只生成受控 `ReasoningSummary`，字段限定为：
+   `hypothesis_id`、`action_reason`、`evidence_gap`、`next_step`、`sensitive_level`。
+3. `ReasoningSummary` 不得包含完整源码、Prompt、Authorization、Cookie、Provider
+   原始 reasoning 或未脱敏用户输入；继续复用既有脱敏、限长和回放契约。
+4. 不实现 Tree-of-Thought。多个候选漏洞路径由受限 `HypothesisQueue` 表示，最多
+   保留少量、可解释、基于风险信号的候选项；它不是自由生成的思维树。
+5. Reflection 不是自言自语：其输出只能是结构化证据判定、缺口和下一工具动作，且
+   必须可被代码规则校验。
+
+### 25.4 深模块与接口
+
+V3 必须以少量深模块实现，避免把新逻辑继续堆入 `loop/engine.py`、`planner.py` 或
+`review_tools.py`。
+
+#### A. `AuditSkillCatalog` 模块
+
+**Seam：** `select(snapshot_summary, evidence_summary, run_mode) -> tuple[AuditSkill, ...]`
+
+- 内部维护受版本控制的技能定义，不接受模型、用户或 RAG 文档动态注册工具。
+- 初期内置四类技能：`injection_dataflow`、`authorization_boundary`、
+  `untrusted_file_network`、`unsafe_execution_deserialization`。
+- 每项技能定义触发信号、适用语言/框架、推荐工具序列、所需代码证据、证伪条件、
+  CWE 标签和最大尝试次数。
+- 调用方只需要知道选择后的技能列表；风险模式匹配、优先级和安全限制隐藏在模块内。
+
+#### B. `HypothesisPlanner` 模块
+
+**Seam：** `build(run, skills, evidence_summary) -> HypothesisBatch`
+
+- 生成最多 3 条攻击路径假设，每条必须绑定一个 `skill_key`、明确目标、所需 source、
+  sink、guard 或调用链证据，以及优先级理由。
+- 模型输出采用严格 JSON；`HypothesisValidator` 拒绝未注册技能、无验证条件、超预算、
+  越权路径或不支持工具。
+- 规则计划器仅作为 Provider 不可用时的降级；降级必须明确标记，不能将其宣传为模型规划。
+
+#### C. `HypothesisExecutionOrchestrator` 模块
+
+**Seam：** `advance(run, hypothesis, budget) -> HypothesisProgress`
+
+- 将一条假设推进一个有界 ReAct 回合：读取受限 Context、调用工具、记录 Tool Result、
+  更新已满足/缺失的证据条件。
+- `run_deep_review` 新增 `hypothesis_id`、`skill_key`、`required_evidence` 等受验证参数；
+  工具不能再只接收自由文本 focus 后自行猜测漏洞类型。
+- 每条假设最多一次主审查和一次补证据行动；所有位置继续必须属于授权的
+  `CodeSliceEvidence`，不得扩大到任意源码。
+
+#### D. `EvidenceCritic` 模块
+
+**Seam：** `evaluate(hypothesis, progress, evidence_pack) -> CriticVerdict`
+
+- 独立于 Planner 和 Deep Review Prompt，输入为结构化工具摘要、代码位置引用、
+  已满足/未满足证据条件和预算余量。
+- 只能返回：`confirm_candidate`、`request_evidence`、`reject_hypothesis`、
+  `needs_more_evidence`、`stop_for_budget`。
+- `confirm_candidate` 至少要求可验证代码证据位置和技能定义规定的关键证据；否则必须
+  降为 `needs_more_evidence` 或 `reject_hypothesis`。
+- 每条假设最多一次 Reflection；只有证据缺口可由一项已注册工具明确补齐时，才允许一次
+  补证据行动，禁止无限反思或无限重规划。
+
+#### E. `HarnessV3Coordinator` 模块
+
+**Seam：** `run_hybrid_or_deep(run_id, trace_id) -> RunOutcome`
+
+- 协调 Skill 选择、假设规划、ReAct、Reflection、状态机和最终报告。
+- 负责预算预留、事件写入、兼容旧 Run、Feature Flag 与失败降级；调用方仍只从
+  `runner.py` 进入，不感知内部阶段。
+- `AgentLoopEngine` 保留通用 Tool Calling / Control Input / Pause / Cancel 能力；
+  V3 Coordinator 作为其领域编排 Adapter，而不是复制第二套 Loop。
+
+### 25.5 持久化、事件与前端
+
+新增加性持久化模型，所有历史 Run 保持可读：
+
+- `agent_audit_hypotheses`：Run、技能、优先级、状态、结构化证据要求、已满足证据、
+  缺口、反思次数、关联 Item/Tool Call 标识和审计时间；
+- `agent_audit_hypothesis_verdicts`：一次 Critic Verdict 的受控结构化结果、理由摘要、
+  触发的后续动作和版本；不得保存原始 CoT 或完整源码；
+- `agent_runs` 不修改既有历史语义；V3 只通过已有 `feature_flags_snapshot_json` 新增
+  `harness_v3` 快照键。
+
+前端新增只读“攻击路径验证”展示：技能、假设、已验证证据、待补证据、Critic 决策和
+终态。内部 `loop_*` 事件继续折叠，不把原始模型 thought 当作证据。系统生成的审计
+假设不是用户可任意创建或硬删除的业务对象；为保护审计事实，用户只能读取并通过现有
+暂停、取消或审批流程中断 Run，内部状态变更全部留审计记录。
+
+### 25.6 Context 与预算策略
+
+1. V3 不静默覆盖用户显式预算；只有未传预算的 `deep_audit` 使用新的安全默认预算。
+2. 在没有显式预算时，Deep Audit 的默认总 token 预算提高到 16,000；其中至少保留
+   6,000 token 给 Deep Review 与 Critic，不允许计划/摘要阶段提前耗尽。
+3. 深度审查代码 Context 默认提高到 12,000 字符，最大不超过既有 20,000 硬上限；
+   仍优先围绕 Finding、入口、sink、调用者和净化/鉴权分支构建切片。
+4. 每次 Run 最多 3 条假设、每条最多 1 次 Reflection、最多 1 次补证据行动；达到预算
+   或次数上限必须以可解释 warning / `blocked` / `completed_with_warnings` 收口。
+5. 新配置项必须同步写入 `backend/.env.example` 与本机 `backend/.env`，但不得读取、
+   输出或提交 `.env` 既有秘密。
+
+建议配置项：
+
+```text
+AGENT_HARNESS_V3_ENABLED=false
+AGENT_HARNESS_V3_MAX_HYPOTHESES=3
+AGENT_HARNESS_V3_MAX_REFLECTIONS_PER_HYPOTHESIS=1
+AGENT_HARNESS_V3_DEEP_REVIEW_TOKEN_RESERVE=6000
+AGENT_HARNESS_V3_DEEP_REVIEW_CONTEXT_CHARS=12000
+```
+
+### 25.7 验证与发布门禁
+
+1. 新建已知漏洞与安全对照夹具：SQL 注入、越权、SSRF/路径穿越、不安全执行/反序列化。
+2. Fake Provider 测试必须覆盖：规划 → 工具 → 观察 → Critic → 补证据 → 终态，及所有
+   越权、无位置、无注册技能、预算耗尽和重复工具调用负例。
+3. 每个 confirmed candidate 必须有受授权代码位置和满足技能证据要求；没有位置的模型
+   输出只能是 `needs_more_evidence`，不得计为漏洞发现。
+4. 真实 Provider 验收使用固定脱敏夹具，记录候选漏洞召回、代码证据覆盖、误报和预算；
+   只读本地测试数据，不输出源码、Prompt 或凭据。
+5. Feature Flag 仅对测试 Workspace 灰度；关闭 `harness_v3` 必须回到当前 V2 / V1 行为，
+   历史 V3 Run、事件和假设均可读。
+
+### 25.8 Definition of Done
+
+只有同时满足以下条件，才允许称 Hybrid/Deep 为“证据驱动的安全审计 Agent”：
+
+- 真实 V3 Run 能形成至少一个有代码位置的攻击路径验证或明确的证据不足结论；
+- 一条 Deep Review 不再以自由文本 focus 为唯一输入，而是绑定可审计假设与技能；
+- Reflection 不输出原始 CoT，且不能绕过代码证据验证；
+- 已知漏洞/安全对照夹具、后端测试、前端测试、构建、真实浏览器和灰度回滚全部通过；
+- 报告中明确区分确定性扫描结果、模型候选、已验证证据和未证实风险。

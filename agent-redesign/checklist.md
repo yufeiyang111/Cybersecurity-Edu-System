@@ -521,3 +521,30 @@ git diff --check
 - [x] **T14-07** Context Pack 预算使用真实字符数，finding 驱动切片覆盖 finding 行附近代码。
 - [x] **T14-08** focused 后端、前端 Node、生产构建和 diff check 全部通过。
 - [ ] **T14-09** 完成真实浏览器验收，未创建无关扫描任务，记录 V1/V2 展示与错误语义（DevTools Chrome profile 锁占用，未绕过或终止用户浏览器）。
+---
+
+## W. 证据驱动 Harness V3 验收清单（2026-08-16）
+
+- [x] **W-01** 已记录真实运行诊断基线；未在文档、事件或界面中写入源码、Prompt、Provider
+  原始响应或凭据。
+- [x] **W-02** 已选择 Plan-and-Execute + ReAct + Reflection；明确不实现完整原始 CoT 与 ToT。
+- [x] **W-03** baseline 保持确定性工作流，V3 仅作用于 hybrid/deep_audit 且受 Run 快照灰度控制。
+- [ ] **W-04 BLOCKER** `AuditSkillCatalog` 是受版本控制的深模块；模型和用户不能动态注册工具、
+  技能或越过 Tool Registry。
+- [ ] **W-05 BLOCKER** 每条审计假设都绑定 skill、目标、证据条件、授权代码范围和可审计状态。
+- [ ] **W-06 BLOCKER** Deep Review 不能只接受自由文本 focus；其输入必须通过 hypothesis /
+  required evidence / CodeSliceEvidence 校验。
+- [ ] **W-07 BLOCKER** ReAct 工具观察能够推进假设；重复、无进展、预算耗尽和无授权位置安全收口。
+- [ ] **W-08 BLOCKER** Evidence Critic 独立于 Planner；无代码位置或关键证据时不得确认漏洞。
+- [ ] **W-09** Reasoning Summary 只含受控假设、行动理由、证据缺口和下一步；完整原始 CoT 不落库、
+  不进 SSE、不进 API、不进日志。
+- [ ] **W-10** 深度审查保留 token/context 预算，用户显式预算不被静默覆盖；预算耗尽文案可解释。
+- [ ] **W-11** 假设/判定持久化、加性迁移、初始化 SQL、历史 Run 兼容和 Feature Flag 回滚全部验证。
+- [ ] **W-12** 假设列表与详情接口有 workspace 鉴权、服务端分页和安全序列化；不泄露源码、Prompt、
+  Token、Cookie 或 Provider 原始输出。
+- [ ] **W-13** 前端攻击路径验证视图覆盖 loading、empty、error、blocked、历史 Run 和移动端。
+- [ ] **W-14** 已知漏洞与安全对照夹具覆盖 SQL 注入、越权、SSRF/路径穿越、不安全执行/反序列化，
+  且每个 confirmed candidate 有代码证据位置。
+- [ ] **W-15** focused/backend 全量/前端 Node/build/diff check 全通过；真实 Provider 与浏览器验收
+  仅在用户授权的测试 Workspace 完成，并记录脱敏结果。
+- [ ] **W-16** V3 开关灰度启用、关闭与回滚后，baseline、V2、历史 V3 Run 均保持语义正确可读。
