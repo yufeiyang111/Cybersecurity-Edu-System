@@ -534,7 +534,7 @@ git diff --check
 - [x] **W-02** 已选择 Plan-and-Execute + ReAct + Reflection；不实现隐藏 CoT 与 ToT，
   仅允许 Provider 明确返回的原始 reasoning 在任务发起人的活动连接中实时展示。
 - [x] **W-03** baseline 保持确定性工作流，V3 仅作用于 hybrid/deep_audit 且受 Run 快照灰度控制。
-- [ ] **W-04 BLOCKER** `AuditSkillCatalog` 是受版本控制的深模块；模型和用户不能动态注册工具、
+- [x] **W-04 BLOCKER** `AuditSkillCatalog` 是受版本控制的深模块；模型和用户不能动态注册工具、
   技能或越过 Tool Registry。
 - [ ] **W-05 BLOCKER** 每条审计假设都绑定 skill、目标、证据条件、授权代码范围和可审计状态。
 - [ ] **W-06 BLOCKER** Deep Review 不能只接受自由文本 focus；其输入必须通过 hypothesis /

@@ -47,6 +47,8 @@ def test_global_flags_default_off(app):
             "loop_v2": False,
             "event_schema_v2": False,
             "timeline_v2": False,
+            "harness_v3": False,
+            "provider_raw_reasoning_stream": False,
         }
 
 
@@ -78,6 +80,8 @@ def test_workspace_can_downgrade_enabled_flag(app):
             "loop_v2": True,
             "event_schema_v2": True,
             "timeline_v2": True,
+            "harness_v3": False,
+            "provider_raw_reasoning_stream": False,
         }
 
 
@@ -102,7 +106,11 @@ def test_run_snapshot_stays_stable_after_workspace_flag_changes(app):
         }
         db.session.flush()
 
-        assert AgentFeatureFlags().for_run(run).as_dict() == snapshot
+        assert AgentFeatureFlags().for_run(run).as_dict() == {
+            **snapshot,
+            "harness_v3": False,
+            "provider_raw_reasoning_stream": False,
+        }
 
 
 def test_legacy_run_falls_back_to_current_workspace_flags_without_snapshot(app):
@@ -122,6 +130,8 @@ def test_legacy_run_falls_back_to_current_workspace_flags_without_snapshot(app):
             "loop_v2": False,
             "event_schema_v2": False,
             "timeline_v2": False,
+            "harness_v3": False,
+            "provider_raw_reasoning_stream": False,
         }
 
 
@@ -159,11 +169,15 @@ def test_run_payload_recovers_legacy_v2_execution_from_recorded_events(app):
             "loop_v2": True,
             "event_schema_v2": True,
             "timeline_v2": True,
+            "harness_v3": False,
+            "provider_raw_reasoning_stream": False,
         }
         assert payload["workspace_feature_flags"] == {
             "loop_v2": False,
             "event_schema_v2": False,
             "timeline_v2": False,
+            "harness_v3": False,
+            "provider_raw_reasoning_stream": False,
         }
         assert payload["run"]["execution_feature_flag_source"] == "legacy_observed"
 
@@ -253,12 +267,21 @@ def test_workspace_flag_endpoint_owner_can_enable_and_downgrade(agent_api_app):
     response = client.patch(
         f"/api/security/workspaces/{workspace_id}/agent-feature-flags",
         headers=headers,
-        json={"overrides": {"loop_v2": True, "timeline_v2": True}},
+        json={
+            "overrides": {
+                "loop_v2": True,
+                "timeline_v2": True,
+                "harness_v3": True,
+                "provider_raw_reasoning_stream": True,
+            }
+        },
     )
     assert response.status_code == 200, "owner 可授权开启灰度 flag"
     body = response.get_json()
     assert body["resolved"]["loop_v2"] is True
     assert body["resolved"]["timeline_v2"] is True
+    assert body["resolved"]["harness_v3"] is True
+    assert body["resolved"]["provider_raw_reasoning_stream"] is True
 
     response = client.patch(
         f"/api/security/workspaces/{workspace_id}/agent-feature-flags",
@@ -277,7 +300,14 @@ def test_workspace_flag_endpoint_owner_can_enable_and_downgrade(agent_api_app):
     response = client.patch(
         f"/api/security/workspaces/{workspace_id}/agent-feature-flags",
         headers=headers,
-        json={"overrides": {"loop_v2": False, "timeline_v2": False}},
+        json={
+            "overrides": {
+                "loop_v2": False,
+                "timeline_v2": False,
+                "harness_v3": False,
+                "provider_raw_reasoning_stream": False,
+            }
+        },
     )
     assert response.status_code == 200
     assert response.get_json()["resolved"]["loop_v2"] is False
@@ -287,12 +317,23 @@ def test_workspace_flag_endpoint_owner_can_enable_and_downgrade(agent_api_app):
         headers=headers,
     )
     assert response.status_code == 200
-    assert response.get_json()["overrides"] == {"loop_v2": False, "timeline_v2": False}
+    assert response.get_json()["overrides"] == {
+        "loop_v2": False,
+        "timeline_v2": False,
+        "harness_v3": False,
+        "provider_raw_reasoning_stream": False,
+    }
 
     response = client.patch(
         f"/api/security/workspaces/{workspace_id}/agent-feature-flags",
         headers=headers,
-        json={"overrides": {"loop_v2": None}},
+        json={
+            "overrides": {
+                "loop_v2": None,
+                "harness_v3": None,
+                "provider_raw_reasoning_stream": None,
+            }
+        },
     )
     assert response.status_code == 200
     assert response.get_json()["overrides"] == {"timeline_v2": False}
@@ -343,4 +384,10 @@ def test_run_payload_contains_feature_flags(agent_api_app, tmp_path):
     assert response.status_code == 200
     flags = response.get_json().get("feature_flags")
     assert isinstance(flags, dict)
-    assert set(flags) == {"loop_v2", "event_schema_v2", "timeline_v2"}
+    assert set(flags) == {
+        "loop_v2",
+        "event_schema_v2",
+        "timeline_v2",
+        "harness_v3",
+        "provider_raw_reasoning_stream",
+    }

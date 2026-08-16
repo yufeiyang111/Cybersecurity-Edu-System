@@ -17,6 +17,7 @@ ENTERPRISE_RAG_CORE_MIGRATION = "038_enterprise_rag_core"
 QA_ATTACHMENTS_MIGRATION = "039_qa_record_attachments"
 HARNESS_STATE_MIGRATION = "040_agent_harness_state_contract"
 RUN_FEATURE_FLAGS_SNAPSHOT_MIGRATION = "041_agent_run_feature_flags_snapshot"
+AUDIT_HYPOTHESES_MIGRATION = "042_agent_audit_hypotheses"
 
 
 def test_migration_ids_unique_and_ordered():
@@ -35,6 +36,7 @@ def test_agent_loop_migration_precedes_all_later_migrations_in_order():
         "039_qa_record_attachments",
         "040_agent_harness_state_contract",
         "041_agent_run_feature_flags_snapshot",
+        "042_agent_audit_hypotheses",
     )
 
 
@@ -45,18 +47,21 @@ def test_agent_flags_migration_precedes_later_agent_and_rag_migrations():
     assert QA_ATTACHMENTS_MIGRATION in MIGRATION_IDS
     assert HARNESS_STATE_MIGRATION in MIGRATION_IDS
     assert RUN_FEATURE_FLAGS_SNAPSHOT_MIGRATION in MIGRATION_IDS
+    assert AUDIT_HYPOTHESES_MIGRATION in MIGRATION_IDS
     flags_index = MIGRATION_IDS.index(AGENT_FLAGS_MIGRATION)
     sse_index = MIGRATION_IDS.index(AGENT_SSE_HEALTH_MIGRATION)
     rag_core_index = MIGRATION_IDS.index(ENTERPRISE_RAG_CORE_MIGRATION)
     attachments_index = MIGRATION_IDS.index(QA_ATTACHMENTS_MIGRATION)
     harness_index = MIGRATION_IDS.index(HARNESS_STATE_MIGRATION)
     snapshot_index = MIGRATION_IDS.index(RUN_FEATURE_FLAGS_SNAPSHOT_MIGRATION)
+    hypotheses_index = MIGRATION_IDS.index(AUDIT_HYPOTHESES_MIGRATION)
     assert flags_index == sse_index - 1
     assert sse_index == rag_core_index - 1
     assert rag_core_index == attachments_index - 1
     assert attachments_index == harness_index - 1
     assert harness_index == snapshot_index - 1
-    assert snapshot_index == len(MIGRATION_IDS) - 1
+    assert snapshot_index == hypotheses_index - 1
+    assert hypotheses_index == len(MIGRATION_IDS) - 1
 
 
 
@@ -109,3 +114,15 @@ def test_init_sql_contains_extended_columns():
     assert "policy_snapshot_json" in content
     assert "logical_call_key" in content
     assert "checkpoint_digest" in content
+
+
+def test_audit_hypotheses_migration_file_and_init_sql_synced():
+    path = MIGRATIONS_DIR / f"{AUDIT_HYPOTHESES_MIGRATION}.sql"
+    assert path.is_file()
+    content = path.read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS agent_audit_hypotheses" in content
+    assert "CREATE TABLE IF NOT EXISTS agent_audit_hypothesis_verdicts" in content
+    assert "DROP TABLE" not in content
+    init_sql = INIT_SQL.read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS agent_audit_hypotheses" in init_sql
+    assert "CREATE TABLE IF NOT EXISTS agent_audit_hypothesis_verdicts" in init_sql

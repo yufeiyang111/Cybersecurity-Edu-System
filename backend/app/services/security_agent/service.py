@@ -410,6 +410,9 @@ def _observed_legacy_feature_flags(run: AgentRun) -> dict | None:
         "loop_v2": bool(is_loop_mode and has_loop_activity),
         "event_schema_v2": True,
         "timeline_v2": True,
+        # 历史 Event 无法证明 V3 或原始 reasoning 实时通道曾启用，必须安全关闭。
+        "harness_v3": False,
+        "provider_raw_reasoning_stream": False,
     }
 
 

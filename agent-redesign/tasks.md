@@ -1147,21 +1147,33 @@ git status --short --branch
   Provider 明确返回的原始 reasoning 仅在任务发起人的活动连接中实时展示且不持久化。
 - [x] 在 `spec.md`、`tasks.md`、`checklist.md` 同步记录范围、非目标、接口、预算、测试与
   Feature Flag 策略。
-- [ ] 用户审阅并确认第 25 节书面设计后，才开始 T15.1 代码实施。
+- [x] 用户已于 2026-08-16 书面确认第 25 节设计，开始 T15.1 代码实施。
 
 ### T15.1 审计技能与漏洞假设数据契约
 
 **目标：** 建立 `AuditSkillCatalog`、`HypothesisPlanner` 的深模块接口和可持久化假设。
 
-- [ ] 新增受版本控制的四个初始技能定义，禁止模型/用户动态注册工具或任意 Prompt Skill。
-- [ ] 新增 `AgentAuditHypothesis`、`AgentAuditHypothesisVerdict` 模型、加性迁移和
+- [x] 新增受版本控制的四个初始技能定义，禁止模型/用户动态注册工具或任意 Prompt Skill。
+- [x] 新增 `AgentAuditHypothesis`、`AgentAuditHypothesisVerdict` 模型、加性迁移和
   `database/init.sql` 同步。
-- [ ] 设计并测试 `HypothesisValidator`：拒绝未注册技能、无证据条件、超限候选、越权路径。
-- [ ] 新增 V3 Feature Flag 常量、工作区覆盖、Run 快照和历史 Run 兼容读取；新增
+- [x] 设计并测试 `HypothesisValidator`：拒绝未注册技能、无证据条件、超限候选、越权路径。
+- [x] 新增 V3 Feature Flag 常量、工作区覆盖、Run 快照和历史 Run 兼容读取；新增
   `AGENT_PROVIDER_RAW_REASONING_STREAM_ENABLED` 原始 reasoning 实时通道开关。
-- [ ] 同步 `backend/.env.example` 与本机 `backend/.env` 的非秘密开关和值；不得读取或提交
+- [x] 同步 `backend/.env.example` 与本机 `backend/.env` 的非秘密开关和值；不得读取或提交
   `.env` 既有内容。
 
+### T15.1 实施证据（2026-08-16）
+
+- 新增 `AuditSkillCatalog` 四项冻结技能、无源码 `AuditHypothesisDraft` / `CodeLocationScope`
+  契约与 `HypothesisValidator`，覆盖未知技能、缺少关键证据、候选超限和越权位置负例。
+- 新增 `agent_audit_hypotheses`、`agent_audit_hypothesis_verdicts` 模型和 042 加性迁移，并同步
+  `database/init.sql`、迁移注册表；`apply-security-migrations` 已成功执行。
+- V3 / Provider 原始 reasoning 开关已进入全局配置、workspace 授权覆盖和 Run 快照；旧快照与
+  legacy observed Run 对新增高风险能力均安全回落为 `false`。
+- 已同步 `backend/.env.example` 与本机 `backend/.env` 默认关闭开关；未读取、输出或提交 `.env`
+  既有内容。
+- focused：`venv\Scripts\python.exe -m pytest tests\test_agent_harness_v3_contracts.py
+  tests\test_agent_feature_flags.py tests\test_agent_loop_migration_registry.py -q`，`33 passed`。
 ### T15.2 目标化 Context 与预算预留
 
 **目标：** 让 Deep Review 围绕攻击路径和证据条件读取最小充分代码，而不是泛化 focus。

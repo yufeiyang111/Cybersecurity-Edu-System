@@ -72,6 +72,12 @@ from app.models.agent_review import (
     ObservationSourceType,
     ObservationStatus,
 )
+from app.models.agent_hypothesis import (
+    AgentAuditHypothesis,
+    AgentAuditHypothesisVerdict,
+    AuditHypothesisStatus,
+    AuditHypothesisVerdict,
+)
 from app.models.scan_coverage import (
     CoverageKind,
     ProjectSnapshotFile,
@@ -122,6 +128,8 @@ __all__ = [
     "AgentPlanEdge", "AgentStepExecution", "AgentToolCall",
     "AgentArtifact", "AgentCheckpoint", "AgentEvent",
     "AgentItem", "AgentControlInput", "AgentConversationSummary",
+    "AgentAuditHypothesis", "AgentAuditHypothesisVerdict",
+    "AuditHypothesisStatus", "AuditHypothesisVerdict",
     "CoverageKind", "ProjectSnapshotFile", "ScanFileReceipt",
     "AgentConversation", "AgentConversationMessage", "AgentTurn",
     "ConversationStatus", "TurnStatus",

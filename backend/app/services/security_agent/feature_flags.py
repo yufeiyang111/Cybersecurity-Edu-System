@@ -1,15 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Agent v2 Feature Flag 解析（spec §22.1，S-01/S-02/S-03）。
-
-- 全局 env（AGENT_LOOP_V2_ENABLED / AGENT_EVENT_SCHEMA_V2_ENABLED /
-  AGENT_TIMELINE_V2_ENABLED）是默认值；
-- workspace 的 agent_feature_flags JSON 是**授权覆盖**：可以双向设置
-  （灰度时先为测试 workspace 开启，回滚时关闭）。写入端点
-  （/workspaces/{id}/agent-feature-flags）要求 workspace owner/
-  security_admin 角色——未经授权的成员无法自行开启高自治模式；
-- 新建 Run 保存解析后的完整快照，执行期间不受后续工作区开关影响；
-- 未保存快照的历史 Run 兼容读取当前工作区配置，详情接口会额外尝试从事件还原执行事实。
-"""
+"""Agent Feature Flag 解析：全局默认、授权 workspace 覆盖与 Run 执行快照。"""
 from __future__ import annotations
 
 import time
@@ -23,13 +13,29 @@ from app.models.security import Workspace
 FLAG_LOOP_V2 = "loop_v2"
 FLAG_EVENT_SCHEMA_V2 = "event_schema_v2"
 FLAG_TIMELINE_V2 = "timeline_v2"
+FLAG_HARNESS_V3 = "harness_v3"
+FLAG_PROVIDER_RAW_REASONING_STREAM = "provider_raw_reasoning_stream"
 
-AGENT_FEATURE_FLAG_KEYS = (FLAG_LOOP_V2, FLAG_EVENT_SCHEMA_V2, FLAG_TIMELINE_V2)
+AGENT_FEATURE_FLAG_KEYS = (
+    FLAG_LOOP_V2,
+    FLAG_EVENT_SCHEMA_V2,
+    FLAG_TIMELINE_V2,
+    FLAG_HARNESS_V3,
+    FLAG_PROVIDER_RAW_REASONING_STREAM,
+)
 
 _ENV_TO_KEY = {
     FLAG_LOOP_V2: "AGENT_LOOP_V2_ENABLED",
     FLAG_EVENT_SCHEMA_V2: "AGENT_EVENT_SCHEMA_V2_ENABLED",
     FLAG_TIMELINE_V2: "AGENT_TIMELINE_V2_ENABLED",
+    FLAG_HARNESS_V3: "AGENT_HARNESS_V3_ENABLED",
+    FLAG_PROVIDER_RAW_REASONING_STREAM: "AGENT_PROVIDER_RAW_REASONING_STREAM_ENABLED",
+}
+
+# 新增高风险能力不能因历史快照缺字段而被意外开启。
+_SNAPSHOT_ADDITIVE_SAFE_DEFAULTS = {
+    FLAG_HARNESS_V3: False,
+    FLAG_PROVIDER_RAW_REASONING_STREAM: False,
 }
 
 
@@ -40,12 +46,16 @@ class AgentFlagSnapshot:
     loop_v2: bool = False
     event_schema_v2: bool = False
     timeline_v2: bool = False
+    harness_v3: bool = False
+    provider_raw_reasoning_stream: bool = False
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, bool]:
         return {
             FLAG_LOOP_V2: self.loop_v2,
             FLAG_EVENT_SCHEMA_V2: self.event_schema_v2,
             FLAG_TIMELINE_V2: self.timeline_v2,
+            FLAG_HARNESS_V3: self.harness_v3,
+            FLAG_PROVIDER_RAW_REASONING_STREAM: self.provider_raw_reasoning_stream,
         }
 
 
@@ -56,16 +66,16 @@ class AgentFeatureFlags:
 
     def __init__(self, app=None) -> None:
         self._app = app
-        self._cache: dict[int, tuple[float, dict]] = {}
+        self._cache: dict[int, tuple[float, dict[str, bool]]] = {}
 
-    def _global_values(self) -> dict:
+    def _global_values(self) -> dict[str, bool]:
         app = self._app or current_app
-        values: dict = {}
-        for key, env_name in _ENV_TO_KEY.items():
-            values[key] = bool(app.config.get(env_name, False))
-        return values
+        return {
+            key: bool(app.config.get(env_name, False))
+            for key, env_name in _ENV_TO_KEY.items()
+        }
 
-    def _workspace_overrides(self, workspace_id: int | None) -> dict:
+    def _workspace_overrides(self, workspace_id: int | None) -> dict[str, bool]:
         if not workspace_id:
             return {}
         now = time.monotonic()
@@ -73,7 +83,7 @@ class AgentFeatureFlags:
         if cached is not None and now - cached[0] < self.CACHE_TTL_SECONDS:
             return cached[1]
         workspace = db.session.get(Workspace, workspace_id)
-        overrides: dict = {}
+        overrides: dict[str, bool] = {}
         raw = getattr(workspace, "agent_feature_flags", None) if workspace is not None else None
         if isinstance(raw, dict):
             for key in AGENT_FEATURE_FLAG_KEYS:
@@ -96,7 +106,7 @@ class AgentFeatureFlags:
         return AgentFlagSnapshot(**values)
 
     def snapshot_for_run(self, run) -> AgentFlagSnapshot | None:
-        """读取 Run 创建时保存的完整开关快照；缺失或畸形快照返回 None。"""
+        """读取 Run 创建时快照；新增高风险能力缺失时按 false 兼容历史快照。"""
         raw_snapshot = getattr(run, "feature_flags_snapshot_json", None)
         if not isinstance(raw_snapshot, dict):
             return None
@@ -104,13 +114,17 @@ class AgentFeatureFlags:
         values: dict[str, bool] = {}
         for key in AGENT_FEATURE_FLAG_KEYS:
             value = raw_snapshot.get(key)
-            if not isinstance(value, bool):
-                return None
-            values[key] = value
+            if isinstance(value, bool):
+                values[key] = value
+                continue
+            if key in _SNAPSHOT_ADDITIVE_SAFE_DEFAULTS and key not in raw_snapshot:
+                values[key] = _SNAPSHOT_ADDITIVE_SAFE_DEFAULTS[key]
+                continue
+            return None
         return AgentFlagSnapshot(**values)
 
     def for_run(self, run) -> AgentFlagSnapshot:
-        """优先使用创建时快照，历史 Run 缺失快照时再兼容当前工作区配置。"""
+        """优先使用创建时快照，历史 Run 缺失快照时再兼容当前 workspace 配置。"""
         snapshot = self.snapshot_for_run(run)
         if snapshot is not None:
             return snapshot
@@ -119,5 +133,5 @@ class AgentFeatureFlags:
 
 
 def resolve_agent_flags(app=None) -> AgentFeatureFlags:
-    """模块级单例（缓存挂在其上；灰度变更后进程内最多延迟一个 TTL）。"""
+    """构造 Feature Flag 解析器；灰度变更在 workspace 缓存 TTL 后生效。"""
     return AgentFeatureFlags(app)
