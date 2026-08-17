@@ -29,6 +29,10 @@ from app.services.security_agent.harness_v3.deep_review import (
     V3DeepReviewInputError,
     V3DeepReviewInputResolver,
 )
+from app.services.security_agent.harness_v3.evidence_semantics import (
+    control_evidence_keys,
+    normalize_control_assessments,
+)
 from app.services.security_agent.llm_invocation import (
     USAGE_SOURCE_PROVIDER_REPORTED,
     record_invocation,
@@ -169,6 +173,7 @@ def build_run_deep_review_handler(events: EventService | None = None):
         try:
             if v3_request is not None:
                 _normalize_v3_evidence_satisfied(parsed, v3_request)
+                _normalize_v3_control_assessments(parsed, v3_request)
             parsed["citations"] = _select_background_citations(
                 parsed,
                 review_context,
@@ -253,6 +258,32 @@ def _normalize_v3_evidence_satisfied(parsed: dict, request) -> None:
 
     detail.pop("evidence_satisfied", None)
     detail["v3_evidence_satisfied"] = normalized
+    parsed["detail"] = detail
+
+
+def _normalize_v3_control_assessments(parsed: dict, request) -> None:
+    """将 Provider 的控制存在/缺失判断限制为当前假设的固定三态。"""
+    detail = parsed.get("detail")
+    if detail is None:
+        detail = {}
+    if not isinstance(detail, dict):
+        raise ObservationValidationError("detail 必须是对象")
+
+    try:
+        normalized = normalize_control_assessments(
+            detail.get("control_assessments"),
+            required_evidence=request.required_evidence,
+        )
+    except ValueError as exc:
+        raise ObservationValidationError(str(exc)) from exc
+
+    allowed = control_evidence_keys(request.required_evidence)
+    detail.pop("control_assessments", None)
+    detail["v3_control_assessments"] = {
+        key: normalized[key]
+        for key in allowed
+        if key in normalized
+    }
     parsed["detail"] = detail
 
 

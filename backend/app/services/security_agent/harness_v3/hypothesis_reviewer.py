@@ -148,6 +148,12 @@ class V3HypothesisReviewer:
         )
         detail = observation.detail_json if isinstance(observation.detail_json, dict) else {}
         claims = detail.get("v3_evidence_satisfied", [])
+        controls = detail.get("v3_control_assessments", {})
+        control_assessments = tuple(
+            (key, value)
+            for key, value in controls.items()
+            if isinstance(key, str) and key and isinstance(value, str) and value
+        ) if isinstance(controls, dict) else ()
         return HypothesisEvidence(
             observation_id=observation.id,
             locations=locations,
@@ -161,4 +167,5 @@ class V3HypothesisReviewer:
                 for value in (observation.proof_gaps_json or [])
                 if str(value)
             ),
+            control_assessments=control_assessments,
         )

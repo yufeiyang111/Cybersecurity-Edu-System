@@ -97,7 +97,10 @@ class _ObservationTools:
                         "untrusted_input",
                         "dangerous_sink",
                         "guard_or_absence",
-                    ]
+                    ],
+                    "v3_control_assessments": {
+                        "guard_or_absence": "absent",
+                    },
                 },
                 proof_gaps_json=[],
             )
@@ -119,13 +122,7 @@ class _ObservationTools:
                         end_line=12,
                         role="sink",
                     ),
-                    AgentObservationLocation(
-                        observation_id=observation.id,
-                        file_path="app.py",
-                        start_line=14,
-                        end_line=14,
-                        role="guard",
-                    ),
+
                 ]
             )
             db.session.commit()

@@ -6,25 +6,28 @@ from dataclasses import dataclass
 
 from app.models.agent_hypothesis import AgentAuditHypothesis
 from app.services.security_agent.audit_skills import AuditSkillCatalog
+from app.services.security_agent.harness_v3.evidence_semantics import (
+    control_evidence_keys,
+    normalize_control_assessments,
+)
 from app.services.security_agent.hypotheses.contracts import CodeLocationScope
 
-CRITIC_VERSION = "evidence_critic_v1"
+CRITIC_VERSION = "evidence_critic_v2"
 
 _EVIDENCE_ROLE_REQUIREMENTS: dict[str, frozenset[str]] = {
     "subject": frozenset({"source", "entry"}),
     "object": frozenset({"sink", "object"}),
-    "authorization_guard": frozenset({"guard"}),
     "untrusted_input": frozenset({"source", "entry"}),
     "query_or_command_sink": frozenset({"sink"}),
-    "parameterization_or_absence": frozenset({"guard"}),
     "dangerous_sink": frozenset({"sink"}),
-    "guard_or_absence": frozenset({"guard"}),
     "untrusted_path_or_url": frozenset({"source", "entry"}),
     "file_or_network_sink": frozenset({"sink"}),
-    "allowlist_or_absence": frozenset({"guard"}),
     "unsafe_runtime_setting": frozenset({"configuration"}),
+}
+_CONTROL_PRESENT_ROLE_REQUIREMENTS: dict[str, frozenset[str]] = {
     "production_guard_or_absence": frozenset({"configuration", "guard"}),
 }
+_DEFAULT_CONTROL_PRESENT_ROLES = frozenset({"guard"})
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,7 @@ class HypothesisEvidence:
     locations: tuple[HypothesisEvidenceLocation, ...]
     claimed_satisfied: tuple[str, ...]
     proof_gaps: tuple[str, ...]
+    control_assessments: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -113,14 +117,41 @@ class EvidenceCritic:
 
         claims = tuple(
             item
-            for item in dict.fromkeys(str(value).strip() for value in evidence.claimed_satisfied)
+            for item in dict.fromkeys(
+                str(value).strip()
+                for value in evidence.claimed_satisfied
+            )
             if item in required
         )
-        roles = {str(location.role or "").strip().lower() for location in valid_locations}
+        roles = {
+            str(location.role or "").strip().lower()
+            for location in valid_locations
+        }
+        control_keys = control_evidence_keys(required)
+        control_statuses = _control_statuses(
+            evidence.control_assessments,
+            required,
+        )
         satisfied: list[str] = []
         gaps: list[str] = []
+        protected_conditions: list[str] = []
         for evidence_key in required:
-            expected_roles = _EVIDENCE_ROLE_REQUIREMENTS.get(evidence_key, frozenset())
+            if evidence_key in control_keys:
+                self._evaluate_control_condition(
+                    evidence_key,
+                    status=control_statuses.get(evidence_key),
+                    claims=claims,
+                    roles=roles,
+                    satisfied=satisfied,
+                    gaps=gaps,
+                    protected_conditions=protected_conditions,
+                )
+                continue
+
+            expected_roles = _EVIDENCE_ROLE_REQUIREMENTS.get(
+                evidence_key,
+                frozenset(),
+            )
             if evidence_key not in claims:
                 gaps.append(f"未声明已满足证据条件：{evidence_key}")
                 continue
@@ -131,6 +162,15 @@ class EvidenceCritic:
 
         if evidence.proof_gaps:
             gaps.append("Observation 仍存在证据缺口")
+
+        if protected_conditions and not gaps:
+            return CriticDecision(
+                verdict="reject_hypothesis",
+                reason_summary="已验证受授权安全控制存在，漏洞假设被反证。",
+                evidence_gaps=(),
+                satisfied_evidence=(),
+                next_action={"action": "reject_protected_path"},
+            )
 
         if not gaps and len(satisfied) == len(required):
             return CriticDecision(
@@ -159,6 +199,60 @@ class EvidenceCritic:
             next_action={"action": "close_as_needs_evidence"},
         )
 
+    @staticmethod
+    def _evaluate_control_condition(
+        evidence_key: str,
+        *,
+        status: str | None,
+        claims: tuple[str, ...],
+        roles: set[str],
+        satisfied: list[str],
+        gaps: list[str],
+        protected_conditions: list[str],
+    ) -> None:
+        """将“控制存在/缺失”从风险证据中分离，避免安全代码被错误确认。"""
+        if status is None:
+            gaps.append(f"未声明控制状态：{evidence_key}")
+            return
+        if status == "unknown":
+            gaps.append(f"控制状态未知：{evidence_key}")
+            return
+        if status == "present":
+            expected_roles = _CONTROL_PRESENT_ROLE_REQUIREMENTS.get(
+                evidence_key,
+                _DEFAULT_CONTROL_PRESENT_ROLES,
+            )
+            if not roles.intersection(expected_roles):
+                gaps.append("缺少受授权的控制措施代码位置")
+                return
+            protected_conditions.append(evidence_key)
+            return
+        if status == "absent":
+            if "guard" in roles:
+                gaps.append("控制状态与授权 guard 位置矛盾")
+                return
+            if evidence_key not in claims:
+                gaps.append(f"未声明已满足证据条件：{evidence_key}")
+                return
+            satisfied.append(evidence_key)
+            return
+        gaps.append(f"控制状态非法：{evidence_key}")
+
+
+def _control_statuses(
+    raw_assessments: object,
+    required_evidence: tuple[str, ...],
+) -> dict[str, str]:
+    """对持久化前已规范化的数据再次防御性校验；异常只会收紧为证据不足。"""
+    try:
+        values = dict(raw_assessments or ())
+        return normalize_control_assessments(
+            values,
+            required_evidence=required_evidence,
+        )
+    except (TypeError, ValueError):
+        return {}
+
 
 def _authorized_scopes(hypothesis: AgentAuditHypothesis) -> tuple[CodeLocationScope, ...]:
     scopes: list[CodeLocationScope] = []
@@ -182,7 +276,11 @@ def _location_is_authorized(
     location: HypothesisEvidenceLocation,
     scopes: tuple[CodeLocationScope, ...],
 ) -> bool:
-    if not location.file_path or location.start_line < 1 or location.end_line < location.start_line:
+    if (
+        not location.file_path
+        or location.start_line < 1
+        or location.end_line < location.start_line
+    ):
         return False
     return any(
         location.file_path == scope.file_path

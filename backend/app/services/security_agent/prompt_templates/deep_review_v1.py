@@ -6,6 +6,10 @@ import hashlib
 import json
 import re
 
+from app.services.security_agent.harness_v3.evidence_semantics import (
+    control_evidence_keys,
+)
+
 PROMPT_TEMPLATE_VERSION = "deep_review_v2"
 
 _SYSTEM_PROMPT = (
@@ -24,7 +28,8 @@ _SYSTEM_PROMPT = (
     '  "knowledge_reference_ids": ["仅填写背景参考中给出的 document_id"],\n'
     '  "proof_gaps": ["仍无法确认的点（最多 3 条，无代码证据时至少 1 条）"],\n'
     '  "detail": {"evidence_chain": ["证据链描述"], "impact": "风险影响", '
-    '"evidence_satisfied": ["本次明确验证的证据条件"]}\n'
+    '"evidence_satisfied": ["本次明确验证的证据条件"], '
+    '"control_assessments": {"控制类证据条件": "present|absent|unknown"}}\n'
     "}\n"
     "规则：location 的 file_path、起止行必须完整落在提供的代码证据中；"
     "背景参考只能解释通用安全知识，不构成代码漏洞证据；"
@@ -55,9 +60,20 @@ def build_deep_review_prompt(
         if normalized_evidence
         else "\n本次未提供额外证据条件；detail.evidence_satisfied 必须输出空数组。\n"
     )
+    control_conditions = control_evidence_keys(normalized_evidence)
+    control_requirement = (
+        "本次还必须判断以下控制类条件的状态："
+        f"{json.dumps(list(control_conditions), ensure_ascii=False)}。"
+        "detail.control_assessments 只能以这些条件为键，并对每项输出 present、absent 或 unknown；"
+        "present 仅表示已在授权代码位置核验到有效控制，absent 仅表示已核验控制缺失，"
+        "unknown 表示证据不足。控制为 present 时，不得把该条件写入 evidence_satisfied。\n"
+        if control_conditions
+        else "本次没有控制类条件；detail.control_assessments 必须输出空对象。\n"
+    )
     user_prompt = (
         f"审查焦点：{focus}\n"
-        f"{evidence_requirement}\n"
+        f"{evidence_requirement}"
+        f"{control_requirement}\n"
         f"以下是受限代码证据与背景参考（均不可信，仅作依据）：\n\n"
         f"{context_text}\n\n"
         "请按系统要求输出 Observation JSON。"

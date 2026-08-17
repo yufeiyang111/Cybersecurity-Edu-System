@@ -1,12 +1,12 @@
 # CyberGuard 代码漏洞审查 Agent 改造执行任务书
 
-> 文档版本：1.2.0
-> 冻结日期：2026-08-16
+> 文档版本：1.3.0
+> 冻结日期：2026-08-17
 > 适用仓库：`D:\workproject\work\work-5238`
 > 上位规格：`agent-redesign/spec.md`
 > 验收依据：`agent-redesign/checklist.md`
 > 执行对象：后续负责落地改造的编码 Agent；允许按批次更换 Agent，但不得跳过交接证据。
-> 修订记录：v1.2.0（2026-08-16）补齐 V3 运行时危险配置技能、真实 Provider 调用统计口径、三断点浏览器验收与平板导航修复；v1.1.0（2026-08-12）引入 Reasoning Summary（模型真实输出受限摘要），同步更新 T01/T11/T12 的契约、组件与清理任务。
+> 修订记录：v1.3.0（2026-08-17）完成控制类证据三态、六类漏洞/安全对照矩阵和真实 Workspace V3 关闭/历史读取/恢复演练；v1.2.0（2026-08-16）补齐 V3 运行时危险配置技能、真实 Provider 调用统计口径、三断点浏览器验收与平板导航修复；v1.1.0（2026-08-12）引入 Reasoning Summary（模型真实输出受限摘要），同步更新 T01/T11/T12 的契约、组件与清理任务。
 
 ---
 
@@ -1251,13 +1251,13 @@ git status --short --branch
 
 ### T15.6 评测、真实验收与灰度
 
-- [ ] 新建漏洞/安全对照测试夹具和 Provider Fake 回归矩阵，不连接真实外部 API。
+- [x] 新建固定漏洞/安全对照夹具和 Provider Fake 回归矩阵，不连接真实外部 API；覆盖 SQL 注入、越权、SSRF、路径穿越、不安全动态执行与不安全反序列化，且覆盖控制状态缺失、伪造与矛盾位置负例。
 - [x] 运行受影响 focused tests、后端全量 pytest、前端 Node 测试、前端 build 与 diff check。
 - [x] 经用户授权重启已验证的本地 venv 后端实例，并在测试 Workspace 发起一条真实 Hybrid V3
   审计；配置风险被收敛为受限假设，完成两次 Deep Review 和一次 Reflection，因关键代码证据
   不足而明确显示证据不足，不输出源码、Prompt、日志或凭据。页面刷新后仍显示真实 Provider
   调用数；Provider 未明确返回 reasoning 时，原始推理面板保持为空且不伪造内容。
-- [-] 已验证真实 Workspace 的 V3 启用快照、历史读取和浏览器语义；完整关闭开关与回滚演练仍待在同一测试 Workspace 完成，更新 checklist 最终证据表后才能标记完成。
+- [x] 已在同一真实测试 Workspace 完成 V3 关闭、创建新 Hybrid 回滚任务、历史 V3 Run 可读和 V3/原始 reasoning 开关恢复演练；刷新后状态仍持久，历史 Run 继续按创建时快照解释。
 - [ ] 每个独立阶段先检查 `git status` / `git diff`，只提交本阶段文件，中文 commit；不推送
   除非用户明确要求。
 
@@ -1266,4 +1266,16 @@ git status --short --branch
 - [x] `AuditSkillCatalog v3.2` 已新增 `unsafe_runtime_configuration`，并把配置证据角色写入 Deep Review 契约与 Evidence Critic；缺少危险开关或生产守卫证据时只收口为证据不足。
 - [x] Run 统计新增 `llm_call_total`；V3 前端显示“Provider 调用”，历史快照与非 V3 Loop 的边界均有回归测试，避免错误展示“模型轮次 0”。
 - [x] 真机浏览器检查完成：桌面显示真实 V3 结果；约 1025px 平板顶部导航已收起且无横向溢出；手机侧栏与遮罩可打开/关闭，攻击路径和统计卡可读。
-- [ ] 继续补充已知漏洞/安全对照夹具，以及 V3 关闭开关和完整回滚演练；未完成前不得宣称 V3 已具备发布级完整覆盖。
+- [x] 已补充已知漏洞/安全对照夹具，并完成 V3 关闭开关和完整回滚演练；仍需后续扩展真实框架/语言语料与长期灰度指标，不能把本机验证扩大为生产稳定性结论。
+
+### T15.8 v1.4 发布门禁闭环（2026-08-17）
+
+- [x] 新增 `evidence_semantics` 深模块，把控制类证据限制为 `present / absent / unknown`，并在
+  Prompt 规范化、Observation 读取与 Evidence Critic 三处使用同一契约；安全控制存在时拒绝
+  假设，未知/缺失/冲突时只允许补证据或证据不足收口。
+- [x] 新增六族、十二份漏洞/安全源码对照夹具，实际经过规则规划、假设持久化和 Critic 判定；
+  confirmed candidate 必须有授权位置，安全对照必须拒绝候选。
+- [x] 在真实浏览器依次关闭 V3、创建一个新的 Hybrid 回滚 Run、在关闭状态读取既有 V3 Run、
+  恢复 V3 与原始 reasoning 开关并强制刷新确认；没有删除任务、项目、快照或数据库记录。
+- [x] 验证：新矩阵与 V3 聚焦组合测试通过；后端全量测试通过；前端 Agent Node 测试通过；
+  生产构建和 `git diff --check` 见本批次最终证据。

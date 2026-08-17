@@ -1,15 +1,16 @@
 # CyberGuard 代码漏洞审查 Agent 底层改造规格说明
 
-> 文档版本：1.3.0
-> 冻结日期：2026-08-16
+> 文档版本：1.4.0
+> 冻结日期：2026-08-17
 > 修订记录：
+> - v1.4.0（2026-08-17，发布门禁闭环）：引入控制类证据 `present / absent / unknown` 三态，防止已存在的安全控制被误确认为漏洞；新增 SQL 注入、越权、SSRF、路径穿越、不安全动态执行与不安全反序列化的漏洞/安全对照矩阵；完成真实工作区关闭 V3、创建回滚 Run、历史 V3 快照可读与恢复开关演练。
 > - v1.3.0（2026-08-16，实施与验收补充）：补齐 `unsafe_runtime_configuration` 受限审计技能与配置证据角色；V3 前端以真实 Provider 调用数替代旧 Loop 零轮次误导；真实浏览器验证桌面、平板和手机断点，平板顶部导航在 `<=1200px` 收起，避免逐字压缩。
 > - v1.2.0（2026-08-16，用户已确认）：Harness V3 增加 Provider 明确返回的原始 reasoning 实时展示例外；仅限任务发起人的活动 SSE 订阅，瞬时传输、不落库、不回放；隐藏 Chain-of-Thought 与 ToT 仍不实现。
 > - v1.1.0（2026-08-12，用户拍板）：reasoning 展示策略修订——不展示、不持久化**完整原始思维链全文**；允许展示与持久化**模型真实 reasoning 输出经脱敏限长的受限摘要（Reasoning Summary）**，以 Codex 风格按 sequence 进入统一时间线。
 > 适用仓库：`D:\workproject\work\work-5238`
 > 文档关系：本文件定义“做成什么”；`tasks.md` 定义“按什么顺序做”；`checklist.md` 定义“凭什么算完成”。
 > 执行对象：后续接手本项目的一个或多个编码 Agent。
-> 本轮状态：第 25 节的核心 V3 纵向切片已实施并完成授权真实浏览器验收；已知漏洞/安全对照夹具与完整开关回滚演练仍是未完成发布门禁。
+> 本轮状态：第 25 节核心 V3 纵向切片及 W-14/W-16 发布门禁已完成自动化与授权真实浏览器验收；仍需在后续版本持续扩充真实语种/框架评测语料，并进行长期灰度观测，不能把本机验收等同于生产稳定性证明。
 
 ---
 
@@ -1632,7 +1633,7 @@ AGENT_PROVIDER_RAW_REASONING_STREAM_ENABLED=false
 ### 26.1 配置风险技能与证据约束
 
 - `AuditSkillCatalog v3.2` 增加 `unsafe_runtime_configuration`：仅由配置风险信号触发，支持 `CWE-16` / `CWE-489`，并限制在既有受控工具序列内执行。
-- 该技能的关键证据是 `unsafe_runtime_setting`（`configuration` 位置）和 `production_guard_or_absence`（`configuration` 加 `guard` 位置）。任一缺失时，独立 Critic 只能输出 `needs_more_evidence`，不得把确定性扫描的风险信号夸大成确认漏洞。
+- 该技能的关键证据是 `unsafe_runtime_setting`（`configuration` 位置）和 `production_guard_or_absence` 的受控状态。控制已存在时由 Critic 反证并拒绝候选；控制缺失、状态未知或位置矛盾时分别按受控契约确认或收口，不能把确定性扫描的风险信号夸大成确认漏洞。
 
 ### 26.2 真实执行口径与响应式展示
 
@@ -1644,4 +1645,50 @@ AGENT_PROVIDER_RAW_REASONING_STREAM_ENABLED=false
 
 - 真实 Hybrid V3 审计围绕配置风险创建一个 `unsafe_runtime_configuration` 假设，执行两次 Deep Review 与一次 Reflection，因关键代码证据不足而得到明确的“证据不足”结论。
 - 页面刷新后显示真实 Provider 调用数；本次 Provider 未返回 raw reasoning，产品没有补写或伪造思考内容。真实浏览器已检查桌面、约 1025px 平板和手机视口，无横向溢出，手机侧栏可打开且遮罩可关闭。
-- 这只证明本机测试 Workspace 的当前纵向切片；已知漏洞/安全对照夹具，以及 `harness_v3` 的关闭与完整回滚演练仍是发布前必须完成的门禁。
+- 该阶段的未完成门禁已在 2026-08-17 通过对照夹具和完整关闭/恢复演练补齐；本机验收仍不替代长期灰度观测和生产容量验证。
+
+---
+
+## 27. W-14/W-16 发布门禁闭环（2026-08-17）
+
+### 27.1 控制类证据的三态契约
+
+`parameterization_or_absence`、`authorization_guard`、`guard_or_absence`、
+`allowlist_or_absence` 与 `production_guard_or_absence` 不再仅凭 `guard` 位置角色被视为
+“满足”。Deep Review Provider 仅能针对当前假设中的控制类条件写入
+`detail.control_assessments`，值严格限制为：
+
+- `present`：在授权范围内有匹配的 `guard`（运行时配置可用 `configuration`）位置；Critic
+  将其视为安全控制存在，拒绝漏洞候选；
+- `absent`：已在授权范围完成核验且无 `guard` 位置；仅在输入/对象或 sink 等其他风险证据
+  同时完整时，才可作为 confirmed candidate 的必要条件；
+- `unknown`、缺失、非法值或“absent 与 guard 位置同时出现”：均只能继续补证据或以
+  `needs_more_evidence` 收口，不能确认漏洞。
+
+Provider 的原始字段会在落库前被收敛为 `v3_control_assessments`；历史 Observation 缺少该
+字段时采取更严格的“证据不足”路径，不进行数据迁移或伪造控制事实。
+
+### 27.2 已知漏洞/安全对照矩阵
+
+新增固定、无真实项目源码的夹具矩阵，覆盖六个风险族及各自安全对照：SQL 注入、对象
+越权（IDOR）、SSRF、路径穿越、不安全动态执行和不安全反序列化。每个案例通过真实的
+`FindingSignal → HypothesisPlanner → HypothesisPersistenceService → EvidenceCritic` 链路
+运行；漏洞变体必须生成与授权范围一致的 `source` / `sink`（越权使用 `object`）位置并得到
+`confirm_candidate`，安全变体必须以受授权控制位置得到 `reject_hypothesis`。
+
+额外负例覆盖：Provider 仅口头声明控制存在却没有授权 guard 位置，以及“控制缺失”与
+真实 guard 位置冲突。这些情况均不能关闭或确认候选，避免把演示数据做成只会变绿的测试。
+
+### 27.3 真实 Workspace 关闭与恢复演练
+
+在用户授权的测试 Workspace 中完成如下顺序：
+
+1. 关闭 `harness_v3`，原始 reasoning 开关被同步禁用并保存；
+2. 从浏览器创建新的 Hybrid 回滚验收任务，任务快照显示“混合审计（Loop 未启用）”和
+   “V3 未开启”，确定性五节点工作流完成；
+3. 在 V3 仍关闭的状态打开既有 V3 Run，页面仍显示“混合审计 · Harness V3”，并明确提示
+   该 Run 的创建时快照与当前工作区不同；
+4. 重新开启 `harness_v3` 和原始 reasoning 开关，保存后强制刷新页面，两个开关仍为已启用。
+
+这证明开关只影响后续 Run、历史事实不被配置改写、关闭路径有可读的 V1/V2 回退语义；它不
+证明第三方 Provider、生产流量、长期重启或多 Workspace 灰度的绝对可靠性。

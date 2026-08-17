@@ -1,12 +1,12 @@
 # CyberGuard 代码漏洞审查 Agent 改造验收清单
 
-> 文档版本：1.2.0
-> 冻结日期：2026-08-16
+> 文档版本：1.3.0
+> 冻结日期：2026-08-17
 > 适用仓库：`D:\workproject\work\work-5238`
 > 规格依据：`agent-redesign/spec.md`
 > 执行依据：`agent-redesign/tasks.md`
 > 用途：本文件是阻断式验收门，不是建议列表。所有 `BLOCKER` 必须有可复核证据，才能宣布整体改造完成。
-> 修订记录：v1.2.0（2026-08-16）补充 V3 配置审计、真实 Provider 调用统计和三断点浏览器验收证据；v1.1.0（2026-08-12）修订 reasoning 相关验收措辞并新增 C-13 Reasoning Summary 验收项。
+> 修订记录：v1.3.0（2026-08-17）补齐控制类证据三态、六类漏洞/安全对照矩阵以及真实 Workspace V3 关闭/历史读取/恢复证据；v1.2.0（2026-08-16）补充 V3 配置审计、真实 Provider 调用统计和三断点浏览器验收证据；v1.1.0（2026-08-12）修订 reasoning 相关验收措辞并新增 C-13 Reasoning Summary 验收项。
 
 ---
 
@@ -554,11 +554,10 @@ git diff --check
 - [x] **W-12** 假设列表与详情接口有 workspace 鉴权、服务端分页和安全序列化；不泄露源码、Prompt、
   Token、Cookie 或 Provider 原始输出。原始 reasoning 只能走 W-09a 的实时直连通道，不能进入接口响应。
 - [x] **W-13** 前端攻击路径验证视图已实现 loading、empty、error、blocked、预算收口、历史 Run 与 V3 关闭语义；真实浏览器已覆盖桌面、约 1025px 平板和手机断点，平板导航收起且手机抽屉/遮罩可操作。
-- [ ] **W-14** 已知漏洞与安全对照夹具覆盖 SQL 注入、越权、SSRF/路径穿越、不安全执行/反序列化，
-  且每个 confirmed candidate 有代码证据位置。
+- [x] **W-14** 已知漏洞与安全对照夹具覆盖 SQL 注入、越权、SSRF、路径穿越、不安全动态执行和不安全反序列化；每个 confirmed candidate 有受授权的代码证据位置，安全对照有真实控制位置时必须拒绝候选。
 - [x] **W-15** focused/backend 全量/前端 Node/build/diff check 已通过；用户授权的测试 Workspace
   已完成真实 Hybrid V3 与浏览器验收，记录了脱敏的证据不足结果和真实 Provider 调用数。
-- [-] **W-16** Run 快照与 baseline/V2/V3 回归已由自动化覆盖，真实 Workspace 的 V3 启用快照和浏览器语义已验证；关闭开关与完整回滚演练仍未完成。
+- [x] **W-16** Run 快照与 baseline/V2/V3 回归已由自动化覆盖；真实 Workspace 已完成关闭 V3、创建新的 Hybrid 回滚 Run、关闭状态读取历史 V3 Run、恢复 V3/原始 reasoning 开关并强制刷新验证，历史事实与新任务快照均符合预期。
 - [x] **W-17** V3 运行进度卡显示真实 Provider 调用总数而非旧 Loop 轮次；Provider 未返回 raw reasoning 时面板保持为空，并明确不支持刷新回放。
 
 ### W. 实施证据（2026-08-16）
@@ -570,3 +569,19 @@ git diff --check
 - 自动化证据：后端全量 `1373 passed, 1 skipped`；Agent 前端 Node `82 passed`；生产构建通过；`git diff --check` 通过。
 - 用户授权后重启已验证的本地 venv 后端实例并发起一条真实 Hybrid V3 审计：配置风险形成一个受限假设，完成两次 Deep Review 和一次 Reflection，最终为证据不足；页面显示真实 Provider 调用数，Provider 未显式返回 reasoning 时不伪造原始输出。
 - 真实浏览器检查桌面、约 1025px 平板和手机 CSS 视口：平板导航在 `<=1200px` 收起且无横向溢出；手机侧栏可打开，遮罩可关闭，攻击路径和统计卡保持可读。
+
+### W. 发布门禁补充证据（2026-08-17）
+
+- 控制类证据回归：`present / absent / unknown` 只允许针对当前假设的固定控制条件；无授权 guard
+  位置的“控制已存在”与 guard/absent 矛盾均只会请求补证据，不能把 Provider 文字当事实。已存在
+  安全控制时 Critic 输出 `reject_hypothesis`，风险控制确认时才可输出 `confirm_candidate`。
+- 已知漏洞/安全对照：固定夹具覆盖 SQL 注入、IDOR、SSRF、路径穿越、动态执行、反序列化六个
+  风险族及对应安全版本，共十二个源码变体；矩阵实际走 `FindingSignal → Planner → Persistence →
+  Critic`，另有三项控制证据边界负例。夹具不含真实项目源码、Prompt、凭据或外部 API 调用。
+- 自动化证据：V3 对照矩阵及受影响组合测试 `44 passed`；后端全量
+  `1390 passed, 1 skipped`；Agent 前端 Node `82 passed`；生产构建和最终 `git diff --check`
+  在本批次提交前复核。
+- 真实浏览器回滚证据：关闭后新建 Hybrid 回滚 Run 显示“混合审计（Loop 未启用）”和“V3 未开启”，
+  五个确定性节点完成；在关闭状态打开既有 V3 Run 仍显示“混合审计 · Harness V3”及“创建时快照
+  与当前工作区不同”；恢复两个开关并刷新后均为已启用。演练只创建一个新的测试 Run，没有删除
+  任何数据库数据。

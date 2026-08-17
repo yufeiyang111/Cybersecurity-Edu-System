@@ -230,7 +230,6 @@ def test_evidence_critic_requires_authorized_code_roles_before_confirming(app, t
                 locations=(
                     HypothesisEvidenceLocation("app/routes.py", 20, 20, "source"),
                     HypothesisEvidenceLocation("app/routes.py", 22, 22, "sink"),
-                    HypothesisEvidenceLocation("app/routes.py", 24, 24, "guard"),
                 ),
                 claimed_satisfied=(
                     "untrusted_input",
@@ -238,6 +237,7 @@ def test_evidence_critic_requires_authorized_code_roles_before_confirming(app, t
                     "guard_or_absence",
                 ),
                 proof_gaps=(),
+                control_assessments=(("guard_or_absence", "absent"),),
             ),
             budget_exhausted=False,
         )
@@ -318,18 +318,15 @@ def test_configuration_critic_requires_runtime_setting_and_deployment_context(ap
                         74,
                         "configuration",
                     ),
-                    HypothesisEvidenceLocation(
-                        "backend/app/config.py",
-                        75,
-                        75,
-                        "guard",
-                    ),
                 ),
                 claimed_satisfied=(
                     "unsafe_runtime_setting",
                     "production_guard_or_absence",
                 ),
                 proof_gaps=(),
+                control_assessments=(
+                    ("production_guard_or_absence", "absent"),
+                ),
             ),
             budget_exhausted=False,
         )
