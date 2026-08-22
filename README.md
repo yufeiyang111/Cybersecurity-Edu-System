@@ -1,121 +1,196 @@
-# CyberGuard — 企业级 Agent + RAG 安全运营 / DevSecOps 工作台
+# CyberGuard
 
-CyberGuard 用于导入 ZIP 或公共 GitHub 项目，建立不可变项目快照，执行确定性安全扫描、依赖漏洞分析（OSV SCA）与 Secret 检测，并通过统一 Finding、可解释风险评分、RAG 引用和可选 LLM Provider 提供可追溯的安全分析与人工审核修复建议。
+基于检索增强生成（RAG）的网络安全知识问答平台：将开源安全文档结构化入库，通过混合检索与重排生成证据包，由大语言模型产出带引用编号、可溯源到原文行号的回答，并配套全覆盖的离线评测体系。
 
-核心定位不是“调用大模型生成一段安全文案”，而是：
+## 目录
+
+- [项目简介](#项目简介)
+- [功能特性](#功能特性)
+- [系统架构](#系统架构)
+- [RAG 知识问答](#rag-知识问答)
+  - [整体链路](#整体链路)
+  - [语料与文档来源](#语料与文档来源)
+  - [文档解析与分块](#文档解析与分块)
+  - [向量生成与索引](#向量生成与索引)
+  - [混合检索与重排](#混合检索与重排)
+  - [证据打包与引用校验](#证据打包与引用校验)
+  - [无据回答兜底](#无据回答兜底)
+  - [评测体系](#评测体系)
+  - [评测基线](#评测基线)
+- [快速开始](#快速开始)
+- [常用命令](#常用命令)
+- [目录结构](#目录结构)
+- [测试](#测试)
+- [许可证](#许可证)
+
+## 项目简介
+
+CyberGuard 面向网络安全领域的知识问答场景，解决两个核心问题：
+
+1. **答案可溯源**。回答中的每个论断都标注引用编号（`[C-n]`），引用必须来自真实检索命中的知识块，并精确到原文行号；引用无法通过校验时系统降级处理而不是放行编造内容。
+2. **质量可度量**。内置版本化评测数据集、审批工作流与一键真实链路评测脚本，检索命中率（Recall@k）、排序质量（MRR / NDCG）、证据覆盖与引用合法性均有量化基线，回归可对比。
+
+## 功能特性
+
+- **结构化语料库**：开源安全文档经标题/章节解析入库，携带分类、难度、标签、来源字段，当前规模约 1000+ 篇文档、2 万+ 知识块。
+- **混合检索**：Qdrant 双路召回（dense 向量 + BM25 词法），RRF 融合，叠加知识图谱扩展，按文档去重后送入重排。
+- **两阶段重排**：bge-reranker-v2-m3 对候选证据精排，控制进入上下文的噪声。
+- **行号级引用**：分块时保留整文档行号区间，回答引用可定位到「第 X–Y 行」。
+- **严格引用校验**：strict 模式下引用必须属于本次证据包，伪造或越界引用触发降级而非输出。
+- **无据回答兜底**：未检索到证据时默认拒答；用户显式开启后可输出明确标记的无依据通用回答（不带任何引用）。
+- **全链路审计**：执行链路记录 Trace（不含用户 query 原文与密钥），问答检索日志落库用于离线评估。
+- **离线评测体系**：三套版本化数据集、人工审批工作流、一键真实链路评测、HTML / Word 报告与发布门禁。
+
+## 系统架构
 
 ```text
-安全项目导入 → 快照隔离 → 多语言 Scanner → Secret / SCA
-→ Finding 归一化 → 风险评分 → RAG 引用 → 可选 LLM 研判
-→ 受限 Diff → 人工审核 → 审计追踪
+┌──────────┐   ┌─────────────┐   ┌──────────────────────────────┐
+│ 前端 SPA  │──▶│ Flask API   │──▶│ RAG 引擎                      │
+│ Vue 3    │   │ JWT 认证     │   │ 检索 → 重排 → 证据 → 生成      │
+└──────────┘   └─────────────┘   └───┬──────────┬─────────┬───────┘
+                                     │          │         │
+                              ┌──────▼───┐ ┌────▼────┐ ┌──▼──────────┐
+                              │ Qdrant   │ │ Neo4j   │ │ LLM Provider│
+                              │ 向量检索  │ │ 知识图谱 │ │ MiniMax 等  │
+                              └──────────┘ └─────────┘ └─────────────┘
 ```
 
-## 核心能力
+## RAG 知识问答
 
-- **安全项目导入**：ZIP 上传或公共 GitHub 仓库（固定 Commit 快照）；拒绝路径穿越、绝对/Windows 驱动器路径、符号链接、加密条目、Zip Bomb 与超量文件。
-- **不可变快照隔离**：每个项目保存内容 SHA-256，绝不执行被扫描项目中的任何代码（不安装依赖、不构建、不导入、不运行）。
-- **多语言 SAST**：Python / JavaScript / TypeScript / Java 确定性规则扫描 + Secret 检测。
-- **SCA 依赖分析**：解析主流依赖清单，仅向 OSV 发送 `{ecosystem, package, version}`，支持失败降级与缓存。
-- **统一 Finding 模型**：跨 Scanner 去重、稳定 fingerprint、脱敏证据（秘密只保留掩码与 SHA-256 摘要）。
-- **可解释风险评分**：不依赖 LLM，基于 10 个风险因子输出 0~100 分与 critical/high/medium/low 优先级，并给出因子级说明。
-- **受治理安全知识 RAG**：工作区隔离、版本化知识来源与文档；向量索引失败时自动降级到词法检索。
-- **可信修复 Agent**：仅接收标准化 Finding、脱敏证据、工作区授权的 RAG 引用与受限局部代码窗口；输出经过严格 Unified Diff 校验。
-- **人工审核闭环**：建议仅可接受/拒绝/要求修改，全程审计；从不自动应用、执行、提交或推送补丁。
-- **Provider 健康检查与降级**：MiniMax / DashScope Adapter + 规则化 Provider，统一契约、超时、冷却与安全序列化。
-- **任务可靠性**：快照复用、`dispatch_key` 去重、条件 Worker 抢占、受保护取消与重试、扫描器/SCA 失败隔离。
+### 整体链路
 
-## 技术栈
+```text
+开源安全文档 ─▶ 结构化解析 ─▶ 分块（384 token，保留行号）
+    ─▶ bge-m3 向量化 ─▶ Qdrant 入库（dense + BM25 sparse）
+查询 ─▶ 混合召回（dense + BM25，RRF 融合）─▶ 知识图谱扩展 ─▶ 去重
+    ─▶ bge-reranker 重排 ─▶ 证据打包（token 预算 + 行号）
+    ─▶ LLM 生成（引用标注 [C-n]）─▶ 引用校验 ─▶ 回答 / 拒答
+```
 
-| 层 | 技术 |
+### 语料与文档来源
+
+- 语料存储于 `knowledge_items` 表，当前包含 16 个分类：安全方法论、渗透测试、Web 安全、系统安全、二进制安全、移动安全、macOS 安全、AI 安全、密码学、数据安全、应急响应、区块链安全、物联网与硬件安全等。
+- 内容以开源安全社区知识（如 HackTricks 一类的攻防知识库）的中文整理与自研教程为主，**原始文档遵循 MIT 许可**，本项目在此基础上做了结构化解析与中文化整理。
+- 每篇文档携带 `category_id / difficulty / source / tags` 元数据，供过滤与评测分组使用。
+
+### 文档解析与分块
+
+- 解析后的正文按 Markdown 标题层级做结构化切分，分块大小 384 token，优先使用 AutoTokenizer 真实计数，模型不可用时回退字符估算。
+- 每个知识块携带 `doc_id / chunk_index / start_line / end_line / parent_text`：
+  - 行号区间支撑前端「第 X–Y 行」引用定位；
+  - `parent_text` 用于父子窗口合成——检索命中小块，回填更大上下文。
+
+### 向量生成与索引
+
+| 组件 | 实现 |
 |---|---|
-| 后端 | Flask 3.x、SQLAlchemy、Redis + RQ（可选异步）、Chroma（可选向量）、OSV API |
-| 前端 | Vue 3、Element Plus、Pinia、Vue Router、Vite |
-| 数据库 | MySQL 8.0（`database/init.sql` + 加性迁移） |
-| 安全 | JWT、工作区级鉴权、脱敏证据、审计事件、限流 |
+| Embedding | BAAI/bge-m3，1024 维；默认走 SiliconFlow API，本地模型作为降级链 |
+| 词法向量 | jieba 分词词频 sparse vector，Qdrant `modifier=idf` 原生 BM25 |
+| 存储 | Qdrant 命名向量 collection：公共库 `knowledge_embeddings`，工作区私有库 `security_knowledge_embeddings` |
 
-## 项目结构
+Embedding 服务不可用时自动降级（本地 bge-m3 → 轻量备选模型 → 词袋），维度不一致期间检索自动退化为纯词法路径，保证可用性。
 
-```text
-backend/app/
-├── routes/
-│   ├── auth.py                    # 认证
-│   ├── oauth.py                   # OAuth 第三方登录（Google / GitHub）
-│   ├── projects.py                # 项目导入
-│   ├── llm_health.py              # LLM Provider 健康检查
-│   └── security/                  # 安全运营路由（薄层）
-│       ├── common.py              # 鉴权/参数校验共享逻辑
-│       ├── projects.py            # 安全项目
-│       ├── snapshots.py           # ZIP / GitHub 快照
-│       ├── tasks.py               # 扫描任务 / Finding / 依赖
-│       ├── knowledge.py           # 安全知识治理
-│       └── remediation.py         # 修复建议与审核
-├── services/
-│   ├── llm/                       # 统一 LLM Provider（contracts/fallback/health）
-│   ├── scanners/                  # Scanner 插件（registry/normalizer/base + 语言实现）
-│   ├── remediation/               # 可信修复 Agent（context/patch_validator/providers）
-│   ├── risk_scoring.py            # 可解释风险评分
-│   ├── scan_execution.py          # 扫描执行
-│   ├── scan_task_lifecycle.py     # 任务生命周期
-│   ├── snapshot_service.py        # 快照服务
-│   ├── github_source.py           # GitHub 受限导入
-│   ├── dependency_scanner.py      # 依赖清单解析
-│   ├── osv_client.py              # OSV SCA 客户端
-│   ├── security_knowledge.py      # 安全知识 RAG
-│   └── runtime_health.py          # 运行时健康
-└── models/                        # SQLAlchemy 数据模型
+### 混合检索与重排
 
-frontend/src/
-├── api/                           # API 客户端
-├── components/security/           # 安全工作台可复用组件（Finding 卡片、Diff 查看、知识治理等）
-├── composables/security/          # 数据加载与交互逻辑
-├── features/security/             # 展示/格式化工具
-├── views/security/                # 页面编排
-└── router/
+1. 同一查询发起 dense 与 BM25 两路召回，Qdrant Query API 执行，本地 RRF 融合排序；
+2. 叠加知识图谱扩展关联实体（Neo4j 不可用时自动降级 NetworkX 内存图）；
+3. 按 `doc_id` 去重后交由 bge-reranker-v2-m3 精排，取 Top-N 进入证据包；
+4. 全程记录各阶段耗时（retrieval_ms / rerank_ms）用于性能回归。
 
-database/
-├── init.sql
-└── migrations/                    # 001~006 加性迁移
-```
+### 证据打包与引用校验
+
+- 证据包受 token 预算约束，超限时按相关性截断；
+- 生成阶段要求模型对每个论断标注 `[C-n]` 引用编号；
+- strict 校验模式下，引用必须指向本次证据包内的知识块，出现未知引用即判定失败并走降级输出；
+- 未通过校验的回答不会以正常形态展示给用户。
+
+### 无据回答兜底
+
+- 默认行为：未检索到任何证据时不调用生成，直接返回「证据不足」。
+- 用户可在设置中显式开启 `allow_ungrounded_answers`：此时允许模型输出通用回答，但回答前置醒目提示、引用为空，并记录 `NO_RETRIEVED_EVIDENCE` 与 `USER_APPROVED_UNGROUNDED_ANSWER` 审计码。
+- 该开关为用户级持久化偏好，仅影响开启者本人的问答体验。
+
+### 评测体系
+
+评测相关代码位于 `backend/app/services/rag_core/datasets/` 与 `backend/app/scripts/`：
+
+| 脚本 | 作用 |
+|---|---|
+| `export_rag_eval_corpus.py` | 只读导出语料正文与向量分块元数据（生成评测集的事实来源） |
+| `generate_rag_eval_from_corpus.py` | 从导出快照确定性生成模板广度评测集 |
+| `build_curated_rag_eval.py` | 校验人工策展查询表并回填真实行号 |
+| `export_eval_review_sheet.py` | 导出人工审批清单（CSV / JSONL） |
+| `run_rag_eval_suite.py` | 一键真实链路评测（按审批状态过滤用例） |
+| `render_eval_report.py` | 渲染 HTML 交互报告与 Word 报告 |
+| `rag_evaluate.py` | 兼容历史基线的离线评估入口 |
+
+三套版本化数据集：
+
+| 数据集 | 规模 | 说明 |
+|---|---|---|
+| `production_rag_eval_curated_v1` | 1021 题 | 覆盖全部真实文档，query 由人工逐篇撰写 |
+| `production_rag_eval_v1` | 255 题 | 模板生成的广度集 |
+| `public_rag_eval_v1` | 151 题 | 样例语料精策集（含拒答与对抗用例） |
+
+所有 gold evidence 的 `chunk_id / start_line / end_line` 直接取自真实索引 payload，构建期逐字校验锚句存在性，不存在人工编造行号的可能。
+
+评测执行支持人工审批工作流：先在导出的 CSV 中将用例标记为 approved / rejected，评测脚本只运行 approved 用例，结果输出汇总报告（JSON）、逐题明细（JSONL）与可视化报告（HTML / Word）。
+
+### 评测基线
+
+以下为 curated 数据集全量 1021 题在真实链路（bge-m3 + Qdrant + MiniMax-M2.7）下的实测结果：
+
+| 指标 | 数值 |
+|---|---|
+| Recall@1 | 78.6% |
+| Recall@3 | 91.9% |
+| Recall@5 | 94.2% |
+| MRR | 0.857 |
+| NDCG@10 | 0.883 |
+| Supported 答案率 | 91.0% |
+| 检索延迟 P50 / P95 | 935 ms / 1351 ms |
 
 ## 快速开始
 
-### 1. 环境要求
+### 环境要求
 
 - Python 3.10+、Node.js 18+、MySQL 8.0
-- 可选：Redis（异步扫描）、MiniMax / DashScope 密钥（LLM 研判）
+- Qdrant 1.10+（默认 `http://127.0.0.1:6333`）
+- 可选：Redis（异步任务）、Neo4j（知识图谱，不可用时自动降级）
+- `.env` 中配置 SiliconFlow 密钥（Embedding / Rerank）与 LLM Provider（也可在系统内以用户维度配置）
 
-### 2. 数据库
-
-```powershell
-# 确认 MySQL 服务运行
-Get-Service MySQL80
-```
-
-按顺序执行加性迁移（迁移 runner 见 `backend/app/scripts/apply_sql_migration.py`），或使用 `database/init.sql` 初始化开发库。**只使用加性迁移，不要在生产库执行 reset / drop / truncate。**
-
-```powershell
-cd backend
-$env:FLASK_APP = "run.py"
-.\venv\Scripts\flask.exe apply-security-migrations
-```
-
-命令会幂等补齐 001~006 所有未应用的表与列（含 `policy_documents` 表与 `users` 表的 OAuth 字段），重复执行无副作用。
-
-### 3. 后端
+### 后端
 
 ```powershell
 cd backend
 python -m venv venv
 .\venv\Scripts\pip.exe install -r requirements.txt
-# 复制 .env.example 为 .env 并填写真实配置
+Copy-Item .env.example .env   # 按注释填写数据库 / Redis / API Key
 .\venv\Scripts\python.exe run.py
 ```
 
-后端地址：`http://127.0.0.1:5001`，健康检查：`Invoke-RestMethod http://127.0.0.1:5001/api/health`
+后端地址 `http://127.0.0.1:5001`，健康检查 `GET /api/health`。
 
-可选异步扫描：设置 `RQ_ASYNC=true` 并配置 `REDIS_URL`，另开终端执行 `.\venv\Scripts\python.exe -m flask --app run rq-worker`。
+### 数据库与迁移
 
-### 4. 前端
+```powershell
+cd backend
+$env:FLASK_APP = "run.py"
+.\venv\Scripts\flask.exe --app run apply-security-migrations
+```
+
+迁移 runner 幂等，按序补齐 `database/migrations/` 中所有未应用的加性迁移；首次部署也可直接导入 `database/init.sql`。
+
+### 构建向量索引
+
+```powershell
+cd backend
+.\venv\Scripts\flask.exe --app run reindex-knowledge
+```
+
+更换 embedding 模型或维度后必须重建索引。
+
+### 前端
 
 ```powershell
 cd frontend
@@ -123,160 +198,76 @@ npm install
 npm run dev
 ```
 
-前端地址：`http://127.0.0.1:5173`（Vite 将 `/api` 代理到 `http://localhost:5001`）。
+前端地址 `http://127.0.0.1:5173`，Vite 将 `/api` 代理到后端 5001 端口。
 
-## 第三方登录（Google / GitHub）
+### 运行离线评测
 
-登录/注册页支持 Google 与 GitHub OAuth 登录；登录后在「个人中心 → 第三方账号绑定」可将第三方账号绑定到当前账号，绑定后下次可直接用该第三方账号登录（不要求邮箱相同）。
+```powershell
+# 1. 导出语料快照（只读）
+.\venv\Scripts\python.exe -m app.scripts.export_rag_eval_corpus
 
-### 1. 创建 OAuth 应用
+# 2. 生成 / 更新评测集
+.\venv\Scripts\python.exe -m app.scripts.build_curated_rag_eval
 
-| 平台 | 入口 | 授权回调地址（Redirect URI） |
-|---|---|---|
-| Google | Google Cloud Console → Google Auth Platform → Clients | `http://localhost:5001/api/auth/oauth/google/callback` |
-| GitHub | GitHub Settings → Developer settings → OAuth Apps | `http://localhost:5001/api/auth/oauth/github/callback` |
+# 3. （可选）导出审批清单，人工标记 approved / rejected
+.\venv\Scripts\python.exe -m app.scripts.export_eval_review_sheet
 
-注意：Google 只接受 `localhost` 或 HTTPS 来源；回调地址必须与后端 `OAUTH_BACKEND_BASE_URL` 拼出的地址**逐字符一致**，否则报 `redirect_uri_mismatch`。测试阶段需把测试账号加入 Google OAuth 应用的 Test users，否则登录会返回 `403 access_denied`。
+# 4. 一键真实链路评测
+.\venv\Scripts\python.exe -m app.scripts.run_rag_eval_suite --dataset curated
 
-### 2. 后端配置
-
-在 `backend/.env` 中填入（见 `.env.example`）：
-
-```dotenv
-OAUTH_BACKEND_BASE_URL=http://localhost:5001
-OAUTH_FRONTEND_URL=http://localhost:5173
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
+# 5. 渲染报告
+.\venv\Scripts\python.exe -m app.scripts.render_eval_report --tag <tag> --dataset curated --format both
 ```
 
-### 3. 数据库迁移
+## 常用命令
 
-第三方登录依赖 `006_oauth_login` 迁移（`users` 表新增 `oauth_provider` / `oauth_subject`，并将 `email` / `password_hash` 改为可空）。务必先执行：
+| 命令 | 说明 |
+|---|---|
+| `venv\Scripts\python.exe run.py` | 启动后端（端口 5001，默认关闭热重载） |
+| `venv\Scripts\flask.exe --app run apply-security-migrations` | 应用数据库迁移（幂等） |
+| `venv\Scripts\flask.exe --app run reindex-knowledge` | 重建 RAG 向量索引 |
+| `venv\Scripts\python.exe -m pytest tests -q` | 运行后端全量测试 |
+| `npm --prefix frontend run build` | 前端生产构建 |
+
+## 目录结构
+
+```text
+backend/
+├── app/
+│   ├── routes/                  # Flask 路由（auth / qa / knowledge / admin …）
+│   ├── services/
+│   │   ├── rag_core/            # RAG v2 核心：执行器、契约、评测器、数据集
+│   │   ├── llm/                 # LLM Provider 抽象与选择器
+│   │   ├── vector_stores/       # Qdrant / Chroma 向量后端
+│   │   ├── text_chunker.py      # 分块器
+│   │   └── enhanced_rag_engine.py
+│   ├── scripts/                 # 运维与评测脚本（见上文表格）
+│   ├── models/                  # SQLAlchemy 模型
+│   └── config.py
+├── data/                        # 运行时数据（gitignore）
+├── tests/                       # pytest 测试
+└── venv/
+
+frontend/src/
+├── api/                         # API 客户端
+├── components/chat/             # 问答组件（引用卡片、不确定性提示等）
+├── composables/chat/            # 问答状态管理
+└── views/
+
+database/
+├── init.sql                     # 开发库初始化
+└── migrations/                  # 加性迁移 001 ~ 043
+```
+
+## 测试
 
 ```powershell
 cd backend
-$env:FLASK_APP = "run.py"
-.\venv\Scripts\flask.exe apply-security-migrations
+.\venv\Scripts\python.exe -m pytest tests -q
 ```
 
-### 4. 登录与绑定行为
+测试覆盖 RAG 执行器行为（含引用校验与无据回答分支）、评测数据集完整性、指标计算、发布门禁与各 API 路由。涉及外部服务的测试一律使用 mock 或进程内替代实现，不产生真实网络调用。
 
-- 第三方登录只按「提供商 + 第三方账号 ID」匹配账号，**不做邮箱自动合并**；首次登录自动创建账号，直接进入系统。
-- 自动建号时若该邮箱已被其他账号注册，会提示「该邮箱已被注册」，请先登录该邮箱账号后再绑定第三方。
-- 已登录用户在个人中心可绑定 Google / GitHub 到当前账号；若该第三方账号已绑定到其他账号则拒绝绑定。一个账号当前支持绑定一个第三方账号（可在页面「更换绑定」）。
-- OAuth 用户没有密码；如需设置密码，可在个人中心修改邮箱、昵称等信息。
+## 许可证
 
-### 5. 相关接口
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/auth/oauth/{provider}/authorize` | 发起第三方登录（provider = google / github） |
-| POST | `/api/auth/oauth/{provider}/bind` | 已登录用户绑定第三方账号（需 JWT），返回授权跳转地址 |
-| GET | `/api/auth/oauth/{provider}/callback` | 第三方授权回调（登录 / 绑定统一入口） |
-
-## 核心 API 一览
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST / GET | `/api/auth/login`、`/api/auth/me` | 认证 |
-| GET / POST | `/api/auth/oauth/{provider}/authorize`、`/bind` | 第三方登录 / 绑定（详见「第三方登录」章节） |
-| POST | `/api/security/projects` | 创建安全项目 |
-| GET | `/api/security/projects` | 项目列表 |
-| POST | `/api/security/projects/{id}/snapshots:upload` | 上传 ZIP 建立快照 |
-| POST | `/api/security/projects/{id}/snapshots:github` | 导入公共 GitHub 仓库 |
-| GET | `/api/security/projects/{id}/tasks` | 任务列表 |
-| GET | `/api/security/tasks/{id}/findings` | Finding 列表（`?sort=risk` 风险排序） |
-| POST | `/api/security/tasks/{id}/cancel` / `retry` | 取消 / 重试任务 |
-| GET | `/api/security/projects/{id}/dependencies` | 依赖清单与 SCA 结果 |
-| POST / GET | `/api/security/knowledge/sources` | 知识来源治理 |
-| POST / GET | `/api/security/knowledge/sources/{id}/documents` | 版本化知识文档（不返回正文） |
-| POST / GET | `/api/security/findings/{id}/suggestions` | 生成 / 查看修复建议 |
-| POST | `/api/security/suggestions/{id}/review` | 人工审核 |
-| GET | `/api/health`、`/live`、`/ready` | 健康检查 |
-| GET / POST | `/api/health/llm-providers` | LLM Provider 健康检查 |
-
-## 安全边界与设计原则
-
-- **不执行用户项目**：平台从不上传项目的代码上运行任何命令、安装依赖或执行 Hook。
-- **脱敏证据**：Finding 只保存证据掩码与 SHA-256；Secret 类 Finding 的原文上下文从不发给模型。
-- **受限修复 Agent**：只接收最小化上下文与工作区授权的 RAG 引用；Patch 必须通过严格 Unified Diff 校验。
-- **健康检查不联网**：readiness 只检查数据库与工作区存储；外部服务仅报告“已配置”，不被擅自探测。
-- **敏感信息不外泄**：健康响应、任务错误、审计元数据均不含密码、Token、Prompt、完整异常或连接串。
-- **鉴权下沉后端**：取消、重试、生成建议等操作均在后端二次授权，不依赖前端隐藏按钮。
-
-## 可解释风险评分
-
-`GET /api/security/tasks/{id}/findings?sort=risk` 返回：
-
-```json
-{
-  "risk": {
-    "score": 72.5,
-    "priority": "high",
-    "policy_version": "risk-v1",
-    "factors": [],
-    "explanation": "..."
-  }
-}
-```
-
-评分不依赖 LLM。风险上下文（`internet_exposure`、`asset_criticality`、`data_sensitivity`、`dependency_reachability`）在未接入真实 CMDB / 资产平台 / 依赖调用图时使用默认或规则推断值。
-
-## 环境变量
-
-完整配置项见 `backend/.env.example`。核心项：
-
-```dotenv
-# 数据库
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_USER=root
-MYSQL_PASSWORD=change-me
-MYSQL_DATABASE=cyberguard
-
-# 认证
-SECRET_KEY=your-secret-key
-JWT_SECRET_KEY=your-jwt-secret
-
-# OAuth 第三方登录（Google / GitHub）
-OAUTH_BACKEND_BASE_URL=http://localhost:5001
-OAUTH_FRONTEND_URL=http://localhost:5173
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-
-# LLM（可选，默认规则化模式）
-DASHSCOPE_API_KEY=your_api_key
-DASHSCOPE_MODEL=qwen-plus
-MINIMAX_API_KEY=your_api_key
-MINIMAX_MODEL=your_model
-REMEDIATION_LLM_ENABLED=false
-
-# 安全知识向量（可选，默认词法检索）
-SECURITY_KNOWLEDGE_VECTOR_ENABLED=false
-
-# SCA（默认关闭，避免演示依赖外网）
-SCA_OSV_ENABLED=false
-SCA_OSV_API_URL=https://api.osv.dev/v1/querybatch
-
-# 异步扫描（可选）
-RQ_ASYNC=false
-REDIS_URL=redis://localhost:6379/0
-```
-
-## 测试与验证
-
-```powershell
-.\backend\venv\Scripts\python.exe -m pytest backend\tests -q
-.\backend\venv\Scripts\python.exe -m compileall backend\app
-npm --prefix frontend run build
-```
-
-当前测试基线：后端 184 项通过；前端生产构建通过。外部服务（MiniMax、DashScope、GitHub、OSV、Neo4j、Chroma）的真实连通性不属于默认测试路径，须显式验收，不能把“配置存在”误报为“服务可用”。
-
-## License
-
-MIT License
+本项目采用 [MIT](LICENSE) 许可证发布。知识库语料来源于开源安全文档（MIT），在此感谢社区贡献者。
