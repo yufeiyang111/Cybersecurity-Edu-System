@@ -38,9 +38,6 @@ CURATED_QUERY_MAP: Dict[str, Dict[str, str]] = {
     "17": {"query": "应急响应的 PDCERF 模型包含哪六个阶段？", "difficulty": "hard"},
     "19": {"query": "对整个数据库或文件做加密属于哪种数据保护手段？", "difficulty": "easy"},
     # ===== 旧库重复主题的第二角度提问（同题不同文档各考一面）=====
-    "20": {"query": "TCP/IP 各层分别面临哪些典型的安全威胁？", "difficulty": "medium"},
-    "21": {"query": "DNS 缓存污染有什么防御办法？", "difficulty": "medium"},
-    "22": {"query": "HTTPS 应该怎么选择安全的加密套件？", "difficulty": "medium"},
     "23": {"query": "防御 SQL 注入有哪些具体措施？", "difficulty": "easy"},
     "24": {"query": "存储型 XSS 和反射型 XSS 有什么区别？", "difficulty": "medium"},
     "25": {"query": "CSRF 防御中只校验 Referer/Origin 靠谱吗？", "difficulty": "medium"},
@@ -1029,8 +1026,6 @@ CURATED_QUERY_MAP: Dict[str, Dict[str, str]] = {
     "3218": {"query": "二进制逆向的工具链和基础方法有哪些？", "difficulty": "easy"},
     "3219": {"query": "Angr 符号执行框架怎么用于逆向解题？", "difficulty": "medium"},
     "3232": {"query": "内网横向移动的常见路径有哪些？", "difficulty": "medium"},
-    "3238": {"query": "POSIX CPU 定时器 TOCTOU（CVE-2025 系列）影响哪个模式？", "difficulty": "hard"},
-    "3240": {"query": "SELinux 排查时 newrole 工具能用来做什么？", "difficulty": "medium"},
     "3056": {"query": "约束委派里 S-1-18-1（AUTHENTICATION_AUTHORITY_ASSERTED_IDENTITY）代表什么？", "difficulty": "hard"},
     "3057": {"query": "自定义 SSP 里 mimilib.dll 会把什么记录到文件？", "difficulty": "hard"},
     "3058": {"query": "DCShadow 里 elevate::token 为什么在 mimikatz1 session 不生效？", "difficulty": "hard"},

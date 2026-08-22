@@ -36,6 +36,34 @@ ALLOWED_CATEGORIES = {
 ALLOWED_DIFFICULTY = {"easy", "medium", "hard"}
 ALLOWED_STATUS = {"supported", "insufficient_evidence"}
 
+# 经 2026-08 真实语料实测（negcheck，MiniMax-M2.7 真实链路），以下负面用例的主题
+# 已被扩展后的公共语料覆盖：真实链路下系统检索到证据并给出带引用的正确回答。
+# 在样例语料口径下它们仍按「拒答护栏」保留（mock 执行器空间内预期不变），
+# 但跨基础设施解读拒答率时，应将这些用例单独分组，不计入"应拒未答"。
+CORPUS_COVERED_NEGATIVES = frozenset(
+    {
+        "v2rag-041",
+        "v2rag-042",
+        "v2rag-043",
+        "v2rag-044",
+        "v2rag-047",
+        "v2rag-048",
+        "v2rag-049",
+        "v2rag-054",
+        "v2rag-057",
+        "v2rag-059",
+        "v2rag-126",
+        "v2rag-130",
+        "v2rag-132",
+        "v2rag-133",
+        "v2rag-134",
+        "v2rag-136",
+        "v2rag-139",
+        "v2rag-140",
+        "v2rag-143",
+    }
+)
+
 # 策展规格：evidence 为空表示 insufficient / adversarial；
 # evidence 每项含 document_id 与必须能在该文档真实分块中找到的 must_contain 片段。
 RAW_SPECS: List[Dict[str, Any]] = [
@@ -742,10 +770,18 @@ def build_evaluation_cases(
                 review_note=spec["rationale"],
                 query=spec["query"],
                 expected_evidence=tuple(expected_evidence),
-                tags=tuple(spec.get("tags", [])),
+                tags=_tags_for(spec),
             )
         )
     return cases
+
+
+def _tags_for(spec: Dict[str, Any]) -> Tuple[str, ...]:
+    """规格标签 + 跨语料覆盖标注（corpus_covered）。"""
+    tags = list(spec.get("tags", []))
+    if spec["case_key"] in CORPUS_COVERED_NEGATIVES:
+        tags.append("corpus_covered")
+    return tuple(tags)
 
 
 # 模块级缓存，便于测试与离线评测直接导入，无需重复分块。
@@ -756,6 +792,7 @@ __all__ = [
     "ALLOWED_CATEGORIES",
     "ALLOWED_DIFFICULTY",
     "ALLOWED_STATUS",
+    "CORPUS_COVERED_NEGATIVES",
     "CORPUS_VERSION",
     "RAW_SPECS",
     "EVALUATION_CASES",

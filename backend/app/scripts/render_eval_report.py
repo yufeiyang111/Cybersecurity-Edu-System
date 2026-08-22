@@ -76,12 +76,30 @@ def render(rows: List[Dict[str, Any]], tag: str, dataset: str) -> str:
     for r in rows:
         by_diff.setdefault(r["difficulty"], []).append(r)
 
+    judged = [
+        r["judge"]
+        for r in rows
+        if isinstance(r.get("judge"), dict) and r["judge"].get("ok")
+    ]
+    faith_mean = mean([j.get("faithfulness") for j in judged])
+    rel_mean = mean([j.get("relevancy") for j in judged])
+
     cards = [
         ("总题数", f"{total}", ""),
         ("Recall@1", _pct(mean(r1)), f"命中 {hit1} 题"),
         ("Recall@5", _pct(mean(r5)), ""),
         ("MRR", f"{mean(mrr):.3f}", ""),
         ("Supported 率", _pct(supported / total) if total else "-", f"{supported}/{total}"),
+        (
+            "忠实度",
+            _pct(faith_mean) if judged else "未评审",
+            f"LLM-judge n={len(judged)}",
+        ),
+        (
+            "相关性",
+            _pct(rel_mean) if judged else "未评审",
+            f"LLM-judge n={len(judged)}",
+        ),
     ]
     cards_html = "".join(
         f'<div class="card"><div class="card-value">{v}</div><div class="card-label">{k}</div>'
@@ -194,6 +212,11 @@ def _collect_stats(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     by_diff: Dict[str, List[Dict[str, Any]]] = {}
     for r in rows:
         by_diff.setdefault(r["difficulty"], []).append(r)
+    judged = [
+        r["judge"]
+        for r in rows
+        if isinstance(r.get("judge"), dict) and r["judge"].get("ok")
+    ]
     return {
         "total": len(rows),
         "recall_at_1": _mean(r1),
@@ -204,6 +227,9 @@ def _collect_stats(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "hit1_count": sum(1 for v in r1 if v == 1.0),
         "stages": stages,
         "by_difficulty": by_diff,
+        "judge_count": len(judged),
+        "judge_faithfulness": _mean([j.get("faithfulness") for j in judged]),
+        "judge_relevancy": _mean([j.get("relevancy") for j in judged]),
     }
 
 
@@ -305,6 +331,55 @@ def render_docx(rows: List[Dict[str, Any]], summary: Dict[str, Any], tag: str, d
             cells[3].text = top5
     else:
         document.add_paragraph("无未命中样例。")
+
+    document.add_heading("五、回答质量评审（LLM-as-judge）", level=1)
+    if stats["judge_count"] > 0:
+        judge_table = document.add_table(rows=1, cols=3)
+        judge_table.style = "Light Grid Accent 1"
+        jhead = judge_table.rows[0].cells
+        jhead[0].text = "指标"
+        jhead[1].text = "均值（归一化 0~1）"
+        jhead[2].text = "说明"
+        judge_rows = [
+            ("忠实度 faithfulness", stats["judge_faithfulness"], "回答断言被证据支持的程度"),
+            ("相关性 relevancy", stats["judge_relevancy"], "回答切题程度"),
+            ("评审题数", stats["judge_count"], "--judge 参数控制"),
+        ]
+        for name, value, note in judge_rows:
+            cells = judge_table.add_row().cells
+            cells[0].text = name
+            cells[1].text = f"{value:.3f}" if isinstance(value, float) else str(value)
+            cells[2].text = note
+
+        lowest = sorted(
+            (
+                r
+                for r in rows
+                if isinstance(r.get("judge"), dict) and r["judge"].get("ok")
+            ),
+            key=lambda r: r["judge"]["faithfulness"],
+        )[:10]
+        if lowest:
+            document.add_heading("低忠实度样例（Top 10）", level=2)
+            low_table = document.add_table(rows=1, cols=4)
+            low_table.style = "Light Grid Accent 1"
+            lhead = low_table.rows[0].cells
+            lhead[0].text = "case"
+            lhead[1].text = "query"
+            lhead[2].text = "f/r"
+            lhead[3].text = "理由"
+            for r in lowest:
+                judge_info = r["judge"]
+                cells = low_table.add_row().cells
+                cells[0].text = r["case_key"]
+                cells[1].text = r["query"]
+                cells[2].text = (
+                    f"{judge_info.get('faithfulness_raw')}/"
+                    f"{judge_info.get('relevancy_raw')}"
+                )
+                cells[3].text = str(judge_info.get("reason") or "")
+    else:
+        document.add_paragraph("本次运行未启用 LLM-as-judge（--judge 0）。")
 
     document.add_paragraph(
         "说明：citation 阶段标记为保守判定（重复引用计数），不代表引用无效；"

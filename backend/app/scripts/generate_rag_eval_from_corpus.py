@@ -100,12 +100,22 @@ def _anchor_score(cleaned: str) -> int:
     return score
 
 
-def _pick_anchor(doc_chunks: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """选出一篇文档中最具信息量的锚句，返回 {chunk, cleaned, raw} 或 None。"""
+def _pick_anchor(
+    doc_chunks: List[Dict[str, Any]],
+    exclude_anchors: Optional[set] = None,
+) -> Optional[Dict[str, Any]]:
+    """选出一篇文档中最具信息量的锚句，返回 {chunk, cleaned, raw} 或 None。
+
+    exclude_anchors：跨文档去重用的已占用锚句集合（原文片段），
+    命中排除后继续找次优候选，保证评测集内锚句唯一。
+    """
+    exclude = exclude_anchors or set()
     best = None
     best_score = 0
     for chunk in doc_chunks:
         for cleaned, raw in _iter_candidate_lines(chunk.get("text") or ""):
+            if raw in exclude or cleaned in exclude:
+                continue
             score = _anchor_score(cleaned)
             if score > best_score:
                 best_score = score
@@ -163,8 +173,9 @@ def select_cases(export: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
 
     specs: List[Dict[str, Any]] = []
     seen_queries = set()
+    seen_anchors: set = set()
     for doc_id in picked_ids:
-        anchor = _pick_anchor(chunks_by_doc[doc_id])
+        anchor = _pick_anchor(chunks_by_doc[doc_id], exclude_anchors=seen_anchors)
         if anchor is None:
             continue
         chunk = anchor["chunk"]
@@ -173,6 +184,7 @@ def select_cases(export: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
         if query in seen_queries:
             continue
         seen_queries.add(query)
+        seen_anchors.add(anchor["raw"])
         specs.append(
             {
                 "case_key": f"{CASE_KEY_PREFIX}-{len(specs) + 1:04d}",

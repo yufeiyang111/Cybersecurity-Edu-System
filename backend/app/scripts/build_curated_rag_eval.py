@@ -84,12 +84,17 @@ def _fallback_candidate_score(cleaned: str) -> int:
 
 def pick_fallback_anchor(
     doc_chunks: List[Dict[str, Any]],
+    exclude_anchors: Optional[set] = None,
 ) -> Optional[Tuple[Dict[str, Any], str]]:
     """宽松兜底锚句（面向代码块为主、无中文正文句的文档），确定性选取。"""
+    exclude = exclude_anchors or set()
     best: Optional[Tuple[Dict[str, Any], str]] = None
     best_score = 1  # 至少要有正分才采纳
     for chunk in doc_chunks:
         for raw_line in (chunk.get("text") or "").splitlines():
+            raw = raw_line.strip()
+            if raw in exclude:
+                continue
             cleaned = _BULLET_PATTERN.sub("", raw_line).strip()
             if len(cleaned) < 10 or len(cleaned) > 120:
                 continue
@@ -98,24 +103,28 @@ def pick_fallback_anchor(
             score = _fallback_candidate_score(cleaned)
             if score > best_score:
                 best_score = score
-                best = (chunk, raw_line.strip())
+                best = (chunk, raw)
     return best
 
 
 def resolve_anchor(
-    doc_id: str, doc_chunks: List[Dict[str, Any]]
+    doc_id: str,
+    doc_chunks: List[Dict[str, Any]],
+    exclude_anchors: Optional[set] = None,
 ) -> Tuple[Dict[str, Any], str, str]:
     """三级锚句策略：人工指定 → 启发式 → 宽松兜底；全部为原文逐字片段。
 
+    exclude_anchors 为跨文档已占用锚句集合（保证评测集内锚句唯一）。
     返回（chunk, 锚句, 层级）。
     """
+    exclude = exclude_anchors or set()
     override = OPTIONAL_ANCHOR_OVERRIDES.get(doc_id)
-    if override:
+    if override and override not in exclude:
         return locate_override(doc_chunks, override), override, "override"
-    picked = _pick_anchor(doc_chunks)
+    picked = _pick_anchor(doc_chunks, exclude_anchors=exclude)
     if picked is not None:
         return picked["chunk"], picked["raw"], "heuristic"
-    fallback = pick_fallback_anchor(doc_chunks)
+    fallback = pick_fallback_anchor(doc_chunks, exclude_anchors=exclude)
     if fallback is None:
         raise ValueError(f"文档 {doc_id} 找不到任何可用锚句")
     return fallback[0], fallback[1], "fallback"
@@ -138,16 +147,25 @@ def compile_specs(export: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], int, Li
     ]
     compiled: List[Dict[str, Any]] = []
     anchor_tiers: Dict[str, int] = {"override": 0, "heuristic": 0, "fallback": 0}
+    seen_anchors: set = set()
+    skipped_anchor_dup: List[str] = []
     for index, doc_id in enumerate(ordered_ids):
         entry = CURATED_QUERY_MAP[doc_id]
-        chunk, must_contain, tier = resolve_anchor(doc_id, chunks_by_doc[doc_id])
+        chunk, must_contain, tier = resolve_anchor(
+            doc_id, chunks_by_doc[doc_id], exclude_anchors=seen_anchors
+        )
         # 统一上限：超长锚句截断后仍为 chunk 文本的逐字子串，保证可校验。
         if len(must_contain) > 120:
             must_contain = must_contain[:120]
+        if must_contain in seen_anchors:
+            # 截断等极端情况下仍撞车：跳过该文档并留痕，保证锚句全局唯一。
+            skipped_anchor_dup.append(doc_id)
+            continue
+        seen_anchors.add(must_contain)
         anchor_tiers[tier] += 1
         compiled.append(
             {
-                "case_key": f"curag-{index + 1:04d}",
+                "case_key": f"curag-{len(compiled) + 1:04d}",
                 "category": "retrieval_supported",
                 "difficulty": entry["difficulty"],
                 "query": entry["query"],
@@ -172,7 +190,7 @@ def compile_specs(export: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], int, Li
                 ),
             }
         )
-    return compiled, anchor_tiers, no_chunks
+    return compiled, anchor_tiers, no_chunks, skipped_anchor_dup
 
 
 def render_module(specs: List[Dict[str, Any]], export_meta: Dict[str, Any]) -> str:
@@ -276,7 +294,7 @@ def main() -> None:
     output_path = Path(args.output).resolve() if args.output else DEFAULT_OUTPUT_PATH
 
     export = json.loads(export_path.read_text(encoding="utf-8"))
-    specs, anchor_tiers, no_chunks = compile_specs(export)
+    specs, anchor_tiers, no_chunks, skipped_anchor_dup = compile_specs(export)
     output_path.write_text(
         render_module(specs, export),
         encoding="utf-8",
@@ -297,6 +315,7 @@ def main() -> None:
                 "difficulties": difficulties,
                 "anchor_tiers": anchor_tiers,
                 "skipped_no_chunks": no_chunks,
+                "skipped_anchor_dup": skipped_anchor_dup,
                 "generated_at": datetime.utcnow().isoformat(),
             },
             ensure_ascii=False,

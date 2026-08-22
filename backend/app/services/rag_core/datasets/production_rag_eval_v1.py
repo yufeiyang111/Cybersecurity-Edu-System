@@ -2,9 +2,9 @@
 r"""生产公共知识库 RAG 评测集 v1（真实语料快照锚定）。
 
 来源快照：
-- 导出时间：2026-08-21T16:18:30.133512
+- 导出时间：2026-08-22T15:28:25.937374
 - collection：knowledge_embeddings
-- 语料规模：1022 篇文档 / 21650 个分块
+- 语料规模：1017 篇文档 / 21583 个分块
 - 本集用例：255 条（等距抽样，确定性可复现）
 
 约束：
@@ -150,27 +150,6 @@ RAW_SPECS: List[Dict[str, Any]] = [
     {
         "case_key": "prag-0007",
         "category": "retrieval_supported",
-        "difficulty": "easy",
-        "query": "HTTP/HTTPS协议详解的核心要点是什么？",
-        "expected_status": "supported",
-        "evidence": [
-            {
-                "document_id": "22",
-                "title": "HTTP/HTTPS协议详解",
-                "chunk_id": "doc_22_chunk_1",
-                "start_line": 38,
-                "end_line": 48,
-                "corpus_version": "knowledge_embeddings-v1",
-                "role": "primary",
-                "must_contain": "4. **弱加密算法**：使用已破解的加密算法",
-            }
-        ],
-        "tags": ['auto_generated', 'production_corpus'],
-        "rationale": "自动生成：锚定真实分块 doc_22_chunk_1（第 38-48 行）。",
-    },
-    {
-        "case_key": "prag-0008",
-        "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "CSRF跨站请求伪造的核心要点是什么？",
         "expected_status": "supported",
@@ -190,7 +169,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_25_chunk_0（第 1-27 行）。",
     },
     {
-        "case_key": "prag-0009",
+        "case_key": "prag-0008",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "关于GitHub敏感信息泄露，配置 .gitignore应该怎么做？",
@@ -211,7 +190,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_31_chunk_0（第 1-45 行）。",
     },
     {
-        "case_key": "prag-0010",
+        "case_key": "prag-0009",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "关于DHCP协议与DHCP攻击，攻击者部署恶意DHCP服务器应该怎么做？",
@@ -232,7 +211,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_34_chunk_0（第 1-28 行）。",
     },
     {
-        "case_key": "prag-0011",
+        "case_key": "prag-0010",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "命令注入漏洞的核心要点是什么？",
@@ -253,7 +232,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_37_chunk_0（第 1-47 行）。",
     },
     {
-        "case_key": "prag-0012",
+        "case_key": "prag-0011",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "JWT安全的核心要点是什么？",
@@ -274,7 +253,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_43_chunk_0（第 1-46 行）。",
     },
     {
-        "case_key": "prag-0013",
+        "case_key": "prag-0012",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "云存储安全的核心要点是什么？",
@@ -295,7 +274,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_49_chunk_0（第 1-42 行）。",
     },
     {
-        "case_key": "prag-0014",
+        "case_key": "prag-0013",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "关于身份认证安全，设置HttpOnly和Secure应该怎么做？",
@@ -316,7 +295,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_52_chunk_0（第 1-47 行）。",
     },
     {
-        "case_key": "prag-0015",
+        "case_key": "prag-0014",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "点击劫持与防护的核心要点是什么？",
@@ -337,7 +316,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_55_chunk_0（第 1-52 行）。",
     },
     {
-        "case_key": "prag-0016",
+        "case_key": "prag-0015",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "关于防火墙技术原理与分类，优点应该怎么做？",
@@ -358,7 +337,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_58_chunk_0（第 1-23 行）。",
     },
     {
-        "case_key": "prag-0017",
+        "case_key": "prag-0016",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Windows系统安全策略配置的核心要点是什么？",
@@ -379,7 +358,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_61_chunk_0（第 1-30 行）。",
     },
     {
-        "case_key": "prag-0018",
+        "case_key": "prag-0017",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Metasploit渗透测试框架使用的核心要点是什么？",
@@ -400,7 +379,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_64_chunk_0（第 1-48 行）。",
     },
     {
-        "case_key": "prag-0019",
+        "case_key": "prag-0018",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "数据加密存储最佳实践的核心要点是什么？",
@@ -421,7 +400,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_67_chunk_0（第 1-36 行）。",
     },
     {
-        "case_key": "prag-0020",
+        "case_key": "prag-0019",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "iOS应用安全机制与测试的核心要点是什么？",
@@ -442,7 +421,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_70_chunk_0（第 1-51 行）。",
     },
     {
-        "case_key": "prag-0021",
+        "case_key": "prag-0020",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Brute Force - 速查表的核心要点是什么？",
@@ -463,7 +442,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2072_chunk_81（第 654-675 行）。",
     },
     {
-        "case_key": "prag-0022",
+        "case_key": "prag-0021",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "将本地服务暴露到互联网的核心要点是什么？",
@@ -484,7 +463,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2075_chunk_6（第 106-135 行）。",
     },
     {
-        "case_key": "prag-0023",
+        "case_key": "prag-0022",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "MSFVenom - 速查表的核心要点是什么？",
@@ -505,7 +484,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2078_chunk_0（第 1-24 行）。",
     },
     {
-        "case_key": "prag-0024",
+        "case_key": "prag-0023",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是由于 Tiny Core？",
@@ -526,7 +505,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2081_chunk_45（第 667-693 行）。",
     },
     {
-        "case_key": "prag-0025",
+        "case_key": "prag-0024",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是发现它的一种方法？",
@@ -547,7 +526,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2084_chunk_3（第 55-76 行）。",
     },
     {
-        "case_key": "prag-0026",
+        "case_key": "prag-0025",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是dc3dd？",
@@ -568,7 +547,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2087_chunk_2（第 16-35 行）。",
     },
     {
-        "case_key": "prag-0027",
+        "case_key": "prag-0026",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于恶意软件分析，(https应该怎么做？",
@@ -589,7 +568,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2090_chunk_6（第 97-117 行）。",
     },
     {
-        "case_key": "prag-0028",
+        "case_key": "prag-0027",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "DNSCat pcap 分析的核心要点是什么？",
@@ -610,7 +589,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2093_chunk_0（第 1-20 行）。",
     },
     {
-        "case_key": "prag-0029",
+        "case_key": "prag-0028",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是该界面的其中一列会显示 pcap 中？",
@@ -631,7 +610,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2096_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "prag-0030",
+        "case_key": "prag-0029",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是以下？",
@@ -652,7 +631,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2100_chunk_0（第 1-41 行）。",
     },
     {
-        "case_key": "prag-0031",
+        "case_key": "prag-0030",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Mach-O Entitlements 提取与 IPSW 索引的核心要点是什么？",
@@ -673,7 +652,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2103_chunk_14（第 154-165 行）。",
     },
     {
-        "case_key": "prag-0032",
+        "case_key": "prag-0031",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是如果你的目标？",
@@ -694,7 +673,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2106_chunk_5（第 107-118 行）。",
     },
     {
-        "case_key": "prag-0033",
+        "case_key": "prag-0032",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是检查该 finding？",
@@ -715,7 +694,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2115_chunk_14（第 156-176 行）。",
     },
     {
-        "case_key": "prag-0034",
+        "case_key": "prag-0033",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于EIGRP攻击，--src应该怎么做？",
@@ -736,7 +715,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2118_chunk_4（第 48-67 行）。",
     },
     {
-        "case_key": "prag-0035",
+        "case_key": "prag-0034",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "横向VLAN分段绕过主要涉及哪些方面？",
@@ -757,7 +736,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2121_chunk_12（第 134-148 行）。",
     },
     {
-        "case_key": "prag-0036",
+        "case_key": "prag-0035",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是在 endpoint 上禁用 IPv6？",
@@ -778,7 +757,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2124_chunk_24（第 320-333 行）。",
     },
     {
-        "case_key": "prag-0037",
+        "case_key": "prag-0036",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于电信网络利用（GTP/SS7/Diameter/漫游环境），检测 rogue 或配置错误的基础设施应该怎么做？",
@@ -799,7 +778,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2127_chunk_19（第 222-241 行）。",
     },
     {
-        "case_key": "prag-0038",
+        "case_key": "prag-0037",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是EAP-TLS？",
@@ -820,7 +799,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2130_chunk_0（第 1-15 行）。",
     },
     {
-        "case_key": "prag-0039",
+        "case_key": "prag-0038",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是“永远不要粘贴任何不？",
@@ -841,7 +820,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2133_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "prag-0040",
+        "case_key": "prag-0039",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Discord 邀请链接劫持的核心要点是什么？",
@@ -862,7 +841,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2136_chunk_6（第 49-57 行）。",
     },
     {
-        "case_key": "prag-0041",
+        "case_key": "prag-0040",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "什么是一个值得识别的 staging 布局？",
@@ -883,7 +862,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2139_chunk_60（第 220-241 行）。",
     },
     {
-        "case_key": "prag-0042",
+        "case_key": "prag-0041",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是环境变量通常？",
@@ -904,7 +883,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2148_chunk_10（第 70-89 行）。",
     },
     {
-        "case_key": "prag-0043",
+        "case_key": "prag-0042",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "E2EE Messengers 中的送达回执 Side-Channel Attacks的核心要点是什么？",
@@ -925,7 +904,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2151_chunk_24（第 117-126 行）。",
     },
     {
-        "case_key": "prag-0044",
+        "case_key": "prag-0043",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Burp MCP：LLM 辅助的流量审查的核心要点是什么？",
@@ -946,7 +925,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2154_chunk_2（第 40-72 行）。",
     },
     {
-        "case_key": "prag-0045",
+        "case_key": "prag-0044",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是数据清理？",
@@ -967,7 +946,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2157_chunk_2（第 22-47 行）。",
     },
     {
-        "case_key": "prag-0046",
+        "case_key": "prag-0045",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "什么是α？",
@@ -988,7 +967,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2160_chunk_5（第 32-52 行）。",
     },
     {
-        "case_key": "prag-0047",
+        "case_key": "prag-0046",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是无监督学习？",
@@ -1009,7 +988,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2163_chunk_0（第 1-14 行）。",
     },
     {
-        "case_key": "prag-0048",
+        "case_key": "prag-0047",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "数据采样主要涉及哪些方面？",
@@ -1030,7 +1009,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2166_chunk_1（第 15-44 行）。",
     },
     {
-        "case_key": "prag-0049",
+        "case_key": "prag-0048",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是此类的目标？",
@@ -1051,7 +1030,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2169_chunk_35（第 439-457 行）。",
     },
     {
-        "case_key": "prag-0050",
+        "case_key": "prag-0049",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是本节的目标？",
@@ -1072,7 +1051,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2172_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "prag-0051",
+        "case_key": "prag-0050",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是alleged SSRF → 证明请求？",
@@ -1093,7 +1072,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2175_chunk_1（第 27-49 行）。",
     },
     {
-        "case_key": "prag-0052",
+        "case_key": "prag-0051",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Tcache攻击主要涉及哪些方面？",
@@ -1114,7 +1093,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2206_chunk_12（第 91-107 行）。",
     },
     {
-        "case_key": "prag-0053",
+        "case_key": "prag-0052",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是glibc？",
@@ -1135,7 +1114,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2209_chunk_13（第 117-131 行）。",
     },
     {
-        "case_key": "prag-0054",
+        "case_key": "prag-0053",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AF_UNIX MSG_OOB UAF & 基于 SKB 的 kernel primitives的核心要点是什么？",
@@ -1156,7 +1135,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2212_chunk_38（第 65-71 行）。",
     },
     {
-        "case_key": "prag-0055",
+        "case_key": "prag-0054",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是没有检查请求的大小？",
@@ -1177,7 +1156,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2215_chunk_13（第 63-75 行）。",
     },
     {
-        "case_key": "prag-0056",
+        "case_key": "prag-0055",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Ret2dlresolve的核心要点是什么？",
@@ -1198,7 +1177,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2219_chunk_2（第 15-28 行）。",
     },
     {
-        "case_key": "prag-0057",
+        "case_key": "prag-0056",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是你可以使用以下命令快速验证 binary？",
@@ -1219,7 +1198,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2222_chunk_1（第 3-32 行）。",
     },
     {
-        "case_key": "prag-0058",
+        "case_key": "prag-0057",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于Ret2syscall - ARM64，为了准备 syscall 调用应该怎么做？",
@@ -1240,7 +1219,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2225_chunk_0（第 1-48 行）。",
     },
     {
-        "case_key": "prag-0059",
+        "case_key": "prag-0058",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是检查 prologue/epilogue 中？",
@@ -1261,7 +1240,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2228_chunk_0（第 1-34 行）。",
     },
     {
-        "case_key": "prag-0060",
+        "case_key": "prag-0059",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是这里的核心思想？",
@@ -1282,7 +1261,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2231_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "prag-0061",
+        "case_key": "prag-0060",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Windows 利用 (基础指南 - OSCP lvl)的核心要点是什么？",
@@ -1303,7 +1282,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2234_chunk_2（第 75-105 行）。",
     },
     {
-        "case_key": "prag-0062",
+        "case_key": "prag-0061",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于Angr - 示例，因此应该怎么做？",
@@ -1324,7 +1303,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2237_chunk_22（第 404-444 行）。",
     },
     {
-        "case_key": "prag-0063",
+        "case_key": "prag-0062",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "基本来说，这个工具可以帮助我们找到满足某些条件的变量值，而手动计算这些值会非常麻烦。因此，你可以将变量需要满足的条件告知 Z3，它会找到一些值（如果可能）。的核心要点是什么？",
@@ -1345,7 +1324,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2240_chunk_7（第 149-172 行）。",
     },
     {
-        "case_key": "prag-0064",
+        "case_key": "prag-0063",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "DeFi AMM 会计漏洞与虚拟余额缓存利用的核心要点是什么？",
@@ -1366,7 +1345,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2243_chunk_21（第 76-91 行）。",
     },
     {
-        "case_key": "prag-0065",
+        "case_key": "prag-0064",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于Web3 签名流程破坏与 Safe Delegatecall 代理劫持，服务端 hash 检查应该怎么做？",
@@ -1387,7 +1366,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2246_chunk_8（第 59-69 行）。",
     },
     {
-        "case_key": "prag-0066",
+        "case_key": "prag-0065",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MediaTek bl2_ext Secure-Boot Bypass（EL3 代码执行）的核心要点是什么？",
@@ -1408,7 +1387,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2249_chunk_4（第 34-49 行）。",
     },
     {
-        "case_key": "prag-0067",
+        "case_key": "prag-0066",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MediaTek XFlash Carbonara DA2 哈希绕过的核心要点是什么？",
@@ -1429,7 +1408,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2252_chunk_4（第 19-36 行）。",
     },
     {
-        "case_key": "prag-0068",
+        "case_key": "prag-0067",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是该 node 使用的？",
@@ -1450,7 +1429,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2255_chunk_5（第 29-38 行）。",
     },
     {
-        "case_key": "prag-0069",
+        "case_key": "prag-0068",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是这个示例的重点并不？",
@@ -1471,7 +1450,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2258_chunk_1（第 13-36 行）。",
     },
     {
-        "case_key": "prag-0070",
+        "case_key": "prag-0069",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是此组合并不总？",
@@ -1492,7 +1471,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2261_chunk_14（第 113-141 行）。",
     },
     {
-        "case_key": "prag-0071",
+        "case_key": "prag-0070",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是这些命令的目的是确认进程？",
@@ -1513,7 +1492,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2264_chunk_11（第 100-118 行）。",
     },
     {
-        "case_key": "prag-0072",
+        "case_key": "prag-0071",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是其共同原则？",
@@ -1534,7 +1513,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2267_chunk_2（第 17-36 行）。",
     },
     {
-        "case_key": "prag-0073",
+        "case_key": "prag-0072",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是具体输出取决于引擎使用的？",
@@ -1555,7 +1534,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2270_chunk_1（第 13-37 行）。",
     },
     {
-        "case_key": "prag-0074",
+        "case_key": "prag-0073",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是binfmt_misc 可以说明？",
@@ -1576,7 +1555,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2273_chunk_4（第 40-60 行）。",
     },
     {
-        "case_key": "prag-0075",
+        "case_key": "prag-0074",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Container Runtimes、Engines、Builders 和 Sandboxes的核心要点是什么？",
@@ -1597,7 +1576,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2277_chunk_14（第 89-106 行）。",
     },
     {
-        "case_key": "prag-0076",
+        "case_key": "prag-0075",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于NFS 无 root squash 错误配置提权，no_root_squash应该怎么做？",
@@ -1618,7 +1597,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2283_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "prag-0077",
+        "case_key": "prag-0076",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "通配符相关技巧的核心要点是什么？",
@@ -1639,7 +1618,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2286_chunk_5（第 85-99 行）。",
     },
     {
-        "case_key": "prag-0078",
+        "case_key": "prag-0077",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于Linux 环境变量，all_proxy应该怎么做？",
@@ -1660,7 +1639,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2289_chunk_6（第 106-121 行）。",
     },
     {
-        "case_key": "prag-0079",
+        "case_key": "prag-0078",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是inode？",
@@ -1681,7 +1660,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2292_chunk_4（第 57-78 行）。",
     },
     {
-        "case_key": "prag-0080",
+        "case_key": "prag-0079",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是为什么 TASK_WORK mode 在设计上？",
@@ -1702,7 +1681,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2295_chunk_22（第 180-191 行）。",
     },
     {
-        "case_key": "prag-0081",
+        "case_key": "prag-0080",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是是否拥有非常大的 UID？该机器？",
@@ -1723,7 +1702,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2298_chunk_19（第 69-90 行）。",
     },
     {
-        "case_key": "prag-0082",
+        "case_key": "prag-0081",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是目标？",
@@ -1744,7 +1723,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2301_chunk_6（第 75-95 行）。",
     },
     {
-        "case_key": "prag-0083",
+        "case_key": "prag-0082",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SID历史注入的核心要点是什么？",
@@ -1765,7 +1744,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2319_chunk_9（第 86-108 行）。",
     },
     {
-        "case_key": "prag-0084",
+        "case_key": "prag-0083",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "无约束委派的核心要点是什么？",
@@ -1786,7 +1765,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2322_chunk_18（第 161-171 行）。",
     },
     {
-        "case_key": "prag-0085",
+        "case_key": "prag-0084",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是Evasion 只？",
@@ -1807,7 +1786,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2325_chunk_21（第 204-221 行）。",
     },
     {
-        "case_key": "prag-0086",
+        "case_key": "prag-0085",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "什么是检查你？",
@@ -1828,7 +1807,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2328_chunk_35（第 112-121 行）。",
     },
     {
-        "case_key": "prag-0087",
+        "case_key": "prag-0086",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "DCOM Exec的核心要点是什么？",
@@ -1849,7 +1828,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2331_chunk_4（第 24-34 行）。",
     },
     {
-        "case_key": "prag-0088",
+        "case_key": "prag-0087",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是Poseidon？",
@@ -1870,7 +1849,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2337_chunk_48（第 186-198 行）。",
     },
     {
-        "case_key": "prag-0089",
+        "case_key": "prag-0088",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于Mimikatz，尽管存在这些保护措施应该怎么做？",
@@ -1891,7 +1870,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2340_chunk_1（第 11-19 行）。",
     },
     {
-        "case_key": "prag-0090",
+        "case_key": "prag-0089",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是如果 IPC？",
@@ -1912,7 +1891,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2343_chunk_1（第 5-19 行）。",
     },
     {
-        "case_key": "prag-0091",
+        "case_key": "prag-0090",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是这就？",
@@ -1933,7 +1912,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2346_chunk_3（第 31-58 行）。",
     },
     {
-        "case_key": "prag-0092",
+        "case_key": "prag-0091",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "DPAPI 密码提取的核心要点是什么？",
@@ -1954,7 +1933,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2352_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "prag-0093",
+        "case_key": "prag-0092",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是真正的解决方案？",
@@ -1975,7 +1954,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2355_chunk_9（第 73-84 行）。",
     },
     {
-        "case_key": "prag-0094",
+        "case_key": "prag-0093",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是特权 authentication 必须？",
@@ -1996,7 +1975,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2358_chunk_2（第 25-43 行）。",
     },
     {
-        "case_key": "prag-0095",
+        "case_key": "prag-0094",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于Notepad++ 插件自动加载持久化和执行，messageProc(UINT应该怎么做？",
@@ -2017,7 +1996,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2361_chunk_4（第 16-32 行）。",
     },
     {
-        "case_key": "prag-0096",
+        "case_key": "prag-0095",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "RoguePotato、PrintSpoofer、SharpEfsPotato、GodPotato的核心要点是什么？",
@@ -2038,7 +2017,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2364_chunk_11（第 70-87 行）。",
     },
     {
-        "case_key": "prag-0097",
+        "case_key": "prag-0096",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SeManageVolumePrivilege：用于任意文件读取的原始卷访问的核心要点是什么？",
@@ -2059,7 +2038,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2368_chunk_5（第 34-53 行）。",
     },
     {
-        "case_key": "prag-0098",
+        "case_key": "prag-0097",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于通过 UIAccess 绕过 Admin Protection，如果检查成功应该怎么做？",
@@ -2080,7 +2059,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2371_chunk_1（第 3-16 行）。",
     },
     {
-        "case_key": "prag-0099",
+        "case_key": "prag-0098",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是Spotlight？",
@@ -2101,7 +2080,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2374_chunk_84（第 1061-1083 行）。",
     },
     {
-        "case_key": "prag-0100",
+        "case_key": "prag-0099",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "macOS 序列号主要涉及哪些方面？",
@@ -2122,7 +2101,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2377_chunk_1（第 18-36 行）。",
     },
     {
-        "case_key": "prag-0101",
+        "case_key": "prag-0100",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS AppleFS文件系统的核心要点是什么？",
@@ -2143,7 +2122,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2383_chunk_2（第 9-22 行）。",
     },
     {
-        "case_key": "prag-0102",
+        "case_key": "prag-0101",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是selector 将？",
@@ -2164,7 +2143,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2386_chunk_12（第 96-122 行）。",
     },
     {
-        "case_key": "prag-0103",
+        "case_key": "prag-0102",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "macOS安装程序滥用的核心要点是什么？",
@@ -2185,7 +2164,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2392_chunk_4（第 57-73 行）。",
     },
     {
-        "case_key": "prag-0104",
+        "case_key": "prag-0103",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是此 load command？",
@@ -2206,7 +2185,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2395_chunk_43（第 350-367 行）。",
     },
     {
-        "case_key": "prag-0105",
+        "case_key": "prag-0104",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于macOS .Net应用注入，同样应该怎么做？",
@@ -2227,7 +2206,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2398_chunk_10（第 55-83 行）。",
     },
     {
-        "case_key": "prag-0106",
+        "case_key": "prag-0105",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "macOS Dirty NIB漏洞主要涉及哪些方面？",
@@ -2248,7 +2227,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2401_chunk_2（第 11-23 行）。",
     },
     {
-        "case_key": "prag-0107",
+        "case_key": "prag-0106",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS PID 重用的核心要点是什么？",
@@ -2269,7 +2248,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2407_chunk_2（第 21-47 行）。",
     },
     {
-        "case_key": "prag-0108",
+        "case_key": "prag-0107",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是目标易受攻击的 binary？",
@@ -2290,7 +2269,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2410_chunk_0（第 1-40 行）。",
     },
     {
-        "case_key": "prag-0109",
+        "case_key": "prag-0108",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是XPC services 中最常见的漏洞类别？",
@@ -2311,7 +2290,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2416_chunk_3（第 62-98 行）。",
     },
     {
-        "case_key": "prag-0110",
+        "case_key": "prag-0109",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于macOS 授权数据库与 Authd，hash应该怎么做？",
@@ -2332,7 +2311,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2419_chunk_1（第 7-27 行）。",
     },
     {
-        "case_key": "prag-0111",
+        "case_key": "prag-0110",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 危险权限与 TCC 权限的核心要点是什么？",
@@ -2353,7 +2332,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2422_chunk_14（第 165-181 行）。",
     },
     {
-        "case_key": "prag-0112",
+        "case_key": "prag-0111",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是这些权限？",
@@ -2374,7 +2353,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2425_chunk_0（第 1-24 行）。",
     },
     {
-        "case_key": "prag-0113",
+        "case_key": "prag-0112",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "macOS Default Sandbox 调试的核心要点是什么？",
@@ -2395,7 +2374,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2428_chunk_0（第 1-40 行）。",
     },
     {
-        "case_key": "prag-0114",
+        "case_key": "prag-0113",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是要验证某个目录或文件？",
@@ -2416,7 +2395,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2431_chunk_1（第 14-35 行）。",
     },
     {
-        "case_key": "prag-0115",
+        "case_key": "prag-0114",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "通过 TCC 权限窃取 macOS 凭据和数据主要涉及哪些方面？",
@@ -2437,7 +2416,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2434_chunk_17（第 259-280 行）。",
     },
     {
-        "case_key": "prag-0116",
+        "case_key": "prag-0115",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于macOS 实用命令，检查已安装的可疑应用程序应该怎么做？",
@@ -2458,7 +2437,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2437_chunk_5（第 109-141 行）。",
     },
     {
-        "case_key": "prag-0117",
+        "case_key": "prag-0116",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "ADB 命令的核心要点是什么？",
@@ -2479,7 +2458,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2440_chunk_9（第 272-290 行）。",
     },
     {
-        "case_key": "prag-0118",
+        "case_key": "prag-0117",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是检查攻击者 app 是否会接收完整 URI、？",
@@ -2500,7 +2479,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2443_chunk_33（第 335-365 行）。",
     },
     {
-        "case_key": "prag-0119",
+        "case_key": "prag-0118",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Android 物理攻击的核心要点是什么？",
@@ -2521,7 +2500,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2446_chunk_7（第 55-64 行）。",
     },
     {
-        "case_key": "prag-0120",
+        "case_key": "prag-0119",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是Fernflower？",
@@ -2542,7 +2521,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2449_chunk_2（第 29-46 行）。",
     },
     {
-        "case_key": "prag-0121",
+        "case_key": "prag-0120",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Android 中的 Content Protocol的核心要点是什么？",
@@ -2563,7 +2542,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2452_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "prag-0122",
+        "case_key": "prag-0121",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "通过 libandroid_runtime Zygote 注入实现的固件级 Android Backdoor的核心要点是什么？",
@@ -2584,7 +2563,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2455_chunk_3（第 18-30 行）。",
     },
     {
-        "case_key": "prag-0123",
+        "case_key": "prag-0122",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Frida教程2的核心要点是什么？",
@@ -2605,7 +2584,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2458_chunk_14（第 268-275 行）。",
     },
     {
-        "case_key": "prag-0124",
+        "case_key": "prag-0123",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是另一种方法？",
@@ -2626,7 +2605,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2461_chunk_1（第 23-47 行）。",
     },
     {
-        "case_key": "prag-0125",
+        "case_key": "prag-0124",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "不安全的 In-App Update 机制 – 通过恶意 Plugins 实现 Remote Code Execution的核心要点是什么？",
@@ -2647,7 +2626,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2464_chunk_8（第 48-75 行）。",
     },
     {
-        "case_key": "prag-0126",
+        "case_key": "prag-0125",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于让 APK 接受 CA 证书，某些应用不接受用户下载的证书应该怎么做？",
@@ -2668,7 +2647,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2467_chunk_0（第 1-25 行）。",
     },
     {
-        "case_key": "prag-0127",
+        "case_key": "prag-0126",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是要确认应用？",
@@ -2689,7 +2668,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2470_chunk_0（第 1-27 行）。",
     },
     {
-        "case_key": "prag-0128",
+        "case_key": "prag-0127",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Smali - 反编译/[修改]/编译的核心要点是什么？",
@@ -2710,7 +2689,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2473_chunk_8（第 101-126 行）。",
     },
     {
-        "case_key": "prag-0129",
+        "case_key": "prag-0128",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是Android 开发的一个关键方面？",
@@ -2731,7 +2710,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2476_chunk_0（第 1-15 行）。",
     },
     {
-        "case_key": "prag-0130",
+        "case_key": "prag-0129",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于iOS Pentesting 检查清单，总之应该怎么做？",
@@ -2752,7 +2731,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2479_chunk_7（第 16-31 行）。",
     },
     {
-        "case_key": "prag-0131",
+        "case_key": "prag-0130",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "iOS Burp Suite 配置的核心要点是什么？",
@@ -2773,7 +2752,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2482_chunk_4（第 36-53 行）。",
     },
     {
-        "case_key": "prag-0132",
+        "case_key": "prag-0131",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "iOS应用扩展主要涉及哪些方面？",
@@ -2794,7 +2773,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2485_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "prag-0133",
+        "case_key": "prag-0132",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "使用 Objection 进行 iOS Hooking的核心要点是什么？",
@@ -2815,7 +2794,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2488_chunk_0（第 1-26 行）。",
     },
     {
-        "case_key": "prag-0134",
+        "case_key": "prag-0133",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "iOS 序列化与编码的核心要点是什么？",
@@ -2836,7 +2815,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2491_chunk_3（第 40-60 行）。",
     },
     {
-        "case_key": "prag-0135",
+        "case_key": "prag-0134",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是一个监控工具使用示例？",
@@ -2857,7 +2836,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2494_chunk_3（第 34-71 行）。",
     },
     {
-        "case_key": "prag-0136",
+        "case_key": "prag-0135",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "itunesstored和bookassetd沙箱逃逸的核心要点是什么？",
@@ -2878,7 +2857,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2497_chunk_26（第 143-152 行）。",
     },
     {
-        "case_key": "prag-0137",
+        "case_key": "prag-0136",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "1098/1099/1050 - Java RMI渗透测试的核心要点是什么？",
@@ -2899,7 +2878,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2503_chunk_1（第 17-26 行）。",
     },
     {
-        "case_key": "prag-0138",
+        "case_key": "prag-0137",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于12346/udp - Pentesting Cisco Catalyst SD-WAN 控制平面，如果主机暴露 TCP/830应该怎么做？",
@@ -2920,7 +2899,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2506_chunk_1（第 18-42 行）。",
     },
     {
-        "case_key": "prag-0139",
+        "case_key": "prag-0138",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是IBM MQ？",
@@ -2941,7 +2920,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2509_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "prag-0140",
+        "case_key": "prag-0139",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是当目标不仅？",
@@ -2962,7 +2941,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2512_chunk_10（第 96-118 行）。",
     },
     {
-        "case_key": "prag-0141",
+        "case_key": "prag-0140",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于24007-24008-24009-49152 - GlusterFS 渗透测试，如果挂载失败应该怎么做？",
@@ -2983,7 +2962,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2515_chunk_1（第 5-33 行）。",
     },
     {
-        "case_key": "prag-0142",
+        "case_key": "prag-0141",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于32100/UDP - PPPP (CS2) P2P Cameras 渗透测试，防护措施应该怎么做？",
@@ -3004,7 +2983,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2518_chunk_10（第 77-98 行）。",
     },
     {
-        "case_key": "prag-0143",
+        "case_key": "prag-0142",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "关于3632 - Distcc 渗透测试，_我认为 shodan 无法检测到此服务应该怎么做？",
@@ -3025,7 +3004,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2521_chunk_0（第 1-25 行）。",
     },
     {
-        "case_key": "prag-0144",
+        "case_key": "prag-0143",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "4222 - NATS / JetStream 渗透测试的核心要点是什么？",
@@ -3046,7 +3025,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2524_chunk_1（第 7-32 行）。",
     },
     {
-        "case_key": "prag-0145",
+        "case_key": "prag-0144",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于44134 - Tiller / Helm 渗透测试，你也可以尝试检查端口 44134应该怎么做？",
@@ -3067,7 +3046,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2527_chunk_1（第 14-39 行）。",
     },
     {
-        "case_key": "prag-0146",
+        "case_key": "prag-0145",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是目标设备将？",
@@ -3088,7 +3067,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2530_chunk_1（第 22-36 行）。",
     },
     {
-        "case_key": "prag-0147",
+        "case_key": "prag-0146",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是需要特别注意的？",
@@ -3109,7 +3088,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2534_chunk_1（第 18-34 行）。",
     },
     {
-        "case_key": "prag-0148",
+        "case_key": "prag-0147",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "5353/UDP Multicast DNS (mDNS) 和 DNS-SD的核心要点是什么？",
@@ -3130,7 +3109,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2537_chunk_11（第 108-124 行）。",
     },
     {
-        "case_key": "prag-0149",
+        "case_key": "prag-0148",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是Ports？",
@@ -3151,7 +3130,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2540_chunk_7（第 99-116 行）。",
     },
     {
-        "case_key": "prag-0150",
+        "case_key": "prag-0149",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "548 - AFP 渗透测试的核心要点是什么？",
@@ -3172,7 +3151,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2543_chunk_3（第 41-56 行）。",
     },
     {
-        "case_key": "prag-0151",
+        "case_key": "prag-0150",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于5985,5986 - WinRM 渗透测试，机器上存在 WinRM 后应该怎么做？",
@@ -3193,7 +3172,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2546_chunk_0（第 1-14 行）。",
     },
     {
-        "case_key": "prag-0152",
+        "case_key": "prag-0151",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于6379 - Redis 渗透测试，如果只配置了密码应该怎么做？",
@@ -3214,7 +3193,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2549_chunk_4（第 44-67 行）。",
     },
     {
-        "case_key": "prag-0153",
+        "case_key": "prag-0152",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是registrar panel/API？",
@@ -3235,7 +3214,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2552_chunk_17（第 211-231 行）。",
     },
     {
-        "case_key": "prag-0154",
+        "case_key": "prag-0153",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "8089 - Splunkd 渗透测试的核心要点是什么？",
@@ -3256,7 +3235,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2555_chunk_3（第 68-104 行）。",
     },
     {
-        "case_key": "prag-0155",
+        "case_key": "prag-0154",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是如果你想了解什么？",
@@ -3277,7 +3256,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2558_chunk_0（第 1-23 行）。",
     },
     {
-        "case_key": "prag-0156",
+        "case_key": "prag-0155",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是用于访问 Elasticsearch 的协议？",
@@ -3298,7 +3277,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2561_chunk_1（第 13-29 行）。",
     },
     {
-        "case_key": "prag-0157",
+        "case_key": "prag-0156",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是NFS 的每个版本都？",
@@ -3319,7 +3298,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2564_chunk_2（第 30-41 行）。",
     },
     {
-        "case_key": "prag-0158",
+        "case_key": "prag-0157",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "FTP 跳转攻击 - 扫描的核心要点是什么？",
@@ -3340,7 +3319,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2570_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "prag-0159",
+        "case_key": "prag-0158",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "194,6667,6660-7000端口渗透测试IRC主要涉及哪些方面？",
@@ -3361,7 +3340,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2573_chunk_0（第 1-33 行）。",
     },
     {
-        "case_key": "prag-0160",
+        "case_key": "prag-0159",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "从 Linux 收集 Tickets的核心要点是什么？",
@@ -3382,7 +3361,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2576_chunk_3（第 18-33 行）。",
     },
     {
-        "case_key": "prag-0161",
+        "case_key": "prag-0160",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是Addressing？",
@@ -3403,7 +3382,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2579_chunk_3（第 60-95 行）。",
     },
     {
-        "case_key": "prag-0162",
+        "case_key": "prag-0161",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "123/UDP端口渗透测试NTP的核心要点是什么？",
@@ -3424,7 +3403,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2582_chunk_9（第 122-138 行）。",
     },
     {
-        "case_key": "prag-0163",
+        "case_key": "prag-0162",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "3389端口渗透测试RDP的核心要点是什么？",
@@ -3445,7 +3424,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2585_chunk_2（第 42-66 行）。",
     },
     {
-        "case_key": "prag-0164",
+        "case_key": "prag-0163",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是以 $1$ 开头的 Hash？",
@@ -3466,7 +3445,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2588_chunk_7（第 82-101 行）。",
     },
     {
-        "case_key": "prag-0165",
+        "case_key": "prag-0164",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "ksmbd Attack Surface 与 SMB2/SMB3 Protocol Fuzzing（syzkaller）的核心要点是什么？",
@@ -3487,7 +3466,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2591_chunk_2（第 29-54 行）。",
     },
     {
-        "case_key": "prag-0166",
+        "case_key": "prag-0165",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SMTP 走私攻击的核心要点是什么？",
@@ -3508,7 +3487,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2594_chunk_11（第 108-117 行）。",
     },
     {
-        "case_key": "prag-0167",
+        "case_key": "prag-0166",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于22端口渗透测试SSH/SFTP，例如应该怎么做？",
@@ -3529,7 +3508,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2597_chunk_29（第 260-281 行）。",
     },
     {
-        "case_key": "prag-0168",
+        "case_key": "prag-0167",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是disable_functions？",
@@ -3550,7 +3529,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2629_chunk_55（第 411-421 行）。",
     },
     {
-        "case_key": "prag-0169",
+        "case_key": "prag-0168",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Python的核心要点是什么？",
@@ -3571,7 +3550,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2638_chunk_0（第 1-9 行）。",
     },
     {
-        "case_key": "prag-0170",
+        "case_key": "prag-0169",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Ruby 技巧的核心要点是什么？",
@@ -3592,7 +3571,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2641_chunk_13（第 130-148 行）。",
     },
     {
-        "case_key": "prag-0171",
+        "case_key": "prag-0170",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Spring Actuators主要涉及哪些方面？",
@@ -3613,7 +3592,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2644_chunk_7（第 75-90 行）。",
     },
     {
-        "case_key": "prag-0172",
+        "case_key": "prag-0171",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "揭露 CloudFlare主要涉及哪些方面？",
@@ -3634,7 +3613,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2647_chunk_26（第 144-150 行）。",
     },
     {
-        "case_key": "prag-0173",
+        "case_key": "prag-0172",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Web API 渗透测试的核心要点是什么？",
@@ -3655,7 +3634,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2650_chunk_3（第 19-31 行）。",
     },
     {
-        "case_key": "prag-0174",
+        "case_key": "prag-0173",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "WSGI 权限维持技巧的核心要点是什么？",
@@ -3676,7 +3655,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2653_chunk_13（第 162-175 行）。",
     },
     {
-        "case_key": "prag-0175",
+        "case_key": "prag-0174",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "2FA/MFA/OTP 绕过的核心要点是什么？",
@@ -3697,7 +3676,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2656_chunk_3（第 57-93 行）。",
     },
     {
-        "case_key": "prag-0176",
+        "case_key": "prag-0175",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于浏览器扩展点击劫持，防范 CSS 篡改应该怎么做？",
@@ -3718,7 +3697,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2659_chunk_13（第 176-187 行）。",
     },
     {
-        "case_key": "prag-0177",
+        "case_key": "prag-0176",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "强制加载 Extension 与 Preferences MAC Forgery（Windows）的核心要点是什么？",
@@ -3739,7 +3718,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2662_chunk_14（第 138-149 行）。",
     },
     {
-        "case_key": "prag-0178",
+        "case_key": "prag-0177",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于URL差异导致的缓存投毒，Step 1应该怎么做？",
@@ -3760,7 +3739,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2665_chunk_1（第 9-22 行）。",
     },
     {
-        "case_key": "prag-0179",
+        "case_key": "prag-0178",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是下面？",
@@ -3781,7 +3760,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2678_chunk_24（第 243-245 行）。",
     },
     {
-        "case_key": "prag-0180",
+        "case_key": "prag-0179",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "在不知道 secrets 的情况下 exploiting \\_\\_VIEWSTATE的核心要点是什么？",
@@ -3802,7 +3781,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2681_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "prag-0181",
+        "case_key": "prag-0180",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Java SignedObject-gated Deserialization 与通过 Error Paths 实现的 Pre-auth Reachability的核心要点是什么？",
@@ -3823,7 +3802,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2684_chunk_9（第 79-105 行）。",
     },
     {
-        "case_key": "prag-0182",
+        "case_key": "prag-0181",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Laravel Livewire水合与合成器滥用的核心要点是什么？",
@@ -3844,7 +3823,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2687_chunk_17（第 125-144 行）。",
     },
     {
-        "case_key": "prag-0183",
+        "case_key": "prag-0182",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是其中一个特殊情况？",
@@ -3865,7 +3844,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2694_chunk_5（第 151-183 行）。",
     },
     {
-        "case_key": "prag-0184",
+        "case_key": "prag-0183",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是如果网页不？",
@@ -3886,7 +3865,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2698_chunk_5（第 67-76 行）。",
     },
     {
-        "case_key": "prag-0185",
+        "case_key": "prag-0184",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "gRPC-Web 渗透测试的核心要点是什么？",
@@ -3907,7 +3886,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2708_chunk_19（第 208-221 行）。",
     },
     {
-        "case_key": "prag-0186",
+        "case_key": "prag-0185",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "HTTP连接污染的核心要点是什么？",
@@ -3928,7 +3907,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2714_chunk_1（第 7-21 行）。",
     },
     {
-        "case_key": "prag-0187",
+        "case_key": "prag-0186",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "HTTP/2 Downgrades 中的 Request Smuggling的核心要点是什么？",
@@ -3949,7 +3928,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2717_chunk_9（第 101-115 行）。",
     },
     {
-        "case_key": "prag-0188",
+        "case_key": "prag-0187",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是主要限制仍然？",
@@ -3970,7 +3949,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2720_chunk_2（第 15-26 行）。",
     },
     {
-        "case_key": "prag-0189",
+        "case_key": "prag-0188",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是观察客户端？",
@@ -3991,7 +3970,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2726_chunk_65（第 383-394 行）。",
     },
     {
-        "case_key": "prag-0190",
+        "case_key": "prag-0189",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是交易可能会被错误地从 accountC 而不？",
@@ -4012,7 +3991,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2729_chunk_0（第 1-26 行）。",
     },
     {
-        "case_key": "prag-0191",
+        "case_key": "prag-0190",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是检测子页面？",
@@ -4033,7 +4012,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2732_chunk_1（第 7-33 行）。",
     },
     {
-        "case_key": "prag-0192",
+        "case_key": "prag-0191",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是确保 limiter key 不？",
@@ -4054,7 +4033,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2738_chunk_12（第 121-134 行）。",
     },
     {
-        "case_key": "prag-0193",
+        "case_key": "prag-0192",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是Backend 检查 token？",
@@ -4075,7 +4054,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2741_chunk_16（第 166-186 行）。",
     },
     {
-        "case_key": "prag-0194",
+        "case_key": "prag-0193",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SAML 基础的核心要点是什么？",
@@ -4096,7 +4075,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2744_chunk_1（第 18-31 行）。",
     },
     {
-        "case_key": "prag-0195",
+        "case_key": "prag-0194",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于MySQL File priv 实现 SSRF/RCE，如果 @@plugin_dir 不可写应该怎么做？",
@@ -4117,7 +4096,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2750_chunk_2（第 21-29 行）。",
     },
     {
-        "case_key": "prag-0196",
+        "case_key": "prag-0195",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "使用 PostgreSQL 扩展实现 RCE的核心要点是什么？",
@@ -4138,7 +4117,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2756_chunk_7（第 87-107 行）。",
     },
     {
-        "case_key": "prag-0197",
+        "case_key": "prag-0196",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "使用 SQLMap 进行 Second Order Injection的核心要点是什么？",
@@ -4159,7 +4138,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2759_chunk_0（第 1-31 行）。",
     },
     {
-        "case_key": "prag-0198",
+        "case_key": "prag-0197",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "URL 格式绕过的核心要点是什么？",
@@ -4180,7 +4159,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2762_chunk_17（第 237-246 行）。",
     },
     {
-        "case_key": "prag-0199",
+        "case_key": "prag-0198",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于定时攻击，执行这些 attacks 时需要记住应该怎么做？",
@@ -4201,7 +4180,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2765_chunk_2（第 25-47 行）。",
     },
     {
-        "case_key": "prag-0200",
+        "case_key": "prag-0199",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "XPATH注入主要涉及哪些方面？",
@@ -4222,7 +4201,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2771_chunk_0（第 1-31 行）。",
     },
     {
-        "case_key": "prag-0201",
+        "case_key": "prag-0200",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于performance.now 示例，这比手动选择阈值更简洁应该怎么做？",
@@ -4243,7 +4222,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2780_chunk_7（第 72-95 行）。",
     },
     {
-        "case_key": "prag-0202",
+        "case_key": "prag-0201",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "滥用 Service Workers的核心要点是什么？",
@@ -4264,7 +4243,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2783_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "prag-0203",
+        "case_key": "prag-0202",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "DOM Clobbering的核心要点是什么？",
@@ -4285,7 +4264,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2786_chunk_1（第 14-52 行）。",
     },
     {
-        "case_key": "prag-0204",
+        "case_key": "prag-0203",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "关于XSS、CSP 和 SOP 中的 Iframes，防御说明（快速检查清单）应该怎么做？",
@@ -4306,7 +4285,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2789_chunk_10（第 136-151 行）。",
     },
     {
-        "case_key": "prag-0205",
+        "case_key": "prag-0204",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是递减运算符 -- 也？",
@@ -4327,7 +4306,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2792_chunk_15（第 211-224 行）。",
     },
     {
-        "case_key": "prag-0206",
+        "case_key": "prag-0205",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是一个有用的 gadget？",
@@ -4348,7 +4327,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2795_chunk_4（第 63-87 行）。",
     },
     {
-        "case_key": "prag-0207",
+        "case_key": "prag-0206",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "跨站脚本包含主要涉及哪些方面？",
@@ -4369,7 +4348,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2801_chunk_0（第 1-19 行）。",
     },
     {
-        "case_key": "prag-0208",
+        "case_key": "prag-0207",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是privilege check？",
@@ -4390,7 +4369,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2811_chunk_21（第 178-187 行）。",
     },
     {
-        "case_key": "prag-0209",
+        "case_key": "prag-0208",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是destructors？",
@@ -4411,7 +4390,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2817_chunk_0（第 1-19 行）。",
     },
     {
-        "case_key": "prag-0210",
+        "case_key": "prag-0209",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PwnTools的核心要点是什么？",
@@ -4432,7 +4411,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2822_chunk_2（第 94-147 行）。",
     },
     {
-        "case_key": "prag-0211",
+        "case_key": "prag-0210",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是一个非常重要的细节？",
@@ -4453,7 +4432,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2826_chunk_8（第 86-96 行）。",
     },
     {
-        "case_key": "prag-0212",
+        "case_key": "prag-0211",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于分支与线程栈金丝雀暴力猜测，因此应该怎么做？",
@@ -4474,7 +4453,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2835_chunk_6（第 105-111 行）。",
     },
     {
-        "case_key": "prag-0213",
+        "case_key": "prag-0212",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "iOS 如何连接到 Corellium的核心要点是什么？",
@@ -4495,7 +4474,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2844_chunk_4（第 57-70 行）。",
     },
     {
-        "case_key": "prag-0214",
+        "case_key": "prag-0213",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "WebKit DFG Store-Barrier UAF + ANGLE PBO 越界 (iOS 26.1)的核心要点是什么？",
@@ -4516,7 +4495,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2847_chunk_7（第 45-55 行）。",
     },
     {
-        "case_key": "prag-0215",
+        "case_key": "prag-0214",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是glibc 此时会认为前一个 chunk？",
@@ -4537,7 +4516,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2854_chunk_8（第 34-53 行）。",
     },
     {
-        "case_key": "prag-0216",
+        "case_key": "prag-0215",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是下一步？",
@@ -4558,7 +4537,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2857_chunk_7（第 34-41 行）。",
     },
     {
-        "case_key": "prag-0217",
+        "case_key": "prag-0216",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "灵魂幻影的核心要点是什么？",
@@ -4579,7 +4558,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2860_chunk_2（第 67-91 行）。",
     },
     {
-        "case_key": "prag-0218",
+        "case_key": "prag-0217",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是检查块的指示大小？",
@@ -4600,7 +4579,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2863_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "prag-0219",
+        "case_key": "prag-0218",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "反编译已编译的 Python 二进制文件（exe、elf）- 从 .pyc 中提取的核心要点是什么？",
@@ -4621,7 +4600,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2890_chunk_30（第 180-209 行）。",
     },
     {
-        "case_key": "prag-0220",
+        "case_key": "prag-0219",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "FreeIPA 渗透测试主要涉及哪些方面？",
@@ -4642,7 +4621,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2909_chunk_1（第 11-24 行）。",
     },
     {
-        "case_key": "prag-0221",
+        "case_key": "prag-0220",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Splunk LPE 与 Persistence的核心要点是什么？",
@@ -4663,7 +4642,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2912_chunk_0（第 1-16 行）。",
     },
     {
-        "case_key": "prag-0222",
+        "case_key": "prag-0221",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是另一种情况？",
@@ -4684,7 +4663,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2915_chunk_1（第 24-34 行）。",
     },
     {
-        "case_key": "prag-0223",
+        "case_key": "prag-0222",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SIP 会话初始化协议的核心要点是什么？",
@@ -4705,7 +4684,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2949_chunk_41（第 313-325 行）。",
     },
     {
-        "case_key": "prag-0224",
+        "case_key": "prag-0223",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Angular主要涉及哪些方面？",
@@ -4726,7 +4705,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2953_chunk_7（第 67-75 行）。",
     },
     {
-        "case_key": "prag-0225",
+        "case_key": "prag-0224",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "自定义 UDP RPC 枚举与文件传输滥用的核心要点是什么？",
@@ -4747,7 +4726,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2959_chunk_4（第 50-61 行）。",
     },
     {
-        "case_key": "prag-0226",
+        "case_key": "prag-0225",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "DotNetNuke (DNN)的核心要点是什么？",
@@ -4768,7 +4747,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2962_chunk_0（第 1-20 行）。",
     },
     {
-        "case_key": "prag-0227",
+        "case_key": "prag-0226",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于Git，使用 [https应该怎么做？",
@@ -4789,7 +4768,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2965_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "prag-0228",
+        "case_key": "prag-0227",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是了解 errors？",
@@ -4810,7 +4789,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2968_chunk_3（第 42-66 行）。",
     },
     {
-        "case_key": "prag-0229",
+        "case_key": "prag-0228",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于ImageMagick 安全，如果目标会处理不受信任的 images应该怎么做？",
@@ -4831,7 +4810,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2971_chunk_5（第 58-75 行）。",
     },
     {
-        "case_key": "prag-0230",
+        "case_key": "prag-0229",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Joomla的核心要点是什么？",
@@ -4852,7 +4831,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2975_chunk_4（第 80-92 行）。",
     },
     {
-        "case_key": "prag-0231",
+        "case_key": "prag-0230",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是检查远程执行功能？",
@@ -4873,7 +4852,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2978_chunk_8（第 84-100 行）。",
     },
     {
-        "case_key": "prag-0232",
+        "case_key": "prag-0231",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是如果第二个 response 返回的？",
@@ -4894,7 +4873,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2981_chunk_65（第 1324-1334 行）。",
     },
     {
-        "case_key": "prag-0233",
+        "case_key": "prag-0232",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于PrestaShop，可解析路径应该怎么做？",
@@ -4915,7 +4894,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2984_chunk_1（第 7-27 行）。",
     },
     {
-        "case_key": "prag-0234",
+        "case_key": "prag-0233",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "关于Electron contextIsolation RCE（通过内部代码），页面开始加载时应该怎么做？",
@@ -4936,7 +4915,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2989_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "prag-0235",
+        "case_key": "prag-0234",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "PHP 对象实例化 RCE主要涉及哪些方面？",
@@ -4957,7 +4936,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2993_chunk_8（第 114-134 行）。",
     },
     {
-        "case_key": "prag-0236",
+        "case_key": "prag-0235",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Imagick <= 3.3.0  ‑ PHP >= 5.4  *disable_functions* 绕过的核心要点是什么？",
@@ -4978,7 +4957,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_2997_chunk_8（第 98-105 行）。",
     },
     {
-        "case_key": "prag-0237",
+        "case_key": "prag-0236",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于通过 compress.zlib + PHP_STREAM_PREFER_STUDIO + Path Disclosure 实现 LFI2RCE，过早发送 payload应该怎么做？",
@@ -4999,7 +4978,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3015_chunk_5（第 66-82 行）。",
     },
     {
-        "case_key": "prag-0238",
+        "case_key": "prag-0237",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "performance.now + 强制重任务的核心要点是什么？",
@@ -5020,7 +4999,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3033_chunk_10（第 130-156 行）。",
     },
     {
-        "case_key": "prag-0239",
+        "case_key": "prag-0238",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AD DNS 记录的核心要点是什么？",
@@ -5041,7 +5020,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3049_chunk_9（第 87-101 行）。",
     },
     {
-        "case_key": "prag-0240",
+        "case_key": "prag-0239",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于Active Directory Web Services (ADWS) 枚举与隐蔽收集，hex 值会转换为 xsd应该怎么做？",
@@ -5062,7 +5041,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3052_chunk_15（第 123-131 行）。",
     },
     {
-        "case_key": "prag-0241",
+        "case_key": "prag-0240",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "BloodHound 和其他 Active Directory 枚举工具的核心要点是什么？",
@@ -5083,7 +5062,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3055_chunk_19（第 124-144 行）。",
     },
     {
-        "case_key": "prag-0242",
+        "case_key": "prag-0241",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "DCShadow的核心要点是什么？",
@@ -5104,7 +5083,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3058_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "prag-0243",
+        "case_key": "prag-0242",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是然后我们需要检查该账户？",
@@ -5125,7 +5104,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3061_chunk_3（第 5-24 行）。",
     },
     {
-        "case_key": "prag-0244",
+        "case_key": "prag-0243",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Golden gMSA/dMSA Attack (离线推导 Managed Service Account 密码)的核心要点是什么？",
@@ -5146,7 +5125,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3064_chunk_7（第 90-106 行）。",
     },
     {
-        "case_key": "prag-0245",
+        "case_key": "prag-0244",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是Kerberos？",
@@ -5167,7 +5146,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3067_chunk_1（第 3-12 行）。",
     },
     {
-        "case_key": "prag-0246",
+        "case_key": "prag-0245",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "LAPS的核心要点是什么？",
@@ -5188,7 +5167,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3070_chunk_2（第 23-40 行）。",
     },
     {
-        "case_key": "prag-0247",
+        "case_key": "prag-0246",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "票据传递的核心要点是什么？",
@@ -5209,7 +5188,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3073_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "prag-0248",
+        "case_key": "prag-0247",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PrintNightmare（Windows Print Spooler RCE/LPE）的核心要点是什么？",
@@ -5230,7 +5209,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3076_chunk_15（第 101-119 行）。",
     },
     {
-        "case_key": "prag-0249",
+        "case_key": "prag-0248",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是即使使用的？",
@@ -5251,7 +5230,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3079_chunk_3（第 20-30 行）。",
     },
     {
-        "case_key": "prag-0250",
+        "case_key": "prag-0249",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AD CS 账户持久化的核心要点是什么？",
@@ -5272,7 +5251,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3084_chunk_19（第 170-179 行）。",
     },
     {
-        "case_key": "prag-0251",
+        "case_key": "prag-0250",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "JBOSS的核心要点是什么？",
@@ -5293,7 +5272,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3101_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "prag-0252",
+        "case_key": "prag-0251",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "什么是学习 AI 的最佳起点？",
@@ -5314,7 +5293,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3105_chunk_0（第 1-35 行）。",
     },
     {
-        "case_key": "prag-0253",
+        "case_key": "prag-0252",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "关于利用工具，然后应该怎么做？",
@@ -5335,7 +5314,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3108_chunk_12（第 202-217 行）。",
     },
     {
-        "case_key": "prag-0254",
+        "case_key": "prag-0253",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PIE的核心要点是什么？",
@@ -5356,7 +5335,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "自动生成：锚定真实分块 doc_3111_chunk_1（第 9-18 行）。",
     },
     {
-        "case_key": "prag-0255",
+        "case_key": "prag-0254",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "iOS 漏洞利用主要涉及哪些方面？",
@@ -5375,6 +5354,27 @@ RAW_SPECS: List[Dict[str, Any]] = [
         ],
         "tags": ['auto_generated', 'production_corpus'],
         "rationale": "自动生成：锚定真实分块 doc_3114_chunk_13（第 122-144 行）。",
+    },
+    {
+        "case_key": "prag-0255",
+        "category": "retrieval_supported",
+        "difficulty": "easy",
+        "query": "Ret2syscall的核心要点是什么？",
+        "expected_status": "supported",
+        "evidence": [
+            {
+                "document_id": "3120",
+                "title": "Ret2syscall",
+                "chunk_id": "doc_3120_chunk_2",
+                "start_line": 20,
+                "end_line": 43,
+                "corpus_version": "knowledge_embeddings-v1",
+                "role": "primary",
+                "must_contain": "首先需要在内存中找到一个可写入的位置",
+            }
+        ],
+        "tags": ['auto_generated', 'production_corpus'],
+        "rationale": "自动生成：锚定真实分块 doc_3120_chunk_2（第 20-43 行）。",
     },
 ]
 

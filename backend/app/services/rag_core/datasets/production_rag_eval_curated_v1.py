@@ -2,10 +2,10 @@
 r"""人工策展的全覆盖生产语料 RAG 评测集 v1（LLM 逐篇手写 query）。
 
 来源快照：
-- 导出时间：2026-08-21T16:18:30.133512
+- 导出时间：2026-08-22T15:28:25.937374
 - collection：knowledge_embeddings
-- 语料规模：1022 篇文档 / 21650 个分块
-- 本集用例：1021 条（每篇真实文档一条）
+- 语料规模：1017 篇文档 / 21583 个分块
+- 本集用例：1016 条（每篇真实文档一条）
 
 约束：
 - query 全部由 LLM 阅读真实文档后手写，非模板生成；
@@ -422,69 +422,6 @@ RAW_SPECS: List[Dict[str, Any]] = [
     {
         "case_key": "curag-0020",
         "category": "retrieval_supported",
-        "difficulty": "medium",
-        "query": "TCP/IP 各层分别面临哪些典型的安全威胁？",
-        "expected_status": "supported",
-        "evidence": [
-            {
-                "document_id": "20",
-                "title": "TCP/IP协议体系结构",
-                "chunk_id": "doc_20_chunk_1",
-                "start_line": 33,
-                "end_line": 43,
-                "corpus_version": "knowledge_embeddings-v1",
-                "role": "primary",
-                "must_contain": "- **防护措施**：使用DNSSEC、配置DNS解析安全策略",
-            }
-        ],
-        "tags": ['llm_curated', 'production_corpus'],
-        "rationale": "LLM 手写 query，锚定文档 20 的真实分块 doc_20_chunk_1（第 33-43 行）。",
-    },
-    {
-        "case_key": "curag-0021",
-        "category": "retrieval_supported",
-        "difficulty": "medium",
-        "query": "DNS 缓存污染有什么防御办法？",
-        "expected_status": "supported",
-        "evidence": [
-            {
-                "document_id": "21",
-                "title": "DNS协议工作原理与安全",
-                "chunk_id": "doc_21_chunk_0",
-                "start_line": 1,
-                "end_line": 35,
-                "corpus_version": "knowledge_embeddings-v1",
-                "role": "primary",
-                "must_contain": "攻击者向DNS服务器发送伪造的响应，污染DNS缓存，使用户访问恶意站点。",
-            }
-        ],
-        "tags": ['llm_curated', 'production_corpus'],
-        "rationale": "LLM 手写 query，锚定文档 21 的真实分块 doc_21_chunk_0（第 1-35 行）。",
-    },
-    {
-        "case_key": "curag-0022",
-        "category": "retrieval_supported",
-        "difficulty": "medium",
-        "query": "HTTPS 应该怎么选择安全的加密套件？",
-        "expected_status": "supported",
-        "evidence": [
-            {
-                "document_id": "22",
-                "title": "HTTP/HTTPS协议详解",
-                "chunk_id": "doc_22_chunk_1",
-                "start_line": 38,
-                "end_line": 48,
-                "corpus_version": "knowledge_embeddings-v1",
-                "role": "primary",
-                "must_contain": "4. **弱加密算法**：使用已破解的加密算法",
-            }
-        ],
-        "tags": ['llm_curated', 'production_corpus'],
-        "rationale": "LLM 手写 query，锚定文档 22 的真实分块 doc_22_chunk_1（第 38-48 行）。",
-    },
-    {
-        "case_key": "curag-0023",
-        "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "防御 SQL 注入有哪些具体措施？",
         "expected_status": "supported",
@@ -504,7 +441,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 23 的真实分块 doc_23_chunk_0（第 1-56 行）。",
     },
     {
-        "case_key": "curag-0024",
+        "case_key": "curag-0021",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "存储型 XSS 和反射型 XSS 有什么区别？",
@@ -518,14 +455,14 @@ RAW_SPECS: List[Dict[str, Any]] = [
                 "end_line": 43,
                 "corpus_version": "knowledge_embeddings-v1",
                 "role": "primary",
-                "must_contain": "XSS（Cross-Site Scripting）攻击是指攻击者通过在网页中注入恶意JavaScript代码，当其他用户浏览该网页时，恶意代码会在用户浏览器中执行。",
+                "must_contain": "不涉及服务器处理，纯客户端漏洞。恶意脚本通过操作DOM对象来执行。",
             }
         ],
         "tags": ['llm_curated', 'production_corpus'],
         "rationale": "LLM 手写 query，锚定文档 24 的真实分块 doc_24_chunk_0（第 1-43 行）。",
     },
     {
-        "case_key": "curag-0025",
+        "case_key": "curag-0022",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "CSRF 防御中只校验 Referer/Origin 靠谱吗？",
@@ -546,7 +483,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 25 的真实分块 doc_25_chunk_0（第 1-27 行）。",
     },
     {
-        "case_key": "curag-0026",
+        "case_key": "curag-0023",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "SSRF 攻击的原理是什么？服务器会被当成什么跳板？",
@@ -567,7 +504,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 26 的真实分块 doc_26_chunk_0（第 1-35 行）。",
     },
     {
-        "case_key": "curag-0027",
+        "case_key": "curag-0024",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "WebShell 是怎么借文件上传落到服务器上的？",
@@ -581,14 +518,14 @@ RAW_SPECS: List[Dict[str, Any]] = [
                 "end_line": 42,
                 "corpus_version": "knowledge_embeddings-v1",
                 "role": "primary",
-                "must_contain": "文件上传功能如果没有正确验证上传文件的类型和内容，攻击者可以上传恶意文件（如WebShell）并在服务器上执行。",
+                "must_contain": "文件上传漏洞与防护。# 文件上传漏洞与防护",
             }
         ],
         "tags": ['llm_curated', 'production_corpus'],
         "rationale": "LLM 手写 query，锚定文档 27 的真实分块 doc_27_chunk_0（第 1-42 行）。",
     },
     {
-        "case_key": "curag-0028",
+        "case_key": "curag-0025",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Android 应用安全分析一般查哪些点？",
@@ -609,7 +546,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 28 的真实分块 doc_28_chunk_0（第 1-42 行）。",
     },
     {
-        "case_key": "curag-0029",
+        "case_key": "curag-0026",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "TestFlight 分发测试和 App Store 正式发布在安全机制上有什么不同？",
@@ -630,7 +567,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 29 的真实分块 doc_29_chunk_0（第 1-33 行）。",
     },
     {
-        "case_key": "curag-0030",
+        "case_key": "curag-0027",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "用 Shodan 怎么搜索存在某个 CVE 漏洞的主机？",
@@ -651,7 +588,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 30 的真实分块 doc_30_chunk_0（第 1-40 行）。",
     },
     {
-        "case_key": "curag-0031",
+        "case_key": "curag-0028",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": ".gitignore 配置不当为什么会导致敏感信息被传上 GitHub？",
@@ -672,7 +609,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 31 的真实分块 doc_31_chunk_0（第 1-45 行）。",
     },
     {
-        "case_key": "curag-0032",
+        "case_key": "curag-0029",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "DNS 信息收集有哪些常用手段？",
@@ -693,7 +630,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 32 的真实分块 doc_32_chunk_0（第 1-44 行）。",
     },
     {
-        "case_key": "curag-0033",
+        "case_key": "curag-0030",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "ARP 防火墙主要防什么？",
@@ -714,7 +651,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 33 的真实分块 doc_33_chunk_0（第 1-32 行）。",
     },
     {
-        "case_key": "curag-0034",
+        "case_key": "curag-0031",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "恶意 DHCP 服务器会给局域网用户造成什么危害？",
@@ -735,7 +672,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 34 的真实分块 doc_34_chunk_0（第 1-28 行）。",
     },
     {
-        "case_key": "curag-0035",
+        "case_key": "curag-0032",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "VPN 流量加密为什么建议用 AES-256 这类强算法？",
@@ -756,7 +693,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 35 的真实分块 doc_35_chunk_0（第 1-39 行）。",
     },
     {
-        "case_key": "curag-0036",
+        "case_key": "curag-0033",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "针对 WEP 的 FMS 和 chopchop 攻击是什么原理？",
@@ -777,7 +714,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 36 的真实分块 doc_36_chunk_0（第 1-51 行）。",
     },
     {
-        "case_key": "curag-0037",
+        "case_key": "curag-0034",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "防命令注入为什么要优先用数组形式传参给 shell？",
@@ -798,7 +735,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 37 的真实分块 doc_37_chunk_0（第 1-47 行）。",
     },
     {
-        "case_key": "curag-0038",
+        "case_key": "curag-0035",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "JSONP 绕过同源策略的原理和风险是什么？",
@@ -819,7 +756,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 38 的真实分块 doc_38_chunk_0（第 1-34 行）。",
     },
     {
-        "case_key": "curag-0039",
+        "case_key": "curag-0036",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "WebSocket 的双向持久连接会引入哪些安全问题？",
@@ -840,7 +777,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 39 的真实分块 doc_39_chunk_0（第 1-40 行）。",
     },
     {
-        "case_key": "curag-0040",
+        "case_key": "curag-0037",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Docker 容器安全要注意哪些方面？",
@@ -861,7 +798,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 40 的真实分块 doc_40_chunk_0（第 1-61 行）。",
     },
     {
-        "case_key": "curag-0041",
+        "case_key": "curag-0038",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Kubernetes 集群的安全要点有哪些？",
@@ -882,7 +819,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 41 的真实分块 doc_41_chunk_0（第 1-70 行）。",
     },
     {
-        "case_key": "curag-0042",
+        "case_key": "curag-0039",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "TLS 握手时客户端怎么告知自己支持的加密算法？",
@@ -903,7 +840,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 42 的真实分块 doc_42_chunk_0（第 1-40 行）。",
     },
     {
-        "case_key": "curag-0043",
+        "case_key": "curag-0040",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "JWT 的算法混淆攻击（RS256 换 HS256）是怎么回事？",
@@ -924,7 +861,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 43 的真实分块 doc_43_chunk_0（第 1-46 行）。",
     },
     {
-        "case_key": "curag-0044",
+        "case_key": "curag-0041",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "内网渗透的总体思路是什么？",
@@ -945,7 +882,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 44 的真实分块 doc_44_chunk_0（第 1-48 行）。",
     },
     {
-        "case_key": "curag-0045",
+        "case_key": "curag-0042",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Metasploit 里 Exploit 和 Payload 分别指什么？",
@@ -966,7 +903,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 45 的真实分块 doc_45_chunk_0（第 1-54 行）。",
     },
     {
-        "case_key": "curag-0046",
+        "case_key": "curag-0043",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "WebShell 怎么检测和清除？",
@@ -987,7 +924,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 46 的真实分块 doc_46_chunk_0（第 1-47 行）。",
     },
     {
-        "case_key": "curag-0047",
+        "case_key": "curag-0044",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "日志溯源时怎么用 Kill Chain 模型拆解攻击链？",
@@ -1008,7 +945,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 47 的真实分块 doc_47_chunk_0（第 1-53 行）。",
     },
     {
-        "case_key": "curag-0048",
+        "case_key": "curag-0045",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "数据库安全防护要覆盖哪些方面？",
@@ -1029,7 +966,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 48 的真实分块 doc_48_chunk_0（第 1-44 行）。",
     },
     {
-        "case_key": "curag-0049",
+        "case_key": "curag-0046",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "S3 的服务端加密 SSE-S3 和 SSE-KMS 有什么区别？",
@@ -1050,7 +987,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 49 的真实分块 doc_49_chunk_0（第 1-42 行）。",
     },
     {
-        "case_key": "curag-0050",
+        "case_key": "curag-0047",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "移动端渗透测试的流程是怎样的？",
@@ -1071,7 +1008,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 50 的真实分块 doc_50_chunk_0（第 1-47 行）。",
     },
     {
-        "case_key": "curag-0051",
+        "case_key": "curag-0048",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "社会工程学信息收集有哪些常见手法？",
@@ -1092,7 +1029,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 51 的真实分块 doc_51_chunk_0（第 1-46 行）。",
     },
     {
-        "case_key": "curag-0052",
+        "case_key": "curag-0049",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Cookie 安全为什么要同时设置 HttpOnly 和 Secure？",
@@ -1113,7 +1050,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 52 的真实分块 doc_52_chunk_0（第 1-47 行）。",
     },
     {
-        "case_key": "curag-0053",
+        "case_key": "curag-0050",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "API 安全设计要重点防什么？",
@@ -1134,7 +1071,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 53 的真实分块 doc_53_chunk_0（第 1-47 行）。",
     },
     {
-        "case_key": "curag-0054",
+        "case_key": "curag-0051",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Content Security Policy 这个响应头主要防哪些攻击？",
@@ -1155,7 +1092,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 54 的真实分块 doc_54_chunk_0（第 1-49 行）。",
     },
     {
-        "case_key": "curag-0055",
+        "case_key": "curag-0052",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "点击劫持是怎么借 iframe 诱导用户中招的？",
@@ -1176,7 +1113,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 55 的真实分块 doc_55_chunk_0（第 1-52 行）。",
     },
     {
-        "case_key": "curag-0056",
+        "case_key": "curag-0053",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "攻击者向 Web 缓存发大量不存在的数据想达到什么目的？",
@@ -1197,7 +1134,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 56 的真实分块 doc_56_chunk_0（第 1-50 行）。",
     },
     {
-        "case_key": "curag-0057",
+        "case_key": "curag-0054",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "ARP 欺骗为什么能实现中间人攻击？",
@@ -1218,7 +1155,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 57 的真实分块 doc_57_chunk_0（第 1-19 行）。",
     },
     {
-        "case_key": "curag-0058",
+        "case_key": "curag-0055",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "代理防火墙（应用层防火墙）的优势是什么？",
@@ -1239,7 +1176,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 58 的真实分块 doc_58_chunk_0（第 1-23 行）。",
     },
     {
-        "case_key": "curag-0059",
+        "case_key": "curag-0056",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "' OR '1'='1 这类输入为什么能让登录形同虚设？",
@@ -1260,7 +1197,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 59 的真实分块 doc_59_chunk_0（第 1-31 行）。",
     },
     {
-        "case_key": "curag-0060",
+        "case_key": "curag-0057",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Linux 加固里的最小权限原则落地时要做什么？",
@@ -1281,7 +1218,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 60 的真实分块 doc_60_chunk_0（第 1-41 行）。",
     },
     {
-        "case_key": "curag-0061",
+        "case_key": "curag-0058",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Windows 的账户锁定策略怎么配才合理？",
@@ -1302,7 +1239,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 61 的真实分块 doc_61_chunk_0（第 1-30 行）。",
     },
     {
-        "case_key": "curag-0062",
+        "case_key": "curag-0059",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "对称加密和非对称加密各自适合什么场景？",
@@ -1323,7 +1260,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 62 的真实分块 doc_62_chunk_0（第 1-39 行）。",
     },
     {
-        "case_key": "curag-0063",
+        "case_key": "curag-0060",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "censys.io 在信息收集阶段能搜到什么？",
@@ -1344,7 +1281,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 63 的真实分块 doc_63_chunk_0（第 1-49 行）。",
     },
     {
-        "case_key": "curag-0064",
+        "case_key": "curag-0061",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Metasploit 从启动到拿 shell 的基本使用流程是怎样的？",
@@ -1365,7 +1302,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 64 的真实分块 doc_64_chunk_0（第 1-48 行）。",
     },
     {
-        "case_key": "curag-0065",
+        "case_key": "curag-0062",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "安全事件的分级标准（I 到 IV 级）是怎么划分的？",
@@ -1386,7 +1323,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 65 的真实分块 doc_65_chunk_0（第 1-48 行）。",
     },
     {
-        "case_key": "curag-0066",
+        "case_key": "curag-0063",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "数字取证里哈希校验这一步为什么必不可少？",
@@ -1407,7 +1344,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 66 的真实分块 doc_66_chunk_0（第 1-49 行）。",
     },
     {
-        "case_key": "curag-0067",
+        "case_key": "curag-0064",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "数据加密存储的密钥分层（主密钥/KEK/DEK）是怎么工作的？",
@@ -1428,7 +1365,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 67 的真实分块 doc_67_chunk_0（第 1-36 行）。",
     },
     {
-        "case_key": "curag-0068",
+        "case_key": "curag-0065",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "GDPR 赋予了数据主体哪些权利？",
@@ -1449,7 +1386,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 68 的真实分块 doc_68_chunk_0（第 1-44 行）。",
     },
     {
-        "case_key": "curag-0069",
+        "case_key": "curag-0066",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Android 动态调试抓包要怎么配 Burp Suite？",
@@ -1470,7 +1407,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 69 的真实分块 doc_69_chunk_0（第 1-55 行）。",
     },
     {
-        "case_key": "curag-0070",
+        "case_key": "curag-0067",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "iOS 应用签名验证机制是怎样的？",
@@ -1491,7 +1428,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 70 的真实分块 doc_70_chunk_0（第 1-51 行）。",
     },
     {
-        "case_key": "curag-0071",
+        "case_key": "curag-0068",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "分布式拒绝服务攻击（DDoS）的原理是什么？",
@@ -1512,7 +1449,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 82 的真实分块 doc_82_chunk_0（第 1-24 行）。",
     },
     {
-        "case_key": "curag-0072",
+        "case_key": "curag-0069",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "SQL 注入防护指南的核心建议是什么？",
@@ -1533,7 +1470,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 89 的真实分块 doc_89_chunk_0（第 1-10 行）。",
     },
     {
-        "case_key": "curag-0073",
+        "case_key": "curag-0070",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "部署 SQL 注入防护时 WAF 和参数化查询怎么配合？",
@@ -1554,7 +1491,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 101 的真实分块 doc_101_chunk_0（第 1-14 行）。",
     },
     {
-        "case_key": "curag-0074",
+        "case_key": "curag-0071",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "开发阶段防 XSS，输入和输出两侧分别要做什么？",
@@ -1575,7 +1512,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 111 的真实分块 doc_111_chunk_0（第 1-44 行）。",
     },
     {
-        "case_key": "curag-0075",
+        "case_key": "curag-0072",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "什么是 Zip-Slip（归档解压路径遍历）漏洞？",
@@ -1596,7 +1533,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2071 的真实分块 doc_2071_chunk_0（第 1-10 行）。",
     },
     {
-        "case_key": "curag-0076",
+        "case_key": "curag-0073",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "跑 John the Ripper 之前怎么配置 /etc/john/john.conf？",
@@ -1617,7 +1554,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2072 的真实分块 doc_2072_chunk_81（第 654-675 行）。",
     },
     {
-        "case_key": "curag-0077",
+        "case_key": "curag-0074",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "eSIM / Java Card 虚拟机里 putfield 指令能被怎么滥用？",
@@ -1638,7 +1575,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2073 的真实分块 doc_2073_chunk_6（第 24-37 行）。",
     },
     {
-        "case_key": "curag-0078",
+        "case_key": "curag-0075",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "攻击者怎么把暂存在 Public 目录的战利品用 Rclone 外传出去？",
@@ -1659,7 +1596,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2074 的真实分块 doc_2074_chunk_0（第 1-33 行）。",
     },
     {
-        "case_key": "curag-0079",
+        "case_key": "curag-0076",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "frps/frpc 把本地服务暴露到公网的配置示例是什么样的？",
@@ -1680,7 +1617,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2075 的真实分块 doc_2075_chunk_6（第 106-135 行）。",
     },
     {
-        "case_key": "curag-0080",
+        "case_key": "curag-0077",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "拿不到完整 TTY 时，怎么和需要用户交互输入的程序配合？",
@@ -1701,7 +1638,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2076 的真实分块 doc_2076_chunk_6（第 86-93 行）。",
     },
     {
-        "case_key": "curag-0081",
+        "case_key": "curag-0078",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "生成 Linux shell 时的 -b 参数代表 bind 还是 reverse？",
@@ -1722,7 +1659,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2077 的真实分块 doc_2077_chunk_33（第 267-287 行）。",
     },
     {
-        "case_key": "curag-0082",
+        "case_key": "curag-0079",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "MSFVenom 怎么指定目标架构和平台？",
@@ -1743,7 +1680,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2078 的真实分块 doc_2078_chunk_0（第 1-24 行）。",
     },
     {
-        "case_key": "curag-0083",
+        "case_key": "curag-0080",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Windows 平台的 shell 被 Defender 检测到了该怎么考虑？",
@@ -1764,7 +1701,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2079 的真实分块 doc_2079_chunk_27（第 158-177 行）。",
     },
     {
-        "case_key": "curag-0084",
+        "case_key": "curag-0081",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "除了 searchsploit，还有什么工具可以搜公开 exploits？",
@@ -1785,7 +1722,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2080 的真实分块 doc_2080_chunk_3（第 18-46 行）。",
     },
     {
-        "case_key": "curag-0085",
+        "case_key": "curag-0082",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Tiny Core 这类无状态环境里攻击者通常要先做什么？",
@@ -1806,7 +1743,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2081 的真实分块 doc_2081_chunk_45（第 667-693 行）。",
     },
     {
-        "case_key": "curag-0086",
+        "case_key": "curag-0083",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AdaptixC2 的配置是怎么编码存储、按什么步骤提取的？",
@@ -1827,7 +1764,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2082 的真实分块 doc_2082_chunk_8（第 80-96 行）。",
     },
     {
-        "case_key": "curag-0087",
+        "case_key": "curag-0084",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Android 恶意软件怎么诱导系统走非生物识别解锁？",
@@ -1848,7 +1785,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2083 的真实分块 doc_2083_chunk_53（第 513-532 行）。",
     },
     {
-        "case_key": "curag-0088",
+        "case_key": "curag-0085",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "反取证排查时怎么发现正在运行的可疑 Python 脚本？",
@@ -1869,7 +1806,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2084 的真实分块 doc_2084_chunk_3（第 55-76 行）。",
     },
     {
-        "case_key": "curag-0089",
+        "case_key": "curag-0086",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "怀疑容器内 /etc/shadow 被改过，取证时怎么把它拿出来核对？",
@@ -1890,7 +1827,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2085 的真实分块 doc_2085_chunk_1（第 1-40 行）。",
     },
     {
-        "case_key": "curag-0090",
+        "case_key": "curag-0087",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "文件完整性监控的基线校验和推荐用什么算法？",
@@ -1911,7 +1848,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2086 的真实分块 doc_2086_chunk_0（第 1-20 行）。",
     },
     {
-        "case_key": "curag-0091",
+        "case_key": "curag-0088",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "dc3dd 和 dcfldd 这两个取证镜像工具有什么渊源？",
@@ -1932,7 +1869,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2087 的真实分块 doc_2087_chunk_2（第 16-35 行）。",
     },
     {
-        "case_key": "curag-0092",
+        "case_key": "curag-0089",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "处理加密的 iOS 备份时，extractor 需要额外提供什么？",
@@ -1953,7 +1890,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2088 的真实分块 doc_2088_chunk_2（第 19-39 行）。",
     },
     {
-        "case_key": "curag-0093",
+        "case_key": "curag-0090",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Linux 取证时把涉案磁盘接到分析机前要注意什么？",
@@ -1974,7 +1911,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2089 的真实分块 doc_2089_chunk_6（第 68-83 行）。",
     },
     {
-        "case_key": "curag-0094",
+        "case_key": "curag-0091",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Detect It Easy 这个工具能识别文件的什么特征？",
@@ -1995,7 +1932,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2090 的真实分块 doc_2090_chunk_6（第 97-117 行）。",
     },
     {
-        "case_key": "curag-0095",
+        "case_key": "curag-0092",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Volatility 使用外部插件时参数位置有什么讲究？",
@@ -2016,7 +1953,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2091 的真实分块 doc_2091_chunk_38（第 607-637 行）。",
     },
     {
-        "case_key": "curag-0096",
+        "case_key": "curag-0093",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "做文件 carving 前为什么要先识别 packer 或 encoder 算法？",
@@ -2037,7 +1974,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2092 的真实分块 doc_2092_chunk_8（第 96-121 行）。",
     },
     {
-        "case_key": "curag-0097",
+        "case_key": "curag-0094",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "未加密的 DNSCat 外传流量在 pcap 里怎么定位？",
@@ -2058,7 +1995,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2093 的真实分块 doc_2093_chunk_0（第 1-20 行）。",
     },
     {
-        "case_key": "curag-0098",
+        "case_key": "curag-0095",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "iptables 默认内置哪三个链？规则按什么顺序生效？",
@@ -2079,7 +2016,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2094 的真实分块 doc_2094_chunk_0（第 1-25 行）。",
     },
     {
-        "case_key": "curag-0099",
+        "case_key": "curag-0096",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "解析 USB 键盘记录流量时固定的 prefix/report ID 怎么剥离？",
@@ -2100,7 +2037,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2095 的真实分块 doc_2095_chunk_8（第 64-73 行）。",
     },
     {
-        "case_key": "curag-0100",
+        "case_key": "curag-0097",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "怎么快速判断 WiFi pcap 里有没有可用于破解的认证帧？",
@@ -2121,7 +2058,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2096 的真实分块 doc_2096_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0101",
+        "case_key": "curag-0098",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Wireshark 分析全加密流量时加哪些自定义列能提速分诊？",
@@ -2142,7 +2079,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2097 的真实分块 doc_2097_chunk_7（第 79-99 行）。",
     },
     {
-        "case_key": "curag-0102",
+        "case_key": "curag-0099",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "浏览器自动补全（Autocomplete）数据在取证里有什么价值？",
@@ -2163,7 +2100,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2099 的真实分块 doc_2099_chunk_1（第 9-24 行）。",
     },
     {
-        "case_key": "curag-0103",
+        "case_key": "curag-0100",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "恶意 VBS 脚本的调试和去混淆有哪些实用方法？",
@@ -2184,7 +2121,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2100 的真实分块 doc_2100_chunk_0（第 1-41 行）。",
     },
     {
-        "case_key": "curag-0104",
+        "case_key": "curag-0101",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Discord 的 Chromium 简单缓存能挖出什么取证线索？",
@@ -2205,7 +2142,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2101 的真实分块 doc_2101_chunk_3（第 28-39 行）。",
     },
     {
-        "case_key": "curag-0105",
+        "case_key": "curag-0102",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "本地云盘客户端数据库的加密 key 怎么提取出来解密？",
@@ -2226,7 +2163,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2102 的真实分块 doc_2102_chunk_5（第 67-94 行）。",
     },
     {
-        "case_key": "curag-0106",
+        "case_key": "curag-0103",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "从 IPSW 固件里怎么定位 Mach-O 并提取 entitlements？",
@@ -2247,7 +2184,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2103 的真实分块 doc_2103_chunk_14（第 154-165 行）。",
     },
     {
-        "case_key": "curag-0107",
+        "case_key": "curag-0104",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "分析可疑 Office 文件时怎么还原它内部的压缩结构？",
@@ -2268,7 +2205,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2104 的真实分块 doc_2104_chunk_2（第 20-37 行）。",
     },
     {
-        "case_key": "curag-0108",
+        "case_key": "curag-0105",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PDF 里哪些对象和 action 常被滥用来自动执行代码？",
@@ -2289,7 +2226,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2105 的真实分块 doc_2105_chunk_3（第 16-28 行）。",
     },
     {
-        "case_key": "curag-0109",
+        "case_key": "curag-0106",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PNG 尾部附着可疑数据时怎么清理并保留可见图像？",
@@ -2310,7 +2247,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2106 的真实分块 doc_2106_chunk_5（第 107-118 行）。",
     },
     {
-        "case_key": "curag-0110",
+        "case_key": "curag-0107",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "零点击利用链里怎么在不完整解码的情况下快检 metadata？",
@@ -2331,7 +2268,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2107 的真实分块 doc_2107_chunk_11（第 168-192 行）。",
     },
     {
-        "case_key": "curag-0111",
+        "case_key": "curag-0108",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "做 Web DRM 去混淆时，栅格哈希加 SSIM 对比怎么选 raster size？",
@@ -2352,7 +2289,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2108 的真实分块 doc_2108_chunk_7（第 71-85 行）。",
     },
     {
-        "case_key": "curag-0112",
+        "case_key": "curag-0109",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "视频和音频文件的取证分析有哪些切入点？",
@@ -2373,7 +2310,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2109 的真实分块 doc_2109_chunk_0（第 1-7 行）。",
     },
     {
-        "case_key": "curag-0113",
+        "case_key": "curag-0110",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "分析可疑 ZIP 包时 zipdetails 能看出什么？",
@@ -2394,7 +2331,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2110 的真实分块 doc_2110_chunk_4（第 35-65 行）。",
     },
     {
-        "case_key": "curag-0114",
+        "case_key": "curag-0111",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "注册表 TimeZoneInformation 键在取证上能说明什么？",
@@ -2415,7 +2352,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2111 的真实分块 doc_2111_chunk_0（第 1-23 行）。",
     },
     {
-        "case_key": "curag-0115",
+        "case_key": "curag-0112",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "发生数据库泄露后的应急与排查要点是什么？",
@@ -2436,7 +2373,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2112 的真实分块 doc_2112_chunk_0（第 1-3 行）。",
     },
     {
-        "case_key": "curag-0116",
+        "case_key": "curag-0113",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "GitHub 代码搜索有文件大小限制，泄露排查要怎么保证完整性？",
@@ -2457,7 +2394,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2113 的真实分块 doc_2113_chunk_8（第 35-67 行）。",
     },
     {
-        "case_key": "curag-0117",
+        "case_key": "curag-0114",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "源码 secrets 分诊什么时候该升级到专用 scanner？",
@@ -2478,7 +2415,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2114 的真实分块 doc_2114_chunk_9（第 33-45 行）。",
     },
     {
-        "case_key": "curag-0118",
+        "case_key": "curag-0115",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "fuzzing 发现的 finding 怎么确认它在 entrypoint 可达路径上？",
@@ -2499,7 +2436,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2115 的真实分块 doc_2115_chunk_14（第 156-176 行）。",
     },
     {
-        "case_key": "curag-0119",
+        "case_key": "curag-0116",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "拿到 host 权限后，还要在内部翻找哪些高价值目标？",
@@ -2520,7 +2457,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2116 的真实分块 doc_2116_chunk_16（第 174-194 行）。",
     },
     {
-        "case_key": "curag-0120",
+        "case_key": "curag-0117",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "DHCPv6 的 Confirm 报文是用来做什么的？",
@@ -2541,7 +2478,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2117 的真实分块 doc_2117_chunk_3（第 22-36 行）。",
     },
     {
-        "case_key": "curag-0121",
+        "case_key": "curag-0118",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "EIGRP 攻击工具的 --src 参数用来指定什么？",
@@ -2562,7 +2499,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2118 的真实分块 doc_2118_chunk_4（第 48-67 行）。",
     },
     {
-        "case_key": "curag-0122",
+        "case_key": "curag-0119",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "攻击 GLBP/HSRP 这类 FHRP 协议需要哪些命令片段？",
@@ -2583,7 +2520,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2119 的真实分块 doc_2119_chunk_4（第 55-83 行）。",
     },
     {
-        "case_key": "curag-0123",
+        "case_key": "curag-0120",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "怎么借 extension headers 加分片躲过只查首片的 IDS/IPS？",
@@ -2604,7 +2541,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2120 的真实分块 doc_2120_chunk_3（第 50-63 行）。",
     },
     {
-        "case_key": "curag-0124",
+        "case_key": "curag-0121",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "交换机配置加固得再好，固件漏洞还会带来什么风险？",
@@ -2625,7 +2562,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2121 的真实分块 doc_2121_chunk_12（第 134-148 行）。",
     },
     {
-        "case_key": "curag-0125",
+        "case_key": "curag-0122",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "mDNS 只解析什么后缀的名称？发生冲突时要怎么处理？",
@@ -2646,7 +2583,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2122 的真实分块 doc_2122_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0126",
+        "case_key": "curag-0123",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Nmap 扫描即使二进制静默，仍可能被哪些机制拦截？",
@@ -2667,7 +2604,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2123 的真实分块 doc_2123_chunk_46（第 354-369 行）。",
     },
     {
-        "case_key": "curag-0127",
+        "case_key": "curag-0124",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "直接禁用 endpoint 的 IPv6 为什么只是临时办法？",
@@ -2688,7 +2625,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2124 的真实分块 doc_2124_chunk_24（第 320-333 行）。",
     },
     {
-        "case_key": "curag-0128",
+        "case_key": "curag-0125",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "LLMNR/NBT-NS/mDNS 欺骗是靠组合什么实现的？",
@@ -2709,7 +2646,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2125 的真实分块 doc_2125_chunk_38（第 281-294 行）。",
     },
     {
-        "case_key": "curag-0129",
+        "case_key": "curag-0126",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "设备不用 UPnP 时为什么建议把它关掉？",
@@ -2730,7 +2667,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2126 的真实分块 doc_2126_chunk_2（第 15-27 行）。",
     },
     {
-        "case_key": "curag-0130",
+        "case_key": "curag-0127",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "电信核心网里 rogue gNB/AMF 这类异常基础设施怎么检出？",
@@ -2751,7 +2688,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2127 的真实分块 doc_2127_chunk_19（第 222-241 行）。",
     },
     {
-        "case_key": "curag-0131",
+        "case_key": "curag-0128",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "WebRTC 服务面临的拒绝服务风险有哪些？",
@@ -2772,7 +2709,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2128 的真实分块 doc_2128_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "curag-0132",
+        "case_key": "curag-0129",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Android 上怎么快速验证 NexMon monitor mode 已生效？",
@@ -2793,7 +2730,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2129 的真实分块 doc_2129_chunk_10（第 69-98 行）。",
     },
     {
-        "case_key": "curag-0133",
+        "case_key": "curag-0130",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "EAP-TLS 企业 Wi-Fi 部署里常见的两个实际弱点是什么？",
@@ -2814,7 +2751,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2130 的真实分块 doc_2130_chunk_0（第 1-15 行）。",
     },
     {
-        "case_key": "curag-0134",
+        "case_key": "curag-0131",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "本地 AI CLI 启动即拉起 MCP 命令这一点为什么危险？",
@@ -2835,7 +2772,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2131 的真实分块 doc_2131_chunk_7（第 73-89 行）。",
     },
     {
-        "case_key": "curag-0135",
+        "case_key": "curag-0132",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "为什么同源策略防不住托管代理浏览器的 AI 中间人攻击？",
@@ -2856,7 +2793,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2132 的真实分块 doc_2132_chunk_9（第 77-95 行）。",
     },
     {
-        "case_key": "curag-0136",
+        "case_key": "curag-0133",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "\"永远不要粘贴不是你自己复制的内容\"这条老建议为何仍然有效？",
@@ -2877,7 +2814,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2133 的真实分块 doc_2133_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "curag-0137",
+        "case_key": "curag-0134",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "搭建克隆网站钓鱼页一般借助什么工具？",
@@ -2898,7 +2835,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2134 的真实分块 doc_2134_chunk_0（第 1-23 行）。",
     },
     {
-        "case_key": "curag-0138",
+        "case_key": "curag-0135",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "主动钓鱼检测怎么生成并核查可能的钓鱼域名列表？",
@@ -2919,7 +2856,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2135 的真实分块 doc_2135_chunk_0（第 1-23 行）。",
     },
     {
-        "case_key": "curag-0139",
+        "case_key": "curag-0136",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Discord 邀请链接被劫持后要教育用户注意什么？",
@@ -2940,7 +2877,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2136 的真实分块 doc_2136_chunk_6（第 49-57 行）。",
     },
     {
-        "case_key": "curag-0140",
+        "case_key": "curag-0137",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "同形异义字符（Homoglyph）检测怎么进邮件网关和 SIEM playbook？",
@@ -2961,7 +2898,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2137 的真实分块 doc_2137_chunk_6（第 79-92 行）。",
     },
     {
-        "case_key": "curag-0141",
+        "case_key": "curag-0138",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "移动端钓鱼与恶意应用分发为什么能绕过简单控制措施？",
@@ -2982,7 +2919,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2138 的真实分块 doc_2138_chunk_8（第 63-75 行）。",
     },
     {
-        "case_key": "curag-0142",
+        "case_key": "curag-0139",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "钓鱼文档的 staging 布局有哪些值得识别的特征？",
@@ -3003,7 +2940,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2139 的真实分块 doc_2139_chunk_60（第 220-241 行）。",
     },
     {
-        "case_key": "curag-0143",
+        "case_key": "curag-0140",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Python 里做幂运算该用哪个运算符而不是 ^？",
@@ -3024,7 +2961,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2140 的真实分块 doc_2140_chunk_2（第 13-48 行）。",
     },
     {
-        "case_key": "curag-0144",
+        "case_key": "curag-0141",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "少量字符哈希的暴力破解思路是什么？",
@@ -3045,7 +2982,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2141 的真实分块 doc_2141_chunk_0（第 1-33 行）。",
     },
     {
-        "case_key": "curag-0145",
+        "case_key": "curag-0142",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Js2Py 沙箱逃逸漏洞（CVE-2024-28397）的原理是什么？",
@@ -3066,7 +3003,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2142 的真实分块 doc_2142_chunk_5（第 48-62 行）。",
     },
     {
-        "case_key": "curag-0146",
+        "case_key": "curag-0143",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "CPython 的 LOAD_NAME/LOAD_CONST 操作码越界读是怎么打出 segfault 的？",
@@ -3087,7 +3024,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2143 的真实分块 doc_2143_chunk_1（第 7-26 行）。",
     },
     {
-        "case_key": "curag-0147",
+        "case_key": "curag-0144",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ReportLab/xhtml2pdf 的 [[...]] 表达式注入怎么配合 ping/tcpdump 验证 RCE？",
@@ -3108,7 +3045,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2144 的真实分块 doc_2144_chunk_10（第 35-45 行）。",
     },
     {
-        "case_key": "curag-0148",
+        "case_key": "curag-0145",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Python 的 Class Pollution 攻击原理是什么？",
@@ -3129,7 +3066,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2145 的真实分块 doc_2145_chunk_0（第 1-34 行）。",
     },
     {
-        "case_key": "curag-0149",
+        "case_key": "curag-0146",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": ".keras 与旧 HDF5 格式的反序列化防护差异怎么做回归测试？",
@@ -3150,7 +3087,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2146 的真实分块 doc_2146_chunk_18（第 233-258 行）。",
     },
     {
-        "case_key": "curag-0150",
+        "case_key": "curag-0147",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PyScript 站点靠升级 urllib3 和重建 wheels 能解决什么问题？",
@@ -3171,7 +3108,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2147 的真实分块 doc_2147_chunk_16（第 216-226 行）。",
     },
     {
-        "case_key": "curag-0151",
+        "case_key": "curag-0148",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "从 read primitive 到完整入侵，环境变量为什么常是关键 secrets 来源？",
@@ -3192,7 +3129,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2148 的真实分块 doc_2148_chunk_10（第 70-89 行）。",
     },
     {
-        "case_key": "curag-0152",
+        "case_key": "curag-0149",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Python venv 虚拟环境的使用要点是什么？",
@@ -3213,7 +3150,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2149 的真实分块 doc_2149_chunk_0（第 1-20 行）。",
     },
     {
-        "case_key": "curag-0153",
+        "case_key": "curag-0150",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Python 里发 Web 请求的基础方法有哪些？",
@@ -3234,7 +3171,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2150 的真实分块 doc_2150_chunk_4（第 65-93 行）。",
     },
     {
-        "case_key": "curag-0154",
+        "case_key": "curag-0151",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "端到端加密消息的送达回执怎么会变成在线状态侧信道？",
@@ -3255,7 +3192,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2151 的真实分块 doc_2151_chunk_24（第 117-126 行）。",
     },
     {
-        "case_key": "curag-0155",
+        "case_key": "curag-0152",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "威胁建模三要素里的机密性靠什么手段保障？",
@@ -3276,7 +3213,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2152 的真实分块 doc_2152_chunk_1（第 18-26 行）。",
     },
     {
-        "case_key": "curag-0156",
+        "case_key": "curag-0153",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "LLM 演进 grammar 相比直接生成 seeds 强在哪里？",
@@ -3297,7 +3234,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2153 的真实分块 doc_2153_chunk_2（第 21-50 行）。",
     },
     {
-        "case_key": "curag-0157",
+        "case_key": "curag-0154",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Burp 联动 LLM 审查流量时 ~/.codex/config.toml 要怎么配？",
@@ -3318,7 +3255,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2154 的真实分块 doc_2154_chunk_2（第 40-72 行）。",
     },
     {
-        "case_key": "curag-0158",
+        "case_key": "curag-0155",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "深度学习和传统机器学习是什么关系？",
@@ -3339,7 +3276,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2155 的真实分块 doc_2155_chunk_0（第 1-16 行）。",
     },
     {
-        "case_key": "curag-0159",
+        "case_key": "curag-0156",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "旧版本 MCP 服务器场景下怎么用 Git hooks 盯住 .cursor/ 目录？",
@@ -3360,7 +3297,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2156 的真实分块 doc_2156_chunk_39（第 285-298 行）。",
     },
     {
-        "case_key": "curag-0160",
+        "case_key": "curag-0157",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "机器学习数据清理主要解决哪些数据质量问题？",
@@ -3381,7 +3318,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2157 的真实分块 doc_2157_chunk_2（第 22-47 行）。",
     },
     {
-        "case_key": "curag-0161",
+        "case_key": "curag-0158",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "针对 PyTorch checkpoints 的反序列化 RCE 有什么防御建议？",
@@ -3402,7 +3339,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2158 的真实分块 doc_2158_chunk_22（第 143-149 行）。",
     },
     {
-        "case_key": "curag-0162",
+        "case_key": "curag-0159",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "审查 AI 提示词规则时要重点检查哪几类危险调用？",
@@ -3423,7 +3360,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2159 的真实分块 doc_2159_chunk_82（第 645-669 行）。",
     },
     {
-        "case_key": "curag-0163",
+        "case_key": "curag-0160",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "强化学习里 α（learning rate）起什么作用？",
@@ -3444,7 +3381,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2160 的真实分块 doc_2160_chunk_5（第 32-52 行）。",
     },
     {
-        "case_key": "curag-0164",
+        "case_key": "curag-0161",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "把 AI 建议的 endpoint 直接粘进代码或 CI/CD 会引入什么风险？",
@@ -3465,7 +3402,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2161 的真实分块 doc_2161_chunk_19（第 192-205 行）。",
     },
     {
-        "case_key": "curag-0165",
+        "case_key": "curag-0162",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "线性回归的优化目标是什么？",
@@ -3486,7 +3423,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2162 的真实分块 doc_2162_chunk_3（第 41-64 行）。",
     },
     {
-        "case_key": "curag-0166",
+        "case_key": "curag-0163",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "无监督学习和监督学习的核心区别是什么？",
@@ -3507,7 +3444,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2163 的真实分块 doc_2163_chunk_0（第 1-14 行）。",
     },
     {
-        "case_key": "curag-0167",
+        "case_key": "curag-0164",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "LLM 训练里 y=1.0 这类目标标签代表什么？",
@@ -3528,7 +3465,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2164 的真实分块 doc_2164_chunk_8（第 142-175 行）。",
     },
     {
-        "case_key": "curag-0168",
+        "case_key": "curag-0165",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "分词器词汇表里的特殊 Tokens 是干什么的？",
@@ -3549,7 +3486,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2165 的真实分块 doc_2165_chunk_1（第 5-29 行）。",
     },
     {
-        "case_key": "curag-0169",
+        "case_key": "curag-0166",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "基础 tokenizer 是怎么把文本拆成单词和标点的？",
@@ -3570,7 +3507,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2166 的真实分块 doc_2166_chunk_1（第 15-44 行）。",
     },
     {
-        "case_key": "curag-0170",
+        "case_key": "curag-0167",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Token 嵌入向量在训练中是怎么被不断调整的？",
@@ -3591,7 +3528,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2167 的真实分块 doc_2167_chunk_4（第 69-85 行）。",
     },
     {
-        "case_key": "curag-0171",
+        "case_key": "curag-0168",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "注意力机制里 query、key、value 矩阵各自扮演什么角色？",
@@ -3612,7 +3549,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2168 的真实分块 doc_2168_chunk_6（第 116-140 行）。",
     },
     {
-        "case_key": "curag-0172",
+        "case_key": "curag-0169",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "LLM 架构预测下一个 token 是为了完成什么任务？",
@@ -3633,7 +3570,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2169 的真实分块 doc_2169_chunk_35（第 439-457 行）。",
     },
     {
-        "case_key": "curag-0173",
+        "case_key": "curag-0170",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "文本生成里 Beam search 相比 greedy search 好在哪？",
@@ -3654,7 +3591,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2170 的真实分块 doc_2170_chunk_36（第 577-592 行）。",
     },
     {
-        "case_key": "curag-0174",
+        "case_key": "curag-0171",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "LoRA 为什么用两个小矩阵的乘积近似完整权重更新？",
@@ -3675,7 +3612,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2171 的真实分块 doc_2171_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "curag-0175",
+        "case_key": "curag-0172",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "怎么把预训练模型微调成文本分类器？",
@@ -3696,7 +3633,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2172 的真实分块 doc_2172_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "curag-0176",
+        "case_key": "curag-0173",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "用结构化 assistant 格式的数据微调能带来什么效果？",
@@ -3717,7 +3654,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2173 的真实分块 doc_2173_chunk_0（第 1-29 行）。",
     },
     {
-        "case_key": "curag-0177",
+        "case_key": "curag-0174",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "用 AI 伪造 KYC 视频时，低质量生成靠什么后处理补足？",
@@ -3738,7 +3675,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2174 的真实分块 doc_2174_chunk_3（第 15-24 行）。",
     },
     {
-        "case_key": "curag-0178",
+        "case_key": "curag-0175",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "黑盒 AI 渗透机器人怎么证明 alleged SSRF 真的跨越了信任边界？",
@@ -3759,7 +3696,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2175 的真实分块 doc_2175_chunk_1（第 27-49 行）。",
     },
     {
-        "case_key": "curag-0179",
+        "case_key": "curag-0176",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Off-by-one 漏洞里 off-by-null 和 arbitrary byte 的区别是什么？",
@@ -3780,7 +3717,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2204 的真实分块 doc_2204_chunk_0（第 1-34 行）。",
     },
     {
-        "case_key": "curag-0180",
+        "case_key": "curag-0177",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "覆写已释放块（overwrite freed chunk）的根本 bug 是 double free 时去哪查？",
@@ -3801,7 +3738,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2205 的真实分块 doc_2205_chunk_6（第 68-82 行）。",
     },
     {
-        "case_key": "curag-0181",
+        "case_key": "curag-0178",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "glibc 2.32+ 里 Tcache 攻击的核心问题怎么解？",
@@ -3822,7 +3759,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2206 的真实分块 doc_2206_chunk_12（第 91-107 行）。",
     },
     {
-        "case_key": "curag-0182",
+        "case_key": "curag-0179",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Unlink 攻击之后常见的现代利用流程是什么？",
@@ -3843,7 +3780,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2207 的真实分块 doc_2207_chunk_11（第 110-123 行）。",
     },
     {
-        "case_key": "curag-0183",
+        "case_key": "curag-0180",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "无序块（unsorted bin）攻击为什么要用 0x5000 这种大 size 绕过 Tcache？",
@@ -3864,7 +3801,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2208 的真实分块 doc_2208_chunk_17（第 52-69 行）。",
     },
     {
-        "case_key": "curag-0184",
+        "case_key": "curag-0181",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "glibc 的 last_remainder small chunk 会怎么影响首次适配预期？",
@@ -3885,7 +3822,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2209 的真实分块 doc_2209_chunk_13（第 117-131 行）。",
     },
     {
-        "case_key": "curag-0185",
+        "case_key": "curag-0182",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "VirtualBox Slirp NAT 的 ip_len 超长会怎么打穿 mbuf 边界？",
@@ -3906,7 +3843,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2210 的真实分块 doc_2210_chunk_5（第 45-55 行）。",
     },
     {
-        "case_key": "curag-0186",
+        "case_key": "curag-0183",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Adreno GPU 的 SDS 经 CP_SET_DRAW_STATE 进入时权限绕过出在哪？",
@@ -3927,7 +3864,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2211 的真实分块 doc_2211_chunk_1（第 5-17 行）。",
     },
     {
-        "case_key": "curag-0187",
+        "case_key": "curag-0184",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AF_UNIX MSG_OOB UAF 里怎么用 page-table walk 验证 SKB PFN 复用？",
@@ -3948,7 +3885,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2212 的真实分块 doc_2212_chunk_38（第 65-71 行）。",
     },
     {
-        "case_key": "curag-0188",
+        "case_key": "curag-0185",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "arm64 静态线性映射下 KASLR 绕过怎么先验证地址再写？",
@@ -3969,7 +3906,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2213 的真实分块 doc_2213_chunk_8（第 51-65 行）。",
     },
     {
-        "case_key": "curag-0189",
+        "case_key": "curag-0186",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "ksmbd streams_xattr 越界写提权需要什么前提条件？",
@@ -3990,7 +3927,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2214 的真实分块 doc_2214_chunk_0（第 1-7 行）。",
     },
     {
-        "case_key": "curag-0190",
+        "case_key": "curag-0187",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Pixel BigWave BIGO timeout race UAF 漏掉了哪个大小校验？",
@@ -4011,7 +3948,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2215 的真实分块 doc_2215_chunk_13（第 63-75 行）。",
     },
     {
-        "case_key": "curag-0191",
+        "case_key": "curag-0188",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "盲 ROP（Blind ROP）要在完全不知道 binary 信息时达成什么目标？",
@@ -4032,7 +3969,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2217 的真实分块 doc_2217_chunk_0（第 1-23 行）。",
     },
     {
-        "case_key": "curag-0192",
+        "case_key": "curag-0189",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ret2csu 是在什么场景下发挥作用的？",
@@ -4053,7 +3990,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2218 的真实分块 doc_2218_chunk_6（第 64-78 行）。",
     },
     {
-        "case_key": "curag-0193",
+        "case_key": "curag-0190",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ret2dlresolve 怎么给 system 准备第一个参数？",
@@ -4074,7 +4011,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2219 的真实分块 doc_2219_chunk_2（第 15-28 行）。",
     },
     {
-        "case_key": "curag-0194",
+        "case_key": "curag-0191",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "ret2esp/ret2reg 的典型适用场景有哪些？",
@@ -4095,7 +4032,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2220 的真实分块 doc_2220_chunk_9（第 105-121 行）。",
     },
     {
-        "case_key": "curag-0195",
+        "case_key": "curag-0192",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "One Gadget 的地址使用时要加什么基址？",
@@ -4116,7 +4053,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2221 的真实分块 doc_2221_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "curag-0196",
+        "case_key": "curag-0193",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "ARM64 上怎么快速确认 binary 有没有分支保护标记？",
@@ -4137,7 +4074,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2222 的真实分块 doc_2222_chunk_1（第 3-32 行）。",
     },
     {
-        "case_key": "curag-0197",
+        "case_key": "curag-0194",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "泄露 libc 地址的通用模板流程是什么？",
@@ -4158,7 +4095,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2223 的真实分块 doc_2223_chunk_8（第 171-201 行）。",
     },
     {
-        "case_key": "curag-0198",
+        "case_key": "curag-0195",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Ret2vDSO 技术利用的是什么机制？",
@@ -4179,7 +4116,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2224 的真实分块 doc_2224_chunk_4（第 24-50 行）。",
     },
     {
-        "case_key": "curag-0199",
+        "case_key": "curag-0196",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ARM64 准备 ret2syscall 前要配置哪些寄存器？",
@@ -4200,7 +4137,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2225 的真实分块 doc_2225_chunk_0（第 1-48 行）。",
     },
     {
-        "case_key": "curag-0200",
+        "case_key": "curag-0197",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SROP 在支持 FPSIMD 的系统上为什么还必须保留 fpsimd_context？",
@@ -4221,7 +4158,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2226 的真实分块 doc_2226_chunk_11（第 221-232 行）。",
     },
     {
-        "case_key": "curag-0201",
+        "case_key": "curag-0198",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "现代代码里指针重定向的最佳目标为什么不只是 char 指针本身？",
@@ -4242,7 +4179,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2227 的真实分块 doc_2227_chunk_3（第 17-33 行）。",
     },
     {
-        "case_key": "curag-0202",
+        "case_key": "curag-0199",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Ret2win arm64 题怎么检查 PAC 和 BTI 保护是否启用？",
@@ -4263,7 +4200,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2228 的真实分块 doc_2228_chunk_0（第 1-34 行）。",
     },
     {
-        "case_key": "curag-0203",
+        "case_key": "curag-0200",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "栈迁移（stack pivot）时怎么挑一个能转移执行的 ret 地址？",
@@ -4284,7 +4221,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2229 的真实分块 doc_2229_chunk_2（第 24-39 行）。",
     },
     {
-        "case_key": "curag-0204",
+        "case_key": "curag-0201",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "ARM64 shellcode 里要调用的栈地址一般靠什么找？",
@@ -4305,7 +4242,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2230 的真实分块 doc_2230_chunk_3（第 48-90 行）。",
     },
     {
-        "case_key": "curag-0205",
+        "case_key": "curag-0202",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "未初始化变量漏洞的核心成因是什么？",
@@ -4326,7 +4263,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2231 的真实分块 doc_2231_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0206",
+        "case_key": "curag-0203",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Windows SEH 栈溢出里 nSEH/SEH 的覆盖怎么确认？",
@@ -4347,7 +4284,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2232 的真实分块 doc_2232_chunk_1（第 19-38 行）。",
     },
     {
-        "case_key": "curag-0207",
+        "case_key": "curag-0204",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "VMware PVSCSI LFH 逃逸里 LenA=0 时邻接检查变成什么样？",
@@ -4368,7 +4305,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2233 的真实分块 doc_2233_chunk_10（第 35-46 行）。",
     },
     {
-        "case_key": "curag-0208",
+        "case_key": "curag-0205",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "OSCP 级别的 Windows 利用入门要盯住哪些寄存器和 shellcode 空间？",
@@ -4389,7 +4326,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2234 的真实分块 doc_2234_chunk_2（第 75-105 行）。",
     },
     {
-        "case_key": "curag-0209",
+        "case_key": "curag-0206",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "向量化重载 PE 注入怎么用恶意 view 覆盖返回的 BaseAddress？",
@@ -4410,7 +4347,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2235 的真实分块 doc_2235_chunk_7（第 39-51 行）。",
     },
     {
-        "case_key": "curag-0210",
+        "case_key": "curag-0207",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "窃密/加载器类恶意软件为什么会在特定 locale 下中止执行？",
@@ -4431,7 +4368,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2236 的真实分块 doc_2236_chunk_2（第 34-61 行）。",
     },
     {
-        "case_key": "curag-0211",
+        "case_key": "curag-0208",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Angr 跑到关键点后手动加约束为什么比硬跑更简单？",
@@ -4452,7 +4389,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2237 的真实分块 doc_2237_chunk_22（第 404-444 行）。",
     },
     {
-        "case_key": "curag-0212",
+        "case_key": "curag-0209",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Blobrunner 源码构建最省事的方式是什么？",
@@ -4473,7 +4410,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2238 的真实分块 doc_2238_chunk_0（第 1-25 行）。",
     },
     {
-        "case_key": "curag-0213",
+        "case_key": "curag-0210",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Cheat Engine 的 code injection 能把程序执行流改成什么样？",
@@ -4494,7 +4431,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2239 的真实分块 doc_2239_chunk_8（第 116-134 行）。",
     },
     {
-        "case_key": "curag-0214",
+        "case_key": "curag-0211",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "工具帮找满足条件变量值时，binary 把值复制到别处再校验的场景有什么用？",
@@ -4515,7 +4452,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2240 的真实分块 doc_2240_chunk_7（第 149-172 行）。",
     },
     {
-        "case_key": "curag-0215",
+        "case_key": "curag-0212",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Word 宏逆向时常遇到的 junk code 起什么作用？",
@@ -4536,7 +4473,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2241 的真实分块 doc_2241_chunk_0（第 1-14 行）。",
     },
     {
-        "case_key": "curag-0216",
+        "case_key": "curag-0213",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Uniswap v4 Hook 的精度/舍入滥用里，hook 要跟踪什么才能保证 residue 被中和？",
@@ -4557,7 +4494,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2242 的真实分块 doc_2242_chunk_19（第 149-164 行）。",
     },
     {
-        "case_key": "curag-0217",
+        "case_key": "curag-0214",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AMM 的虚拟余额缓存被利用时，cached accumulators 要怎么处理？",
@@ -4578,7 +4515,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2243 的真实分块 doc_2243_chunk_21（第 76-91 行）。",
     },
     {
-        "case_key": "curag-0218",
+        "case_key": "curag-0215",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ERC-4337 Smart Account 里 factory 不幂等会出什么问题？",
@@ -4599,7 +4536,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2244 的真实分块 doc_2244_chunk_6（第 55-64 行）。",
     },
     {
-        "case_key": "curag-0219",
+        "case_key": "curag-0216",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "以价值为中心的 Web3 红队（MITRE AADA）要覆盖哪些间接操纵价值的环节？",
@@ -4620,7 +4557,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2245 的真实分块 doc_2245_chunk_3（第 17-33 行）。",
     },
     {
-        "case_key": "curag-0220",
+        "case_key": "curag-0217",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Safe delegatecall 代理劫持里中间件为什么要重算 safeTxHash？",
@@ -4641,7 +4578,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2246 的真实分块 doc_2246_chunk_8（第 59-69 行）。",
     },
     {
-        "case_key": "curag-0221",
+        "case_key": "curag-0218",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "智能合约变异测试里 CR 这类 mutator 别名怎么读？",
@@ -4662,7 +4599,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2247 的真实分块 doc_2247_chunk_5（第 72-89 行）。",
     },
     {
-        "case_key": "curag-0222",
+        "case_key": "curag-0219",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "KIOSK 逃逸测试里断电重启这一项在查什么？",
@@ -4683,7 +4620,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2248 的真实分块 doc_2248_chunk_0（第 1-40 行）。",
     },
     {
-        "case_key": "curag-0223",
+        "case_key": "curag-0220",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MediaTek bl2_ext 的安全启动校验函数一般长什么样、藏在哪？",
@@ -4704,7 +4641,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2249 的真实分块 doc_2249_chunk_4（第 34-49 行）。",
     },
     {
-        "case_key": "curag-0224",
+        "case_key": "curag-0221",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Bootloader 测试里从 LAN 拉 kernel/fit image 是在验证什么？",
@@ -4725,7 +4662,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2250 的真实分块 doc_2250_chunk_1（第 19-47 行）。",
     },
     {
-        "case_key": "curag-0225",
+        "case_key": "curag-0222",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "固件完整性检查里设备枚举成 HID Consumer Control 意味着什么？",
@@ -4746,7 +4683,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2251 的真实分块 doc_2251_chunk_5（第 77-100 行）。",
     },
     {
-        "case_key": "curag-0226",
+        "case_key": "curag-0223",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MediaTek XFlash 的 Carbonara DA2 哈希绕过为什么能骗过 DA1？",
@@ -4767,7 +4704,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2252 的真实分块 doc_2252_chunk_4（第 19-36 行）。",
     },
     {
-        "case_key": "curag-0227",
+        "case_key": "curag-0224",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Synology PAT/SPK 解密后的 tar_hdr 是什么结构？",
@@ -4788,7 +4725,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2253 的真实分块 doc_2253_chunk_6（第 93-114 行）。",
     },
     {
-        "case_key": "curag-0228",
+        "case_key": "curag-0225",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "硬件物理攻击防护里防拆封条是用来检测什么的？",
@@ -4809,7 +4746,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2254 的真实分块 doc_2254_chunk_20（第 146-161 行）。",
     },
     {
-        "case_key": "curag-0229",
+        "case_key": "curag-0226",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "怎么判断 node 用的 cgroup 是 v1 还是 v2？",
@@ -4830,7 +4767,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2255 的真实分块 doc_2255_chunk_5（第 29-38 行）。",
     },
     {
-        "case_key": "curag-0230",
+        "case_key": "curag-0227",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "攻击者看到 plugin 列表后能推断出什么风险？",
@@ -4851,7 +4788,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2256 的真实分块 doc_2256_chunk_9（第 93-117 行）。",
     },
     {
-        "case_key": "curag-0231",
+        "case_key": "curag-0228",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Distroless 容器里怎么跑 Python 示例程序？",
@@ -4872,7 +4809,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2257 的真实分块 doc_2257_chunk_4（第 64-86 行）。",
     },
     {
-        "case_key": "curag-0232",
+        "case_key": "curag-0229",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "镜像签名和密钥管理为什么属于运维任务而不是一次性配置？",
@@ -4893,7 +4830,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2258 的真实分块 doc_2258_chunk_1（第 13-36 行）。",
     },
     {
-        "case_key": "curag-0233",
+        "case_key": "curag-0230",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "--privileged 容器逃逸时挂载额外 filesystems 是怎么做的？",
@@ -4914,7 +4851,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2259 的真实分块 doc_2259_chunk_11（第 124-144 行）。",
     },
     {
-        "case_key": "curag-0234",
+        "case_key": "curag-0231",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "检查 AppArmor 状态时要快速回答哪三个问题？",
@@ -4935,7 +4872,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2260 的真实分块 doc_2260_chunk_22（第 175-199 行）。",
     },
     {
-        "case_key": "curag-0235",
+        "case_key": "curag-0232",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "容器里的 Linux capabilities 组合为什么能重配主机网络栈？",
@@ -4956,7 +4893,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2261 的真实分块 doc_2261_chunk_14（第 113-141 行）。",
     },
     {
-        "case_key": "curag-0236",
+        "case_key": "curag-0233",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "cgroup 存在和真正起作用的 resource constraints 有什么区别？",
@@ -4977,7 +4914,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2262 的真实分块 doc_2262_chunk_22（第 235-242 行）。",
     },
     {
-        "case_key": "curag-0237",
+        "case_key": "curag-0234",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "掩码路径（masked paths）想对 workload 隐藏什么？",
@@ -4998,7 +4935,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2263 的真实分块 doc_2263_chunk_6（第 56-72 行）。",
     },
     {
-        "case_key": "curag-0238",
+        "case_key": "curag-0235",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "怎么确认进程拥有 private cgroup namespace 视图？",
@@ -5019,7 +4956,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2264 的真实分块 doc_2264_chunk_11（第 100-118 行）。",
     },
     {
-        "case_key": "curag-0239",
+        "case_key": "curag-0236",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "IPC 命名空间隔离下 /dev/shm 会呈现什么状态？",
@@ -5040,7 +4977,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2265 的真实分块 doc_2265_chunk_6（第 74-86 行）。",
     },
     {
-        "case_key": "curag-0240",
+        "case_key": "curag-0237",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "判断一个路径来自 host 还是 overlay 为什么 mountinfo 最靠谱？",
@@ -5061,7 +4998,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2266 的真实分块 doc_2266_chunk_10（第 99-115 行）。",
     },
     {
-        "case_key": "curag-0241",
+        "case_key": "curag-0238",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "容器网络里 private networking 和 host networking 的边界原则是什么？",
@@ -5082,7 +5019,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2267 的真实分块 doc_2267_chunk_2（第 17-36 行）。",
     },
     {
-        "case_key": "curag-0242",
+        "case_key": "curag-0239",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PID 命名空间里怎么确认进程能看到多大的 process landscape？",
@@ -5103,7 +5040,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2268 的真实分块 doc_2268_chunk_11（第 117-138 行）。",
     },
     {
-        "case_key": "curag-0243",
+        "case_key": "curag-0240",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "time namespace 的非零 offset 检查在验证什么？",
@@ -5124,7 +5061,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2269 的真实分块 doc_2269_chunk_13（第 132-150 行）。",
     },
     {
-        "case_key": "curag-0244",
+        "case_key": "curag-0241",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "user namespace remapping 和传统 rootful 配置的输出有什么差别？",
@@ -5145,7 +5082,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2270 的真实分块 doc_2270_chunk_1（第 13-37 行）。",
     },
     {
-        "case_key": "curag-0245",
+        "case_key": "curag-0242",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "UTS 命名空间被改动时影响的是什么层面的问题？",
@@ -5166,7 +5103,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2271 的真实分块 doc_2271_chunk_2（第 30-55 行）。",
     },
     {
-        "case_key": "curag-0246",
+        "case_key": "curag-0243",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "no_new_privs 要确认 exec 时的提权被怎样阻止？",
@@ -5187,7 +5124,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2272 的真实分块 doc_2272_chunk_13（第 104-120 行）。",
     },
     {
-        "case_key": "curag-0247",
+        "case_key": "curag-0244",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "binfmt_misc 为什么可能成为执行原语？",
@@ -5208,7 +5145,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2273 的真实分块 doc_2273_chunk_4（第 40-60 行）。",
     },
     {
-        "case_key": "curag-0248",
+        "case_key": "curag-0245",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "典型的 runtime seccomp profile 长什么样？",
@@ -5229,7 +5166,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2274 的真实分块 doc_2274_chunk_4（第 38-62 行）。",
     },
     {
-        "case_key": "curag-0249",
+        "case_key": "curag-0246",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "容器能访问 management plane 时说明什么信任边界被打破了？",
@@ -5250,7 +5187,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2276 的真实分块 doc_2276_chunk_24（第 171-185 行）。",
     },
     {
-        "case_key": "curag-0250",
+        "case_key": "curag-0247",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "从红队角度看 container runtime 最容易复现的工作流是什么？",
@@ -5271,7 +5208,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2277 的真实分块 doc_2277_chunk_14（第 89-106 行）。",
     },
     {
-        "case_key": "curag-0251",
+        "case_key": "curag-0248",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "做可利用性评估而不是立即逃逸时，敏感挂载点要怎么看？",
@@ -5292,7 +5229,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2278 的真实分块 doc_2278_chunk_13（第 87-109 行）。",
     },
     {
-        "case_key": "curag-0252",
+        "case_key": "curag-0249",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Containerd (ctr) 提权后怎么借特权 capabilities 逃逸？",
@@ -5313,7 +5250,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2279 的真实分块 doc_2279_chunk_1（第 9-32 行）。",
     },
     {
-        "case_key": "curag-0253",
+        "case_key": "curag-0250",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "RunC 权限提升的常见路径是什么？",
@@ -5334,7 +5271,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2280 的真实分块 doc_2280_chunk_0（第 1-33 行）。",
     },
     {
-        "case_key": "curag-0254",
+        "case_key": "curag-0251",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "ld.so 提权时怎么确认恶意 libcustom.so 会被加载执行？",
@@ -5355,7 +5292,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2281 的真实分块 doc_2281_chunk_1（第 41-60 行）。",
     },
     {
-        "case_key": "curag-0255",
+        "case_key": "curag-0252",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "怎么检查 Docker 容器里启用了哪些 capabilities？",
@@ -5376,7 +5313,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2282 的真实分块 doc_2282_chunk_88（第 941-974 行）。",
     },
     {
-        "case_key": "curag-0256",
+        "case_key": "curag-0253",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "NFS 的 no_root_squash 配置为什么危险？",
@@ -5397,7 +5334,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2283 的真实分块 doc_2283_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0257",
+        "case_key": "curag-0254",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SELinux 环境里 newrole 工具是干什么的？",
@@ -5418,7 +5355,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2284 的真实分块 doc_2284_chunk_5（第 78-98 行）。",
     },
     {
-        "case_key": "curag-0258",
+        "case_key": "curag-0255",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SUID 共享库滥用除了缺库还要满足什么条件？",
@@ -5439,7 +5376,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2285 的真实分块 doc_2285_chunk_2（第 28-54 行）。",
     },
     {
-        "case_key": "curag-0259",
+        "case_key": "curag-0256",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "调试通配符解析时 -sc 和 -h2 参数分别显示什么？",
@@ -5460,7 +5397,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2286 的真实分块 doc_2286_chunk_5（第 85-99 行）。",
     },
     {
-        "case_key": "curag-0260",
+        "case_key": "curag-0257",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Root 任意写文件漏洞怎么用 pspy 抓检测执行过程？",
@@ -5481,7 +5418,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2287 的真实分块 doc_2287_chunk_11（第 149-171 行）。",
     },
     {
-        "case_key": "curag-0261",
+        "case_key": "curag-0258",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "DDexec 场景下 ASLR 为什么不是问题？地址信息从哪拿？",
@@ -5502,7 +5439,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2288 的真实分块 doc_2288_chunk_3（第 41-58 行）。",
     },
     {
-        "case_key": "curag-0262",
+        "case_key": "curag-0259",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Linux 环境变量 all_proxy 控制的是什么？",
@@ -5523,7 +5460,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2289 的真实分块 doc_2289_chunk_6（第 106-121 行）。",
     },
     {
-        "case_key": "curag-0263",
+        "case_key": "curag-0260",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "后渗透里有哪些常用的实用 Linux 命令？",
@@ -5544,7 +5481,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2290 的真实分块 doc_2290_chunk_0（第 1-31 行）。",
     },
     {
-        "case_key": "curag-0264",
+        "case_key": "curag-0261",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "越狱（jail）环境里创建内容为 /bin/bash 的可执行文件是在试什么？",
@@ -5565,7 +5502,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2291 的真实分块 doc_2291_chunk_8（第 206-238 行）。",
     },
     {
-        "case_key": "curag-0265",
+        "case_key": "curag-0262",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "inode 和 path 的关系对文件恢复有什么意义？",
@@ -5586,7 +5523,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2292 的真实分块 doc_2292_chunk_4（第 57-78 行）。",
     },
     {
-        "case_key": "curag-0266",
+        "case_key": "curag-0263",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AF_ALG + splice 页缓存覆写（CVE）的临时缓解为什么是禁用 algif_aead？",
@@ -5607,7 +5544,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2293 的真实分块 doc_2293_chunk_9（第 89-104 行）。",
     },
     {
-        "case_key": "curag-0267",
+        "case_key": "curag-0264",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ptrace 退出竞争里 pidfd_getfd() 攻击为什么不需要 helper 本身有 bug？",
@@ -5628,7 +5565,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2294 的真实分块 doc_2294_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0268",
+        "case_key": "curag-0265",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "POSIX CPU 定时器 TOCTOU 里 TASK_WORK mode 设计上安全在哪？",
@@ -5649,7 +5586,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2295 的真实分块 doc_2295_chunk_22（第 180-191 行）。",
     },
     {
-        "case_key": "curag-0269",
+        "case_key": "curag-0266",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "VMware Tools service discovery LPE 的 legacy 凭据路径是怎么执行的？",
@@ -5670,7 +5607,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2296 的真实分块 doc_2296_chunk_1（第 5-16 行）。",
     },
     {
-        "case_key": "curag-0270",
+        "case_key": "curag-0267",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "当前用户满足什么条件就能借 modprobe 加载内核模块提权？",
@@ -5691,7 +5628,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2297 的真实分块 doc_2297_chunk_0（第 1-24 行）。",
     },
     {
-        "case_key": "curag-0271",
+        "case_key": "curag-0268",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Linux 提权检查清单里超大 UID 和机器漏洞各指什么？",
@@ -5712,7 +5649,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2298 的真实分块 doc_2298_chunk_19（第 69-90 行）。",
     },
     {
-        "case_key": "curag-0272",
+        "case_key": "curag-0269",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "sudo 给编辑权限时为什么推荐 sudoedit 并锁文件路径？",
@@ -5733,7 +5670,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2299 的真实分块 doc_2299_chunk_3（第 54-68 行）。",
     },
     {
-        "case_key": "curag-0273",
+        "case_key": "curag-0270",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Cisco vmanage 拿 shell 后的快速 hunting pattern 是什么？",
@@ -5754,7 +5691,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2300 的真实分块 doc_2300_chunk_29（第 218-231 行）。",
     },
     {
-        "case_key": "curag-0274",
+        "case_key": "curag-0271",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "本地网络 socket 分诊要识别哪些服务属性？",
@@ -5775,7 +5712,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2301 的真实分块 doc_2301_chunk_6（第 75-95 行）。",
     },
     {
-        "case_key": "curag-0275",
+        "case_key": "curag-0272",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Unix socket 命令注入怎么从凭据校验和消息格式两方面加固？",
@@ -5796,7 +5733,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2302 的真实分块 doc_2302_chunk_4（第 42-67 行）。",
     },
     {
-        "case_key": "curag-0276",
+        "case_key": "curag-0273",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "D-Bus 枚举里 system 标签和会话消息有什么区别？",
@@ -5817,7 +5754,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2303 的真实分块 doc_2303_chunk_41（第 318-339 行）。",
     },
     {
-        "case_key": "curag-0277",
+        "case_key": "curag-0274",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Windows 下要执行的 Payload 一般怎么准备和投递？",
@@ -5838,7 +5775,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2304 的真实分块 doc_2304_chunk_0（第 1-47 行）。",
     },
     {
-        "case_key": "curag-0278",
+        "case_key": "curag-0275",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SCCM 管理点到 SQL 的 NTLM 中继风险怎么用 IPSec/mTLS 收敛？",
@@ -5859,7 +5796,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2317 的真实分块 doc_2317_chunk_14（第 138-157 行）。",
     },
     {
-        "case_key": "curag-0279",
+        "case_key": "curag-0276",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "安全描述符持久化技术依赖什么能力？",
@@ -5880,7 +5817,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2318 的真实分块 doc_2318_chunk_0（第 1-11 行）。",
     },
     {
-        "case_key": "curag-0280",
+        "case_key": "curag-0277",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SID History 注入怎么从子域升到父域？需要什么前提？",
@@ -5901,7 +5838,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2319 的真实分块 doc_2319_chunk_9（第 86-108 行）。",
     },
     {
-        "case_key": "curag-0281",
+        "case_key": "curag-0278",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "白银票据在 4769/4624 日志里有哪些异常特征？",
@@ -5922,7 +5859,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2320 的真实分块 doc_2320_chunk_13（第 94-114 行）。",
     },
     {
-        "case_key": "curag-0282",
+        "case_key": "curag-0279",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "检测骷髅钥匙（Skeleton Key）要看哪个事件 ID？",
@@ -5943,7 +5880,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2321 的真实分块 doc_2321_chunk_6（第 32-46 行）。",
     },
     {
-        "case_key": "curag-0283",
+        "case_key": "curag-0280",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "无约束委派开启后要盯住哪几个事件 ID？",
@@ -5964,7 +5901,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2322 的真实分块 doc_2322_chunk_18（第 161-171 行）。",
     },
     {
-        "case_key": "curag-0284",
+        "case_key": "curag-0281",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "gMSA 的自动密码管理是怎么工作的？",
@@ -5985,7 +5922,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2323 的真实分块 doc_2323_chunk_21（第 137-143 行）。",
     },
     {
-        "case_key": "curag-0285",
+        "case_key": "curag-0282",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "UAC 设成 Always 时 bypass 为什么比 Default 难得多？",
@@ -6006,7 +5943,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2324 的真实分块 doc_2324_chunk_34（第 84-100 行）。",
     },
     {
-        "case_key": "curag-0286",
+        "case_key": "curag-0283",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "免杀为什么说是猫鼠游戏？工具串联的意义是什么？",
@@ -6027,7 +5964,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2325 的真实分块 doc_2325_chunk_21（第 204-221 行）。",
     },
     {
-        "case_key": "curag-0287",
+        "case_key": "curag-0284",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Windows CMD 里 USERDNSDOMAIN 变量是什么含义？",
@@ -6048,7 +5985,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2326 的真实分块 doc_2326_chunk_2（第 28-74 行）。",
     },
     {
-        "case_key": "curag-0288",
+        "case_key": "curag-0285",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PowerView/SharpView 在域枚举里能做什么？",
@@ -6069,7 +6006,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2327 的真实分块 doc_2327_chunk_21（第 153-177 行）。",
     },
     {
-        "case_key": "curag-0289",
+        "case_key": "curag-0286",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Windows 本地提权检查清单都查什么？",
@@ -6090,7 +6027,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2328 的真实分块 doc_2328_chunk_35（第 112-121 行）。",
     },
     {
-        "case_key": "curag-0290",
+        "case_key": "curag-0287",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Cobalt Strike 怎么指定 spawn beacon 的进程来降低检出率？",
@@ -6111,7 +6048,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2329 的真实分块 doc_2329_chunk_25（第 283-305 行）。",
     },
     {
-        "case_key": "curag-0291",
+        "case_key": "curag-0288",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "AtExec/SchtasksExec 用 schtasks 执行命令的顺序是怎样的？",
@@ -6132,7 +6069,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2330 的真实分块 doc_2330_chunk_1（第 5-31 行）。",
     },
     {
-        "case_key": "curag-0292",
+        "case_key": "curag-0289",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "DCOM 远程执行命令要走什么路径？管理员交互怎么做？",
@@ -6153,7 +6090,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2331 的真实分块 doc_2331_chunk_4（第 24-34 行）。",
     },
     {
-        "case_key": "curag-0293",
+        "case_key": "curag-0290",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PsExec 类技术在主机和网络上留什么痕迹？",
@@ -6174,7 +6111,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2332 的真实分块 doc_2332_chunk_10（第 107-117 行）。",
     },
     {
-        "case_key": "curag-0294",
+        "case_key": "curag-0291",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "RDPexec 本质上靠什么执行命令？",
@@ -6195,7 +6132,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2333 的真实分块 doc_2333_chunk_0（第 1-7 行）。",
     },
     {
-        "case_key": "curag-0295",
+        "case_key": "curag-0292",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "通过 DCOM 执行命令对管理员交互有什么要求？",
@@ -6216,7 +6153,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2334 的真实分块 doc_2334_chunk_0（第 1-15 行）。",
     },
     {
-        "case_key": "curag-0296",
+        "case_key": "curag-0293",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "WinRM 走 HTTP/HTTPS 时为什么能在 PsExec 被封时仍可用？",
@@ -6237,7 +6174,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2335 的真实分块 doc_2335_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-0297",
+        "case_key": "curag-0294",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "用什么命令验证目标机的 WMI 服务正常？",
@@ -6258,7 +6195,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2336 的真实分块 doc_2336_chunk_3（第 54-90 行）。",
     },
     {
-        "case_key": "curag-0298",
+        "case_key": "curag-0295",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Mythic C2 的 Poseidon agent 是用什么编译、支持哪些平台？",
@@ -6279,7 +6216,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2337 的真实分块 doc_2337_chunk_48（第 186-198 行）。",
     },
     {
-        "case_key": "curag-0299",
+        "case_key": "curag-0296",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": ".library-ms 文件怎么被用来窃取 NTLM 凭据？",
@@ -6300,7 +6237,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2338 的真实分块 doc_2338_chunk_5（第 55-80 行）。",
     },
     {
-        "case_key": "curag-0300",
+        "case_key": "curag-0297",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Windows 协议处理器滥用里 Markdown 链接点击触发了什么弱过滤？",
@@ -6321,7 +6258,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2339 的真实分块 doc_2339_chunk_0（第 1-11 行）。",
     },
     {
-        "case_key": "curag-0301",
+        "case_key": "curag-0298",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Mimikatz 借驱动绕过 LSA Protection 会留下什么日志？",
@@ -6342,7 +6279,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2340 的真实分块 doc_2340_chunk_1（第 11-19 行）。",
     },
     {
-        "case_key": "curag-0302",
+        "case_key": "curag-0299",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Restricted Admin mode 下 RDP 访问网络资源时凭据有什么不同？",
@@ -6363,7 +6300,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2341 的真实分块 doc_2341_chunk_16（第 121-135 行）。",
     },
     {
-        "case_key": "curag-0303",
+        "case_key": "curag-0300",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "WTS Impersonator 的 User Hunting Module 是怎么打多机器本地管理员的？",
@@ -6384,7 +6321,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2342 的真实分块 doc_2342_chunk_1（第 24-48 行）。",
     },
     {
-        "case_key": "curag-0304",
+        "case_key": "curag-0301",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "企业自动更新程序的 IPC 标了 encrypted 为什么密钥还落在注册表里？",
@@ -6405,7 +6342,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2343 的真实分块 doc_2343_chunk_1（第 5-19 行）。",
     },
     {
-        "case_key": "curag-0305",
+        "case_key": "curag-0302",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "访问令牌出站认证时 SMB/WinRM/LDAP 等协议各用什么凭据？",
@@ -6426,7 +6363,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2344 的真实分块 doc_2344_chunk_8（第 75-85 行）。",
     },
     {
-        "case_key": "curag-0306",
+        "case_key": "curag-0303",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "ACL 里的 ACE 有哪两种主要类型？继承规则怎么生效？",
@@ -6447,7 +6384,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2345 的真实分块 doc_2345_chunk_8（第 103-117 行）。",
     },
     {
-        "case_key": "curag-0307",
+        "case_key": "curag-0304",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "服务注册表的 AppendData/AddSubdirectory 权限为什么 triage 时容易漏？",
@@ -6468,7 +6405,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2346 的真实分块 doc_2346_chunk_3（第 31-58 行）。",
     },
     {
-        "case_key": "curag-0308",
+        "case_key": "curag-0305",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Windows 内核 EoP 里 PsInitialSystemProcess 指针为什么关键？",
@@ -6489,7 +6426,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2347 的真实分块 doc_2347_chunk_3（第 16-31 行）。",
     },
     {
-        "case_key": "curag-0309",
+        "case_key": "curag-0306",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "COM 劫持为什么倾向只改注册表重定向而不替换 InprocServer32 原件？",
@@ -6510,7 +6447,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2348 的真实分块 doc_2348_chunk_7（第 86-92 行）。",
     },
     {
-        "case_key": "curag-0310",
+        "case_key": "curag-0307",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "恶意 MSI 包怎么帮攻击者拿到 Root 权限？",
@@ -6531,7 +6468,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2349 的真实分块 doc_2349_chunk_6（第 41-55 行）。",
     },
     {
-        "case_key": "curag-0311",
+        "case_key": "curag-0308",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "HTML 嵌入负载里恢复出的字节以 MZ 开头说明什么？",
@@ -6552,7 +6489,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2350 的真实分块 doc_2350_chunk_14（第 50-61 行）。",
     },
     {
-        "case_key": "curag-0312",
+        "case_key": "curag-0309",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "可写系统路径加 DLL 劫持提权后怎么用 procmon 验证 DLL 已加载？",
@@ -6573,7 +6510,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2351 的真实分块 doc_2351_chunk_13（第 96-104 行）。",
     },
     {
-        "case_key": "curag-0313",
+        "case_key": "curag-0310",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "DPAPI 解密时 entropy 参数起什么作用？",
@@ -6594,7 +6531,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2352 的真实分块 doc_2352_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0314",
+        "case_key": "curag-0311",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "命名管道怎么把高完整性会话推到 SYSTEM？",
@@ -6615,7 +6552,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2353 的真实分块 doc_2353_chunk_0（第 1-30 行）。",
     },
     {
-        "case_key": "curag-0315",
+        "case_key": "curag-0312",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "完整性级别（Integrity Level）的关键规则是什么？",
@@ -6636,7 +6573,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2354 的真实分块 doc_2354_chunk_0（第 1-14 行）。",
     },
     {
-        "case_key": "curag-0316",
+        "case_key": "curag-0313",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "JuicyPotato 的治本缓解为什么是保护 SERVICE 账户而不是停 DCOM？",
@@ -6657,7 +6594,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2355 的真实分块 doc_2355_chunk_9（第 73-84 行）。",
     },
     {
-        "case_key": "curag-0317",
+        "case_key": "curag-0314",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Object Manager slow path 利用里父目录拒重复项怎么办？",
@@ -6678,7 +6615,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2356 的真实分块 doc_2356_chunk_6（第 32-51 行）。",
     },
     {
-        "case_key": "curag-0318",
+        "case_key": "curag-0315",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "泄露句柄利用时右键查看 handle permissions 是在确认什么？",
@@ -6699,7 +6636,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2357 的真实分块 doc_2357_chunk_3（第 48-66 行）。",
     },
     {
-        "case_key": "curag-0319",
+        "case_key": "curag-0316",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SMB 任意端口 NTLM 反射要求特权认证满足什么条件？",
@@ -6720,7 +6657,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2358 的真实分块 doc_2358_chunk_2（第 25-43 行）。",
     },
     {
-        "case_key": "curag-0320",
+        "case_key": "curag-0317",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "MSI Wrapper 配置里最关键的设置是哪些？",
@@ -6741,7 +6678,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2359 的真实分块 doc_2359_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0321",
+        "case_key": "curag-0318",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "命名管道客户端模拟能在不控服务端的情况下做到什么？",
@@ -6762,7 +6699,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2360 的真实分块 doc_2360_chunk_22（第 114-123 行）。",
     },
     {
-        "case_key": "curag-0322",
+        "case_key": "curag-0319",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Notepad++ 插件的 messageProc 回调适合什么样的数据交换？",
@@ -6783,7 +6720,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2361 的真实分块 doc_2361_chunk_4（第 16-32 行）。",
     },
     {
-        "case_key": "curag-0323",
+        "case_key": "curag-0320",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "令牌滥用场景下写 HKCU 而不是 HKLM 的原因是什么？",
@@ -6804,7 +6741,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2362 的真实分块 doc_2362_chunk_12（第 78-91 行）。",
     },
     {
-        "case_key": "curag-0324",
+        "case_key": "curag-0321",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Autoruns 里怎么检查 Active Setup 组件的 StubPath 配置？",
@@ -6825,7 +6762,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2363 的真实分块 doc_2363_chunk_32（第 250-265 行）。",
     },
     {
-        "case_key": "curag-0325",
+        "case_key": "curag-0322",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "RoguePotato/PrintSpoofer/SharpEfsPotato 支持 interactive mode 有什么好处？",
@@ -6846,7 +6783,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2364 的真实分块 doc_2364_chunk_11（第 70-87 行）。",
     },
     {
-        "case_key": "curag-0326",
+        "case_key": "curag-0323",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "安全桌面无障碍注册表传播 LPE 里 SYSTEM 执行 copy 是在做什么？",
@@ -6867,7 +6804,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2365 的真实分块 doc_2365_chunk_4（第 32-51 行）。",
     },
     {
-        "case_key": "curag-0327",
+        "case_key": "curag-0324",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "拿到 service account 上下文时为什么优先考虑 Potato 家族？",
@@ -6888,7 +6825,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2367 的真实分块 doc_2367_chunk_27（第 225-234 行）。",
     },
     {
-        "case_key": "curag-0328",
+        "case_key": "curag-0325",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SeManageVolumePrivilege 怎么实现原始卷任意文件读取？",
@@ -6909,7 +6846,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2368 的真实分块 doc_2368_chunk_5（第 34-53 行）。",
     },
     {
-        "case_key": "curag-0329",
+        "case_key": "curag-0326",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Windows Service Triggers 在 Win11 上观察到哪些服务在用？配置存哪？",
@@ -6930,7 +6867,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2369 的真实分块 doc_2369_chunk_11（第 94-114 行）。",
     },
     {
-        "case_key": "curag-0330",
+        "case_key": "curag-0327",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "tapsrv 电话服务任意 DWORD 写入为什么走 SMB named pipe？",
@@ -6951,7 +6888,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2370 的真实分块 doc_2370_chunk_1（第 3-9 行）。",
     },
     {
-        "case_key": "curag-0331",
+        "case_key": "curag-0328",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "UIAccess 绕过 Admin Protection 时 AppInfo 对 token 做了什么？",
@@ -6972,7 +6909,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2371 的真实分块 doc_2371_chunk_1（第 3-16 行）。",
     },
     {
-        "case_key": "curag-0332",
+        "case_key": "curag-0329",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "添加本地管理员用户前伪造 System32 tree 是为了劫持什么？",
@@ -6993,7 +6930,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2372 的真实分块 doc_2372_chunk_4（第 66-73 行）。",
     },
     {
-        "case_key": "curag-0333",
+        "case_key": "curag-0330",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "注册表配置单元利用原语里 deterministic groom 要摆放什么？",
@@ -7014,7 +6951,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2373 的真实分块 doc_2373_chunk_10（第 90-98 行）。",
     },
     {
-        "case_key": "curag-0334",
+        "case_key": "curag-0331",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 的 Launchd 自启动项能用来绕过 Sandbox 吗？",
@@ -7035,7 +6972,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2374 的真实分块 doc_2374_chunk_84（第 1061-1083 行）。",
     },
     {
-        "case_key": "curag-0335",
+        "case_key": "curag-0332",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 钥匙串里 SecItemExport 导出 keys/certificates 要注意什么？",
@@ -7056,7 +6993,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2375 的真实分块 doc_2375_chunk_6（第 82-101 行）。",
     },
     {
-        "case_key": "curag-0336",
+        "case_key": "curag-0333",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 设备注册到其他组织的流程没保护好会有什么后果？",
@@ -7077,7 +7014,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2376 的真实分块 doc_2376_chunk_0（第 1-16 行）。",
     },
     {
-        "case_key": "curag-0337",
+        "case_key": "curag-0334",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "怎么从 macOS 序列号推算生产周份？",
@@ -7098,7 +7035,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2377 的真实分块 doc_2377_chunk_1（第 18-36 行）。",
     },
     {
-        "case_key": "curag-0338",
+        "case_key": "curag-0335",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "macOS IOKit 驱动逆向时怎么快速改写函数签名？",
@@ -7119,7 +7056,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2378 的真实分块 doc_2378_chunk_14（第 167-183 行）。",
     },
     {
-        "case_key": "curag-0339",
+        "case_key": "curag-0336",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "怎么确认 macOS kernelcache 里有没有 symbols？",
@@ -7140,7 +7077,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2379 的真实分块 doc_2379_chunk_14（第 185-211 行）。",
     },
     {
-        "case_key": "curag-0340",
+        "case_key": "curag-0337",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "macOS 内核漏洞调试常用哪些本地快速命令？",
@@ -7161,7 +7098,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2380 的真实分块 doc_2380_chunk_9（第 87-94 行）。",
     },
     {
-        "case_key": "curag-0341",
+        "case_key": "curag-0338",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "NVRAM 里 csr-active-config 这串 SIP 配置位掩码怎么理解？",
@@ -7182,7 +7119,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2381 的真实分块 doc_2381_chunk_0（第 1-28 行）。",
     },
     {
-        "case_key": "curag-0342",
+        "case_key": "curag-0339",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "安全工具用 ESF 抓红队时，红队怎么考虑规避？",
@@ -7203,7 +7140,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2382 的真实分块 doc_2382_chunk_4（第 54-64 行）。",
     },
     {
-        "case_key": "curag-0343",
+        "case_key": "curag-0340",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "APFS 原生支持哪些粒度的加密？",
@@ -7224,7 +7161,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2383 的真实分块 doc_2383_chunk_2（第 9-22 行）。",
     },
     {
-        "case_key": "curag-0344",
+        "case_key": "curag-0341",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ARM64 处理器怎么区分有符号和无符号运算的进位情况？",
@@ -7245,7 +7182,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2384 的真实分块 doc_2384_chunk_17（第 70-85 行）。",
     },
     {
-        "case_key": "curag-0345",
+        "case_key": "curag-0342",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "x64 里 rdx 寄存器都有哪些用途？",
@@ -7266,7 +7203,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2385 的真实分块 doc_2385_chunk_1（第 9-22 行）。",
     },
     {
-        "case_key": "curag-0346",
+        "case_key": "curag-0343",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Objective-C 内存对象分析里 processString:withOptions:andError: 这类 selector 怎么读？",
@@ -7287,7 +7224,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2386 的真实分块 doc_2386_chunk_12（第 96-122 行）。",
     },
     {
-        "case_key": "curag-0347",
+        "case_key": "curag-0344",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Objective-C 协议和类的实现是什么关系？",
@@ -7308,7 +7245,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2387 的真实分块 doc_2387_chunk_3（第 84-120 行）。",
     },
     {
-        "case_key": "curag-0348",
+        "case_key": "curag-0345",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 防火墙为什么放行了 Apple 签名 resolver 发起的 query？",
@@ -7329,7 +7266,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2388 的真实分块 doc_2388_chunk_1（第 27-42 行）。",
     },
     {
-        "case_key": "curag-0349",
+        "case_key": "curag-0346",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "macOS 上值得部署的防御类应用有哪些？",
@@ -7350,7 +7287,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2389 的真实分块 doc_2389_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0350",
+        "case_key": "curag-0347",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "怎么查 macOS 上某个应用支持哪些 URL schemes？",
@@ -7371,7 +7308,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2390 的真实分块 doc_2390_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "curag-0351",
+        "case_key": "curag-0348",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "macOS 应用包里 Info.plist 的作用是什么？",
@@ -7392,7 +7329,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2391 的真实分块 doc_2391_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0352",
+        "case_key": "curag-0349",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": ".dmg 安装包历史上被滥用过什么漏洞级别的问题？",
@@ -7413,7 +7350,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2392 的真实分块 doc_2392_chunk_4（第 57-73 行）。",
     },
     {
-        "case_key": "curag-0353",
+        "case_key": "curag-0350",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "怎么确认 macOS 的 sleepimage 有没有开加密？",
@@ -7434,7 +7371,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2393 的真实分块 doc_2393_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0354",
+        "case_key": "curag-0351",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 通知的反向 DNS 命名规则是什么样的？",
@@ -7455,7 +7392,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2394 的真实分块 doc_2394_chunk_30（第 236-258 行）。",
     },
     {
-        "case_key": "curag-0355",
+        "case_key": "curag-0352",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Mach-O 的 dylib_command load command 结构长什么样？",
@@ -7476,7 +7413,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2395 的真实分块 doc_2395_chunk_43（第 350-367 行）。",
     },
     {
-        "case_key": "curag-0356",
+        "case_key": "curag-0353",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "GCD 里 dispatch_async 的并行用法怎么写？",
@@ -7497,7 +7434,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2396 的真实分块 doc_2396_chunk_10（第 87-119 行）。",
     },
     {
-        "case_key": "curag-0357",
+        "case_key": "curag-0354",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 提权时直接打开而不放 Dock 的技巧为什么不容易被怀疑？",
@@ -7518,7 +7455,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2397 的真实分块 doc_2397_chunk_8（第 122-140 行）。",
     },
     {
-        "case_key": "curag-0358",
+        "case_key": "curag-0355",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": ".Net 应用注入里 MT_WriteMemory 消息类型用来做什么？",
@@ -7539,7 +7476,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2398 的真实分块 doc_2398_chunk_10（第 55-83 行）。",
     },
     {
-        "case_key": "curag-0359",
+        "case_key": "curag-0356",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Automator actions 在 workflow 执行时以什么形式加载？",
@@ -7560,7 +7497,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2399 的真实分块 doc_2399_chunk_1（第 9-30 行）。",
     },
     {
-        "case_key": "curag-0360",
+        "case_key": "curag-0357",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Chromium 注入怎么用 Network.getAllCookies 静默偷 cookies？",
@@ -7581,7 +7518,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2400 的真实分块 doc_2400_chunk_15（第 85-89 行）。",
     },
     {
-        "case_key": "curag-0361",
+        "case_key": "curag-0358",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Dirty NIB 漏洞里 Cocoa Bindings 怎么在实例化时链式调用方法？",
@@ -7602,7 +7539,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2401 的真实分块 doc_2401_chunk_2（第 11-23 行）。",
     },
     {
-        "case_key": "curag-0362",
+        "case_key": "curag-0359",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Electron 应用哪个 fuse 关了也防不住代码注入？",
@@ -7623,7 +7560,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2402 的真实分块 doc_2402_chunk_3（第 18-40 行）。",
     },
     {
-        "case_key": "curag-0363",
+        "case_key": "curag-0360",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "macOS 上函数钩取（hooking）一般怎么做？",
@@ -7644,7 +7581,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2403 的真实分块 doc_2403_chunk_8（第 135-151 行）。",
     },
     {
-        "case_key": "curag-0364",
+        "case_key": "curag-0361",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MIG 生成的 Mach 接口里 client 怎么调用 server 的 Subtract？",
@@ -7665,7 +7602,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2404 的真实分块 doc_2404_chunk_12（第 138-161 行）。",
     },
     {
-        "case_key": "curag-0365",
+        "case_key": "curag-0362",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "通过 Task 端口做线程注入时读写内存分别怎么实现？",
@@ -7686,7 +7623,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2405 的真实分块 doc_2405_chunk_6（第 38-79 行）。",
     },
     {
-        "case_key": "curag-0366",
+        "case_key": "curag-0363",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "XPC 授权键设为 false 意味着什么？",
@@ -7707,7 +7644,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2406 的真实分块 doc_2406_chunk_20（第 243-253 行）。",
     },
     {
-        "case_key": "curag-0367",
+        "case_key": "curag-0364",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "macOS PID 重用攻击怎么借 NSTasks 启动参数利用 RC？",
@@ -7728,7 +7665,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2407 的真实分块 doc_2407_chunk_2（第 21-47 行）。",
     },
     {
-        "case_key": "curag-0368",
+        "case_key": "curag-0365",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "审计 xpc_connection_get_audit_token 类 bug 时重点看什么位置？",
@@ -7749,7 +7686,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2408 的真实分块 doc_2408_chunk_15（第 108-118 行）。",
     },
     {
-        "case_key": "curag-0369",
+        "case_key": "curag-0366",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 上 Java 应用的注入点怎么快速检查？",
@@ -7770,7 +7707,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2409 的真实分块 doc_2409_chunk_7（第 130-144 行）。",
     },
     {
-        "case_key": "curag-0370",
+        "case_key": "curag-0367",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "DYLD_INSERT_LIBRARIES 劫持 VulnDyld 这类应用的路径在哪？",
@@ -7791,7 +7728,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2410 的真实分块 doc_2410_chunk_0（第 1-40 行）。",
     },
     {
-        "case_key": "curag-0371",
+        "case_key": "curag-0368",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 里 main 函数的第四个参数 apple 是什么格式？",
@@ -7812,7 +7749,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2411 的真实分块 doc_2411_chunk_9（第 103-137 行）。",
     },
     {
-        "case_key": "curag-0372",
+        "case_key": "curag-0369",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS Perl 应用注入怎么用自建模块实现？",
@@ -7833,7 +7770,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2412 的真实分块 doc_2412_chunk_0（第 1-30 行）。",
     },
     {
-        "case_key": "curag-0373",
+        "case_key": "curag-0370",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 上 Python 应用怎么被注入恶意代码？",
@@ -7854,7 +7791,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2413 的真实分块 doc_2413_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0374",
+        "case_key": "curag-0371",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "CVE-2020-9963 在 Quick Look 上的影响是什么？",
@@ -7875,7 +7812,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2414 的真实分块 doc_2414_chunk_5（第 118-144 行）。",
     },
     {
-        "case_key": "curag-0375",
+        "case_key": "curag-0372",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Ruby 注入场景下 --disable-rubyopt 为什么也不管用？",
@@ -7896,7 +7833,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2415 的真实分块 doc_2415_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-0376",
+        "case_key": "curag-0373",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "XPC services 最常见的漏洞类别是什么？daemon 该验证什么？",
@@ -7917,7 +7854,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2416 的真实分块 doc_2416_chunk_3（第 62-98 行）。",
     },
     {
-        "case_key": "curag-0377",
+        "case_key": "curag-0374",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "macOS 上用什么命令检查网络服务是否已启用？",
@@ -7938,7 +7875,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2417 的真实分块 doc_2417_chunk_1（第 8-23 行）。",
     },
     {
-        "case_key": "curag-0378",
+        "case_key": "curag-0375",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AMFI 在用户态和内核态各由什么组件负责检查代码签名？",
@@ -7959,7 +7896,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2418 的真实分块 doc_2418_chunk_13（第 68-79 行）。",
     },
     {
-        "case_key": "curag-0379",
+        "case_key": "curag-0376",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 授权数据库里规则的 hash 字段用来防什么？",
@@ -7980,7 +7917,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2419 的真实分块 doc_2419_chunk_1（第 7-27 行）。",
     },
     {
-        "case_key": "curag-0380",
+        "case_key": "curag-0377",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "代码签名例外里最危险的 mach-lookup 允许沙盒应用做什么？",
@@ -8001,7 +7938,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2420 的真实分块 doc_2420_chunk_10（第 172-207 行）。",
     },
     {
-        "case_key": "curag-0381",
+        "case_key": "curag-0378",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Sec[Static]CodeCheckValidity 是按什么校验 SecCodeRef 的？",
@@ -8022,7 +7959,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2421 的真实分块 doc_2421_chunk_32（第 279-295 行）。",
     },
     {
-        "case_key": "curag-0382",
+        "case_key": "curag-0379",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "申请危险 entitlement 时为什么要想清楚是否真的需要？",
@@ -8043,7 +7980,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2422 的真实分块 doc_2422_chunk_14（第 165-181 行）。",
     },
     {
-        "case_key": "curag-0383",
+        "case_key": "curag-0380",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 的 xattr/ACL 里还藏着哪些值得看的属性？",
@@ -8064,7 +8001,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2423 的真实分块 doc_2423_chunk_0（第 1-10 行）。",
     },
     {
-        "case_key": "curag-0384",
+        "case_key": "curag-0381",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "怎么检查一个 App 会不会被 Gatekeeper 放行？",
@@ -8085,7 +8022,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2424 的真实分块 doc_2424_chunk_11（第 99-130 行）。",
     },
     {
-        "case_key": "curag-0385",
+        "case_key": "curag-0382",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "输入监控、屏幕捕获与 Accessibility 组合起来为什么是 macOS 最危险的权限组？",
@@ -8106,7 +8043,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2425 的真实分块 doc_2425_chunk_0（第 1-24 行）。",
     },
     {
-        "case_key": "curag-0386",
+        "case_key": "curag-0383",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "第三方应用的 Launch Constraints 可以配置哪些事实和逻辑操作？",
@@ -8127,7 +8064,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2426 的真实分块 doc_2426_chunk_7（第 55-67 行）。",
     },
     {
-        "case_key": "curag-0387",
+        "case_key": "curag-0384",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MACF 的 opType 里 check 和 notify 有什么区别？",
@@ -8148,7 +8085,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2427 的真实分块 doc_2427_chunk_42（第 291-294 行）。",
     },
     {
-        "case_key": "curag-0388",
+        "case_key": "curag-0385",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "怎么用 clang 编译一个 macOS 沙盒调试用的 Shell 应用？",
@@ -8169,7 +8106,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2428 的真实分块 doc_2428_chunk_0（第 1-40 行）。",
     },
     {
-        "case_key": "curag-0389",
+        "case_key": "curag-0386",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Office 沙盒绕过里 open 工具的 --stdin 参数还能怎么用？",
@@ -8190,7 +8127,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2429 的真实分块 doc_2429_chunk_3（第 33-45 行）。",
     },
     {
-        "case_key": "curag-0390",
+        "case_key": "curag-0387",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "密封系统卷（SSV）对 rootkit 防护意味着什么？",
@@ -8211,7 +8148,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2430 的真实分块 doc_2430_chunk_0（第 1-30 行）。",
     },
     {
-        "case_key": "curag-0391",
+        "case_key": "curag-0388",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "怎么用 ls -lOd 判断文件受不受 SIP 保护？",
@@ -8232,7 +8169,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2431 的真实分块 doc_2431_chunk_1（第 14-35 行）。",
     },
     {
-        "case_key": "curag-0392",
+        "case_key": "curag-0389",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "AEDebugSends 环境变量能记录什么信息？",
@@ -8253,7 +8190,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2432 的真实分块 doc_2432_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0393",
+        "case_key": "curag-0390",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "编译过的 AppleScript 怎么用 osadecompile 反编译？",
@@ -8274,7 +8211,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2433 的真实分块 doc_2433_chunk_6（第 26-38 行）。",
     },
     {
-        "case_key": "curag-0394",
+        "case_key": "curag-0391",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Full Disk Access 授权后攻击者能读哪些东西？",
@@ -8295,7 +8232,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2434 的真实分块 doc_2434_chunk_17（第 259-280 行）。",
     },
     {
-        "case_key": "curag-0395",
+        "case_key": "curag-0392",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "TCC 载荷怎么检查当前进程能不能截屏并触发授权弹窗？",
@@ -8316,7 +8253,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2435 的真实分块 doc_2435_chunk_40（第 764-791 行）。",
     },
     {
-        "case_key": "curag-0396",
+        "case_key": "curag-0393",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "macOS 的 Guest 账户权限有多严格？",
@@ -8337,7 +8274,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2436 的真实分块 doc_2436_chunk_11（第 11-26 行）。",
     },
     {
-        "case_key": "curag-0397",
+        "case_key": "curag-0394",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "排查 macOS 主机时要重点检查已安装应用的什么？",
@@ -8358,7 +8295,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2437 的真实分块 doc_2437_chunk_5（第 109-141 行）。",
     },
     {
-        "case_key": "curag-0398",
+        "case_key": "curag-0395",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Android 媒体管道里 vendor Unknown opcodes 的 ID 4 是什么？",
@@ -8379,7 +8316,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2438 的真实分块 doc_2438_chunk_9（第 57-66 行）。",
     },
     {
-        "case_key": "curag-0399",
+        "case_key": "curag-0396",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Accessibility Service 滥用怎么做到免 root 的毫秒级类 VNC 画面流？",
@@ -8400,7 +8337,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2439 的真实分块 doc_2439_chunk_11（第 131-139 行）。",
     },
     {
-        "case_key": "curag-0400",
+        "case_key": "curag-0397",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "adb 怎么备份 Android 设备数据？",
@@ -8421,7 +8358,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2440 的真实分块 doc_2440_chunk_9（第 272-290 行）。",
     },
     {
-        "case_key": "curag-0401",
+        "case_key": "curag-0398",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Frida 17+ agent 打进 APK 里做反注入绕过要怎么配 Gadget？",
@@ -8442,7 +8379,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2441 的真实分块 doc_2441_chunk_28（第 362-381 行）。",
     },
     {
-        "case_key": "curag-0402",
+        "case_key": "curag-0399",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Android 应用克隆（App Cloning）有什么滥用面？",
@@ -8463,7 +8400,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2442 的真实分块 doc_2442_chunk_4（第 13-31 行）。",
     },
     {
-        "case_key": "curag-0403",
+        "case_key": "curag-0400",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Android 应用安全基础里怎么测被拦 token 能不能远程重放登录？",
@@ -8484,7 +8421,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2443 的真实分块 doc_2443_chunk_33（第 335-365 行）。",
     },
     {
-        "case_key": "curag-0404",
+        "case_key": "curag-0401",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Intune/Company Portal 检测到 Work Profile 缺必需应用会怎样？",
@@ -8505,7 +8442,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2444 的真实分块 doc_2444_chunk_5（第 45-62 行）。",
     },
     {
-        "case_key": "curag-0405",
+        "case_key": "curag-0402",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Android HCE NFC/EMV 中继攻击的传输层常用什么实现？",
@@ -8526,7 +8463,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2445 的真实分块 doc_2445_chunk_1（第 7-18 行）。",
     },
     {
-        "case_key": "curag-0406",
+        "case_key": "curag-0403",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Android 物理攻击里 authenticator_type = 1 对应什么令牌类型？",
@@ -8547,7 +8484,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2446 的真实分块 doc_2446_chunk_7（第 55-64 行）。",
     },
     {
-        "case_key": "curag-0407",
+        "case_key": "curag-0404",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Android 任务劫持为什么静态 manifest 分析查不出来？",
@@ -8568,7 +8505,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2447 的真实分块 doc_2447_chunk_7（第 81-96 行）。",
     },
     {
-        "case_key": "curag-0408",
+        "case_key": "curag-0405",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Android VPN 绕过里 payload 被当协议数据处理时缺了哪个校验？",
@@ -8589,7 +8526,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2448 的真实分块 doc_2448_chunk_1（第 9-20 行）。",
     },
     {
-        "case_key": "curag-0409",
+        "case_key": "curag-0406",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Fernflower 反编译器有什么特点？怎么构建？",
@@ -8610,7 +8547,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2449 的真实分块 doc_2449_chunk_2（第 29-46 行）。",
     },
     {
-        "case_key": "curag-0410",
+        "case_key": "curag-0407",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "带 Play Store 的 AVD 镜像为什么拿不到 root？",
@@ -8631,7 +8568,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2450 的真实分块 doc_2450_chunk_19（第 235-254 行）。",
     },
     {
-        "case_key": "curag-0411",
+        "case_key": "curag-0408",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Android 生物识别绕过的缓解为什么要验证 result.cryptoObject？",
@@ -8652,7 +8589,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2451 的真实分块 doc_2451_chunk_8（第 64-74 行）。",
     },
     {
-        "case_key": "curag-0412",
+        "case_key": "curag-0409",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "怎么列出 Media Store 管理的文件（content 协议）？",
@@ -8673,7 +8610,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2452 的真实分块 doc_2452_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0413",
+        "case_key": "curag-0410",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "利用 Content Providers 时怎么用 sqlite_master 确认目标表存在？",
@@ -8694,7 +8631,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2453 的真实分块 doc_2453_chunk_14（第 156-170 行）。",
     },
     {
-        "case_key": "curag-0414",
+        "case_key": "curag-0411",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "apktool 在检查可调试状态时会改字节码吗？",
@@ -8715,7 +8652,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2454 的真实分块 doc_2454_chunk_3（第 60-80 行）。",
     },
     {
-        "case_key": "curag-0415",
+        "case_key": "curag-0412",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Zygote 注入固件后门为什么首次启动就生效且无用户交互？",
@@ -8736,7 +8673,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2455 的真实分块 doc_2455_chunk_3（第 18-30 行）。",
     },
     {
-        "case_key": "curag-0416",
+        "case_key": "curag-0413",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Flutter 应用忽略设备代理设置时抓包怎么办？",
@@ -8757,7 +8694,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2456 的真实分块 doc_2456_chunk_8（第 68-76 行）。",
     },
     {
-        "case_key": "curag-0417",
+        "case_key": "curag-0414",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Frida gadget 由 Zygote 注入时 APK 完整性检查为什么不受影响？",
@@ -8778,7 +8715,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2457 的真实分块 doc_2457_chunk_8（第 129-148 行）。",
     },
     {
-        "case_key": "curag-0418",
+        "case_key": "curag-0415",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "frida / frida-python / frida-trace 加载脚本的方式有什么通用性？",
@@ -8799,7 +8736,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2458 的真实分块 doc_2458_chunk_14（第 268-275 行）。",
     },
     {
-        "case_key": "curag-0419",
+        "case_key": "curag-0416",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Objection 的设计目标是解决 Frida 使用的什么痛点？",
@@ -8820,7 +8757,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2459 的真实分块 doc_2459_chunk_0（第 1-31 行）。",
     },
     {
-        "case_key": "curag-0420",
+        "case_key": "curag-0417",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Frida 里 set return value false 对 root 检测类 hook 意味着什么？",
@@ -8841,7 +8778,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2460 的真实分块 doc_2460_chunk_8（第 139-152 行）。",
     },
     {
-        "case_key": "curag-0421",
+        "case_key": "curag-0418",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Google CTF 那道题不改指令改被比较内容是什么思路？",
@@ -8862,7 +8799,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2461 的真实分块 doc_2461_chunk_1（第 23-47 行）。",
     },
     {
-        "case_key": "curag-0422",
+        "case_key": "curag-0419",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "JNI 执行内存 native code 时蓝队从哪些点检测加固？",
@@ -8883,7 +8820,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2462 的真实分块 doc_2462_chunk_7（第 98-112 行）。",
     },
     {
-        "case_key": "curag-0423",
+        "case_key": "curag-0420",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "审计 IME/InputMethodService 滥用时功能声明和键盘 UI 怎么对齐检查？",
@@ -8904,7 +8841,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2463 的真实分块 doc_2463_chunk_2（第 39-70 行）。",
     },
     {
-        "case_key": "curag-0424",
+        "case_key": "curag-0421",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "In-App Update 机制不安全时恶意 plugin 从哪条链路进来？",
@@ -8925,7 +8862,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2464 的真实分块 doc_2464_chunk_8（第 48-75 行）。",
     },
     {
-        "case_key": "curag-0425",
+        "case_key": "curag-0422",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Android 上装 Burp 证书时怎么用 tmpfs 建可写证书目录？",
@@ -8946,7 +8883,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2465 的真实分块 doc_2465_chunk_19（第 174-187 行）。",
     },
     {
-        "case_key": "curag-0426",
+        "case_key": "curag-0423",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Intent 注入里 dlopen 为什么不看扩展名只看 ELF headers？",
@@ -8967,7 +8904,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2466 的真实分块 doc_2466_chunk_7（第 78-94 行）。",
     },
     {
-        "case_key": "curag-0427",
+        "case_key": "curag-0424",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "APK 不接受用户 CA 时怎么反编译重打包来抓流量？",
@@ -8988,7 +8925,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2467 的真实分块 doc_2467_chunk_0（第 1-25 行）。",
     },
     {
-        "case_key": "curag-0428",
+        "case_key": "curag-0425",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "native 层 init block 原地解密 strings 的模式怎么手动去混淆？",
@@ -9009,7 +8946,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2468 的真实分块 doc_2468_chunk_13（第 115-132 行）。",
     },
     {
-        "case_key": "curag-0429",
+        "case_key": "curag-0426",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Play Integrity 验证怎么避免每台设备消耗一个 keybox.xml？",
@@ -9030,7 +8967,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2469 的真实分块 doc_2469_chunk_15（第 61-76 行）。",
     },
     {
-        "case_key": "curag-0430",
+        "case_key": "curag-0427",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "怎么确认一个应用是 React Native 构建的？",
@@ -9051,7 +8988,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2470 的真实分块 doc_2470_chunk_0（第 1-27 行）。",
     },
     {
-        "case_key": "curag-0431",
+        "case_key": "curag-0428",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "逆向原生库时 ABI 不匹配会抛什么异常？",
@@ -9072,7 +9009,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2471 的真实分块 doc_2471_chunk_12（第 94-116 行）。",
     },
     {
-        "case_key": "curag-0432",
+        "case_key": "curag-0429",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Shizuku 是怎么借 app_process 拿到特权 Java 进程的？",
@@ -9093,7 +9030,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2472 的真实分块 doc_2472_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0433",
+        "case_key": "curag-0430",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "smali 重编译后用 apksigner verify 确认什么？",
@@ -9114,7 +9051,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2473 的真实分块 doc_2473_chunk_8（第 101-126 行）。",
     },
     {
-        "case_key": "curag-0434",
+        "case_key": "curag-0431",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Google Play 换国家/配置文件下载要等多久才生效？",
@@ -9135,7 +9072,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2474 的真实分块 doc_2474_chunk_2（第 19-36 行）。",
     },
     {
-        "case_key": "curag-0435",
+        "case_key": "curag-0432",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "触控劫持在低版本 Android 上靠哪个属性缓解？",
@@ -9156,7 +9093,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2475 的真实分块 doc_2475_chunk_5（第 41-63 行）。",
     },
     {
-        "case_key": "curag-0436",
+        "case_key": "curag-0433",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Android WebView 有哪些降低风险的关键配置？",
@@ -9177,7 +9114,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2476 的真实分块 doc_2476_chunk_0（第 1-15 行）。",
     },
     {
-        "case_key": "curag-0437",
+        "case_key": "curag-0434",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "APK 安全检查清单都包含哪些项？",
@@ -9198,7 +9135,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2477 的真实分块 doc_2477_chunk_1（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0438",
+        "case_key": "curag-0435",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "cordova-android@13 升级带来了什么 API 目标变化？",
@@ -9219,7 +9156,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2478 的真实分块 doc_2478_chunk_14（第 102-117 行）。",
     },
     {
-        "case_key": "curag-0439",
+        "case_key": "curag-0436",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "iOS Pentesting 检查清单里文件系统敏感信息这一项怎么查？",
@@ -9240,7 +9177,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2479 的真实分块 doc_2479_chunk_7（第 16-31 行）。",
     },
     {
-        "case_key": "curag-0440",
+        "case_key": "curag-0437",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Air Keyboard 未认证监听端口怎么用 Frida hook socket() 排查？",
@@ -9261,7 +9198,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2480 的真实分块 doc_2480_chunk_14（第 186-205 行）。",
     },
     {
-        "case_key": "curag-0441",
+        "case_key": "curag-0438",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "iOS 上怎么用 otool 定位加密 section 再 gdb 转储内存？",
@@ -9282,7 +9219,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2481 的真实分块 doc_2481_chunk_6（第 85-110 行）。",
     },
     {
-        "case_key": "curag-0442",
+        "case_key": "curag-0439",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "iOS 不改 app 也不配 Wi-Fi 代理怎么做强制 interception？",
@@ -9303,7 +9240,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2482 的真实分块 doc_2482_chunk_4（第 36-53 行）。",
     },
     {
-        "case_key": "curag-0443",
+        "case_key": "curag-0440",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "从编译后的 iOS 应用提取 entitlements 时 binwalk 怎么用？",
@@ -9324,7 +9261,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2483 的真实分块 doc_2483_chunk_1（第 9-24 行）。",
     },
     {
-        "case_key": "curag-0444",
+        "case_key": "curag-0441",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "iOS Frida 配置里为什么要加 timeouts 检测 hangs？",
@@ -9345,7 +9282,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2484 的真实分块 doc_2484_chunk_68（第 1344-1357 行）。",
     },
     {
-        "case_key": "curag-0445",
+        "case_key": "curag-0442",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "iOS 应用扩展（App Extensions）能提供哪些能力？",
@@ -9366,7 +9303,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2485 的真实分块 doc_2485_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-0446",
+        "case_key": "curag-0443",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "iOS 应用内部做快速 runtime 检查的方法是什么？",
@@ -9387,7 +9324,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2486 的真实分块 doc_2486_chunk_10（第 54-70 行）。",
     },
     {
-        "case_key": "curag-0447",
+        "case_key": "curag-0444",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "iOS 自定义 URI/深度链接测试时要确认应用做了什么？",
@@ -9408,7 +9345,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2487 的真实分块 doc_2487_chunk_21（第 175-187 行）。",
     },
     {
-        "case_key": "curag-0448",
+        "case_key": "curag-0445",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Objection hook iOS 前怎么用 frida-ps -Uia 看运行中的进程？",
@@ -9429,7 +9366,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2488 的真实分块 doc_2488_chunk_0（第 1-26 行）。",
     },
     {
-        "case_key": "curag-0449",
+        "case_key": "curag-0446",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "无越狱 iOS 渗透为什么先 trace 高信号 library 而不是上来就写 custom hook？",
@@ -9450,7 +9387,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2489 的真实分块 doc_2489_chunk_17（第 195-205 行）。",
     },
     {
-        "case_key": "curag-0450",
+        "case_key": "curag-0447",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "WebView 协议处理器的核心安全判断标准是什么？",
@@ -9471,7 +9408,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2490 的真实分块 doc_2490_chunk_2（第 15-29 行）。",
     },
     {
-        "case_key": "curag-0451",
+        "case_key": "curag-0448",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "iOS 里 property lists 和 JSON 怎么直接互转序列化？",
@@ -9492,7 +9429,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2491 的真实分块 doc_2491_chunk_3（第 40-60 行）。",
     },
     {
-        "case_key": "curag-0452",
+        "case_key": "curag-0449",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "公开可用的 iOS 模拟器有哪些选择？",
@@ -9513,7 +9450,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2492 的真实分块 doc_2492_chunk_6（第 74-92 行）。",
     },
     {
-        "case_key": "curag-0453",
+        "case_key": "curag-0450",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "iOS UIActivity 分享用 malformed files fuzz 是在测什么？",
@@ -9534,7 +9471,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2493 的真实分块 doc_2493_chunk_3（第 45-51 行）。",
     },
     {
-        "case_key": "curag-0454",
+        "case_key": "curag-0451",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "objection 的 pasteboard monitor 轮询间隔是多少、监控什么？",
@@ -9555,7 +9492,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2494 的真实分块 doc_2494_chunk_3（第 34-71 行）。",
     },
     {
-        "case_key": "curag-0455",
+        "case_key": "curag-0452",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "iOS 通用链接里 URL 参数解析该用什么 API 防伪造？",
@@ -9576,7 +9513,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2495 的真实分块 doc_2495_chunk_8（第 78-101 行）。",
     },
     {
-        "case_key": "curag-0456",
+        "case_key": "curag-0453",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "iOS WebView 钓鱼里屏幕外 iframe 的 staging 门控是为了什么？",
@@ -9597,7 +9534,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2496 的真实分块 doc_2496_chunk_25（第 282-327 行）。",
     },
     {
-        "case_key": "curag-0457",
+        "case_key": "curag-0454",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "itunesstored/bookassetd 沙盒逃逸怎么用两个 SQLite DB 配合特定 host/UUID？",
@@ -9618,7 +9555,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2497 的真实分块 doc_2497_chunk_26（第 143-152 行）。",
     },
     {
-        "case_key": "curag-0458",
+        "case_key": "curag-0455",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "零点击消息图片解析链里 MIME 和 preview 尺寸要怎么配合？",
@@ -9639,7 +9576,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2498 的真实分块 doc_2498_chunk_8（第 57-65 行）。",
     },
     {
-        "case_key": "curag-0459",
+        "case_key": "curag-0456",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Xamarin 应用的提取文件怎么靠 XALZ 头识别？",
@@ -9660,7 +9597,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2499 的真实分块 doc_2499_chunk_16（第 87-104 行）。",
     },
     {
-        "case_key": "curag-0460",
+        "case_key": "curag-0457",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "NDMP（10000 端口）渗透测试关注什么？",
@@ -9681,7 +9618,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2500 的真实分块 doc_2500_chunk_0（第 1-20 行）。",
     },
     {
-        "case_key": "curag-0461",
+        "case_key": "curag-0458",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "rusersd（1026 端口）枚举能拿到什么信息？",
@@ -9702,7 +9639,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2501 的真实分块 doc_2501_chunk_2（第 15-42 行）。",
     },
     {
-        "case_key": "curag-0462",
+        "case_key": "curag-0459",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Socks 代理渗透里 socks-methods 和 socks-open-proxy 分别探测什么？",
@@ -9723,7 +9660,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2502 的真实分块 doc_2502_chunk_1（第 5-43 行）。",
     },
     {
-        "case_key": "curag-0463",
+        "case_key": "curag-0460",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Java RMI 渗透时远程调用对象方法会引发什么资源跟踪问题？",
@@ -9744,7 +9681,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2503 的真实分块 doc_2503_chunk_1（第 17-26 行）。",
     },
     {
-        "case_key": "curag-0464",
+        "case_key": "curag-0461",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Memcache 渗透常用的命令有哪些？",
@@ -9765,7 +9702,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2504 的真实分块 doc_2504_chunk_9（第 44-97 行）。",
     },
     {
-        "case_key": "curag-0465",
+        "case_key": "curag-0462",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Ident 协议（113 端口）为什么逐渐被弃用？",
@@ -9786,7 +9723,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2505 的真实分块 doc_2505_chunk_0（第 1-30 行）。",
     },
     {
-        "case_key": "curag-0466",
+        "case_key": "curag-0463",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Cisco Catalyst 渗透时 TCP/830 上的 NETCONF 要怎么查？",
@@ -9807,7 +9744,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2506 的真实分块 doc_2506_chunk_1（第 18-42 行）。",
     },
     {
-        "case_key": "curag-0467",
+        "case_key": "curag-0464",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "MSRPC 渗透的 PoC 里硬编码 SMB 共享名改了会怎样？",
@@ -9828,7 +9765,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2507 的真实分块 doc_2507_chunk_11（第 68-82 行）。",
     },
     {
-        "case_key": "curag-0468",
+        "case_key": "curag-0465",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "NetBIOS 的 138/udp 承担什么样的通信方式？",
@@ -9849,7 +9786,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2508 的真实分块 doc_2508_chunk_2（第 28-44 行）。",
     },
     {
-        "case_key": "curag-0469",
+        "case_key": "curag-0466",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "IBM MQ 在消息体系里承担什么角色？",
@@ -9870,7 +9807,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2509 的真实分块 doc_2509_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0470",
+        "case_key": "curag-0467",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Oracle TNS Listener 渗透第一步为什么是版本枚举？",
@@ -9891,7 +9828,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2510 的真实分块 doc_2510_chunk_0（第 1-20 行）。",
     },
     {
-        "case_key": "curag-0471",
+        "case_key": "curag-0468",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "RabbitMQ Management 手动启动模块要执行什么？",
@@ -9912,7 +9849,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2511 的真实分块 doc_2511_chunk_0（第 1-24 行）。",
     },
     {
-        "case_key": "curag-0472",
+        "case_key": "curag-0469",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PPTP 渗透里除了抓凭据还能做什么？",
@@ -9933,7 +9870,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2512 的真实分块 doc_2512_chunk_10（第 96-118 行）。",
     },
     {
-        "case_key": "curag-0473",
+        "case_key": "curag-0470",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "MQTT broker 的 HTTP 配置文件和 WebSocket 登录会不会共用认证材料？",
@@ -9954,7 +9891,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2513 的真实分块 doc_2513_chunk_29（第 270-287 行）。",
     },
     {
-        "case_key": "curag-0474",
+        "case_key": "curag-0471",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "2375/2376 端口的 Docker 为什么能远程起容器再逃逸打穿宿主？",
@@ -9975,7 +9912,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2514 的真实分块 doc_2514_chunk_50（第 210-235 行）。",
     },
     {
-        "case_key": "curag-0475",
+        "case_key": "curag-0472",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "GlusterFS 挂载失败时客户端日志在哪看？",
@@ -9996,7 +9933,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2515 的真实分块 doc_2515_chunk_1（第 5-33 行）。",
     },
     {
-        "case_key": "curag-0476",
+        "case_key": "curag-0473",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "MongoDB 无认证配置（noauth=true）被利用后能做什么？",
@@ -10017,7 +9954,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2516 的真实分块 doc_2516_chunk_6（第 87-93 行）。",
     },
     {
-        "case_key": "curag-0477",
+        "case_key": "curag-0474",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "审计 Squid 本身（而非当跳板）要纳入哪些检查？",
@@ -10038,7 +9975,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2517 的真实分块 doc_2517_chunk_8（第 108-119 行）。",
     },
     {
-        "case_key": "curag-0478",
+        "case_key": "curag-0475",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PPPP P2P 摄像头的固件缺了哪些二进制防护？",
@@ -10059,7 +9996,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2518 的真实分块 doc_2518_chunk_10（第 77-98 行）。",
     },
     {
-        "case_key": "curag-0479",
+        "case_key": "curag-0476",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "iSCSI 渗透时脚本会提示是否需要认证吗？",
@@ -10080,7 +10017,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2519 的真实分块 doc_2519_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-0480",
+        "case_key": "curag-0477",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SAProuter 发现后用 sap_router_info_request 能挖出什么？",
@@ -10101,7 +10038,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2520 的真实分块 doc_2520_chunk_2（第 15-36 行）。",
     },
     {
-        "case_key": "curag-0481",
+        "case_key": "curag-0478",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "为什么说 Shodan 检测不到 Distcc 服务？",
@@ -10122,7 +10059,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2521 的真实分块 doc_2521_chunk_0（第 1-25 行）。",
     },
     {
-        "case_key": "curag-0482",
+        "case_key": "curag-0479",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SVN 渗透里 svnmucc 做 PoC commit 需要什么凭据？",
@@ -10143,7 +10080,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2522 的真实分块 doc_2522_chunk_6（第 55-70 行）。",
     },
     {
-        "case_key": "curag-0483",
+        "case_key": "curag-0480",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "WS-Discovery 发现 auto-enrollment 时客户端要不要信任第一响应者？",
@@ -10164,7 +10101,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2523 的真实分块 doc_2523_chunk_10（第 104-129 行）。",
     },
     {
-        "case_key": "curag-0484",
+        "case_key": "curag-0481",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "NATS 默认端口是多少？集群 routes 用哪个段？",
@@ -10185,7 +10122,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2524 的真实分块 doc_2524_chunk_1（第 7-32 行）。",
     },
     {
-        "case_key": "curag-0485",
+        "case_key": "curag-0482",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "WHOIS 渗透时为什么要顺带检查同提供商的 RDAP？",
@@ -10206,7 +10143,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2525 的真实分块 doc_2525_chunk_4（第 66-84 行）。",
     },
     {
-        "case_key": "curag-0486",
+        "case_key": "curag-0483",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "epmd（4369）的漏洞利用可以拿什么环境练手？",
@@ -10227,7 +10164,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2526 的真实分块 doc_2526_chunk_5（第 66-81 行）。",
     },
     {
-        "case_key": "curag-0487",
+        "case_key": "curag-0484",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Tiller/Helm 渗透要检查的端口是多少？",
@@ -10248,7 +10185,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2527 的真实分块 doc_2527_chunk_1（第 14-39 行）。",
     },
     {
-        "case_key": "curag-0488",
+        "case_key": "curag-0485",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "EtherNet/IP（44818）工业协议渗透测什么？",
@@ -10269,7 +10206,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2528 的真实分块 doc_2528_chunk_0（第 1-20 行）。",
     },
     {
-        "case_key": "curag-0489",
+        "case_key": "curag-0486",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "BACnet 渗透脚本为什么不以 foreign device 加入网络？",
@@ -10290,7 +10227,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2529 的真实分块 doc_2529_chunk_1（第 7-40 行）。",
     },
     {
-        "case_key": "curag-0490",
+        "case_key": "curag-0487",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Cisco Smart Install 渗透的目标设备一般是什么型号和状态？",
@@ -10311,7 +10248,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2530 的真实分块 doc_2530_chunk_1（第 22-36 行）。",
     },
     {
-        "case_key": "curag-0491",
+        "case_key": "curag-0488",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "OPC UA 用 LDS-ME 组播发现时要对 UDP 组地址做什么？",
@@ -10332,7 +10269,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2531 的真实分块 doc_2531_chunk_3（第 29-42 行）。",
     },
     {
-        "case_key": "curag-0492",
+        "case_key": "curag-0489",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Docker Registry 渗透第一步为什么是确认 HTTP 还是 HTTPS？",
@@ -10353,7 +10290,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2533 的真实分块 doc_2533_chunk_3（第 37-63 行）。",
     },
     {
-        "case_key": "curag-0493",
+        "case_key": "curag-0490",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Hadoop 默认配置的身份验证状况如何？怎么增强？",
@@ -10374,7 +10311,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2534 的真实分块 doc_2534_chunk_1（第 18-34 行）。",
     },
     {
-        "case_key": "curag-0494",
+        "case_key": "curag-0491",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Rexec 的 /etc/pam.d/rexec 配置 pam_rootok 会出什么问题？",
@@ -10395,7 +10332,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2535 的真实分块 doc_2535_chunk_10（第 113-129 行）。",
     },
     {
-        "case_key": "curag-0495",
+        "case_key": "curag-0492",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "LPD 打印服务（515）渗透测试要点是什么？",
@@ -10416,7 +10353,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2536 的真实分块 doc_2536_chunk_1（第 5-24 行）。",
     },
     {
-        "case_key": "curag-0496",
+        "case_key": "curag-0493",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "想硬禁用 mDNS 名称解析该改注册表哪个值？",
@@ -10437,7 +10374,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2537 的真实分块 doc_2537_chunk_11（第 108-124 行）。",
     },
     {
-        "case_key": "curag-0497",
+        "case_key": "curag-0494",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Redshift 的默认端口是多少？Serverless 也一样吗？",
@@ -10458,7 +10395,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2538 的真实分块 doc_2538_chunk_2（第 11-30 行）。",
     },
     {
-        "case_key": "curag-0498",
+        "case_key": "curag-0495",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "RTSP 设备匿名/认证访问怎么用 DESCRIBE 探测？",
@@ -10479,7 +10416,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2539 的真实分块 doc_2539_chunk_1（第 20-32 行）。",
     },
     {
-        "case_key": "curag-0499",
+        "case_key": "curag-0496",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "ADB 渗透为什么不能假设端口一定是 5555？",
@@ -10500,7 +10437,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2540 的真实分块 doc_2540_chunk_7（第 99-116 行）。",
     },
     {
-        "case_key": "curag-0500",
+        "case_key": "curag-0497",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Kibana 管理用户的用户/角色/API Key 功能藏在哪？",
@@ -10521,7 +10458,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2541 的真实分块 doc_2541_chunk_1（第 9-23 行）。",
     },
     {
-        "case_key": "curag-0501",
+        "case_key": "curag-0498",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "RabbitMQ（AMQP）在消息架构里的角色是什么？",
@@ -10542,7 +10479,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2542 的真实分块 doc_2542_chunk_0（第 1-9 行）。",
     },
     {
-        "case_key": "curag-0502",
+        "case_key": "curag-0499",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "AFP 渗透要更细粒度控制时怎么组合 NSE 和 Hydra/Medusa？",
@@ -10563,7 +10500,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2543 的真实分块 doc_2543_chunk_3（第 41-56 行）。",
     },
     {
-        "case_key": "curag-0503",
+        "case_key": "curag-0500",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "CouchDB 什么样的 response 说明你有权限列数据库？",
@@ -10584,7 +10521,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2544 的真实分块 doc_2544_chunk_9（第 65-78 行）。",
     },
     {
-        "case_key": "curag-0504",
+        "case_key": "curag-0501",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "OMI（5985/5986）和 WinRM 是什么关系、渗透看什么？",
@@ -10605,7 +10542,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2545 的真实分块 doc_2545_chunk_0（第 1-20 行）。",
     },
     {
-        "case_key": "curag-0505",
+        "case_key": "curag-0502",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "WinRM 开着时远程管理体验和 SSH 像在哪？怎么确认开启？",
@@ -10626,7 +10563,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2546 的真实分块 doc_2546_chunk_0（第 1-14 行）。",
     },
     {
-        "case_key": "curag-0506",
+        "case_key": "curag-0503",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "X11 渗透首先要查允不允许什么连接？",
@@ -10647,7 +10584,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2547 的真实分块 doc_2547_chunk_1（第 16-33 行）。",
     },
     {
-        "case_key": "curag-0507",
+        "case_key": "curag-0504",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "IPMI 的 Cipher 0 类漏洞用什么 Metasploit scanner 检测？",
@@ -10668,7 +10605,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2548 的真实分块 doc_2548_chunk_4（第 44-60 行）。",
     },
     {
-        "case_key": "curag-0508",
+        "case_key": "curag-0505",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Redis 只配密码时默认用户名是什么？",
@@ -10689,7 +10626,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2549 的真实分块 doc_2549_chunk_4（第 44-67 行）。",
     },
     {
-        "case_key": "curag-0509",
+        "case_key": "curag-0506",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "TFTP 上有没有传文件能力怎么用 Metasploit 或 Python 验证？",
@@ -10710,7 +10647,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2550 的真实分块 doc_2550_chunk_1（第 16-35 行）。",
     },
     {
-        "case_key": "curag-0510",
+        "case_key": "curag-0507",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Echo 服务（7 端口）在渗透中有什么用途？",
@@ -10731,7 +10668,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2551 的真实分块 doc_2551_chunk_0（第 1-25 行）。",
     },
     {
-        "case_key": "curag-0511",
+        "case_key": "curag-0508",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "EPP 渗透里 registrar 面板的 static transfer code 说明什么？",
@@ -10752,7 +10689,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2552 的真实分块 doc_2552_chunk_17（第 211-231 行）。",
     },
     {
-        "case_key": "curag-0512",
+        "case_key": "curag-0509",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "AJP 除 mod_jk 外还能借什么代理访问 8009？",
@@ -10773,7 +10710,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2553 的真实分块 doc_2553_chunk_10（第 118-141 行）。",
     },
     {
-        "case_key": "curag-0513",
+        "case_key": "curag-0510",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "InfluxDB 里 telegraf 和 internal 这两个库意味着什么？",
@@ -10794,7 +10731,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2554 的真实分块 doc_2554_chunk_4（第 75-111 行）。",
     },
     {
-        "case_key": "curag-0514",
+        "case_key": "curag-0511",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Splunkd 渗透在攻击机上怎么起 listener？",
@@ -10815,7 +10752,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2555 的真实分块 doc_2555_chunk_3（第 68-104 行）。",
     },
     {
-        "case_key": "curag-0515",
+        "case_key": "curag-0512",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "怎么让 Bitcoin 节点把你当有效节点吐信息？Nmap 有什么脚本？",
@@ -10836,7 +10773,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2556 的真实分块 doc_2556_chunk_1（第 22-44 行）。",
     },
     {
-        "case_key": "curag-0516",
+        "case_key": "curag-0513",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Rsync 拿到 module list 后无认证时怎么列共享文件？",
@@ -10857,7 +10794,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2557 的真实分块 doc_2557_chunk_5（第 39-56 行）。",
     },
     {
-        "case_key": "curag-0517",
+        "case_key": "curag-0514",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "FastCGI 是什么？9000 端口暴露它有什么风险？",
@@ -10878,7 +10815,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2558 的真实分块 doc_2558_chunk_0（第 1-23 行）。",
     },
     {
-        "case_key": "curag-0518",
+        "case_key": "curag-0515",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "HSQLDB 的常见默认凭据是什么？",
@@ -10899,7 +10836,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2559 的真实分块 doc_2559_chunk_0（第 1-23 行）。",
     },
     {
-        "case_key": "curag-0519",
+        "case_key": "curag-0516",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PJL 打印机渗透里 exploit.xps 这个 ZIP 结构包含什么？",
@@ -10920,7 +10857,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2560 的真实分块 doc_2560_chunk_6（第 67-86 行）。",
     },
     {
-        "case_key": "curag-0520",
+        "case_key": "curag-0517",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Elasticsearch 走 HTTP 访问时会泄露哪些有趣信息？",
@@ -10941,7 +10878,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2561 的真实分块 doc_2561_chunk_1（第 13-29 行）。",
     },
     {
-        "case_key": "curag-0521",
+        "case_key": "curag-0518",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Cassandra 接受任意凭据时攻击者能做什么枚举？",
@@ -10962,7 +10899,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2562 的真实分块 doc_2562_chunk_0（第 1-15 行）。",
     },
     {
-        "case_key": "curag-0522",
+        "case_key": "curag-0519",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "IKE VPN 离线爆破时怎么靠响应数量判断有效用户 ID？",
@@ -10983,7 +10920,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2563 的真实分块 doc_2563_chunk_21（第 171-186 行）。",
     },
     {
-        "case_key": "curag-0523",
+        "case_key": "curag-0520",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "NFS 各版本的演进重点解决了什么？",
@@ -11004,7 +10941,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2564 的真实分块 doc_2564_chunk_2（第 30-41 行）。",
     },
     {
-        "case_key": "curag-0524",
+        "case_key": "curag-0521",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Check Point 防火墙 264/TCP 发现后顺藤摸瓜查什么？",
@@ -11025,7 +10962,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2565 的真实分块 doc_2565_chunk_19（第 117-134 行）。",
     },
     {
-        "case_key": "curag-0525",
+        "case_key": "curag-0522",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "IPP 打印协议为什么要求 Kerberos/Negotiate 而不是匿名打印？",
@@ -11046,7 +10983,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2566 的真实分块 doc_2566_chunk_10（第 105-117 行）。",
     },
     {
-        "case_key": "curag-0526",
+        "case_key": "curag-0523",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Compaq/HP Insight Manager（2301）渗透看什么？",
@@ -11067,7 +11004,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2567 的真实分块 doc_2567_chunk_0（第 1-16 行）。",
     },
     {
-        "case_key": "curag-0527",
+        "case_key": "curag-0524",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "怎么通过响应里的 ra flag 判断 DNS 支持递归？",
@@ -11088,7 +11025,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2568 的真实分块 doc_2568_chunk_12（第 135-158 行）。",
     },
     {
-        "case_key": "curag-0528",
+        "case_key": "curag-0525",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Finger daemon 怎么测它接不接受多用户请求？",
@@ -11109,7 +11046,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2569 的真实分块 doc_2569_chunk_7（第 86-106 行）。",
     },
     {
-        "case_key": "curag-0529",
+        "case_key": "curag-0526",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "FTP bounce 扫描怎么用 LIST/NLST/RETR 触发数据连接探测目标？",
@@ -11130,7 +11067,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2570 的真实分块 doc_2570_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0530",
+        "case_key": "curag-0527",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "FTP bounce 下载文件时攻击机上的 passive listener 怎么摆？",
@@ -11151,7 +11088,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2571 的真实分块 doc_2571_chunk_2（第 26-43 行）。",
     },
     {
-        "case_key": "curag-0531",
+        "case_key": "curag-0528",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "IMAP 的非加密默认端口是哪个？",
@@ -11172,7 +11109,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2572 的真实分块 doc_2572_chunk_1（第 9-35 行）。",
     },
     {
-        "case_key": "curag-0532",
+        "case_key": "curag-0529",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "IRC 里 operator 和普通用户的权限差异是怎样的？",
@@ -11193,7 +11130,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2573 的真实分块 doc_2573_chunk_0（第 1-33 行）。",
     },
     {
-        "case_key": "curag-0533",
+        "case_key": "curag-0530",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ISO 8583 支付接口渗透怎么用畸形 AUTH frame 测认证状态机？",
@@ -11214,7 +11151,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2574 的真实分块 doc_2574_chunk_3（第 52-79 行）。",
     },
     {
-        "case_key": "curag-0534",
+        "case_key": "curag-0531",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "JDWP 协议利用的五步 exploitation 流程包括什么？",
@@ -11235,7 +11172,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2575 的真实分块 doc_2575_chunk_4（第 37-48 行）。",
     },
     {
-        "case_key": "curag-0535",
+        "case_key": "curag-0532",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Linux 上 klist/keyctl//proc 组合怎么判断 Kerberos 凭据存放在哪？",
@@ -11256,7 +11193,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2576 的真实分块 doc_2576_chunk_3（第 18-33 行）。",
     },
     {
-        "case_key": "curag-0536",
+        "case_key": "curag-0533",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Windows 导出 tickets 前要确认 session 里的什么材料？",
@@ -11277,7 +11214,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2577 的真实分块 doc_2577_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-0537",
+        "case_key": "curag-0534",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "LDAP 渗透怎么先验证凭据是否为空或有效？",
@@ -11298,7 +11235,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2578 的真实分块 doc_2578_chunk_29（第 200-219 行）。",
     },
     {
-        "case_key": "curag-0538",
+        "case_key": "curag-0535",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Modbus 寄存器地址 400001 和库里的从零偏移差在哪？",
@@ -11319,7 +11256,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2579 的真实分块 doc_2579_chunk_3（第 60-95 行）。",
     },
     {
-        "case_key": "curag-0539",
+        "case_key": "curag-0536",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "MSSQL 的用户类型划分对渗透有什么意义？",
@@ -11340,7 +11277,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2580 的真实分块 doc_2580_chunk_22（第 27-33 行）。",
     },
     {
-        "case_key": "curag-0540",
+        "case_key": "curag-0537",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "MySQL 配置里有哪些影响运行方式和安全的设置值得看？",
@@ -11361,7 +11298,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2581 的真实分块 doc_2581_chunk_13（第 167-185 行）。",
     },
     {
-        "case_key": "curag-0541",
+        "case_key": "curag-0538",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "NTP 的 leap-smear 要注意所有下游客户端的什么一致性？",
@@ -11382,7 +11319,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2582 的真实分块 doc_2582_chunk_9（第 122-138 行）。",
     },
     {
-        "case_key": "curag-0542",
+        "case_key": "curag-0539",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "POP3 用 CAPA 命令能拿到什么？",
@@ -11403,7 +11340,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2583 的真实分块 doc_2583_chunk_0（第 1-31 行）。",
     },
     {
-        "case_key": "curag-0543",
+        "case_key": "curag-0540",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PostgreSQL 渗透里检查特定函数存在性的方法是什么？",
@@ -11424,7 +11361,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2584 的真实分块 doc_2584_chunk_50（第 646-667 行）。",
     },
     {
-        "case_key": "curag-0544",
+        "case_key": "curag-0541",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "rdp_check.py 怎么验证一组凭据对 RDP 是否有效？",
@@ -11445,7 +11382,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2585 的真实分块 doc_2585_chunk_2（第 42-66 行）。",
     },
     {
-        "case_key": "curag-0545",
+        "case_key": "curag-0542",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "远程 gdbserver 挂任意端口时为什么 nmap 认不出来？",
@@ -11466,7 +11403,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2586 的真实分块 doc_2586_chunk_0（第 1-36 行）。",
     },
     {
-        "case_key": "curag-0546",
+        "case_key": "curag-0543",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Rlogin 免密登录尝试时优先试哪个用户？",
@@ -11487,7 +11424,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2587 的真实分块 doc_2587_chunk_0（第 1-26 行）。",
     },
     {
-        "case_key": "curag-0547",
+        "case_key": "curag-0544",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Portmapper 渗透里 $1$ 开头的哈希对应什么类型、Hashcat 模式是多少？",
@@ -11508,7 +11445,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2588 的真实分块 doc_2588_chunk_7（第 82-101 行）。",
     },
     {
-        "case_key": "curag-0548",
+        "case_key": "curag-0545",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Rsh（514）免密远程执行的利用条件是什么？",
@@ -11529,7 +11466,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2589 的真实分块 doc_2589_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-0549",
+        "case_key": "curag-0546",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "连接 SAP GUI 的命令是什么？",
@@ -11550,7 +11487,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2590 的真实分块 doc_2590_chunk_6（第 48-68 行）。",
     },
     {
-        "case_key": "curag-0550",
+        "case_key": "curag-0547",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ksmbd 的 SMB2/SMB3 攻击面 lab 环境要按什么调整配置？",
@@ -11571,7 +11508,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2591 的真实分块 doc_2591_chunk_2（第 29-54 行）。",
     },
     {
-        "case_key": "curag-0551",
+        "case_key": "curag-0548",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "rpcclient 的 lookupsids 怎么做 RID cycling？",
@@ -11592,7 +11529,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2592 的真实分块 doc_2592_chunk_4（第 59-79 行）。",
     },
     {
-        "case_key": "curag-0552",
+        "case_key": "curag-0549",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "SMTP 里表示服务器使用 ESMTP 的对话命令是哪个？",
@@ -11613,7 +11550,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2593 的真实分块 doc_2593_chunk_0（第 1-30 行）。",
     },
     {
-        "case_key": "curag-0553",
+        "case_key": "curag-0550",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SMTP 走私攻击的验证为什么要注意厂商改过默认设置？",
@@ -11634,7 +11571,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2594 的真实分块 doc_2594_chunk_11（第 108-117 行）。",
     },
     {
-        "case_key": "curag-0554",
+        "case_key": "curag-0551",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Cisco SNMP 行标识符 one-shot 特性重复使用会报什么错？",
@@ -11655,7 +11592,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2595 的真实分块 doc_2595_chunk_6（第 40-57 行）。",
     },
     {
-        "case_key": "curag-0555",
+        "case_key": "curag-0552",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SNMP RCE 里 nsExtendObjects 模式的 payload 传递怎么做？",
@@ -11676,7 +11613,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2596 的真实分块 doc_2596_chunk_3（第 36-49 行）。",
     },
     {
-        "case_key": "curag-0556",
+        "case_key": "curag-0553",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SSH 认证被限制次数时怎么用 PreferredAuthentications 强制换方法？",
@@ -11697,7 +11634,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2597 的真实分块 doc_2597_chunk_29（第 260-281 行）。",
     },
     {
-        "case_key": "curag-0557",
+        "case_key": "curag-0554",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Telnet 为什么说是不安全的远程访问方式？",
@@ -11718,7 +11655,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2598 的真实分块 doc_2598_chunk_0（第 1-29 行）。",
     },
     {
-        "case_key": "curag-0558",
+        "case_key": "curag-0555",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "VNC 常用端口 5800/5801/5900/5901 各是什么用途？",
@@ -11739,7 +11676,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2599 的真实分块 doc_2599_chunk_0（第 1-25 行）。",
     },
     {
-        "case_key": "curag-0559",
+        "case_key": "curag-0556",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "disable_functions 为什么必须来自 PHP 主配置上下文（INI_SYSTEM）？",
@@ -11760,7 +11697,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2629 的真实分块 doc_2629_chunk_55（第 411-421 行）。",
     },
     {
-        "case_key": "curag-0560",
+        "case_key": "curag-0557",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "老版本 PHP on Windows 有哪些已知利用面？",
@@ -11781,7 +11718,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2630 的真实分块 doc_2630_chunk_3（第 13-60 行）。",
     },
     {
-        "case_key": "curag-0561",
+        "case_key": "curag-0558",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHP Perl 扩展 Safe_mode 绕过怎么编译 PECL perl-1.0.1 利用？",
@@ -11802,7 +11739,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2631 的真实分块 doc_2631_chunk_2（第 14-25 行）。",
     },
     {
-        "case_key": "curag-0562",
+        "case_key": "curag-0559",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "proc_open 配自定义环境变量能怎么绕过限制？",
@@ -11823,7 +11760,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2632 的真实分块 doc_2632_chunk_1（第 1-15 行）。",
     },
     {
-        "case_key": "curag-0563",
+        "case_key": "curag-0560",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHP via mem 这条利用路径是怎么回事？",
@@ -11844,7 +11781,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2633 的真实分块 doc_2633_chunk_0（第 1-1 行）。",
     },
     {
-        "case_key": "curag-0564",
+        "case_key": "curag-0561",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHP 5.2.4 ionCube 扩展漏洞怎么利用？",
@@ -11865,7 +11802,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2634 的真实分块 doc_2634_chunk_0（第 1-28 行）。",
     },
     {
-        "case_key": "curag-0565",
+        "case_key": "curag-0562",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHP 5.x 环境 Shellshock 漏洞怎么触发？",
@@ -11886,7 +11823,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2635 的真实分块 doc_2635_chunk_0（第 1-5 行）。",
     },
     {
-        "case_key": "curag-0566",
+        "case_key": "curag-0563",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PrestaShop 未认证的 order.pay 回调能伪造什么？",
@@ -11907,7 +11844,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2636 的真实分块 doc_2636_chunk_2（第 12-26 行）。",
     },
     {
-        "case_key": "curag-0567",
+        "case_key": "curag-0564",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "WebDAV 跑在 Apache 上时配置排查的常见位置在哪？",
@@ -11928,7 +11865,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2637 的真实分块 doc_2637_chunk_4（第 44-66 行）。",
     },
     {
-        "case_key": "curag-0568",
+        "case_key": "curag-0565",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Python SSTI 里用 str() 函数测 code execution 的思路是什么？",
@@ -11949,7 +11886,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2638 的真实分块 doc_2638_chunk_0（第 1-9 行）。",
     },
     {
-        "case_key": "curag-0569",
+        "case_key": "curag-0566",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Rocket Chat 管理员权限为什么能直接到 RCE？",
@@ -11970,7 +11907,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2639 的真实分块 doc_2639_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0570",
+        "case_key": "curag-0567",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Roundcube 一般暴露在什么样的 vhost 上？",
@@ -11991,7 +11928,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2640 的真实分块 doc_2640_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0571",
+        "case_key": "curag-0568",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Ruby 上传 backend 不做路径规范化验证时会发生什么？",
@@ -12012,7 +11949,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2641 的真实分块 doc_2641_chunk_13（第 130-148 行）。",
     },
     {
-        "case_key": "curag-0572",
+        "case_key": "curag-0569",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "ServiceNet 公开 widget 的 JSON API 怎么直接调用？",
@@ -12033,7 +11970,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2642 的真实分块 doc_2642_chunk_1（第 18-43 行）。",
     },
     {
-        "case_key": "curag-0573",
+        "case_key": "curag-0570",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "hop-by-hop header 和 end-to-end header 的区别是什么？",
@@ -12054,7 +11991,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2643 的真实分块 doc_2643_chunk_2（第 12-45 行）。",
     },
     {
-        "case_key": "curag-0574",
+        "case_key": "curag-0571",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Spring Actuator 泄露的堆内存里能翻到什么敏感片段？",
@@ -12075,7 +12012,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2644 的真实分块 doc_2644_chunk_7（第 75-90 行）。",
     },
     {
-        "case_key": "curag-0575",
+        "case_key": "curag-0572",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Symfony 渗透时日志里的 /?--env=prod 访问意味着什么？",
@@ -12096,7 +12033,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2645 的真实分块 doc_2645_chunk_10（第 70-75 行）。",
     },
     {
-        "case_key": "curag-0576",
+        "case_key": "curag-0573",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Telerik UI 漏洞排查为什么先看 web.config 的 handler 映射？",
@@ -12117,7 +12054,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2646 的真实分块 doc_2646_chunk_2（第 16-33 行）。",
     },
     {
-        "case_key": "curag-0577",
+        "case_key": "curag-0574",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "揭露 CloudFlare 背后真实 IP 时 headless browser 要怎么定制？",
@@ -12138,7 +12075,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2647 的真实分块 doc_2647_chunk_26（第 144-150 行）。",
     },
     {
-        "case_key": "curag-0578",
+        "case_key": "curag-0575",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "拿到 ESXi console/SSH 后勒索软件部署前通常跑哪些管理命令？",
@@ -12159,7 +12096,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2648 的真实分块 doc_2648_chunk_2（第 26-39 行）。",
     },
     {
-        "case_key": "curag-0579",
+        "case_key": "curag-0576",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Vue 里把未校验的 URL 传给 router.push 会重定向到哪类危险地址？",
@@ -12180,7 +12117,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2649 的真实分块 doc_2649_chunk_12（第 75-111 行）。",
     },
     {
-        "case_key": "curag-0580",
+        "case_key": "curag-0577",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Web API 渗透怎么用不同权限级别测越权访问？",
@@ -12201,7 +12138,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2650 的真实分块 doc_2650_chunk_3（第 19-31 行）。",
     },
     {
-        "case_key": "curag-0581",
+        "case_key": "curag-0578",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Werkzeug console PIN 要凑齐哪两组变量？",
@@ -12222,7 +12159,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2651 的真实分块 doc_2651_chunk_1（第 13-29 行）。",
     },
     {
-        "case_key": "curag-0582",
+        "case_key": "curag-0579",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "WordPress REST 的 permission_callback 是干什么的？",
@@ -12243,7 +12180,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2652 的真实分块 doc_2652_chunk_31（第 348-368 行）。",
     },
     {
-        "case_key": "curag-0583",
+        "case_key": "curag-0580",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "uWSGI 权限维持里 UWSGI_FILE 加载的环境覆盖能影响什么？",
@@ -12264,7 +12201,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2653 的真实分块 doc_2653_chunk_13（第 162-175 行）。",
     },
     {
-        "case_key": "curag-0584",
+        "case_key": "curag-0581",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Zabbix 里 guest 角色对 scriptid 有什么限制？",
@@ -12285,7 +12222,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2654 的真实分块 doc_2654_chunk_10（第 131-146 行）。",
     },
     {
-        "case_key": "curag-0585",
+        "case_key": "curag-0582",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "ZoneMinder/motionEye/Motion 这类监控组件值得查什么？",
@@ -12306,7 +12243,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2655 的真实分块 doc_2655_chunk_0（第 1-28 行）。",
     },
     {
-        "case_key": "curag-0586",
+        "case_key": "curag-0583",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "测 2FA 绕过为什么要顺带扫子域名的旧版本？",
@@ -12327,7 +12264,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2656 的真实分块 doc_2656_chunk_3（第 57-93 行）。",
     },
     {
-        "case_key": "curag-0587",
+        "case_key": "curag-0584",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "缓存服务器没剥 hop-by-hop header 会造成什么缓存投毒后果？",
@@ -12348,7 +12285,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2657 的真实分块 doc_2657_chunk_3（第 32-43 行）。",
     },
     {
-        "case_key": "curag-0588",
+        "case_key": "curag-0585",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "账户接管里 backend 用用户输入邮箱而不是数据库规范地址发信为什么可利用？",
@@ -12369,7 +12306,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2658 的真实分块 doc_2658_chunk_1（第 20-40 行）。",
     },
     {
-        "case_key": "curag-0589",
+        "case_key": "curag-0586",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "浏览器扩展防点击劫持为什么推荐 Closed Shadow DOM 加 MutationObserver？",
@@ -12390,7 +12327,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2659 的真实分块 doc_2659_chunk_13（第 176-187 行）。",
     },
     {
-        "case_key": "curag-0590",
+        "case_key": "curag-0587",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "浏览器扩展审计里 manifest-only shell 指什么行为？",
@@ -12411,7 +12348,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2660 的真实分块 doc_2660_chunk_18（第 122-133 行）。",
     },
     {
-        "case_key": "curag-0591",
+        "case_key": "curag-0588",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "浏览器扩展的 XSS 有什么典型示例可借鉴？",
@@ -12432,7 +12369,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2661 的真实分块 doc_2661_chunk_4（第 38-57 行）。",
     },
     {
-        "case_key": "curag-0592",
+        "case_key": "curag-0589",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "强制加载 Extension 的 Preferences MAC 计算对 JSON 序列化有什么要求？",
@@ -12453,7 +12390,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2662 的真实分块 doc_2662_chunk_14（第 138-149 行）。",
     },
     {
-        "case_key": "curag-0593",
+        "case_key": "curag-0590",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "支付流程绕过里 example.com/payment/MD5HASH 模式参数要怎么审？",
@@ -12474,7 +12411,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2663 的真实分块 doc_2663_chunk_0（第 1-30 行）。",
     },
     {
-        "case_key": "curag-0594",
+        "case_key": "curag-0591",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "缓存投毒怎么演变成拒绝服务（DoS）？",
@@ -12495,7 +12432,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2664 的真实分块 doc_2664_chunk_3（第 43-65 行）。",
     },
     {
-        "case_key": "curag-0595",
+        "case_key": "curag-0592",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "URL 差异缓存投毒第一步为什么是找不可缓存请求观察分隔符处理？",
@@ -12516,7 +12453,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2665 的真实分块 doc_2665_chunk_1（第 9-22 行）。",
     },
     {
-        "case_key": "curag-0596",
+        "case_key": "curag-0593",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "验证码绕过里第三方打码平台 API 是什么套路？",
@@ -12537,7 +12474,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2666 的真实分块 doc_2666_chunk_1（第 1-25 行）。",
     },
     {
-        "case_key": "curag-0597",
+        "case_key": "curag-0594",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "CSP 是怎么帮助防点击劫持的？",
@@ -12558,7 +12495,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2667 的真实分块 doc_2667_chunk_31（第 237-258 行）。",
     },
     {
-        "case_key": "curag-0598",
+        "case_key": "curag-0595",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "客户端路径遍历和服务器端路径穿越有什么不同？",
@@ -12579,7 +12516,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2668 的真实分块 doc_2668_chunk_9（第 49-58 行）。",
     },
     {
-        "case_key": "curag-0599",
+        "case_key": "curag-0596",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "客户端模板注入（CSTI）动手前怎么确认反射点会被框架处理？",
@@ -12600,7 +12537,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2669 的真实分块 doc_2669_chunk_1（第 9-24 行）。",
     },
     {
-        "case_key": "curag-0600",
+        "case_key": "curag-0597",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "命令注入里 curl 的 -o 和 -K 参数分别能干什么坏事？",
@@ -12621,7 +12558,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2670 的真实分块 doc_2670_chunk_14（第 180-195 行）。",
     },
     {
-        "case_key": "curag-0601",
+        "case_key": "curag-0598",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "CORS 没有预检请求时响应还需要带授权头吗？",
@@ -12642,7 +12579,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2672 的真实分块 doc_2672_chunk_6（第 65-67 行）。",
     },
     {
-        "case_key": "curag-0602",
+        "case_key": "curag-0599",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "CRLF 注入对按行存储的 session store 影响为什么特别大？",
@@ -12663,7 +12600,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2673 的真实分块 doc_2673_chunk_18（第 148-164 行）。",
     },
     {
-        "case_key": "curag-0603",
+        "case_key": "curag-0600",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "CSRF 测试里可控 GET sink 传数据给第二个改状态请求是什么打法？",
@@ -12684,7 +12621,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2674 的真实分块 doc_2674_chunk_15（第 158-173 行）。",
     },
     {
-        "case_key": "curag-0604",
+        "case_key": "curag-0601",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Web 侧信道泄露有哪些典型形态？",
@@ -12705,7 +12642,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2675 的真实分块 doc_2675_chunk_0（第 1-7 行）。",
     },
     {
-        "case_key": "curag-0605",
+        "case_key": "curag-0602",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "DApps 里最危险的操作为什么从 on-chain approve 转向了 relayer/router 兑现？",
@@ -12726,7 +12663,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2676 的真实分块 doc_2676_chunk_10（第 69-73 行）。",
     },
     {
-        "case_key": "curag-0606",
+        "case_key": "curag-0603",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "依赖混淆的最小化防护配置优先保护谁？",
@@ -12747,7 +12684,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2677 的真实分块 doc_2677_chunk_16（第 134-150 行）。",
     },
     {
-        "case_key": "curag-0607",
+        "case_key": "curag-0604",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": ".Net ObjectDataProvider 反序列化里 YSoNet 常用 chains 怎么生成 payload？",
@@ -12768,7 +12705,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2678 的真实分块 doc_2678_chunk_24（第 243-245 行）。",
     },
     {
-        "case_key": "curag-0608",
+        "case_key": "curag-0605",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ysoserial 在 ObjectInputStream readObject 利用里的 baseline 用法是什么？",
@@ -12789,7 +12726,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2679 的真实分块 doc_2679_chunk_16（第 147-160 行）。",
     },
     {
-        "case_key": "curag-0609",
+        "case_key": "curag-0606",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "已知 MachineKey 时 __VIEWSTATE 利用优先测哪类表单？",
@@ -12810,7 +12747,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2680 的真实分块 doc_2680_chunk_8（第 109-120 行）。",
     },
     {
-        "case_key": "curag-0610",
+        "case_key": "curag-0607",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "EnableViewStateMac 设 true 给 ViewState 带来了什么保护？",
@@ -12831,7 +12768,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2681 的真实分块 doc_2681_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0611",
+        "case_key": "curag-0608",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Java 反序列化里 HashMap 的 putVal 和 hash 调用为什么值得盯？",
@@ -12852,7 +12789,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2682 的真实分块 doc_2682_chunk_2（第 12-35 行）。",
     },
     {
-        "case_key": "curag-0612",
+        "case_key": "curag-0609",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Java JSF ViewState 反序列化怎么利用？",
@@ -12873,7 +12810,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2683 的真实分块 doc_2683_chunk_0（第 1-8 行）。",
     },
     {
-        "case_key": "curag-0613",
+        "case_key": "curag-0610",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SignedObject 门控的反序列化要在 getObject() 前做什么验证？",
@@ -12894,7 +12831,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2684 的真实分块 doc_2684_chunk_9（第 79-105 行）。",
     },
     {
-        "case_key": "curag-0614",
+        "case_key": "curag-0611",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "CommonsCollection1 payload 的 Transformer 链怎么到 RCE？",
@@ -12915,7 +12852,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2685 的真实分块 doc_2685_chunk_8（第 105-138 行）。",
     },
     {
-        "case_key": "curag-0615",
+        "case_key": "curag-0612",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "JNDI 注入和 Log4Shell 里 CORBA 本身为什么不天然脆弱？",
@@ -12936,7 +12873,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2686 的真实分块 doc_2686_chunk_3（第 38-56 行）。",
     },
     {
-        "case_key": "curag-0616",
+        "case_key": "curag-0613",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Laravel Livewire 水合滥用里 nested updates 按什么重新验证？",
@@ -12957,7 +12894,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2687 的真实分块 doc_2687_chunk_17（第 125-144 行）。",
     },
     {
-        "case_key": "curag-0617",
+        "case_key": "curag-0614",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "客户端原型污染有哪些值得优先检查的 patterns？",
@@ -12978,7 +12915,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2688 的真实分块 doc_2688_chunk_6（第 67-74 行）。",
     },
     {
-        "case_key": "curag-0618",
+        "case_key": "curag-0615",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Express 返回 JSON content type 时原型污染 gadget 怎么打？",
@@ -12999,7 +12936,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2689 的真实分块 doc_2689_chunk_1（第 9-31 行）。",
     },
     {
-        "case_key": "curag-0619",
+        "case_key": "curag-0616",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "原型污染到 RCE 的链路里 NODE_OPTIONS 为什么不能在 .env 中？",
@@ -13020,7 +12957,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2690 的真实分块 doc_2690_chunk_4（第 66-84 行）。",
     },
     {
-        "case_key": "curag-0620",
+        "case_key": "curag-0617",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Python YAML 反序列化从通用 PyYAML 漏洞演变成 application gadget 是什么意思？",
@@ -13041,7 +12978,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2692 的真实分块 doc_2692_chunk_8（第 103-125 行）。",
     },
     {
-        "case_key": "curag-0621",
+        "case_key": "curag-0618",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Ruby 的 JSON 污染（JSON pollution）是什么？",
@@ -13062,7 +12999,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2693 的真实分块 doc_2693_chunk_0（第 1-16 行）。",
     },
     {
-        "case_key": "curag-0622",
+        "case_key": "curag-0619",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Ruby 类污染里单独下划线属性返回 Mash 对象有什么特殊之处？",
@@ -13083,7 +13020,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2694 的真实分块 doc_2694_chunk_5（第 151-183 行）。",
     },
     {
-        "case_key": "curag-0623",
+        "case_key": "curag-0620",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "子域名接管的缓解策略包括哪些？",
@@ -13104,7 +13041,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2695 的真实分块 doc_2695_chunk_12（第 75-91 行）。",
     },
     {
-        "case_key": "curag-0624",
+        "case_key": "curag-0621",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "邮件注入构造 RCPT TO 双地址头注入的思路是什么？",
@@ -13125,7 +13062,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2696 的真实分块 doc_2696_chunk_5（第 96-115 行）。",
     },
     {
-        "case_key": "curag-0625",
+        "case_key": "curag-0622",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "LFI2RCE 永恒等待为什么瞄准 PHP-FPM 场景？",
@@ -13146,7 +13083,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2698 的真实分块 doc_2698_chunk_5（第 67-76 行）。",
     },
     {
-        "case_key": "curag-0626",
+        "case_key": "curag-0623",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Nginx 临时文件 LFI2RCE 怎么靠淹没 workers 保住临时文件？",
@@ -13167,7 +13104,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2699 的真实分块 doc_2699_chunk_10（第 61-69 行）。",
     },
     {
-        "case_key": "curag-0627",
+        "case_key": "curag-0624",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHPInfo 加 LFI 转 RCE 时 sink 追加 .php 扩展名还需要 null byte 吗？",
@@ -13188,7 +13125,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2701 的真实分块 doc_2701_chunk_14（第 67-81 行）。",
     },
     {
-        "case_key": "curag-0628",
+        "case_key": "curag-0625",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "LFI2RCE 的段错误（segfault）变体是怎么回事？",
@@ -13209,7 +13146,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2702 的真实分块 doc_2702_chunk_0（第 1-11 行）。",
     },
     {
-        "case_key": "curag-0629",
+        "case_key": "curag-0626",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Windows 上通过临时文件上传实现 LFI to RCE 的默认路径是什么？",
@@ -13230,7 +13167,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2703 的真实分块 doc_2703_chunk_1（第 13-31 行）。",
     },
     {
-        "case_key": "curag-0630",
+        "case_key": "curag-0627",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "phar:// 协议反序列化的触发条件是什么？",
@@ -13251,7 +13188,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2704 的真实分块 doc_2704_chunk_0（第 1-36 行）。",
     },
     {
-        "case_key": "curag-0631",
+        "case_key": "curag-0628",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHP_SESSION_UPLOAD_PROGRESS 实现 LFI 的条件是什么？",
@@ -13272,7 +13209,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2705 的真实分块 doc_2705_chunk_0（第 1-15 行）。",
     },
     {
-        "case_key": "curag-0632",
+        "case_key": "curag-0629",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PDF 上传怎么会带来 XXE 或 CORS bypass？",
@@ -13293,7 +13230,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2706 的真实分块 doc_2706_chunk_0（第 1-7 行）。",
     },
     {
-        "case_key": "curag-0633",
+        "case_key": "curag-0630",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "公式/CSV/LaTeX 注入里教师点击 hyperlink 的场景利用了什么信任？",
@@ -13314,7 +13251,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2707 的真实分块 doc_2707_chunk_2（第 26-41 行）。",
     },
     {
-        "case_key": "curag-0634",
+        "case_key": "curag-0631",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "gRPC-Web 渗透里未匹配路径被透传上游会带来什么绕过？",
@@ -13335,7 +13272,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2708 的真实分块 doc_2708_chunk_19（第 208-221 行）。",
     },
     {
-        "case_key": "curag-0635",
+        "case_key": "curag-0632",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Upgrade 头走私（smuggling）的原理是什么？",
@@ -13356,7 +13293,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2709 的真实分块 doc_2709_chunk_1（第 7-17 行）。",
     },
     {
-        "case_key": "curag-0636",
+        "case_key": "curag-0633",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "怎么检查 JWT 的 signature 有没有被真正验证？",
@@ -13377,7 +13314,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2710 的真实分块 doc_2710_chunk_7（第 35-60 行）。",
     },
     {
-        "case_key": "curag-0637",
+        "case_key": "curag-0634",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Cookie 炸弹攻击的原理是什么？",
@@ -13398,7 +13335,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2711 的真实分块 doc_2711_chunk_0（第 1-12 行）。",
     },
     {
-        "case_key": "curag-0638",
+        "case_key": "curag-0635",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Cookie jar 溢出攻击是怎么发生的？",
@@ -13419,7 +13356,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2712 的真实分块 doc_2712_chunk_0（第 1-19 行）。",
     },
     {
-        "case_key": "curag-0639",
+        "case_key": "curag-0636",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Cookie tossing 里攻击者怎么借服务器发的未认证 Cookie 拿 CSRF token？",
@@ -13440,7 +13377,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2713 的真实分块 doc_2713_chunk_3（第 13-22 行）。",
     },
     {
-        "case_key": "curag-0640",
+        "case_key": "curag-0637",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "HTTP 连接污染（connection coalescing）用什么工具观察？",
@@ -13461,7 +13398,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2714 的真实分块 doc_2714_chunk_1（第 7-21 行）。",
     },
     {
-        "case_key": "curag-0641",
+        "case_key": "curag-0638",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "h2cSmuggler 针对 Upgrade: h2c 隧道配置错误能绕过什么？",
@@ -13482,7 +13419,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2715 的真实分块 doc_2715_chunk_11（第 95-116 行）。",
     },
     {
-        "case_key": "curag-0642",
+        "case_key": "curag-0639",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "浏览器侧 HTTP 请求走私有什么特别之处？",
@@ -13503,7 +13440,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2716 的真实分块 doc_2716_chunk_2（第 12-20 行）。",
     },
     {
-        "case_key": "curag-0643",
+        "case_key": "curag-0640",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "HTTP/2 降级走私里 TE header 被禁时 pseudo-headers 的规范化问题在哪？",
@@ -13524,7 +13461,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2717 的真实分块 doc_2717_chunk_9（第 101-115 行）。",
     },
     {
-        "case_key": "curag-0644",
+        "case_key": "curag-0641",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "HTTP 响应走私利用时为什么要让第一个走私消息处理很久？",
@@ -13545,7 +13482,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2718 的真实分块 doc_2718_chunk_3（第 29-45 行）。",
     },
     {
-        "case_key": "curag-0645",
+        "case_key": "curag-0642",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "IDOR 检测里连续可预测的 ID（如 64185742）意味着什么？",
@@ -13566,7 +13503,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2719 的真实分块 doc_2719_chunk_1（第 5-18 行）。",
     },
     {
-        "case_key": "curag-0646",
+        "case_key": "curag-0643",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Iframe 陷阱在受害者关闭标签或切 URL 时为什么会失效？",
@@ -13587,7 +13524,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2720 的真实分块 doc_2720_chunk_2（第 15-26 行）。",
     },
     {
-        "case_key": "curag-0647",
+        "case_key": "curag-0644",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "JSON/XML/Yaml 攻击里怎么利用可控 struct 字段读写 IsAdmin/Password？",
@@ -13608,7 +13545,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2721 的真实分块 doc_2721_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0648",
+        "case_key": "curag-0645",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "LDAP 注入的前提条件是什么？",
@@ -13629,7 +13566,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2722 的真实分块 doc_2722_chunk_0（第 1-33 行）。",
     },
     {
-        "case_key": "curag-0649",
+        "case_key": "curag-0646",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "常见的 SQL 登录绕过载荷有哪些？",
@@ -13650,7 +13587,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2723 的真实分块 doc_2723_chunk_0（第 1-3 行）。",
     },
     {
-        "case_key": "curag-0650",
+        "case_key": "curag-0647",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Mass Assignment（CWE-915）为什么 Microsoft 建议用 view models 而不是实体类直绑？",
@@ -13671,7 +13608,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2724 的真实分块 doc_2724_chunk_17（第 197-229 行）。",
     },
     {
-        "case_key": "curag-0651",
+        "case_key": "curag-0648",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "NoSQL 注入的常见打法是什么？",
@@ -13692,7 +13629,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2725 的真实分块 doc_2725_chunk_19（第 168-181 行）。",
     },
     {
-        "case_key": "curag-0652",
+        "case_key": "curag-0649",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "OAuth 账户接管里客户端不验 scheme/host 会导致什么即时后果？",
@@ -13713,7 +13650,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2726 的真实分块 doc_2726_chunk_65（第 383-394 行）。",
     },
     {
-        "case_key": "curag-0653",
+        "case_key": "curag-0650",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "开放重定向怎么用 curl 快速验证单个 URL？",
@@ -13734,7 +13671,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2727 的真实分块 doc_2727_chunk_23（第 188-224 行）。",
     },
     {
-        "case_key": "curag-0654",
+        "case_key": "curag-0651",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ORM 注入里 Harbor 用 filter:false 标记敏感字段的保护有什么局限？",
@@ -13755,7 +13692,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2728 的真实分块 doc_2728_chunk_7（第 89-102 行）。",
     },
     {
-        "case_key": "curag-0655",
+        "case_key": "curag-0652",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "参数污染怎么造成从 accountC 而不是 accountA 扣款的交易错乱？",
@@ -13776,7 +13713,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2729 的真实分块 doc_2729_chunk_0（第 1-26 行）。",
     },
     {
-        "case_key": "curag-0656",
+        "case_key": "curag-0653",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "手机号码字段的注入问题有哪些形态？",
@@ -13797,7 +13734,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2730 的真实分块 doc_2730_chunk_0（第 1-15 行）。",
     },
     {
-        "case_key": "curag-0657",
+        "case_key": "curag-0654",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Kelvin sign（%e2%84%aa）为什么是检测规范化的绝佳 canary？",
@@ -13818,7 +13755,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2731 的真实分块 doc_2731_chunk_16（第 47-61 行）。",
     },
     {
-        "case_key": "curag-0658",
+        "case_key": "curag-0655",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "阻塞主页偷 postmessage 时 win.length 和 frames.length 启发式在测什么？",
@@ -13839,7 +13776,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2732 的真实分块 doc_2732_chunk_1（第 7-33 行）。",
     },
     {
-        "case_key": "curag-0659",
+        "case_key": "curag-0656",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "用 iframe 绕 SOP 时 cookies 为什么可能要设 SameSite=None？",
@@ -13860,7 +13797,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2733 的真实分块 doc_2733_chunk_2（第 22-33 行）。",
     },
     {
-        "case_key": "curag-0660",
+        "case_key": "curag-0657",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "iframe 绕 SOP 第二种挑战里攻击者需要 bypass 什么？",
@@ -13881,7 +13818,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2734 的真实分块 doc_2734_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "curag-0661",
+        "case_key": "curag-0658",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "修改 iframe location 窃取 postmessage 的手法是什么？",
@@ -13902,7 +13839,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2735 的真实分块 doc_2735_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0662",
+        "case_key": "curag-0659",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "代理/WAF 绕过文章建议的最佳实践有哪些？",
@@ -13923,7 +13860,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2736 的真实分块 doc_2736_chunk_21（第 190-199 行）。",
     },
     {
-        "case_key": "curag-0663",
+        "case_key": "curag-0660",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "竞态条件里同时验证并修改 email 是在测平台的什么缺陷？",
@@ -13944,7 +13881,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2737 的真实分块 doc_2737_chunk_36（第 423-441 行）。",
     },
     {
-        "case_key": "curag-0664",
+        "case_key": "curag-0661",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "速率限制绕过时 limiter key 不是 per-account 还要轮换什么？",
@@ -13965,7 +13902,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2738 的真实分块 doc_2738_chunk_12（第 121-134 行）。",
     },
     {
-        "case_key": "curag-0665",
+        "case_key": "curag-0662",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "注册/接管漏洞里怎么判断某用户名是否已注册？",
@@ -13986,7 +13923,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2739 的真实分块 doc_2739_chunk_0（第 1-31 行）。",
     },
     {
-        "case_key": "curag-0666",
+        "case_key": "curag-0663",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "同时控制 input 和 regex 时的 ReDoS 示例长什么样？",
@@ -14007,7 +13944,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2740 的真实分块 doc_2740_chunk_6（第 58-72 行）。",
     },
     {
-        "case_key": "curag-0667",
+        "case_key": "curag-0664",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "重置密码绕过里 token 存在但用攻击者可控标识符定位账户是怎么回事？",
@@ -14028,7 +13965,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2741 的真实分块 doc_2741_chunk_16（第 166-186 行）。",
     },
     {
-        "case_key": "curag-0668",
+        "case_key": "curag-0665",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "反向标签劫持（Reverse Tabnabbing）和缺失的 prevention attribute 有什么关系？",
@@ -14049,7 +13986,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2742 的真实分块 doc_2742_chunk_1（第 10-26 行）。",
     },
     {
-        "case_key": "curag-0669",
+        "case_key": "curag-0666",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "RSQL 注入里操纵筛选条件的意外查询长什么样？",
@@ -14070,7 +14007,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2743 的真实分块 doc_2743_chunk_1（第 9-27 行）。",
     },
     {
-        "case_key": "curag-0670",
+        "case_key": "curag-0667",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "SAML 里 IdP 验证用户的环节是做什么？",
@@ -14091,7 +14028,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2744 的真实分块 doc_2744_chunk_1（第 18-31 行）。",
     },
     {
-        "case_key": "curag-0671",
+        "case_key": "curag-0668",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ESI 注入为什么要求上游提供特定 headers 才会被 Surrogate 处理？",
@@ -14112,7 +14049,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2745 的真实分块 doc_2745_chunk_4（第 90-96 行）。",
     },
     {
-        "case_key": "curag-0672",
+        "case_key": "curag-0669",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SOAP/JAX-WS 的 ThreadLocal 认证绕过怎么借 proprietary header 探测响应码？",
@@ -14133,7 +14070,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2746 的真实分块 doc_2746_chunk_5（第 34-53 行）。",
     },
     {
-        "case_key": "curag-0673",
+        "case_key": "curag-0670",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Neo4j 的 Cypher 注入怎么打？",
@@ -14154,7 +14091,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2747 的真实分块 doc_2747_chunk_0（第 1-11 行）。",
     },
     {
-        "case_key": "curag-0674",
+        "case_key": "curag-0671",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MS Access SQL 注入靠指定 database.table 枚举文件的原理是什么？",
@@ -14175,7 +14112,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2748 的真实分块 doc_2748_chunk_10（第 150-166 行）。",
     },
     {
-        "case_key": "curag-0675",
+        "case_key": "curag-0672",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "MSSQL 注入从当前库枚举 schema、表、列的方法是什么？",
@@ -14196,7 +14133,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2749 的真实分块 doc_2749_chunk_21（第 179-192 行）。",
     },
     {
-        "case_key": "curag-0676",
+        "case_key": "curag-0673",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MySQL File priv 转 SSRF/RCE 时 @@plugin_dir 不可写怎么办？",
@@ -14217,7 +14154,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2750 的真实分块 doc_2750_chunk_2（第 21-29 行）。",
     },
     {
-        "case_key": "curag-0677",
+        "case_key": "curag-0674",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Oracle 注入用默认凭据做快速 OOB 检查的示例是什么样？",
@@ -14238,7 +14175,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2751 的真实分块 doc_2751_chunk_20（第 200-221 行）。",
     },
     {
-        "case_key": "curag-0678",
+        "case_key": "curag-0675",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PostgreSQL 大二进制上传里 lo_put 用的是 byte offsets 还是 pageno？",
@@ -14259,7 +14196,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2752 的真实分块 doc_2752_chunk_8（第 82-93 行）。",
     },
     {
-        "case_key": "curag-0679",
+        "case_key": "curag-0676",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PostgreSQL 的 dblink/lo_import 数据外带怎么做？",
@@ -14280,7 +14217,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2753 的真实分块 doc_2753_chunk_0（第 1-9 行）。",
     },
     {
-        "case_key": "curag-0680",
+        "case_key": "curag-0677",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MSSQL 场景下 UNC 路径怎么引发 NTLM 挑战响应泄露？",
@@ -14301,7 +14238,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2754 的真实分块 doc_2754_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0681",
+        "case_key": "curag-0678",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PL/pgSQL 怎么被滥用来对用户凭据做暴力破解？",
@@ -14322,7 +14259,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2755 的真实分块 doc_2755_chunk_1（第 5-29 行）。",
     },
     {
-        "case_key": "curag-0682",
+        "case_key": "curag-0679",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PostgreSQL 扩展 RCE 里编译 library 为什么主版本必须一致（如 9.6.x）？",
@@ -14343,7 +14280,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2756 的真实分块 doc_2756_chunk_7（第 87-107 行）。",
     },
     {
-        "case_key": "curag-0683",
+        "case_key": "curag-0680",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PostgreSQL 里看不到某个 language 时 superadmin 怎么加载它？",
@@ -14364,7 +14301,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2757 的真实分块 doc_2757_chunk_1（第 22-42 行）。",
     },
     {
-        "case_key": "curag-0684",
+        "case_key": "curag-0681",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "SQLMap 的 Time-based blind 技术依赖什么函数检测注入？",
@@ -14385,7 +14322,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2758 的真实分块 doc_2758_chunk_1（第 24-40 行）。",
     },
     {
-        "case_key": "curag-0685",
+        "case_key": "curag-0682",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SQLMap 二阶注入配合 tamper 脚本把 payload 塞进 email 是怎么玩的？",
@@ -14406,7 +14343,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2759 的真实分块 doc_2759_chunk_0（第 1-31 行）。",
     },
     {
-        "case_key": "curag-0686",
+        "case_key": "curag-0683",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Azure 的 Run Command 是怎么借 VM Agent 执行脚本的（SSRF 视角）？",
@@ -14427,7 +14364,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2760 的真实分块 doc_2760_chunk_73（第 582-638 行）。",
     },
     {
-        "case_key": "curag-0687",
+        "case_key": "curag-0684",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "为什么说图片/PDF/OpenGraph 预览这类资源也可能成为 SSRF 平台的盲点？",
@@ -14448,7 +14385,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2761 的真实分块 doc_2761_chunk_8（第 85-105 行）。",
     },
     {
-        "case_key": "curag-0688",
+        "case_key": "curag-0685",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "URL 格式绕过里的 hostname-mismatch 问题在主流框架中是什么状况？",
@@ -14469,7 +14406,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2762 的真实分块 doc_2762_chunk_17（第 237-246 行）。",
     },
     {
-        "case_key": "curag-0689",
+        "case_key": "curag-0686",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "SpEL 表达式语言能在哪些 JVM 语言里使用？",
@@ -14490,7 +14427,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2763 的真实分块 doc_2763_chunk_0（第 1-20 行）。",
     },
     {
-        "case_key": "curag-0690",
+        "case_key": "curag-0687",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Jinja2 SSTI 怎么通过写恶意配置文件实现 RCE？",
@@ -14511,7 +14448,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2764 的真实分块 doc_2764_chunk_21（第 226-249 行）。",
     },
     {
-        "case_key": "curag-0691",
+        "case_key": "curag-0688",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "定时攻击动手前为什么要先探测额外服务器端逻辑的存在？",
@@ -14532,7 +14469,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2765 的真实分块 doc_2765_chunk_2（第 25-47 行）。",
     },
     {
-        "case_key": "curag-0692",
+        "case_key": "curag-0689",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Unicode 规范化不一致的现实场景除了 SQLi/XSS 还有什么形态？",
@@ -14553,7 +14490,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2766 的真实分块 doc_2766_chunk_10（第 89-101 行）。",
     },
     {
-        "case_key": "curag-0693",
+        "case_key": "curag-0690",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "UUID 的格式和不同版本有什么特点？",
@@ -14574,7 +14511,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2767 的真实分块 doc_2767_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0694",
+        "case_key": "curag-0691",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "WFuzz 这款 Web 工具适合做什么？",
@@ -14595,7 +14532,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2768 的真实分块 doc_2768_chunk_19（第 176-204 行）。",
     },
     {
-        "case_key": "curag-0695",
+        "case_key": "curag-0692",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Web 漏洞方法论的起点为什么是允许用户输入稍后处理的数据？",
@@ -14616,7 +14553,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2769 的真实分块 doc_2769_chunk_5（第 21-28 行）。",
     },
     {
-        "case_key": "curag-0696",
+        "case_key": "curag-0693",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "WebSocket server 检查 Origin 是为了防什么？",
@@ -14637,7 +14574,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2770 的真实分块 doc_2770_chunk_35（第 309-317 行）。",
     },
     {
-        "case_key": "curag-0697",
+        "case_key": "curag-0694",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "XPATH 注入里路径表达式的利用方式是什么？",
@@ -14658,7 +14595,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2771 的真实分块 doc_2771_chunk_0（第 1-31 行）。",
     },
     {
-        "case_key": "curag-0698",
+        "case_key": "curag-0695",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "按目标地址划分连接池的 exploit 是怎么工作的？",
@@ -14679,7 +14616,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2772 的真实分块 doc_2772_chunk_0（第 1-11 行）。",
     },
     {
-        "case_key": "curag-0699",
+        "case_key": "curag-0696",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "连接池示例里删掉 post 里的 HTML 后后续请求为什么会更快？",
@@ -14700,7 +14637,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2773 的真实分块 doc_2773_chunk_2（第 22-48 行）。",
     },
     {
-        "case_key": "curag-0700",
+        "case_key": "curag-0697",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "CSS 注入能实现哪些攻击原语？",
@@ -14721,7 +14658,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2775 的真实分块 doc_2775_chunk_0（第 1-58 行）。",
     },
     {
-        "case_key": "curag-0701",
+        "case_key": "curag-0698",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "LESS 代码注入最常见的 SSRF 和本地文件读取原语有哪些？",
@@ -14742,7 +14679,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2776 的真实分块 doc_2776_chunk_1（第 10-26 行）。",
     },
     {
-        "case_key": "curag-0702",
+        "case_key": "curag-0699",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "XS Leaks 里 JSONP 式 debug endpoint 为什么是最方便的目标？",
@@ -14763,7 +14700,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2778 的真实分块 doc_2778_chunk_6（第 162-193 行）。",
     },
     {
-        "case_key": "curag-0703",
+        "case_key": "curag-0700",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "performance.now 计时为什么只能检测 50ms 以上的任务、假阴性说明什么？",
@@ -14784,7 +14721,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2780 的真实分块 doc_2780_chunk_7（第 72-95 行）。",
     },
     {
-        "case_key": "curag-0704",
+        "case_key": "curag-0701",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "客户端 URL 最大长度差异能用来做什么探测？",
@@ -14805,7 +14742,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2781 的真实分块 doc_2781_chunk_0（第 1-29 行）。",
     },
     {
-        "case_key": "curag-0705",
+        "case_key": "curag-0702",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "XSLT 注入 XXE 失败后为什么要先给处理器做指纹识别再换 payload？",
@@ -14826,7 +14763,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2782 的真实分块 doc_2782_chunk_26（第 282-291 行）。",
     },
     {
-        "case_key": "curag-0706",
+        "case_key": "curag-0703",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "滥用 Service Workers 的漏洞利用需要找到哪些条件？",
@@ -14847,7 +14784,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2783 的真实分块 doc_2783_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0707",
+        "case_key": "curag-0704",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Chrome 缓存 XSS 里受害者先 prime 自己缓存的原因是什么？",
@@ -14868,7 +14805,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2784 的真实分块 doc_2784_chunk_1（第 12-23 行）。",
     },
     {
-        "case_key": "curag-0708",
+        "case_key": "curag-0705",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "调试客户端 JS 为什么每次改 URL 都要重设断点重载页面？",
@@ -14889,7 +14826,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2785 的真实分块 doc_2785_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0709",
+        "case_key": "curag-0706",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "DOM Clobbering 要 clobber 三层属性（x.y.z）时 form 元素怎么用？",
@@ -14910,7 +14847,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2786 的真实分块 doc_2786_chunk_1（第 14-52 行）。",
     },
     {
-        "case_key": "curag-0710",
+        "case_key": "curag-0707",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "DOM Invader 检查 postmessage 时 handler 验证 event.origin 吗？",
@@ -14931,7 +14868,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2787 的真实分块 doc_2787_chunk_3（第 40-66 行）。",
     },
     {
-        "case_key": "curag-0711",
+        "case_key": "curag-0708",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "DOM XSS 里的 Sources 包括哪些可被操纵的输入？",
@@ -14952,7 +14889,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2788 的真实分块 doc_2788_chunk_0（第 1-31 行）。",
     },
     {
-        "case_key": "curag-0712",
+        "case_key": "curag-0709",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "XSS、CSP 和 SOP 场景下 iframe 的防御快速检查清单有什么？",
@@ -14973,7 +14910,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2789 的真实分块 doc_2789_chunk_10（第 136-151 行）。",
     },
     {
-        "case_key": "curag-0713",
+        "case_key": "curag-0710",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Web 应用整数溢出怎么用宽类型或 checked math 防？",
@@ -14994,7 +14931,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2790 的真实分块 doc_2790_chunk_2（第 20-34 行）。",
     },
     {
-        "case_key": "curag-0714",
+        "case_key": "curag-0711",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "JS 变量提升（Value Hoisting）允许什么行为？",
@@ -15015,7 +14952,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2791 的真实分块 doc_2791_chunk_1（第 18-33 行）。",
     },
     {
-        "case_key": "curag-0715",
+        "case_key": "curag-0712",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "JS 递减运算符遇到非数字值会怎样？这能怎么用于环境探测？",
@@ -15036,7 +14973,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2792 的真实分块 doc_2792_chunk_15（第 211-224 行）。",
     },
     {
-        "case_key": "curag-0716",
+        "case_key": "curag-0713",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PDF 注入攻击者视角下可预见的修复措施有哪些？",
@@ -15057,7 +14994,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2793 的真实分块 doc_2793_chunk_17（第 151-162 行）。",
     },
     {
-        "case_key": "curag-0717",
+        "case_key": "curag-0714",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "服务端 XSS（动态 PDF）里 FPDF 这个 PHP 库的特点和风险是什么？",
@@ -15078,7 +15015,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2794 的真实分块 doc_2794_chunk_1（第 8-19 行）。",
     },
     {
-        "case_key": "curag-0718",
+        "case_key": "curag-0715",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Shadow DOM 里 slotchange 这个 gadget 有什么用？",
@@ -15099,7 +15036,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2795 的真实分块 doc_2795_chunk_4（第 63-87 行）。",
     },
     {
-        "case_key": "curag-0719",
+        "case_key": "curag-0716",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "XS Leaks 里的 Sniff 泄露指什么？",
@@ -15120,7 +15057,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2796 的真实分块 doc_2796_chunk_0（第 1-14 行）。",
     },
     {
-        "case_key": "curag-0720",
+        "case_key": "curag-0717",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SOME（同源方法执行）为什么要求两个页面同源并用 opener 对象？",
@@ -15141,7 +15078,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2797 的真实分块 doc_2797_chunk_2（第 20-29 行）。",
     },
     {
-        "case_key": "curag-0721",
+        "case_key": "curag-0718",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "用 JS 窃取信息的常见技巧有哪些？",
@@ -15162,7 +15099,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2798 的真实分块 doc_2798_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0722",
+        "case_key": "curag-0719",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "WebAssembly 线性内存损坏到 DOM XSS 的模板覆盖链怎么理解？",
@@ -15183,7 +15120,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2799 的真实分块 doc_2799_chunk_5（第 33-52 行）。",
     },
     {
-        "case_key": "curag-0723",
+        "case_key": "curag-0720",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Markdown 场景禁了 HTML 标签时 XSS 还能怎么打？",
@@ -15204,7 +15141,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2800 的真实分块 doc_2800_chunk_1（第 19-41 行）。",
     },
     {
-        "case_key": "curag-0724",
+        "case_key": "curag-0721",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "跨站脚本包含（XSSI）里带认证的静态 JS 有什么不同？",
@@ -15225,7 +15162,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2801 的真实分块 doc_2801_chunk_0（第 1-19 行）。",
     },
     {
-        "case_key": "curag-0725",
+        "case_key": "curag-0722",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "XXE 里 SVG 格式是怎么被用来发起攻击的？",
@@ -15246,7 +15183,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2802 的真实分块 doc_2802_chunk_37（第 315-329 行）。",
     },
     {
-        "case_key": "curag-0726",
+        "case_key": "curag-0723",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "数组索引类漏洞的利用方法论为什么说完全取决于具体漏洞？",
@@ -15267,7 +15204,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2807 的真实分块 doc_2807_chunk_0（第 1-7 行）。",
     },
     {
-        "case_key": "curag-0727",
+        "case_key": "curag-0724",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Chrome 漏洞利用资料给 pentesters 和 exploit 开发者提供了什么背景？",
@@ -15288,7 +15225,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2808 的真实分块 doc_2808_chunk_1（第 3-31 行）。",
     },
     {
-        "case_key": "curag-0728",
+        "case_key": "curag-0725",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Asset Loaders 的 relocation fixup 审计怎么对 handlers 做 diff 找缺失 bounds 检查？",
@@ -15309,7 +15246,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2809 的真实分块 doc_2809_chunk_7（第 65-79 行）。",
     },
     {
-        "case_key": "curag-0729",
+        "case_key": "curag-0726",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "常见 exploiting 问题里“非完全任意写”的典型限制包括什么？",
@@ -15330,7 +15267,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2810 的真实分块 doc_2810_chunk_29（第 242-263 行）。",
     },
     {
-        "case_key": "curag-0730",
+        "case_key": "curag-0727",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "FreeBSD ptrace RFI 里 privilege check 在 copy 之后执行会怎样？",
@@ -15351,7 +15288,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2811 的真实分块 doc_2811_chunk_21（第 178-187 行）。",
     },
     {
-        "case_key": "curag-0731",
+        "case_key": "curag-0728",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "整数溢出场景里 bump-pointer slab 不执行 frees 对堆确定性意味着什么？",
@@ -15372,7 +15309,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2812 的真实分块 doc_2812_chunk_21（第 365-373 行）。",
     },
     {
-        "case_key": "curag-0732",
+        "case_key": "curag-0729",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "__malloc_hook/__free_hook 伪造指针为什么要完整 8 字节、单字节 partial 为什么过不了检查？",
@@ -15393,7 +15330,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2813 的真实分块 doc_2813_chunk_12（第 58-73 行）。",
     },
     {
-        "case_key": "curag-0733",
+        "case_key": "curag-0730",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "__printf_arginfo_table 劫持是怎么工作的？",
@@ -15414,7 +15351,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2814 的真实分块 doc_2814_chunk_2（第 27-50 行）。",
     },
     {
-        "case_key": "curag-0734",
+        "case_key": "curag-0731",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "GOT/PLT 在地址解析完成后的使用方式是什么？",
@@ -15435,7 +15372,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2815 的真实分块 doc_2815_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0735",
+        "case_key": "curag-0732",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "sips ICC 配置档越界写里 offsetToCLUT 等于 tag size 是怎么构造的？",
@@ -15456,7 +15393,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2816 的真实分块 doc_2816_chunk_2（第 22-41 行）。",
     },
     {
-        "case_key": "curag-0736",
+        "case_key": "curag-0733",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": ".dtors 和 .fini_array 里的 destructors 什么时候执行？",
@@ -15477,7 +15414,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2817 的真实分块 doc_2817_chunk_0（第 1-19 行）。",
     },
     {
-        "case_key": "curag-0737",
+        "case_key": "curag-0734",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "atexit() 和 TLS 存储这类混淆指针怎么分析？",
@@ -15498,7 +15435,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2818 的真实分块 doc_2818_chunk_18（第 122-143 行）。",
     },
     {
-        "case_key": "curag-0738",
+        "case_key": "curag-0735",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "ELF 里 Symbols 都能表示程序中的哪些位置？",
@@ -15519,7 +15456,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2820 的真实分块 doc_2820_chunk_20（第 158-175 行）。",
     },
     {
-        "case_key": "curag-0739",
+        "case_key": "curag-0736",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "PwnTools 怎么避免坏 opcodes（默认是空字节和换行符）？",
@@ -15540,7 +15477,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2822 的真实分块 doc_2822_chunk_2（第 94-147 行）。",
     },
     {
-        "case_key": "curag-0740",
+        "case_key": "curag-0737",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "CET 的 IBT 特性怎么限制间接分支的目标？",
@@ -15561,7 +15498,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2824 的真实分块 doc_2824_chunk_1（第 14-21 行）。",
     },
     {
-        "case_key": "curag-0741",
+        "case_key": "curag-0738",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "libc 保护机制里指针的 Storage Location 指什么？",
@@ -15582,7 +15519,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2825 的真实分块 doc_2825_chunk_2（第 23-36 行）。",
     },
     {
-        "case_key": "curag-0742",
+        "case_key": "curag-0739",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MTE 内存标记扩展在 kernel 和 userspace 行为上有什么差异？",
@@ -15603,7 +15540,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2826 的真实分块 doc_2826_chunk_8（第 86-96 行）。",
     },
     {
-        "case_key": "curag-0743",
+        "case_key": "curag-0740",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "NX（不可执行位）防御的原理和绕过思路是什么？",
@@ -15624,7 +15561,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2827 的真实分块 doc_2827_chunk_2（第 11-24 行）。",
     },
     {
-        "case_key": "curag-0744",
+        "case_key": "curag-0741",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Relro 检查运行中 binary 时 /proc/$PID/exe 能看什么？",
@@ -15645,7 +15582,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2828 的真实分块 doc_2828_chunk_6（第 45-70 行）。",
     },
     {
-        "case_key": "curag-0745",
+        "case_key": "curag-0742",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Ret2plt 技术的原理是什么？",
@@ -15666,7 +15603,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2830 的真实分块 doc_2830_chunk_2（第 32-73 行）。",
     },
     {
-        "case_key": "curag-0746",
+        "case_key": "curag-0743",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Ret2ret & Ret2pop 针对 string 型 bug 的利用思路是什么？",
@@ -15687,7 +15624,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2831 的真实分块 doc_2831_chunk_3（第 32-46 行）。",
     },
     {
-        "case_key": "curag-0747",
+        "case_key": "curag-0744",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "静态编译 binary 上 checksec 认不出函数时 canary 探测会受影响吗？",
@@ -15708,7 +15645,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2833 的真实分块 doc_2833_chunk_0（第 1-15 行）。",
     },
     {
-        "case_key": "curag-0748",
+        "case_key": "curag-0745",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "线程栈金丝雀暴力猜测时 mitigation 失效的原因是什么？",
@@ -15729,7 +15666,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2835 的真实分块 doc_2835_chunk_6（第 105-111 行）。",
     },
     {
-        "case_key": "curag-0749",
+        "case_key": "curag-0746",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "打印栈金丝雀后攻击者怎么在同一会话内构造新攻击？",
@@ -15750,7 +15687,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2836 的真实分块 doc_2836_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "curag-0750",
+        "case_key": "curag-0747",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Format Strings 任意读示例里怎么控制 stack 地址做二次访问？",
@@ -15771,7 +15708,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2838 的真实分块 doc_2838_chunk_5（第 104-131 行）。",
     },
     {
-        "case_key": "curag-0751",
+        "case_key": "curag-0748",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "格式化字符串漏洞利用的通用模板是什么？",
@@ -15792,7 +15729,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2839 的真实分块 doc_2839_chunk_0（第 1-36 行）。",
     },
     {
-        "case_key": "curag-0752",
+        "case_key": "curag-0749",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "IOMobileFrameBuffer（CVE-2021-30807）里 trailer 相关的 struct 是什么？",
@@ -15813,7 +15750,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2840 的真实分块 doc_2840_chunk_0（第 1-14 行）。",
     },
     {
-        "case_key": "curag-0753",
+        "case_key": "curag-0750",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "iMessage 零点击链里 CoreAudio RCE 后 Secure Enclave 密钥签名的风险是什么？",
@@ -15834,7 +15771,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2843 的真实分块 doc_2843_chunk_10（第 72-90 行）。",
     },
     {
-        "case_key": "curag-0754",
+        "case_key": "curag-0751",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "iOS 连 Corellium 时 Quick Connect 和 VPN 各适合什么场景？",
@@ -15855,7 +15792,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2844 的真实分块 doc_2844_chunk_4（第 57-70 行）。",
     },
     {
-        "case_key": "curag-0755",
+        "case_key": "curag-0752",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "iOS/macOS 堆溢出示例里 delta 560 意味着要加多少填充？",
@@ -15876,7 +15813,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2845 的真实分块 doc_2845_chunk_7（第 102-134 行）。",
     },
     {
-        "case_key": "curag-0756",
+        "case_key": "curag-0753",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "IOSurface 物理 UAF 里 scan freed pages 是在找什么对象？",
@@ -15897,7 +15834,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2846 的真实分块 doc_2846_chunk_17（第 78-89 行）。",
     },
     {
-        "case_key": "curag-0757",
+        "case_key": "curag-0754",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "WebKit DFG Store-Barrier UAF 加 ANGLE OOB 的 bypass 思路有哪些？",
@@ -15918,7 +15855,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2847 的真实分块 doc_2847_chunk_7（第 45-55 行）。",
     },
     {
-        "case_key": "curag-0758",
+        "case_key": "curag-0755",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "按 bin 索引计算 small bin 大小的方法是什么？",
@@ -15939,7 +15876,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2849 的真实分块 doc_2849_chunk_51（第 308-322 行）。",
     },
     {
-        "case_key": "curag-0759",
+        "case_key": "curag-0756",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "双重释放场景下 PIE 地址为什么常在 main_arena 附近找？",
@@ -15960,7 +15897,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2850 的真实分块 doc_2850_chunk_10（第 109-123 行）。",
     },
     {
-        "case_key": "curag-0760",
+        "case_key": "curag-0757",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Fast Bin 攻击的原理是什么？",
@@ -15981,7 +15918,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2851 的真实分块 doc_2851_chunk_0（第 1-29 行）。",
     },
     {
-        "case_key": "curag-0761",
+        "case_key": "curag-0758",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "GNU obstack 函数指针劫持怎么摆放相邻 heap objects？",
@@ -16002,7 +15939,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2852 的真实分块 doc_2852_chunk_3（第 23-35 行）。",
     },
     {
-        "case_key": "curag-0762",
+        "case_key": "curag-0759",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "堆溢出里 binary deserializer 用攻击者字段分配缓冲、另一个计数复制数据的模式危险在哪？",
@@ -16023,7 +15960,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2853 的真实分块 doc_2853_chunk_7（第 41-56 行）。",
     },
     {
-        "case_key": "curag-0763",
+        "case_key": "curag-0760",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "House of Einherjar 触发 backward consolidation 的前提是什么？",
@@ -16044,7 +15981,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2854 的真实分块 doc_2854_chunk_8（第 34-53 行）。",
     },
     {
-        "case_key": "curag-0764",
+        "case_key": "curag-0761",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "House of Force 利用的是 top chunk 的什么缺陷？",
@@ -16065,7 +16002,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2855 的真实分块 doc_2855_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0765",
+        "case_key": "curag-0762",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "House of Lore（small bin 攻击）添加的 fake chunk 有什么限制条件？",
@@ -16086,7 +16023,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2856 的真实分块 doc_2856_chunk_2（第 15-28 行）。",
     },
     {
-        "case_key": "curag-0766",
+        "case_key": "curag-0763",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "House of Orange 缩小 top chunk size 到 0x61 是为了进什么 bin？",
@@ -16107,7 +16044,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2857 的真实分块 doc_2857_chunk_7（第 34-41 行）。",
     },
     {
-        "case_key": "curag-0767",
+        "case_key": "curag-0764",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "House of Rabbit 把 chunk1 size 改成 0xa1 在 consolidation 时骗过了谁？",
@@ -16128,7 +16065,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2858 的真实分块 doc_2858_chunk_1（第 19-44 行）。",
     },
     {
-        "case_key": "curag-0768",
+        "case_key": "curag-0765",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "House of Roman 需要攻击者具备修改 fastbin fd 指针的什么能力？",
@@ -16149,7 +16086,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2859 的真实分块 doc_2859_chunk_6（第 41-62 行）。",
     },
     {
-        "case_key": "curag-0769",
+        "case_key": "curag-0766",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "灵魂幻影（House of Spirit 类）伪造过安全检查的 fake chunk 要几个、size 怎么标？",
@@ -16170,7 +16107,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2860 的真实分块 doc_2860_chunk_2（第 67-91 行）。",
     },
     {
-        "case_key": "curag-0770",
+        "case_key": "curag-0767",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "大块攻击里把 chunk1->bk_nextsize 改成 target-0x20 能达成什么？",
@@ -16191,7 +16128,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2861 的真实分块 doc_2861_chunk_1（第 13-31 行）。",
     },
     {
-        "case_key": "curag-0771",
+        "case_key": "curag-0768",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "free() 对 mmaped chunk 的处理方式是什么？",
@@ -16212,7 +16149,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2862 的真实分块 doc_2862_chunk_0（第 1-25 行）。",
     },
     {
-        "case_key": "curag-0772",
+        "case_key": "curag-0769",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "堆函数安全检查怎么核对 size 与下一块的 prev_size？",
@@ -16233,7 +16170,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2863 的真实分块 doc_2863_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0773",
+        "case_key": "curag-0770",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "malloc 从 unsorted bin 分割 chunk 满足请求时剩余部分去哪？",
@@ -16254,7 +16191,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2864 的真实分块 doc_2864_chunk_2（第 7-26 行）。",
     },
     {
-        "case_key": "curag-0774",
+        "case_key": "curag-0771",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "unlink 宏检查 size 和 prev_size 一致性的目的是什么？",
@@ -16275,7 +16212,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2865 的真实分块 doc_2865_chunk_3（第 55-67 行）。",
     },
     {
-        "case_key": "curag-0775",
+        "case_key": "curag-0772",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "反编译 PyInstaller 打包的 Python 二进制要用什么工具链？",
@@ -16296,7 +16233,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2890 的真实分块 doc_2890_chunk_30（第 180-209 行）。",
     },
     {
-        "case_key": "curag-0776",
+        "case_key": "curag-0773",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "KernelSU/Magisk 的 Kernel Filter 只匹配 /data/app/*/base.apk 有什么绕过含义？",
@@ -16317,7 +16254,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2907 的真实分块 doc_2907_chunk_4（第 48-65 行）。",
     },
     {
-        "case_key": "curag-0777",
+        "case_key": "curag-0774",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Node inspector 滥用为什么说 SSRF 防护拦不住本地发起的请求？",
@@ -16338,7 +16275,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2908 的真实分块 doc_2908_chunk_5（第 35-46 行）。",
     },
     {
-        "case_key": "curag-0778",
+        "case_key": "curag-0775",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "/etc/krb5.conf 在 FreeIPA 域环境里存了什么信息？",
@@ -16359,7 +16296,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2909 的真实分块 doc_2909_chunk_1（第 11-24 行）。",
     },
     {
-        "case_key": "curag-0779",
+        "case_key": "curag-0776",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Logstash 提权排查时本机 monitoring API 默认绑在哪个地址端口？",
@@ -16380,7 +16317,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2910 的真实分块 doc_2910_chunk_3（第 30-47 行）。",
     },
     {
-        "case_key": "curag-0780",
+        "case_key": "curag-0777",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "怎么用 grep 排查 PAM 配置里的意外模块？",
@@ -16401,7 +16338,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2911 的真实分块 doc_2911_chunk_10（第 108-121 行）。",
     },
     {
-        "case_key": "curag-0781",
+        "case_key": "curag-0778",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Splunk LPE 与持久化除了 app-upload RCE 还有哪些路径？",
@@ -16422,7 +16359,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2912 的真实分块 doc_2912_chunk_0（第 1-16 行）。",
     },
     {
-        "case_key": "curag-0782",
+        "case_key": "curag-0779",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Linux 有效/实际/保存 UID 的设计初衷是什么？",
@@ -16443,7 +16380,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2913 的真实分块 doc_2913_chunk_2（第 15-18 行）。",
     },
     {
-        "case_key": "curag-0783",
+        "case_key": "curag-0780",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Linux 集成 Active Directory 的配置工具按什么步骤使用？",
@@ -16464,7 +16401,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2914 的真实分块 doc_2914_chunk_6（第 66-89 行）。",
     },
     {
-        "case_key": "curag-0784",
+        "case_key": "curag-0781",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SSH agent 转发被滥用时 root 能从 agent 内存里拿到什么？",
@@ -16485,7 +16422,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2915 的真实分块 doc_2915_chunk_1（第 24-34 行）。",
     },
     {
-        "case_key": "curag-0785",
+        "case_key": "curag-0782",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "lxd/lxc 组提权为什么用 security.privileged=true 的 Alpine 容器？",
@@ -16506,7 +16443,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2917 的真实分块 doc_2917_chunk_3（第 54-81 行）。",
     },
     {
-        "case_key": "curag-0786",
+        "case_key": "curag-0783",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "TACACS+（49 端口）渗透拿到凭据后能控制什么？",
@@ -16527,7 +16464,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2939 的真实分块 doc_2939_chunk_7（第 65-77 行）。",
     },
     {
-        "case_key": "curag-0787",
+        "case_key": "curag-0784",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SIP 协议安全加固对摘要算法有什么要求？",
@@ -16548,7 +16485,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2949 的真实分块 doc_2949_chunk_41（第 313-325 行）。",
     },
     {
-        "case_key": "curag-0788",
+        "case_key": "curag-0785",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "403/401 绕过时降级 HTTP/1.0 甚至试 2.0 是什么思路？",
@@ -16569,7 +16506,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2950 的真实分块 doc_2950_chunk_10（第 74-92 行）。",
     },
     {
-        "case_key": "curag-0789",
+        "case_key": "curag-0786",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AEM 匿名读 ACL 时 rep:password 哈希泄露意味着什么？",
@@ -16590,7 +16527,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2952 的真实分块 doc_2952_chunk_13（第 108-126 行）。",
     },
     {
-        "case_key": "curag-0790",
+        "case_key": "curag-0787",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Angular 模板里 () 语法能绑定什么？这带来什么风险？",
@@ -16611,7 +16548,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2953 的真实分块 doc_2953_chunk_7（第 67-75 行）。",
     },
     {
-        "case_key": "curag-0791",
+        "case_key": "curag-0788",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Apache 渗透里读 DocumentRoot 下源码或 vhost 配置能拿到什么 secrets？",
@@ -16632,7 +16569,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2954 的真实分块 doc_2954_chunk_6（第 48-70 行）。",
     },
     {
-        "case_key": "curag-0792",
+        "case_key": "curag-0789",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Artifactory 渗透测试指南覆盖哪些攻击面？",
@@ -16653,7 +16590,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2955 的真实分块 doc_2955_chunk_0（第 1-7 行）。",
     },
     {
-        "case_key": "curag-0793",
+        "case_key": "curag-0790",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Bolt CMS 渗透测试要看什么？",
@@ -16674,7 +16611,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2956 的真实分块 doc_2956_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0794",
+        "case_key": "curag-0791",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "CGI 渗透里 %AD 字节（soft hyphens）的关键作用是什么？",
@@ -16695,7 +16632,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2957 的真实分块 doc_2957_chunk_18（第 145-164 行）。",
     },
     {
-        "case_key": "curag-0795",
+        "case_key": "curag-0792",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "源码审计里 parser 验证后又把原始字符串拼进 shell command 是什么失败模式？",
@@ -16716,7 +16653,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2958 的真实分块 doc_2958_chunk_1（第 14-37 行）。",
     },
     {
-        "case_key": "curag-0796",
+        "case_key": "curag-0793",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "自定义 UDP RPC 枚举时 fuzz Flags 是为了识别什么可靠性功能？",
@@ -16737,7 +16674,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2959 的真实分块 doc_2959_chunk_4（第 50-61 行）。",
     },
     {
-        "case_key": "curag-0797",
+        "case_key": "curag-0794",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Django SSTI 里迭代到 cls.__name__ == 'Popen' 的 gadget 思路是什么？",
@@ -16758,7 +16695,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2960 的真实分块 doc_2960_chunk_13（第 72-90 行）。",
     },
     {
-        "case_key": "curag-0798",
+        "case_key": "curag-0795",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": ".NET SOAP/WSDL 代理滥用时要在应用目录下监控哪些意外写入？",
@@ -16779,7 +16716,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2961 的真实分块 doc_2961_chunk_10（第 82-89 行）。",
     },
     {
-        "case_key": "curag-0799",
+        "case_key": "curag-0796",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "DotNetNuke 的 X-DNN 响应头会泄露什么？",
@@ -16800,7 +16737,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2962 的真实分块 doc_2962_chunk_0（第 1-20 行）。",
     },
     {
-        "case_key": "curag-0800",
+        "case_key": "curag-0797",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Flask 应用的渗透测试要点是什么？",
@@ -16821,7 +16758,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2963 的真实分块 doc_2963_chunk_0（第 1-23 行）。",
     },
     {
-        "case_key": "curag-0801",
+        "case_key": "curag-0798",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "FortiWeb 借 /cgi-bin/fwbcgi 的 API-prefix 技巧利用了哪两个 bug？",
@@ -16842,7 +16779,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2964 的真实分块 doc_2964_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-0802",
+        "case_key": "curag-0799",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "渗透测试里 Git 工具（如 GitKraken）能用来做什么？",
@@ -16863,7 +16800,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2965 的真实分块 doc_2965_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "curag-0803",
+        "case_key": "curag-0800",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "GoLang 里 HTTP CONNECT 方法处理不当会怎样？",
@@ -16884,7 +16821,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2966 的真实分块 doc_2966_chunk_0（第 1-11 行）。",
     },
     {
-        "case_key": "curag-0804",
+        "case_key": "curag-0801",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Grafana 渗透时实用的 SQLite 检查有哪些？",
@@ -16905,7 +16842,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2967 的真实分块 doc_2967_chunk_3（第 15-35 行）。",
     },
     {
-        "case_key": "curag-0805",
+        "case_key": "curag-0802",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "GraphQL 渗透里 errors 会不会显示为什么重要？",
@@ -16926,7 +16863,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2968 的真实分块 doc_2968_chunk_3（第 42-66 行）。",
     },
     {
-        "case_key": "curag-0806",
+        "case_key": "curag-0803",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "H2 数据库（Java）渗透测试有什么经典利用？",
@@ -16947,7 +16884,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2969 的真实分块 doc_2969_chunk_1（第 19-34 行）。",
     },
     {
-        "case_key": "curag-0807",
+        "case_key": "curag-0804",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "IIS 渗透怎么用 icacls 检查 wwwroot 的 ACL 权限？",
@@ -16968,7 +16905,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2970 的真实分块 doc_2970_chunk_1（第 14-40 行）。",
     },
     {
-        "case_key": "curag-0808",
+        "case_key": "curag-0805",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ImageMagick 处理不受信图片时要先检查哪些危险 coders/delegates？",
@@ -16989,7 +16926,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2971 的真实分块 doc_2971_chunk_5（第 58-75 行）。",
     },
     {
-        "case_key": "curag-0809",
+        "case_key": "curag-0806",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "ISPConfig 面板安全部署要避免什么、怎么降权 PHP-FPM？",
@@ -17010,7 +16947,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2972 的真实分块 doc_2972_chunk_8（第 85-107 行）。",
     },
     {
-        "case_key": "curag-0810",
+        "case_key": "curag-0807",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Jira/Confluence 渗透里 macro plugin 类型有哪些玩法？",
@@ -17031,7 +16968,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2974 的真实分块 doc_2974_chunk_10（第 101-118 行）。",
     },
     {
-        "case_key": "curag-0811",
+        "case_key": "curag-0808",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Joomla 登录爆破可以借助什么脚本？",
@@ -17052,7 +16989,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2975 的真实分块 doc_2975_chunk_4（第 80-92 行）。",
     },
     {
-        "case_key": "curag-0812",
+        "case_key": "curag-0809",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "JSP 应用渗透测试的关注点是什么？",
@@ -17073,7 +17010,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2976 的真实分块 doc_2976_chunk_0（第 1-15 行）。",
     },
     {
-        "case_key": "curag-0813",
+        "case_key": "curag-0810",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Laravel 的 RCE CVE 利用通常需要什么前提？",
@@ -17094,7 +17031,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2977 的真实分块 doc_2977_chunk_18（第 158-176 行）。",
     },
     {
-        "case_key": "curag-0814",
+        "case_key": "curag-0811",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MeshCentral 远程执行以 SYSTEM/root 身份跑（runAsUser:0）意味着什么？",
@@ -17115,7 +17052,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2978 的真实分块 doc_2978_chunk_8（第 84-100 行）。",
     },
     {
-        "case_key": "curag-0815",
+        "case_key": "curag-0812",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SharePoint 勒索化利用里 AES-CBC 加密文件加 RSA-2048 包 key 的流程是什么？",
@@ -17136,7 +17073,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2979 的真实分块 doc_2979_chunk_12（第 125-143 行）。",
     },
     {
-        "case_key": "curag-0816",
+        "case_key": "curag-0813",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Moodle 研究里攻击者可控的有趣入口有哪些？",
@@ -17157,7 +17094,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2980 的真实分块 doc_2980_chunk_7（第 126-139 行）。",
     },
     {
-        "case_key": "curag-0817",
+        "case_key": "curag-0814",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "NextJS 里第二个 response 返回 JSON Flight data 时 route 可被怎么 poison？",
@@ -17178,7 +17115,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2981 的真实分块 doc_2981_chunk_65（第 1324-1334 行）。",
     },
     {
-        "case_key": "curag-0818",
+        "case_key": "curag-0815",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Nginxpwner 是用来找什么的工具？",
@@ -17199,7 +17136,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2982 的真实分块 doc_2982_chunk_45（第 478-487 行）。",
     },
     {
-        "case_key": "curag-0819",
+        "case_key": "curag-0816",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "NodeJS Express 登录态绑定现有 SID 会有什么问题？",
@@ -17220,7 +17157,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2983 的真实分块 doc_2983_chunk_6（第 105-127 行）。",
     },
     {
-        "case_key": "curag-0820",
+        "case_key": "curag-0817",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PrestaShop 路径解析里 Apache 从未路由 Handler 请求会怎样？",
@@ -17241,7 +17178,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2984 的真实分块 doc_2984_chunk_1（第 7-27 行）。",
     },
     {
-        "case_key": "curag-0821",
+        "case_key": "curag-0818",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Firebase 数据库配置错误会暴露什么？",
@@ -17262,7 +17199,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2985 的真实分块 doc_2985_chunk_0（第 1-7 行）。",
     },
     {
-        "case_key": "curag-0822",
+        "case_key": "curag-0819",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Drupal RCE 利用最后一步和 webshell 交互要注意什么？",
@@ -17283,7 +17220,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2987 的真实分块 doc_2987_chunk_11（第 204-222 行）。",
     },
     {
-        "case_key": "curag-0823",
+        "case_key": "curag-0820",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Electron contextIsolation RCE 里 internal code 的 exit event listener 为什么关键？",
@@ -17304,7 +17241,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2989 的真实分块 doc_2989_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0824",
+        "case_key": "curag-0821",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Electron 通过 IPC 绕过 contextIsolation 的路径是什么？",
@@ -17325,7 +17262,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2990 的真实分块 doc_2990_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "curag-0825",
+        "case_key": "curag-0822",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Electron contextIsolation RCE 里 SAFE_PROTOCOLS.indexOf 总返回 1337 怎么被绕过？",
@@ -17346,7 +17283,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2991 的真实分块 doc_2991_chunk_2（第 13-36 行）。",
     },
     {
-        "case_key": "curag-0826",
+        "case_key": "curag-0823",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHP 对象实例化 RCE 有用的 file sources 包括哪些？",
@@ -17367,7 +17304,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2993 的真实分块 doc_2993_chunk_8（第 114-134 行）。",
     },
     {
-        "case_key": "curag-0827",
+        "case_key": "curag-0824",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PHP SSRF 里哪些函数还能在请求中设置任意 headers？",
@@ -17388,7 +17325,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2994 的真实分块 doc_2994_chunk_2（第 18-47 行）。",
     },
     {
-        "case_key": "curag-0828",
+        "case_key": "curag-0825",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "disable_functions 绕过里 dl 函数的现实利用场景是什么？",
@@ -17409,7 +17346,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2996 的真实分块 doc_2996_chunk_3（第 40-62 行）。",
     },
     {
-        "case_key": "curag-0829",
+        "case_key": "curag-0826",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Imagick<=3.3.0 场景下为什么 disable_functions 只算纵深防御？",
@@ -17430,7 +17367,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2997 的真实分块 doc_2997_chunk_8（第 98-105 行）。",
     },
     {
-        "case_key": "curag-0830",
+        "case_key": "curag-0827",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "mod_cgi 场景下 disable_functions 绕过怎么做？",
@@ -17451,7 +17388,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2998 的真实分块 doc_2998_chunk_0（第 1-1 行）。",
     },
     {
-        "case_key": "curag-0831",
+        "case_key": "curag-0828",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHP pcntl_exec 绕过 disable_functions 的条件是什么？",
@@ -17472,7 +17409,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 2999 的真实分块 doc_2999_chunk_0（第 1-29 行）。",
     },
     {
-        "case_key": "curag-0832",
+        "case_key": "curag-0829",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHP 5.2 FOpen 漏洞怎么利用？",
@@ -17493,7 +17430,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3000 的真实分块 doc_3000_chunk_0（第 1-9 行）。",
     },
     {
-        "case_key": "curag-0833",
+        "case_key": "curag-0830",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PHP 5.2.3 Win32std 防护绕过里 cmd.exe 相对路径技巧怎么用？",
@@ -17514,7 +17451,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3001 的真实分块 doc_3001_chunk_7（第 95-108 行）。",
     },
     {
-        "case_key": "curag-0834",
+        "case_key": "curag-0831",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHP cURL 漏洞里真正注入 NUL byte 为什么 %00 不可靠、要用双引号或 chr(0)？",
@@ -17535,7 +17472,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3002 的真实分块 doc_3002_chunk_2（第 13-40 行）。",
     },
     {
-        "case_key": "curag-0835",
+        "case_key": "curag-0832",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHP 7.0~7.4 的 disable_functions 绕过思路是什么？",
@@ -17556,7 +17493,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3003 的真实分块 doc_3003_chunk_0（第 1-35 行）。",
     },
     {
-        "case_key": "curag-0836",
+        "case_key": "curag-0833",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "CSP 下 Self + Unsafe Inline 组合 iframe 绕过时 eval/setTimeout 类函数为什么被禁？",
@@ -17577,7 +17514,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3009 的真实分块 doc_3009_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-0837",
+        "case_key": "curag-0834",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PHP 反序列化自动加载类的 gadget 示例 O:10:\"tmp_passwd\" 是什么套路？",
@@ -17598,7 +17535,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3012 的真实分块 doc_3012_chunk_2（第 11-29 行）。",
     },
     {
-        "case_key": "curag-0838",
+        "case_key": "curag-0835",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "compress.zlib 流包装 LFI 里 payload 过早发送会被什么检查拦截？",
@@ -17619,7 +17556,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3015 的真实分块 doc_3015_chunk_5（第 66-82 行）。",
     },
     {
-        "case_key": "curag-0839",
+        "case_key": "curag-0836",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Cookie 炸弹加 onerror 的 XS 泄露怎么和 URL length oracle 组合？",
@@ -17640,7 +17577,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3031 的真实分块 doc_3031_chunk_20（第 164-174 行）。",
     },
     {
-        "case_key": "curag-0840",
+        "case_key": "curag-0837",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "事件循环阻塞配懒加载图片做 XS Leaks 时为什么用多张 lazy images？",
@@ -17661,7 +17598,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3032 的真实分块 doc_3032_chunk_14（第 175-184 行）。",
     },
     {
-        "case_key": "curag-0841",
+        "case_key": "curag-0838",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "performance.now 配强制重任务时 Long Tasks API 的支持局限怎么看？",
@@ -17682,7 +17619,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3033 的真实分块 doc_3033_chunk_10（第 130-156 行）。",
     },
     {
-        "case_key": "curag-0842",
+        "case_key": "curag-0839",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "TimeRoasting 打 Kerberos 前为什么要先 ntpdate 同步域控时间？",
@@ -17703,7 +17640,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3046 的真实分块 doc_3046_chunk_4（第 19-47 行）。",
     },
     {
-        "case_key": "curag-0843",
+        "case_key": "curag-0840",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "AD 证书环境里可能会应用哪些控制措施？",
@@ -17724,7 +17661,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3048 的真实分块 doc_3048_chunk_4（第 48-71 行）。",
     },
     {
-        "case_key": "curag-0844",
+        "case_key": "curag-0841",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "AD DNS 的 Global Query Block List 默认挡住哪些危险名称？",
@@ -17745,7 +17682,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3049 的真实分块 doc_3049_chunk_9（第 87-101 行）。",
     },
     {
-        "case_key": "curag-0845",
+        "case_key": "curag-0842",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "AD 的 dynamicObject 动态对象有什么攻防要点？",
@@ -17766,7 +17703,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3050 的真实分块 doc_3050_chunk_12（第 37-42 行）。",
     },
     {
-        "case_key": "curag-0846",
+        "case_key": "curag-0843",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Praeda 从打印机偷配置（地址簿/LDAP 凭据）的方式是什么？",
@@ -17787,7 +17724,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3051 的真实分块 doc_3051_chunk_6（第 81-98 行）。",
     },
     {
-        "case_key": "curag-0847",
+        "case_key": "curag-0844",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ADWS 里 hex 转 xsd:base64Binary、value 置空字符串怎么操作？",
@@ -17808,7 +17745,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3052 的真实分块 doc_3052_chunk_15（第 123-131 行）。",
     },
     {
-        "case_key": "curag-0848",
+        "case_key": "curag-0845",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "ASREPRoast 为什么要连 DC 收加密消息？",
@@ -17829,7 +17766,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3053 的真实分块 doc_3053_chunk_1（第 9-29 行）。",
     },
     {
-        "case_key": "curag-0849",
+        "case_key": "curag-0846",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "BadSuccessor（Delegated MSA）的 least privilege 缓解怎么做？",
@@ -17850,7 +17787,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3054 的真实分块 doc_3054_chunk_8（第 78-88 行）。",
     },
     {
-        "case_key": "curag-0850",
+        "case_key": "curag-0847",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "BloodHound 采集 AD 关系图后离线分析怎么开展？",
@@ -17871,7 +17808,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3055 的真实分块 doc_3055_chunk_19（第 124-144 行）。",
     },
     {
-        "case_key": "curag-0851",
+        "case_key": "curag-0848",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "约束委派里 S-1-18-1（AUTHENTICATION_AUTHORITY_ASSERTED_IDENTITY）代表什么？",
@@ -17892,7 +17829,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3056 的真实分块 doc_3056_chunk_7（第 47-59 行）。",
     },
     {
-        "case_key": "curag-0852",
+        "case_key": "curag-0849",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "自定义 SSP 里 mimilib.dll 会把什么记录到文件？",
@@ -17913,7 +17850,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3057 的真实分块 doc_3057_chunk_0（第 1-25 行）。",
     },
     {
-        "case_key": "curag-0853",
+        "case_key": "curag-0850",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "DCShadow 里 elevate::token 为什么在 mimikatz1 session 不生效？",
@@ -17934,7 +17871,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3058 的真实分块 doc_3058_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0854",
+        "case_key": "curag-0851",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "DCSync 前怎么核对用户是否被正确分了那 3 个权限（ObjectType 字段）？",
@@ -17955,7 +17892,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3059 的真实分块 doc_3059_chunk_10（第 85-103 行）。",
     },
     {
-        "case_key": "curag-0855",
+        "case_key": "curag-0852",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "钻石票据和黄金票据的使用检测有哪两种常见方法？",
@@ -17976,7 +17913,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3060 的真实分块 doc_3060_chunk_0（第 1-17 行）。",
     },
     {
-        "case_key": "curag-0856",
+        "case_key": "curag-0853",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "DSRM 凭据可用性检查里注册表值为 0 或缺失时要改成什么？",
@@ -17997,7 +17934,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3061 的真实分块 doc_3061_chunk_3（第 5-24 行）。",
     },
     {
-        "case_key": "curag-0857",
+        "case_key": "curag-0854",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "出站单向信任域里拿到 RC4 trust-account key 后 Impacket 能做什么？",
@@ -18018,7 +17955,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3062 的真实分块 doc_3062_chunk_6（第 54-71 行）。",
     },
     {
-        "case_key": "curag-0858",
+        "case_key": "curag-0855",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "入站单向信任场景怎么获取签名密钥？",
@@ -18039,7 +17976,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3063 的真实分块 doc_3063_chunk_4（第 87-100 行）。",
     },
     {
-        "case_key": "curag-0859",
+        "case_key": "curag-0856",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Golden gMSA/dMSA 离线推导的检测信号是什么（base64 密码写入）？",
@@ -18060,7 +17997,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3064 的真实分块 doc_3064_chunk_7（第 90-106 行）。",
     },
     {
-        "case_key": "curag-0860",
+        "case_key": "curag-0857",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "黄金票据的 -duration 单位和默认值是多少？噪音为什么明显？",
@@ -18081,7 +18018,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3065 的真实分块 doc_3065_chunk_6（第 35-53 行）。",
     },
     {
-        "case_key": "curag-0861",
+        "case_key": "curag-0858",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Kerberoast 瞄准的是设置了 SPN 的哪类账户？",
@@ -18102,7 +18039,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3066 的真实分块 doc_3066_chunk_0（第 1-16 行）。",
     },
     {
-        "case_key": "curag-0862",
+        "case_key": "curag-0859",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "为什么说 Kerberos 是 AD 默认认证协议、横向移动绕不开它？",
@@ -18123,7 +18060,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3067 的真实分块 doc_3067_chunk_1（第 3-12 行）。",
     },
     {
-        "case_key": "curag-0863",
+        "case_key": "curag-0860",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Kerberos 双跳问题的推荐解法为什么要先建 PS-Session 再 Invoke-Command？",
@@ -18144,7 +18081,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3068 的真实分块 doc_3068_chunk_5（第 49-58 行）。",
     },
     {
-        "case_key": "curag-0864",
+        "case_key": "curag-0861",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Lansweeper 滥用链里 SSH 端口被封时改用哪个端口部署 RCE？",
@@ -18165,7 +18102,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3069 的真实分块 doc_3069_chunk_1（第 14-30 行）。",
     },
     {
-        "case_key": "curag-0865",
+        "case_key": "curag-0862",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "LAPS 的 msLAPS-Password 未加密时以什么形式存明文 blob？",
@@ -18186,7 +18123,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3070 的真实分块 doc_3070_chunk_2（第 23-40 行）。",
     },
     {
-        "case_key": "curag-0866",
+        "case_key": "curag-0863",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "LDAP Signing 加固里 Audit 设为 When Supported 能发现什么？",
@@ -18207,7 +18144,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3071 的真实分块 doc_3071_chunk_3（第 16-34 行）。",
     },
     {
-        "case_key": "curag-0867",
+        "case_key": "curag-0864",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Over Pass the Hash 和 Pass the Key 的区别是什么（AES key 直接用）？",
@@ -18228,7 +18165,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3072 的真实分块 doc_3072_chunk_0（第 1-14 行）。",
     },
     {
-        "case_key": "curag-0868",
+        "case_key": "curag-0865",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "票据传递里 ticket_converter 工具的输入输出是什么？",
@@ -18249,7 +18186,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3073 的真实分块 doc_3073_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-0869",
+        "case_key": "curag-0866",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "密码喷洒命中后怎么借 NetExec 的 SAMR module 改密码（无需旧密码）？",
@@ -18270,7 +18207,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3074 的真实分块 doc_3074_chunk_11（第 107-127 行）。",
     },
     {
-        "case_key": "curag-0870",
+        "case_key": "curag-0867",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "强制 NTLM 认证破 NTLMv1 时 Responder challenge 要设成什么？",
@@ -18291,7 +18228,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3075 的真实分块 doc_3075_chunk_24（第 176-189 行）。",
     },
     {
-        "case_key": "curag-0871",
+        "case_key": "curag-0868",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PrintNightmare 缓解里 Point & Print 怎么保持仅管理员安装？",
@@ -18312,7 +18249,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3076 的真实分块 doc_3076_chunk_15（第 101-119 行）。",
     },
     {
-        "case_key": "curag-0872",
+        "case_key": "curag-0869",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "特权组滥用里 GPO 创建者成为 owner 意味着什么编辑权限？",
@@ -18333,7 +18270,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3077 的真实分块 doc_3077_chunk_17（第 224-243 行）。",
     },
     {
-        "case_key": "curag-0873",
+        "case_key": "curag-0870",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "RDP 会话滥用里怎么验证凭据并可选择持续提示？",
@@ -18354,7 +18291,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3078 的真实分块 doc_3078_chunk_6（第 114-139 行）。",
     },
     {
-        "case_key": "curag-0874",
+        "case_key": "curag-0871",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "基于资源的约束委派（RBCD）用 Forwardable TGS 时利用点在哪？",
@@ -18375,7 +18312,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3079 的真实分块 doc_3079_chunk_3（第 20-30 行）。",
     },
     {
-        "case_key": "curag-0875",
+        "case_key": "curag-0872",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "BadSuccessor 最清晰的 operator 信号是验证什么（Server 2025 stack）？",
@@ -18396,7 +18333,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3080 的真实分块 doc_3080_chunk_2（第 18-34 行）。",
     },
     {
-        "case_key": "curag-0876",
+        "case_key": "curag-0873",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "影子凭证怎么用 TGT 配 S4U2Self 冒充特权用户、修改 Service Ticket 的哪部分？",
@@ -18417,7 +18354,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3082 的真实分块 doc_3082_chunk_1（第 15-35 行）。",
     },
     {
-        "case_key": "curag-0877",
+        "case_key": "curag-0874",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AD CS 账户持久化时 weak mappings 仍有效说明什么环境问题？",
@@ -18438,7 +18375,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3084 的真实分块 doc_3084_chunk_19（第 170-179 行）。",
     },
     {
-        "case_key": "curag-0878",
+        "case_key": "curag-0875",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AD CS 证书窃取要同时提取证书和私钥的步骤是什么？",
@@ -18459,7 +18396,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3085 的真实分块 doc_3085_chunk_3（第 31-44 行）。",
     },
     {
-        "case_key": "curag-0879",
+        "case_key": "curag-0876",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "AD CS 域提权设置验证用什么 certutil.exe 命令？",
@@ -18480,7 +18417,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3086 的真实分块 doc_3086_chunk_23（第 194-209 行）。",
     },
     {
-        "case_key": "curag-0880",
+        "case_key": "curag-0877",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AD CS 域持久化还有哪些有用的补充命令？",
@@ -18501,7 +18438,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3087 的真实分块 doc_3087_chunk_8（第 79-86 行）。",
     },
     {
-        "case_key": "curag-0881",
+        "case_key": "curag-0878",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SeDebug + SeImpersonate 复制 token 前在 Process Hacker 里确认什么？",
@@ -18522,7 +18459,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3094 的真实分块 doc_3094_chunk_2（第 26-33 行）。",
     },
     {
-        "case_key": "curag-0882",
+        "case_key": "curag-0879",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "IOMobileFrameBuffer OOB 里 trigger_oob 设 scalars[0]=offset/8 是在做什么？",
@@ -18543,7 +18480,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3100 的真实分块 doc_3100_chunk_10（第 124-132 行）。",
     },
     {
-        "case_key": "curag-0883",
+        "case_key": "curag-0880",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "JBOSS 渗透怎么用 Google Dorking 找易受攻击的 EJBInvokerServlet？",
@@ -18564,7 +18501,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3101 的真实分块 doc_3101_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0884",
+        "case_key": "curag-0881",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "MSSQL AD 利用里引号使用位置为什么必须核对？",
@@ -18585,7 +18522,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3103 的真实分块 doc_3103_chunk_15（第 234-259 行）。",
     },
     {
-        "case_key": "curag-0885",
+        "case_key": "curag-0882",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "HackTricks 的核心理念「高质量防御需要了解攻击」怎么理解？",
@@ -18606,7 +18543,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3104 的真实分块 doc_3104_chunk_11（第 159-175 行）。",
     },
     {
-        "case_key": "curag-0886",
+        "case_key": "curag-0883",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "网络安全里学 AI 为什么建议从主要机器学习算法原理入手？",
@@ -18627,7 +18564,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3105 的真实分块 doc_3105_chunk_0（第 1-35 行）。",
     },
     {
-        "case_key": "curag-0887",
+        "case_key": "curag-0884",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "LLM 微调做文本分类时输入会映射到什么输出形式？",
@@ -18648,7 +18585,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3106 的真实分块 doc_3106_chunk_2（第 37-53 行）。",
     },
     {
-        "case_key": "curag-0888",
+        "case_key": "curag-0885",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "二进制利用方法论里为什么需要方案来决定技术何时有效？",
@@ -18669,7 +18606,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3107 的真实分块 doc_3107_chunk_0（第 1-27 行）。",
     },
     {
-        "case_key": "curag-0889",
+        "case_key": "curag-0886",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "利用工具里 Linux remote debugger 怎么进 Process options 配置？",
@@ -18690,7 +18627,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3108 的真实分块 doc_3108_chunk_12（第 202-217 行）。",
     },
     {
-        "case_key": "curag-0890",
+        "case_key": "curag-0887",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "核心文件（core dump）捕获了进程崩溃时的哪些状态细节？",
@@ -18711,7 +18648,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3109 的真实分块 doc_3109_chunk_0（第 1-19 行）。",
     },
     {
-        "case_key": "curag-0891",
+        "case_key": "curag-0888",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "ASLR 的 echo 改法重启就失效，怎么写进 /etc/sysctl.conf 持久化？",
@@ -18732,7 +18669,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3110 的真实分块 doc_3110_chunk_2（第 32-54 行）。",
     },
     {
-        "case_key": "curag-0892",
+        "case_key": "curag-0889",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "绕过 PIE 为什么要先 leak 已加载 binary 的某个地址？有哪些方法？",
@@ -18753,7 +18690,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3111 的真实分块 doc_3111_chunk_1（第 9-18 行）。",
     },
     {
-        "case_key": "curag-0893",
+        "case_key": "curag-0890",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "栈金丝雀 mitigation 在什么情况下会因两个相同 canaries 而失效？",
@@ -18774,7 +18711,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3112 的真实分块 doc_3112_chunk_7（第 43-47 行）。",
     },
     {
-        "case_key": "curag-0894",
+        "case_key": "curag-0891",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "格式化字符串写 address 时为什么通常分两次各写 2 字节？",
@@ -18795,7 +18732,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3113 的真实分块 doc_3113_chunk_9（第 142-156 行）。",
     },
     {
-        "case_key": "curag-0895",
+        "case_key": "curag-0892",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "iOS PAC 用 cryptographic function 计算时输入包括什么（QARMA）？",
@@ -18816,7 +18753,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3114 的真实分块 doc_3114_chunk_13（第 122-144 行）。",
     },
     {
-        "case_key": "curag-0896",
+        "case_key": "curag-0893",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "libc 堆里 top chunk「为空」后会发生什么？",
@@ -18837,7 +18774,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3115 的真实分块 doc_3115_chunk_12（第 91-105 行）。",
     },
     {
-        "case_key": "curag-0897",
+        "case_key": "curag-0894",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "UAF（释放后使用）漏洞的完整触发过程是怎样的？",
@@ -18858,7 +18795,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3116 的真实分块 doc_3116_chunk_0（第 1-12 行）。",
     },
     {
-        "case_key": "curag-0898",
+        "case_key": "curag-0895",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "用 pwntools 在 x64 上执行 system('/bin/sh') 的 ROP chain 怎么搭？",
@@ -18879,7 +18816,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3117 的真实分块 doc_3117_chunk_6（第 84-109 行）。",
     },
     {
-        "case_key": "curag-0899",
+        "case_key": "curag-0896",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Ret2lib 时怎么找 libc 加载进内存的位置？",
@@ -18900,7 +18837,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3118 的真实分块 doc_3118_chunk_1（第 9-30 行）。",
     },
     {
-        "case_key": "curag-0900",
+        "case_key": "curag-0897",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "用 GEF 的 pattern create/pattern offset 怎么定位 ret 偏移 leak libc？",
@@ -18921,7 +18858,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3119 的真实分块 doc_3119_chunk_4（第 39-64 行）。",
     },
     {
-        "case_key": "curag-0901",
+        "case_key": "curag-0898",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Ret2syscall 准备 syscall 调用要配置什么？",
@@ -18930,19 +18867,19 @@ RAW_SPECS: List[Dict[str, Any]] = [
             {
                 "document_id": "3120",
                 "title": "Ret2syscall",
-                "chunk_id": "doc_3120_chunk_0",
-                "start_line": 1,
-                "end_line": 18,
+                "chunk_id": "doc_3120_chunk_2",
+                "start_line": 20,
+                "end_line": 43,
                 "corpus_version": "knowledge_embeddings-v1",
                 "role": "primary",
-                "must_contain": "为了准备 **syscall** 调用，需要进行以下配置：",
+                "must_contain": "首先需要在内存中找到一个可写入的位置",
             }
         ],
         "tags": ['llm_curated', 'production_corpus'],
-        "rationale": "LLM 手写 query，锚定文档 3120 的真实分块 doc_3120_chunk_0（第 1-18 行）。",
+        "rationale": "LLM 手写 query，锚定文档 3120 的真实分块 doc_3120_chunk_2（第 20-43 行）。",
     },
     {
-        "case_key": "curag-0902",
+        "case_key": "curag-0899",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SROP（Sigreturn Oriented Programming）的核心思想是什么？",
@@ -18963,7 +18900,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3121 的真实分块 doc_3121_chunk_1（第 11-13 行）。",
     },
     {
-        "case_key": "curag-0903",
+        "case_key": "curag-0900",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "栈溢出通常是因为函数往栈中复制了超过容量的数据吗？",
@@ -18984,7 +18921,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3122 的真实分块 doc_3122_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-0904",
+        "case_key": "curag-0901",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Ret2win 里怎么用 gdb/objdump 找 win 函数地址？",
@@ -19005,7 +18942,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3123 的真实分块 doc_3123_chunk_2（第 40-64 行）。",
     },
     {
-        "case_key": "curag-0905",
+        "case_key": "curag-0902",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "ARM64 shellcode 里 mov r9, rbx; mov r8, 0 这段 junk 指令的目的是什么？",
@@ -19026,7 +18963,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3124 的真实分块 doc_3124_chunk_6（第 83-108 行）。",
     },
     {
-        "case_key": "curag-0906",
+        "case_key": "curag-0903",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "区块链与加密货币审计里对同一 opcode/kind 字段重复 match 说明什么？",
@@ -19047,7 +18984,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3125 的真实分块 doc_3125_chunk_12（第 212-229 行）。",
     },
     {
-        "case_key": "curag-0907",
+        "case_key": "curag-0904",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "密码学资料里想学文件隐藏数据应该去哪个章节？",
@@ -19068,7 +19005,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3126 的真实分块 doc_3126_chunk_0（第 1-29 行）。",
     },
     {
-        "case_key": "curag-0908",
+        "case_key": "curag-0905",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "恶意软件逆向里 RC4 的 PRGA 循环怎么用 %256 和 XOR 处理 keystream？",
@@ -19089,7 +19026,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3127 的真实分块 doc_3127_chunk_1（第 25-62 行）。",
     },
     {
-        "case_key": "curag-0909",
+        "case_key": "curag-0906",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "密码 CTF 杂项里跑 esolang 程序再解码输出的套路是什么？",
@@ -19110,7 +19047,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3128 的真实分块 doc_3128_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0910",
+        "case_key": "curag-0907",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "密码 CTF 工作流里识别并剥离编码层时哪些资源最有用？",
@@ -19131,7 +19068,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3129 的真实分块 doc_3129_chunk_1（第 5-25 行）。",
     },
     {
-        "case_key": "curag-0911",
+        "case_key": "curag-0908",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "哈希 MAC KDF 里 Signature=hash(secret||message) 为什么怕 length extension？",
@@ -19152,7 +19089,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3130 的真实分块 doc_3130_chunk_0（第 1-45 行）。",
     },
     {
-        "case_key": "curag-0912",
+        "case_key": "curag-0909",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "公钥密码学里不验证曲线点归属会带来什么弱群攻击风险？",
@@ -19173,7 +19110,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3131 的真实分块 doc_3131_chunk_1（第 29-49 行）。",
     },
     {
-        "case_key": "curag-0913",
+        "case_key": "curag-0910",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "RSA 攻击里把 n 重切分成不同 limbs 检查异常小值是为什么？",
@@ -19194,7 +19131,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3132 的真实分块 doc_3132_chunk_2（第 42-57 行）。",
     },
     {
-        "case_key": "curag-0914",
+        "case_key": "curag-0911",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "RC4 作为流密码加解密操作有什么特点？",
@@ -19215,7 +19152,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3133 的真实分块 doc_3133_chunk_9（第 153-191 行）。",
     },
     {
-        "case_key": "curag-0915",
+        "case_key": "curag-0912",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "TLS 证书里 Basic Constraints（是否为 CA）起什么作用？",
@@ -19236,7 +19173,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3134 的真实分块 doc_3134_chunk_0（第 1-42 行）。",
     },
     {
-        "case_key": "curag-0916",
+        "case_key": "curag-0913",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "反弹 shell 的原理和常见写法有哪些？",
@@ -19257,7 +19194,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3135 的真实分块 doc_3135_chunk_0（第 1-19 行）。",
     },
     {
-        "case_key": "curag-0917",
+        "case_key": "curag-0914",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "基础取证方法论里恶意软件分析技术能独立用于哪些输入源？",
@@ -19278,7 +19215,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3136 的真实分块 doc_3136_chunk_0（第 1-30 行）。",
     },
     {
-        "case_key": "curag-0918",
+        "case_key": "curag-0915",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "内存转储深度分析为什么推荐 IDA 或 Radare 打开？",
@@ -19299,7 +19236,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3137 的真实分块 doc_3137_chunk_1（第 21-31 行）。",
     },
     {
-        "case_key": "curag-0919",
+        "case_key": "curag-0916",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "分区雕刻时怎么从扇区 1 的 EFI PART 标记识别 GPT 表？",
@@ -19320,7 +19257,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3138 的真实分块 doc_3138_chunk_19（第 136-160 行）。",
     },
     {
-        "case_key": "curag-0920",
+        "case_key": "curag-0917",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Pcap 检查时怎么找已感染恶意软件的特征？",
@@ -19341,7 +19278,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3139 的真实分块 doc_3139_chunk_5（第 87-114 行）。",
     },
     {
-        "case_key": "curag-0921",
+        "case_key": "curag-0918",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Windows 卷影副本（Shadow Copy）对痕迹提取有什么价值？",
@@ -19362,7 +19299,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3140 的真实分块 doc_3140_chunk_1（第 19-41 行）。",
     },
     {
-        "case_key": "curag-0922",
+        "case_key": "curag-0919",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "外部侦察批量拿子域名最快的途径是什么（配 API keys 的工具）？",
@@ -19383,7 +19320,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3141 的真实分块 doc_3141_chunk_35（第 222-246 行）。",
     },
     {
-        "case_key": "curag-0923",
+        "case_key": "curag-0920",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "嵌入式 Lua 沙箱里 load/loadstring/dofile 加载不受信 bytecode 有什么风险？",
@@ -19404,7 +19341,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3142 的真实分块 doc_3142_chunk_4（第 60-81 行）。",
     },
     {
-        "case_key": "curag-0924",
+        "case_key": "curag-0921",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "网络渗透测试配 rogue DHCP server 时有哪些命令选项？",
@@ -19425,7 +19362,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3143 的真实分块 doc_3143_chunk_54（第 612-625 行）。",
     },
     {
-        "case_key": "curag-0925",
+        "case_key": "curag-0922",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "WiFi 渗透要确认网关放不放行 wireless-client-to-wireless-client 流量吗？",
@@ -19446,7 +19383,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3144 的真实分块 doc_3144_chunk_60（第 538-552 行）。",
     },
     {
-        "case_key": "curag-0926",
+        "case_key": "curag-0923",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "钓鱼攻击上线前为什么要用 Send Test Email 验证全链路？",
@@ -19467,7 +19404,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3145 的真实分块 doc_3145_chunk_24（第 308-335 行）。",
     },
     {
-        "case_key": "curag-0927",
+        "case_key": "curag-0924",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PyScript 的 Python 沙箱逃逸有哪些思路？",
@@ -19488,7 +19425,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3146 的真实分块 doc_3146_chunk_0（第 1-10 行）。",
     },
     {
-        "case_key": "curag-0928",
+        "case_key": "curag-0925",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Python 沙箱逃逸第一步先看什么（已导入库或可导入列表）？",
@@ -19509,7 +19446,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3147 的真实分块 doc_3147_chunk_0（第 1-30 行）。",
     },
     {
-        "case_key": "curag-0929",
+        "case_key": "curag-0926",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "固件分析里 secure boot chain 的验证发生在哪个环节（ROM code 查签）？",
@@ -19530,7 +19467,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3148 的真实分块 doc_3148_chunk_39（第 422-437 行）。",
     },
     {
-        "case_key": "curag-0930",
+        "case_key": "curag-0927",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Container 安全里 control plane 和 supply chain 怎么影响是否需要 kernel escape？",
@@ -19551,7 +19488,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3149 的真实分块 doc_3149_chunk_8（第 29-45 行）。",
     },
     {
-        "case_key": "curag-0931",
+        "case_key": "curag-0928",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "容器防护的整体概览分哪些层？",
@@ -19572,7 +19509,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3150 的真实分块 doc_3150_chunk_3（第 17-21 行）。",
     },
     {
-        "case_key": "curag-0932",
+        "case_key": "curag-0929",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "命名空间检查的下一步为什么是和主机进程对比确认私有性？",
@@ -19593,7 +19530,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3151 的真实分块 doc_3151_chunk_4（第 17-36 行）。",
     },
     {
-        "case_key": "curag-0933",
+        "case_key": "curag-0930",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "read-only/noexec 文件系统甚至 distroless 里还有什么执行办法？",
@@ -19614,7 +19551,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3152 的真实分块 doc_3152_chunk_25（第 296-312 行）。",
     },
     {
-        "case_key": "curag-0934",
+        "case_key": "curag-0931",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Distroless 容器消除不必要组件是为了减少什么？",
@@ -19635,7 +19572,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3153 的真实分块 doc_3153_chunk_6（第 80-96 行）。",
     },
     {
-        "case_key": "curag-0935",
+        "case_key": "curag-0932",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "/etc/sudoers.d/ 里 root 属主 440 权限但 ACL 放低权用户读，为什么是常见错配？",
@@ -19656,7 +19593,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3154 的真实分块 doc_3154_chunk_116（第 1552-1578 行）。",
     },
     {
-        "case_key": "curag-0936",
+        "case_key": "curag-0933",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Linux 后期利用怎么配 PAM module 记录登录密码？",
@@ -19677,7 +19614,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3155 的真实分块 doc_3155_chunk_0（第 1-12 行）。",
     },
     {
-        "case_key": "curag-0937",
+        "case_key": "curag-0934",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "有趣的 Linux 组为什么常是凭据发现向量而不是直接 root 通道？",
@@ -19698,7 +19635,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3156 的真实分块 doc_3156_chunk_21（第 214-230 行）。",
     },
     {
-        "case_key": "curag-0938",
+        "case_key": "curag-0935",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 红队为什么强烈建议先搞懂 MDM 的工作方式？",
@@ -19719,7 +19656,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3157 的真实分块 doc_3157_chunk_0（第 1-24 行）。",
     },
     {
-        "case_key": "curag-0939",
+        "case_key": "curag-0936",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "macOS MDM 的设置流程设计目标是什么？",
@@ -19740,7 +19677,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3158 的真实分块 doc_3158_chunk_1（第 14-32 行）。",
     },
     {
-        "case_key": "curag-0940",
+        "case_key": "curag-0937",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "攻进 macOS 后要维持访问需要提升 TCC 权限或绕过 SIP 的原因是什么？",
@@ -19761,7 +19698,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3159 的真实分块 doc_3159_chunk_1（第 26-52 行）。",
     },
     {
-        "case_key": "curag-0941",
+        "case_key": "curag-0938",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "XNU 内核里 Mach 负责哪些关键底层操作（调度/虚拟内存）？",
@@ -19782,7 +19719,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3160 的真实分块 doc_3160_chunk_1（第 13-28 行）。",
     },
     {
-        "case_key": "curag-0942",
+        "case_key": "curag-0939",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 应用检查里怎么发现是否导入 sysctl/ptrace（含动态导入）？",
@@ -19803,7 +19740,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3161 的真实分块 doc_3161_chunk_47（第 435-447 行）。",
     },
     {
-        "case_key": "curag-0943",
+        "case_key": "curag-0940",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "macOS 上二进制 plist 用什么命令读取？",
@@ -19824,7 +19761,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3162 的真实分块 doc_3162_chunk_10（第 40-60 行）。",
     },
     {
-        "case_key": "curag-0944",
+        "case_key": "curag-0941",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "macOS 进程和线程的关系：为什么说进程只是运行线程的容器？",
@@ -19845,7 +19782,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3163 的真实分块 doc_3163_chunk_0（第 1-8 行）。",
     },
     {
-        "case_key": "curag-0945",
+        "case_key": "curag-0942",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "launchd 在 IPC 里怎么处理未运行的 task？",
@@ -19866,7 +19803,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3164 的真实分块 doc_3164_chunk_7（第 56-68 行）。",
     },
     {
-        "case_key": "curag-0946",
+        "case_key": "curag-0943",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "xpc_pipe 是什么通信机制（FIFO 管道 + Mach 消息）？",
@@ -19887,7 +19824,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3165 的真实分块 doc_3165_chunk_11（第 73-81 行）。",
     },
     {
-        "case_key": "curag-0947",
+        "case_key": "curag-0944",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "XPC 连接进程检查时 Apple-signed certificate 有什么特殊性？",
@@ -19908,7 +19845,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3166 的真实分块 doc_3166_chunk_4（第 7-27 行）。",
     },
     {
-        "case_key": "curag-0948",
+        "case_key": "curag-0945",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "macOS 库注入碰到 framework path 时劫持方式是什么？",
@@ -19929,7 +19866,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3167 的真实分块 doc_3167_chunk_17（第 112-121 行）。",
     },
     {
-        "case_key": "curag-0949",
+        "case_key": "curag-0946",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "MRT 作为响应式工具的定位和工作时机是什么？",
@@ -19950,7 +19887,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3168 的真实分块 doc_3168_chunk_2（第 27-42 行）。",
     },
     {
-        "case_key": "curag-0950",
+        "case_key": "curag-0947",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "macOS 文件系统 privesc 原语「特权进程在你目录建文件且保留写权限」需要哪两个条件？",
@@ -19971,7 +19908,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3169 的真实分块 doc_3169_chunk_25（第 326-344 行）。",
     },
     {
-        "case_key": "curag-0951",
+        "case_key": "curag-0948",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SandboxProfileData 是什么形式的编译沙盒配置（B64 CFData）？",
@@ -19992,7 +19929,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3170 的真实分块 doc_3170_chunk_5（第 56-92 行）。",
     },
     {
-        "case_key": "curag-0952",
+        "case_key": "curag-0949",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "找有效 XPC 服务还可以检查哪些位置？",
@@ -20013,7 +19950,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3171 的真实分块 doc_3171_chunk_12（第 84-97 行）。",
     },
     {
-        "case_key": "curag-0953",
+        "case_key": "curag-0950",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "TCC 表里 p_responsible_uuid 持久化标记用于什么场景？",
@@ -20034,7 +19971,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3172 的真实分块 doc_3172_chunk_30（第 327-334 行）。",
     },
     {
-        "case_key": "curag-0954",
+        "case_key": "curag-0951",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "TCC「不防止读取」的行为算绕过吗？Terminal 没 Desktop 权限时呢？",
@@ -20055,7 +19992,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3173 的真实分块 doc_3173_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0955",
+        "case_key": "curag-0952",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Android 测试不装 Burp CA 只抓流量能验证什么？",
@@ -20076,7 +20013,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3174 的真实分块 doc_3174_chunk_31（第 196-216 行）。",
     },
     {
-        "case_key": "curag-0956",
+        "case_key": "curag-0953",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Drozer 教程里 PackageName com.example.demo 是什么角色？",
@@ -20097,7 +20034,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3175 的真实分块 doc_3175_chunk_10（第 101-131 行）。",
     },
     {
-        "case_key": "curag-0957",
+        "case_key": "curag-0954",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Frida 教程里怎么确认 hook 正常工作？",
@@ -20118,7 +20055,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3176 的真实分块 doc_3176_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-0958",
+        "case_key": "curag-0955",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "iOS 渗透主要检查里硬编码 secret 和可预测 secret 怎么找？",
@@ -20139,7 +20076,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3177 的真实分块 doc_3177_chunk_65（第 713-727 行）。",
     },
     {
-        "case_key": "curag-0959",
+        "case_key": "curag-0956",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Memcache（11211）本身支不支持 Replication？",
@@ -20160,7 +20097,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3178 的真实分块 doc_3178_chunk_16（第 138-163 行）。",
     },
     {
-        "case_key": "curag-0960",
+        "case_key": "curag-0957",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "FTP 是明文协议，为什么有时要用 telnet 或 nc -C 测（0x0d 0x0a）？",
@@ -20181,7 +20118,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3179 的真实分块 doc_3179_chunk_0（第 1-19 行）。",
     },
     {
-        "case_key": "curag-0961",
+        "case_key": "curag-0958",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Kerberos（88 端口）的身份验证机制和直接管理资源访问有什么区别？",
@@ -20202,7 +20139,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3180 的真实分块 doc_3180_chunk_0（第 1-18 行）。",
     },
     {
-        "case_key": "curag-0962",
+        "case_key": "curag-0959",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "MSSQL（1433）exploit 生效需要什么权限前提？",
@@ -20223,7 +20160,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3181 的真实分块 doc_3181_chunk_74（第 754-768 行）。",
     },
     {
-        "case_key": "curag-0963",
+        "case_key": "curag-0960",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "SMB（139/445）没有凭据时先试 null credentials/guest 吗？",
@@ -20244,7 +20181,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3182 的真实分块 doc_3182_chunk_11（第 152-170 行）。",
     },
     {
-        "case_key": "curag-0964",
+        "case_key": "curag-0961",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "SMTP（25/465/587）渗透怎么从发往 25 端口的包里嗅探密码？",
@@ -20265,7 +20202,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3183 的真实分块 doc_3183_chunk_7（第 79-106 行）。",
     },
     {
-        "case_key": "curag-0965",
+        "case_key": "curag-0962",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "SNMP 渗透遇到 Cisco 设备该看什么资料？",
@@ -20286,7 +20223,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3184 的真实分块 doc_3184_chunk_12（第 155-175 行）。",
     },
     {
-        "case_key": "curag-0966",
+        "case_key": "curag-0963",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "VoIP 渗透里 extensions.conf 的 context 用什么符号定义？",
@@ -20307,7 +20244,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3185 的真实分块 doc_3185_chunk_28（第 347-360 行）。",
     },
     {
-        "case_key": "curag-0967",
+        "case_key": "curag-0964",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "IAX 协议以简单高效易实现著称，关键功能有哪些？",
@@ -20328,7 +20265,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3186 的真实分块 doc_3186_chunk_5（第 44-50 行）。",
     },
     {
-        "case_key": "curag-0968",
+        "case_key": "curag-0965",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Web 渗透方法论里 passwords 存储方式（明文/加密/hash）要怎么确认？",
@@ -20349,7 +20286,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3187 的真实分块 doc_3187_chunk_15（第 113-136 行）。",
     },
     {
-        "case_key": "curag-0969",
+        "case_key": "curag-0966",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Drupal 信息收集为什么要看 /CHANGELOG.txt？",
@@ -20370,7 +20307,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3188 的真实分块 doc_3188_chunk_0（第 1-33 行）。",
     },
     {
-        "case_key": "curag-0970",
+        "case_key": "curag-0967",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Electron 14 之后 remote module 的启用有什么变化？",
@@ -20391,7 +20328,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3189 的真实分块 doc_3189_chunk_21（第 282-303 行）。",
     },
     {
-        "case_key": "curag-0971",
+        "case_key": "curag-0968",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "PHP 里 == 比较为什么会出预期外结果？和 === 差在哪？",
@@ -20412,7 +20349,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3190 的真实分块 doc_3190_chunk_0（第 1-31 行）。",
     },
     {
-        "case_key": "curag-0972",
+        "case_key": "curag-0969",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PHP 里滥用 LD_PRELOAD 环境变量的 library 怎么编译？",
@@ -20433,7 +20370,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3191 的真实分块 doc_3191_chunk_43（第 508-524 行）。",
     },
     {
-        "case_key": "curag-0973",
+        "case_key": "curag-0970",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Sitecore XP 认证前 HTML 缓存污染到认证后 RCE 的控件链路是什么？",
@@ -20454,7 +20391,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3192 的真实分块 doc_3192_chunk_1（第 5-26 行）。",
     },
     {
-        "case_key": "curag-0974",
+        "case_key": "curag-0971",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Tomcat 的 /manager/status 目录能暴露什么版本信息？",
@@ -20475,7 +20412,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3193 的真实分块 doc_3193_chunk_1（第 32-67 行）。",
     },
     {
-        "case_key": "curag-0975",
+        "case_key": "curag-0972",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "浏览器扩展审计为什么要求 sender 做精确 origin equality 检查而非后缀/正则？",
@@ -20496,7 +20433,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3194 的真实分块 doc_3194_chunk_26（第 349-364 行）。",
     },
     {
-        "case_key": "curag-0976",
+        "case_key": "curag-0973",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Cache Deception 验证时认证后请求 user-specific 页面是在观察什么？",
@@ -20517,7 +20454,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3195 的真实分块 doc_3195_chunk_48（第 411-424 行）。",
     },
     {
-        "case_key": "curag-0977",
+        "case_key": "curag-0974",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "CSP 绕过里服务端不把 %2f 当斜杠处理解决的是什么不一致？",
@@ -20538,7 +20475,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3196 的真实分块 doc_3196_chunk_55（第 374-386 行）。",
     },
     {
-        "case_key": "curag-0978",
+        "case_key": "curag-0975",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "悬挂标记注入怎么把页面底部内容 exfiltrate 到攻击者站点？",
@@ -20559,7 +20496,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3197 的真实分块 doc_3197_chunk_6（第 89-95 行）。",
     },
     {
-        "case_key": "curag-0979",
+        "case_key": "curag-0976",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "反序列化审计时源代码里要检查哪些危险点？",
@@ -20580,7 +20517,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3198 的真实分块 doc_3198_chunk_82（第 684-705 行）。",
     },
     {
-        "case_key": "curag-0980",
+        "case_key": "curag-0977",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "NodeJS 原型链污染防护怎么用带插件的 ESLint 检测？",
@@ -20601,7 +20538,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3199 的真实分块 doc_3199_chunk_21（第 329-341 行）。",
     },
     {
-        "case_key": "curag-0981",
+        "case_key": "curag-0978",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "文件包含与路径穿越测试为什么先看 PHPSESSID？",
@@ -20622,7 +20559,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3200 的真实分块 doc_3200_chunk_67（第 573-593 行）。",
     },
     {
-        "case_key": "curag-0982",
+        "case_key": "curag-0979",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "文件上传里验证用 benign.zip、提取用 evil.zip 的 parser 差异攻击是什么？",
@@ -20643,7 +20580,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3201 的真实分块 doc_3201_chunk_77（第 505-523 行）。",
     },
     {
-        "case_key": "curag-0983",
+        "case_key": "curag-0980",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Cookie 的 SameSite 属性三种设置分别控制什么？",
@@ -20664,7 +20601,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3202 的真实分块 doc_3202_chunk_2（第 28-43 行）。",
     },
     {
-        "case_key": "curag-0984",
+        "case_key": "curag-0981",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "HTTP 请求走私里 proxy 允许 close-delimited request bodies 为什么是高价值 desync 征兆？",
@@ -20685,7 +20622,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3203 的真实分块 doc_3203_chunk_78（第 916-952 行）。",
     },
     {
-        "case_key": "curag-0985",
+        "case_key": "curag-0982",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "登录绕过里定位 trust boundary 时 SPA 只查 storage key 存在性的问题在哪？",
@@ -20706,7 +20643,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3204 的真实分块 doc_3204_chunk_11（第 80-89 行）。",
     },
     {
-        "case_key": "curag-0986",
+        "case_key": "curag-0983",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "反射 PoCs/Polygloths 备忘单的定位是什么（基础测试 vs 全量）？",
@@ -20727,7 +20664,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3205 的真实分块 doc_3205_chunk_0（第 1-7 行）。",
     },
     {
-        "case_key": "curag-0987",
+        "case_key": "curag-0984",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "PostMessage 漏洞里 partner origin 不是边界指什么风险？",
@@ -20748,7 +20685,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3206 的真实分块 doc_3206_chunk_27（第 279-285 行）。",
     },
     {
-        "case_key": "curag-0988",
+        "case_key": "curag-0985",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "SAML 攻击里拿到真实 memory disclosure primitive 意味着什么？",
@@ -20769,7 +20706,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3207 的真实分块 doc_3207_chunk_41（第 400-423 行）。",
     },
     {
-        "case_key": "curag-0989",
+        "case_key": "curag-0986",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SQL 注入只建 1 个账户就提取信息且无需注释的技术是什么？",
@@ -20790,7 +20727,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3208 的真实分块 doc_3208_chunk_45（第 422-439 行）。",
     },
     {
-        "case_key": "curag-0990",
+        "case_key": "curag-0987",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "MySQL 注入 fuzz 里 %26/%2B 编码和末尾 xD 清理是怎么回事？",
@@ -20811,7 +20748,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3209 的真实分块 doc_3209_chunk_22（第 190-203 行）。",
     },
     {
-        "case_key": "curag-0991",
+        "case_key": "curag-0988",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "PostgreSQL 注入的方法论要点是什么？",
@@ -20832,7 +20769,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3210 的真实分块 doc_3210_chunk_0（第 1-13 行）。",
     },
     {
-        "case_key": "curag-0992",
+        "case_key": "curag-0989",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "sqlmap 默认技术顺序 BEUSTQ 是什么含义？",
@@ -20853,7 +20790,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3211 的真实分块 doc_3211_chunk_3（第 37-64 行）。",
     },
     {
-        "case_key": "curag-0993",
+        "case_key": "curag-0990",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SSRF 测试看到 upstream response 而不是 400 时说明 appliance 是什么状态？",
@@ -20874,7 +20811,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3212 的真实分块 doc_3212_chunk_43（第 277-303 行）。",
     },
     {
-        "case_key": "curag-0994",
+        "case_key": "curag-0991",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "SSTI 方法论里 Jinja 易受攻击代码片段长什么样？",
@@ -20895,7 +20832,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3213 的真实分块 doc_3213_chunk_0（第 1-21 行）。",
     },
     {
-        "case_key": "curag-0995",
+        "case_key": "curag-0992",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "Unicode 注入检查 VARCHAR metadata + Unicode client input 组合是测什么？",
@@ -20916,7 +20853,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3214 的真实分块 doc_3214_chunk_8（第 127-137 行）。",
     },
     {
-        "case_key": "curag-0996",
+        "case_key": "curag-0993",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "XS-Leaks 里识别目标页 WebSocket 连接数量能推断出什么应用状态？",
@@ -20937,7 +20874,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3215 的真实分块 doc_3215_chunk_35（第 207-217 行）。",
     },
     {
-        "case_key": "curag-0997",
+        "case_key": "curag-0994",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "CSS 注入的方法论和数据外带方式有哪些？",
@@ -20958,7 +20895,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3216 的真实分块 doc_3216_chunk_0（第 1-7 行）。",
     },
     {
-        "case_key": "curag-0998",
+        "case_key": "curag-0995",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "XSS 里 JavaScript Hoisting 让你有机会使用未声明的函数或变量吗？",
@@ -20979,7 +20916,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3217 的真实分块 doc_3217_chunk_15（第 91-110 行）。",
     },
     {
-        "case_key": "curag-0999",
+        "case_key": "curag-0996",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "二进制逆向的工具链和基础方法有哪些？",
@@ -21000,7 +20937,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3218 的真实分块 doc_3218_chunk_37（第 448-463 行）。",
     },
     {
-        "case_key": "curag-1000",
+        "case_key": "curag-0997",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Angr 符号执行框架怎么用于逆向解题？",
@@ -21021,7 +20958,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3219 的真实分块 doc_3219_chunk_13（第 122-138 行）。",
     },
     {
-        "case_key": "curag-1001",
+        "case_key": "curag-0998",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Stego 视角下 PDF/Office 作为容器的攻击面在哪些结构上？",
@@ -21042,7 +20979,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3220 的真实分块 doc_3220_chunk_0（第 1-33 行）。",
     },
     {
-        "case_key": "curag-1002",
+        "case_key": "curag-0999",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "音频隐写里 minimodem 输出乱码时 --rx-invert 怎么调？",
@@ -21063,7 +21000,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3221 的真实分块 doc_3221_chunk_1（第 35-70 行）。",
     },
     {
-        "case_key": "curag-1003",
+        "case_key": "curag-1000",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "文档隐写里 PDF 作为结构化容器在 CTF 中通常要做什么？",
@@ -21084,7 +21021,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3222 的真实分块 doc_3222_chunk_0（第 1-45 行）。",
     },
     {
-        "case_key": "curag-1004",
+        "case_key": "curag-1001",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "图像隐写怀疑 passphrase 保护的嵌入时最快的排查路径是什么？",
@@ -21105,7 +21042,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3223 的真实分块 doc_3223_chunk_7（第 181-207 行）。",
     },
     {
-        "case_key": "curag-1005",
+        "case_key": "curag-1002",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "恶意软件的网络隐写为什么常把 payload 藏在其他方面有效的文件里（非像素 LSB）？",
@@ -21126,7 +21063,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3224 的真实分块 doc_3224_chunk_0（第 1-16 行）。",
     },
     {
-        "case_key": "curag-1006",
+        "case_key": "curag-1003",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "文本隐写检查代码点时为什么要谨慎规范化、别破坏证据？",
@@ -21147,7 +21084,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3225 的真实分块 doc_3225_chunk_0（第 1-40 行）。",
     },
     {
-        "case_key": "curag-1007",
+        "case_key": "curag-1004",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "Stego 工作流里扩展名不是 zip 也用 7z/unzip 试是为什么？",
@@ -21168,7 +21105,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3226 的真实分块 doc_3226_chunk_3（第 110-136 行）。",
     },
     {
-        "case_key": "curag-1008",
+        "case_key": "curag-1005",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AD 方法论里哪些措施防不住可写 Configuration NC 和 trust 攻击？",
@@ -21189,7 +21126,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3227 的真实分块 doc_3227_chunk_83（第 695-705 行）。",
     },
     {
-        "case_key": "curag-1009",
+        "case_key": "curag-1006",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "滥用 AD ACL/ACE 时怎么查用户属性里的 logon script？",
@@ -21210,7 +21147,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3228 的真实分块 doc_3228_chunk_37（第 272-299 行）。",
     },
     {
-        "case_key": "curag-1010",
+        "case_key": "curag-1007",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "AD 证书攻击可用的 tools 和 commands 包括什么？",
@@ -21231,7 +21168,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3229 的真实分块 doc_3229_chunk_9（第 102-120 行）。",
     },
     {
-        "case_key": "curag-1011",
+        "case_key": "curag-1008",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Windows 里 LSA 怎么校验 SAM 凭据并与域控核对域用户身份？",
@@ -21252,7 +21189,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3230 的真实分块 doc_3230_chunk_18（第 49-74 行）。",
     },
     {
-        "case_key": "curag-1012",
+        "case_key": "curag-1009",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "渗透测试 PowerShell 基础里用 reflection 找方法是怎么做的？",
@@ -21273,7 +21210,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3231 的真实分块 doc_3231_chunk_37（第 172-187 行）。",
     },
     {
-        "case_key": "curag-1013",
+        "case_key": "curag-1010",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "内网横向移动的常见路径有哪些？",
@@ -21294,7 +21231,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3232 的真实分块 doc_3232_chunk_0（第 1-15 行）。",
     },
     {
-        "case_key": "curag-1014",
+        "case_key": "curag-1011",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "NTLM 在什么条件下才被使用（Kerberos 是默认）？",
@@ -21315,7 +21252,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3233 的真实分块 doc_3233_chunk_0（第 1-22 行）。",
     },
     {
-        "case_key": "curag-1015",
+        "case_key": "curag-1012",
         "category": "retrieval_supported",
         "difficulty": "easy",
         "query": "窃取 Windows 凭据最简单的方式为什么是从 Registry 拿副本？",
@@ -21336,7 +21273,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3234 的真实分块 doc_3234_chunk_18（第 154-183 行）。",
     },
     {
-        "case_key": "curag-1016",
+        "case_key": "curag-1013",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "Windows 本地提权时服务不允许普通用户重启还要看哪些触发条件？",
@@ -21357,7 +21294,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3235 的真实分块 doc_3235_chunk_42（第 500-521 行）。",
     },
     {
-        "case_key": "curag-1017",
+        "case_key": "curag-1014",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "DLL 劫持怎么借 Accessibility 配置实现持久化？",
@@ -21378,7 +21315,7 @@ RAW_SPECS: List[Dict[str, Any]] = [
         "rationale": "LLM 手写 query，锚定文档 3236 的真实分块 doc_3236_chunk_57（第 489-497 行）。",
     },
     {
-        "case_key": "curag-1018",
+        "case_key": "curag-1015",
         "category": "retrieval_supported",
         "difficulty": "hard",
         "query": "POSIX CPU 定时器 TOCTOU 里 TASK_WORK mode 设计上安全的原因是什么？",
@@ -21387,40 +21324,19 @@ RAW_SPECS: List[Dict[str, Any]] = [
             {
                 "document_id": "3237",
                 "title": "POSIX CPU定时器TOCTOU竞态",
-                "chunk_id": "doc_3237_chunk_15",
-                "start_line": 138,
-                "end_line": 152,
+                "chunk_id": "doc_3237_chunk_0",
+                "start_line": 1,
+                "end_line": 7,
                 "corpus_version": "knowledge_embeddings-v1",
                 "role": "primary",
-                "must_contain": "为什么 TASK_WORK mode 在设计上是安全的",
+                "must_contain": "- 配置敏感项：CONFIG_POSIX_CPU_TIMERS_TASK_WORK=n（IRQ-context expiry path）",
             }
         ],
         "tags": ['llm_curated', 'production_corpus'],
-        "rationale": "LLM 手写 query，锚定文档 3237 的真实分块 doc_3237_chunk_15（第 138-152 行）。",
+        "rationale": "LLM 手写 query，锚定文档 3237 的真实分块 doc_3237_chunk_0（第 1-7 行）。",
     },
     {
-        "case_key": "curag-1019",
-        "category": "retrieval_supported",
-        "difficulty": "hard",
-        "query": "POSIX CPU 定时器 TOCTOU（CVE-2025 系列）影响哪个模式？",
-        "expected_status": "supported",
-        "evidence": [
-            {
-                "document_id": "3238",
-                "title": "POSIX CPU 定时器 TOCTOU 竞争条件 (CVE-2025-38352)",
-                "chunk_id": "doc_3238_chunk_21",
-                "start_line": 178,
-                "end_line": 182,
-                "corpus_version": "knowledge_embeddings-v1",
-                "role": "primary",
-                "must_contain": "为什么 TASK_WORK mode 在设计上是安全的",
-            }
-        ],
-        "tags": ['llm_curated', 'production_corpus'],
-        "rationale": "LLM 手写 query，锚定文档 3238 的真实分块 doc_3238_chunk_21（第 178-182 行）。",
-    },
-    {
-        "case_key": "curag-1020",
+        "case_key": "curag-1016",
         "category": "retrieval_supported",
         "difficulty": "medium",
         "query": "SELinux 检查要确认哪三件事（启用状态/security context/文件受控）？",
@@ -21439,27 +21355,6 @@ RAW_SPECS: List[Dict[str, Any]] = [
         ],
         "tags": ['llm_curated', 'production_corpus'],
         "rationale": "LLM 手写 query，锚定文档 3239 的真实分块 doc_3239_chunk_10（第 89-106 行）。",
-    },
-    {
-        "case_key": "curag-1021",
-        "category": "retrieval_supported",
-        "difficulty": "medium",
-        "query": "SELinux 排查时 newrole 工具能用来做什么？",
-        "expected_status": "supported",
-        "evidence": [
-            {
-                "document_id": "3240",
-                "title": "SELinux",
-                "chunk_id": "doc_3240_chunk_5",
-                "start_line": 78,
-                "end_line": 98,
-                "corpus_version": "knowledge_embeddings-v1",
-                "role": "primary",
-                "must_contain": "另外检查 `newrole` 是否可用：",
-            }
-        ],
-        "tags": ['llm_curated', 'production_corpus'],
-        "rationale": "LLM 手写 query，锚定文档 3240 的真实分块 doc_3240_chunk_5（第 78-98 行）。",
     },
 ]
 

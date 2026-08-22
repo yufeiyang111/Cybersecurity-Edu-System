@@ -80,6 +80,12 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--corpus-version", default=DEFAULT_CORPUS_VERSION)
     parser.add_argument("--tag", default=None, help="产物文件名标识（默认时间戳）")
     parser.add_argument("--persist", action="store_true", help="同时把汇总写入数据库")
+    parser.add_argument(
+        "--judge",
+        type=int,
+        default=0,
+        help="LLM-as-judge：对前 N 条有据回答做忠实度/相关性评审（0=关闭，每题一次额外调用）",
+    )
     return parser
 
 
@@ -145,6 +151,25 @@ def _capture_wrapper(port, sink: Dict[int, Dict[str, Any]], progress_every: int 
     return execute
 
 
+def _capture_raw(raw_sink: Dict[int, Dict[str, Any]], case_id: int, result: Any) -> None:
+    """on_result 钩子：留存回答原文与证据正文（供 LLM-as-judge 使用）。"""
+    references = list(getattr(result.citations, "references", ()) or [])
+    raw_sink[case_id] = {
+        "answer": str(getattr(result, "answer", "") or ""),
+        "model": getattr(result, "model_name", None),
+        "references": [
+            {
+                "citation_id": getattr(ref, "citation_id", ""),
+                "title": getattr(ref, "title", ""),
+                "start_line": getattr(ref, "start_line", None),
+                "end_line": getattr(ref, "end_line", None),
+                "content": (getattr(ref, "content", "") or "")[:400],
+            }
+            for ref in references[:6]
+        ],
+    }
+
+
 def run_dataset(
     *,
     dataset: str,
@@ -154,9 +179,17 @@ def run_dataset(
     tag: str,
     out_dir: Path,
     persist: bool,
+    judge_limit: int = 0,
 ) -> Dict[str, Any]:
     capture: Dict[int, Dict[str, Any]] = {}
-    port = build_runtime_executor(pipeline=pipeline, corpus_version=corpus_version)
+    raw_sink: Dict[int, Dict[str, Any]] = {}
+    port = build_runtime_executor(
+        pipeline=pipeline,
+        corpus_version=corpus_version,
+        on_result=lambda case, result: _capture_raw(raw_sink, case.case_id, result)
+        if judge_limit > 0
+        else None,
+    )
     evaluator = OfflineRagEvaluator(
         execute_case=_capture_wrapper(port, capture)
     )
@@ -172,9 +205,32 @@ def run_dataset(
         newline="\n",
     )
 
+    # LLM-as-judge：仅评审有据回答，逐题一次额外调用，成本由 --judge N 控制。
+    verdicts_by_key: Dict[str, Dict[str, Any]] = {}
+    if judge_limit > 0:
+        from app.services.llm.provider_selector import select_provider
+        from app.services.rag_core.answer_judge import judge_answer
+
+        provider = select_provider(operation="judge")
+        judged = 0
+        for case in cases:
+            if judged >= judge_limit:
+                break
+            info = raw_sink.get(case.case_id)
+            if not info or not info.get("answer"):
+                continue
+            if capture.get(case.case_id, {}).get("answer_status") != "supported":
+                continue
+            print(f"  judging {case.case_key}", flush=True)
+            verdicts_by_key[case.case_key] = judge_answer(
+                case.query, info["answer"], info["references"], provider
+            )
+            judged += 1
+
     details_path = out_dir / f"eval_run_{tag}_{dataset}.jsonl"
     with details_path.open("w", encoding="utf-8", newline="\n") as handle:
         for case, outcome in zip(cases, report.outcomes):
+            info = raw_sink.get(case.case_id) or {}
             row = {
                 "case_key": case.case_key,
                 "dataset": dataset,
@@ -188,6 +244,8 @@ def run_dataset(
                 "failure_stage": outcome.failure_stage,
                 "notes": list(outcome.notes),
                 "execution": capture.get(case.case_id, {}),
+                "answer_excerpt": info.get("answer", "")[:300] if judge_limit > 0 else None,
+                "judge": verdicts_by_key.get(case.case_key),
             }
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
@@ -264,6 +322,7 @@ def main() -> None:
                     tag=tag,
                     out_dir=DEFAULT_DATA_DIR,
                     persist=args.persist,
+                    judge_limit=args.judge,
                 )
             )
     print(json.dumps({"tag": tag, "results": results}, ensure_ascii=False, indent=2))

@@ -2,9 +2,10 @@
 """真实 RAG pipeline 的离线评测适配器。"""
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import hashlib
 import json
+import logging
 from time import perf_counter
 from typing import Any
 
@@ -13,9 +14,21 @@ from app.config import Config, rag_pipeline_config_snapshot
 from .contracts import CitationManifest, EvidenceReference, RagExecutionRequest
 from .evaluation_contracts import EvaluationCase, EvaluationExecution, EvaluationPipeline
 
+logger = logging.getLogger(__name__)
 
-def build_runtime_executor(*, pipeline: EvaluationPipeline, corpus_version: str):
-    """显式选择 legacy 或 v2；调用时才接触 Qdrant、Embedding、Reranker 和 LLM。"""
+
+def build_runtime_executor(
+    *,
+    pipeline: EvaluationPipeline,
+    corpus_version: str,
+    on_result: Callable[[EvaluationCase, Any], None] | None = None,
+):
+    """显式选择 legacy 或 v2；调用时才接触 Qdrant、Embedding、Reranker 和 LLM。
+
+    on_result：可选回调，v2 分支在拿到原始 RagExecutionResult 后触发，
+    供评测套件捕获回答原文与证据正文（LLM-as-judge 等场景）。
+    回调异常只记录日志，绝不影响评测主流程。
+    """
     if pipeline not in {"legacy", "v2"}:
         raise ValueError("pipeline must be 'legacy' or 'v2'")
     corpus = corpus_version.strip()
@@ -38,6 +51,15 @@ def build_runtime_executor(*, pipeline: EvaluationPipeline, corpus_version: str)
                     use_rerank=True,
                 )
             )
+            if on_result is not None:
+                try:
+                    on_result(case, result)
+                except Exception as exc:  # noqa: BLE001 - 钩子失败不阻断评测
+                    logger.warning(
+                        "eval on_result hook failed case_id=%s error_type=%s",
+                        case.case_id,
+                        type(exc).__name__,
+                    )
             stages = result.trace.stage_summary
             candidate_entries = _mapping_sequence(_mapping_value(stages, "candidate", "candidates"))
             return EvaluationExecution(
