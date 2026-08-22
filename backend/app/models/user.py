@@ -119,6 +119,7 @@ class UserPreference(db.Model):
     show_citations = db.Column(db.Boolean, nullable=False, default=True)
     show_security_warnings = db.Column(db.Boolean, nullable=False, default=True)
     persistent_memory_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    allow_ungrounded_answers = db.Column(db.Boolean, nullable=False, default=False)
     qa_max_tokens = db.Column(db.Integer, nullable=True)
     analytics_time_range = db.Column(db.String(20), nullable=False, default="1d")
     analytics_time_granularity = db.Column(db.String(20), nullable=False, default="hour")
@@ -146,11 +147,10 @@ class UserPreference(db.Model):
             "show_citations": self.show_citations,
             "show_security_warnings": self.show_security_warnings,
             "persistent_memory_enabled": bool(self.persistent_memory_enabled),
+            "allow_ungrounded_answers": bool(self.allow_ungrounded_answers),
             "qa_max_tokens": self.qa_max_tokens,
             "analytics_time_range": self.analytics_time_range,
             "analytics_time_granularity": self.analytics_time_granularity,
             "analytics_chart_type": self.analytics_chart_type,
             "analytics_model_chart": self.analytics_model_chart,
         }
-
-

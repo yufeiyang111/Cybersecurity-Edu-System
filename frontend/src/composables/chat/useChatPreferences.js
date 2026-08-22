@@ -18,6 +18,7 @@ export const DEFAULT_CHAT_PREFERENCES = {
   response_style: 'professional',
   show_citations: true,
   show_security_warnings: true,
+  allow_ungrounded_answers: false,
   qa_max_tokens: null
 }
 

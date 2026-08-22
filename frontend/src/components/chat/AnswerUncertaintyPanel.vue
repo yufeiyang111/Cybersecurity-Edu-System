@@ -41,6 +41,15 @@ const presentation = computed(() => {
       icon: 'warning'
     }
   }
+  if (props.answerStatus === 'ungrounded') {
+    return {
+      title: '本次回复未检索到任何内容',
+      description: '该回答基于模型通用知识，不代表 CyberGuard 知识库中的可核验结论。',
+      action: '建议：涉及漏洞、修复、配置或合规结论时，请补充上下文并以权威资料或实测结果核验。',
+      tone: 'warning',
+      icon: 'warning'
+    }
+  }
   if (props.answerStatus === 'conflicting_evidence') {
     return {
       title: '资料存在适用条件差异',

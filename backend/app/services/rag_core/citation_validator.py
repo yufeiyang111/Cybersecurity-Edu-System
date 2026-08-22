@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """服务端 Citation Manifest 验证：拒绝伪造、跨请求和不可定位引用。"""
 from __future__ import annotations
 
@@ -11,12 +11,14 @@ CitationAnswerStatus = Literal[
     "supported",
     "insufficient_evidence",
     "conflicting_evidence",
+    "ungrounded",
     "degraded",
 ]
 _VALID_ANSWER_STATUSES = {
     "supported",
     "insufficient_evidence",
     "conflicting_evidence",
+    "ungrounded",
     "degraded",
 }
 

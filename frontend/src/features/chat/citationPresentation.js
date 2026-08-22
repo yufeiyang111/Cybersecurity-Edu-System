@@ -8,6 +8,7 @@ const ANSWER_STATUSES = new Set([
   'supported',
   'insufficient_evidence',
   'conflicting_evidence',
+  'ungrounded',
   'degraded'
 ])
 
@@ -25,6 +26,11 @@ const STATUS_PRESENTATIONS = {
   conflicting_evidence: {
     label: '资料冲突',
     description: '已检索到适用条件或版本不同的资料。',
+    tone: 'warning'
+  },
+  ungrounded: {
+    label: '未检索内容',
+    description: '本次回答基于模型通用知识，不代表知识库中的可核验结论。',
     tone: 'warning'
   },
   degraded: {
@@ -207,9 +213,21 @@ export function citationUsagePresentation(status, citationCount = 0) {
       ariaLabel: '存在冲突的参考资料',
       title: '冲突参考资料',
       description: '以下资料可能适用于不同条件或版本，不能作为单一结论的支撑依据。',
-      countLabel: `检索到 ${count} 条存在冲突的参考资料。`,
+      countLabel: `${count} 条存在冲突的参考资料。`,
       actionLabel: '查看冲突资料',
       itemLabel: '冲突资料',
+      showClaimCount: false
+    }
+  }
+
+  if (status === 'ungrounded') {
+    return {
+      ariaLabel: '未检索到可验证内容',
+      title: '无可验证引用',
+      description: '本次回答来自模型通用知识，没有可供核验的知识库来源。',
+      countLabel: '本次回答未使用知识库引用。',
+      actionLabel: '查看说明',
+      itemLabel: '无可验证引用',
       showClaimCount: false
     }
   }

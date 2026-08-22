@@ -13,6 +13,7 @@ ALLOWED_ANSWER_STATUSES = {
     "supported",
     "insufficient_evidence",
     "conflicting_evidence",
+    "ungrounded",
     "degraded",
     "unclassified",
 }
@@ -21,6 +22,7 @@ ALLOWED_STAGES = (
     "rerank",
     "evidence",
     "generation",
+    "ungrounded_generation",
     "answer",
     "retrieval_total",
 )

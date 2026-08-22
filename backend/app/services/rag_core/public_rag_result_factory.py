@@ -74,6 +74,52 @@ def composed_result(
     )
 
 
+def ungrounded_result(
+    *,
+    request: RagExecutionRequest,
+    pipeline_version_key: str,
+    generation: ProviderGeneration,
+    warnings: tuple[str, ...],
+    trace_stages: dict[str, Any],
+    retrieval_ms: int,
+    notice: str,
+) -> RagExecutionResult:
+    """构造用户已授权的无证据通用知识回答，始终不携带引用。"""
+    citations = CitationManifest(references=())
+    answer = f"{notice}\n\n{generation.raw_response.strip()}"
+    trace_stages["answer"] = {
+        "answer_status": "ungrounded",
+        "citation_count": 0,
+        "claim_count": 0,
+        "uncertainty_count": 1,
+        "warning_count": len(warnings),
+    }
+    return RagExecutionResult(
+        answer=answer,
+        answer_status="ungrounded",
+        citations=citations,
+        trace=_trace(
+            request=request,
+            pipeline_version_key=pipeline_version_key,
+            stage_summary=trace_stages,
+            warnings=warnings,
+            retrieval_ms=retrieval_ms,
+        ),
+        confidence=None,
+        model_name=_text_or_none(generation.model_name),
+        provider=_text_or_none(generation.provider),
+        model_version=_text_or_none(generation.model_version),
+        response_time=_non_negative_float(generation.response_time),
+        rag_warnings=warnings,
+        reasoning=_text_or_none(generation.reasoning),
+        compatibility_payload={
+            "retrieved_docs": [],
+            "sources": [],
+            "uncertainty": [notice],
+        },
+    )
+
+
 def terminal_result(
     *,
     request: RagExecutionRequest,
@@ -202,5 +248,6 @@ __all__ = [
     "generation_warnings",
     "rerank_warnings",
     "terminal_result",
+    "ungrounded_result",
     "unique_warnings",
 ]

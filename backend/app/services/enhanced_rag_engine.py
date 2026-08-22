@@ -712,6 +712,9 @@ class EnhancedRAGEngine:
             user_preferences=user_preferences,
             user_id=user_id,
             memories=tuple(memories or ()),
+            allow_ungrounded_answers=bool(
+                (user_preferences or {}).get("allow_ungrounded_answers", False)
+            ),
         )
 
     def ask_stream(

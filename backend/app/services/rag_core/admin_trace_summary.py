@@ -27,6 +27,7 @@ _ALLOWED_ANSWER_STATUSES = {
     "supported",
     "insufficient_evidence",
     "conflicting_evidence",
+    "ungrounded",
     "degraded",
 }
 

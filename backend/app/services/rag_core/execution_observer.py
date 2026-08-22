@@ -13,6 +13,7 @@ _ALLOWED_STAGES = (
     "rerank",
     "evidence",
     "generation",
+    "ungrounded_generation",
     "answer",
 )
 

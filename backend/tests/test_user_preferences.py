@@ -175,3 +175,40 @@ def test_preferences_analytics_reject_invalid_values(preferences_app):
             headers=headers,
         )
         assert response.status_code == 400, f"{payload!r} 应被拒绝"
+
+
+def test_preferences_persist_ungrounded_answer_opt_in_and_reset(preferences_app):
+    user_id = _make_user(preferences_app)
+    headers = _auth_headers(preferences_app, user_id)
+    client = preferences_app.test_client()
+
+    initial = client.get("/api/auth/preferences", headers=headers)
+    assert initial.status_code == 200
+    assert initial.json["preferences"]["allow_ungrounded_answers"] is False
+
+    updated = client.put(
+        "/api/auth/preferences",
+        json={"allow_ungrounded_answers": True},
+        headers=headers,
+    )
+    assert updated.status_code == 200
+    assert updated.json["preferences"]["allow_ungrounded_answers"] is True
+
+    with preferences_app.app_context():
+        stored = UserPreference.query.filter_by(user_id=user_id).one()
+        assert stored.allow_ungrounded_answers is True
+
+    reset = client.post("/api/auth/preferences/reset", headers=headers)
+    assert reset.status_code == 200
+    assert reset.json["preferences"]["allow_ungrounded_answers"] is False
+
+
+def test_preferences_reject_non_boolean_ungrounded_answer_opt_in(preferences_app):
+    user_id = _make_user(preferences_app)
+    response = preferences_app.test_client().put(
+        "/api/auth/preferences",
+        json={"allow_ungrounded_answers": "true"},
+        headers=_auth_headers(preferences_app, user_id),
+    )
+
+    assert response.status_code == 400

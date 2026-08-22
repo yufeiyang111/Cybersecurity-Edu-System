@@ -18,6 +18,7 @@ DEFAULTS = {
     "show_citations": True,
     "show_security_warnings": True,
     "persistent_memory_enabled": False,
+    "allow_ungrounded_answers": False,
     "qa_max_tokens": None,
     "analytics_time_range": "1d",
     "analytics_time_granularity": "hour",
@@ -43,7 +44,12 @@ OPTIONS = {
     "analytics_model_chart": {"trend", "distribution", "ranking"},
 }
 TEXT_LIMITS = {"about_user": 1000, "response_preferences": 2000, "custom_prompt": 4000}
-BOOLEAN_FIELDS = ("show_citations", "show_security_warnings", "persistent_memory_enabled")
+BOOLEAN_FIELDS = (
+    "show_citations",
+    "show_security_warnings",
+    "persistent_memory_enabled",
+    "allow_ungrounded_answers",
+)
 QA_MAX_TOKENS_DEFAULT = 16384
 QA_MAX_TOKENS_LIMITS = (1, 384000)
 

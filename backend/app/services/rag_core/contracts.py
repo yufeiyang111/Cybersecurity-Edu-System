@@ -9,6 +9,7 @@ AnswerStatus = Literal[
     "supported",
     "insufficient_evidence",
     "conflicting_evidence",
+    "ungrounded",
     "degraded",
 ]
 RetrievalPath = Literal[
@@ -24,6 +25,7 @@ _VALID_ANSWER_STATUSES = {
     "supported",
     "insufficient_evidence",
     "conflicting_evidence",
+    "ungrounded",
     "degraded",
 }
 
@@ -39,11 +41,13 @@ class RagExecutionRequest:
     user_preferences: Mapping[str, Any] | None = None
     user_id: int | None = None
     memories: tuple[Mapping[str, Any], ...] = ()
+    allow_ungrounded_answers: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.query, str) or not self.query.strip():
             raise ValueError("RAG query must be a non-empty string")
-
+        if not isinstance(self.allow_ungrounded_answers, bool):
+            raise ValueError("allow_ungrounded_answers must be a boolean")
 
 @dataclass(frozen=True)
 class Candidate:

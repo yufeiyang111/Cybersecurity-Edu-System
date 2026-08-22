@@ -1125,6 +1125,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     show_citations BOOLEAN NOT NULL DEFAULT TRUE,
     show_security_warnings BOOLEAN NOT NULL DEFAULT TRUE,
     persistent_memory_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    allow_ungrounded_answers BOOLEAN NOT NULL DEFAULT FALSE COMMENT '无可验证知识库证据时允许基于模型通用知识回答',
     qa_max_tokens INT NULL COMMENT 'QA 回答最大输出 tokens，NULL 使用引擎默认 16384',
     analytics_time_range VARCHAR(20) NOT NULL DEFAULT '1d' COMMENT '模型分析默认时间范围：1h/6h/1d/7d/30d',
     analytics_time_granularity VARCHAR(20) NOT NULL DEFAULT 'hour' COMMENT '模型分析默认时间粒度：hour/day',

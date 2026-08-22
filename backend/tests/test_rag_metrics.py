@@ -119,3 +119,26 @@ def test_runtime_metrics_caps_pipeline_series_and_accounts_for_overflow():
     assert execution_count == total_executions
     overflow = _series_for(snapshot, mode="unknown", version="other")
     assert overflow["execution_count"] == total_executions - 23
+
+
+def test_runtime_metrics_tracks_ungrounded_answers_separately():
+    metrics = RagRuntimeMetrics(sample_limit=16)
+    metrics.record_execution(
+        pipeline_mode="v2",
+        pipeline_version="rag-v2-0123456789abcdef01234567",
+        answer_status="ungrounded",
+        stage_durations_ms={"ungrounded_generation": 27},
+    )
+
+    series = _series_for(
+        metrics.snapshot(),
+        mode="v2",
+        version="rag-v2-0123456789abcdef01234567",
+    )
+
+    assert series["answer_status_counts"]["ungrounded"] == 1
+    assert series["durations_ms"]["ungrounded_generation"] == {
+        "count": 1,
+        "p50": 27,
+        "p95": 27,
+    }

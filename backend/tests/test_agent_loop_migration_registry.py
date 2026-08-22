@@ -18,6 +18,7 @@ QA_ATTACHMENTS_MIGRATION = "039_qa_record_attachments"
 HARNESS_STATE_MIGRATION = "040_agent_harness_state_contract"
 RUN_FEATURE_FLAGS_SNAPSHOT_MIGRATION = "041_agent_run_feature_flags_snapshot"
 AUDIT_HYPOTHESES_MIGRATION = "042_agent_audit_hypotheses"
+UNGROUNDED_ANSWER_PREFERENCE_MIGRATION = "043_user_ungrounded_answer_preference"
 
 
 def test_migration_ids_unique_and_ordered():
@@ -37,6 +38,7 @@ def test_agent_loop_migration_precedes_all_later_migrations_in_order():
         "040_agent_harness_state_contract",
         "041_agent_run_feature_flags_snapshot",
         "042_agent_audit_hypotheses",
+        "043_user_ungrounded_answer_preference",
     )
 
 
@@ -48,6 +50,7 @@ def test_agent_flags_migration_precedes_later_agent_and_rag_migrations():
     assert HARNESS_STATE_MIGRATION in MIGRATION_IDS
     assert RUN_FEATURE_FLAGS_SNAPSHOT_MIGRATION in MIGRATION_IDS
     assert AUDIT_HYPOTHESES_MIGRATION in MIGRATION_IDS
+    assert UNGROUNDED_ANSWER_PREFERENCE_MIGRATION in MIGRATION_IDS
     flags_index = MIGRATION_IDS.index(AGENT_FLAGS_MIGRATION)
     sse_index = MIGRATION_IDS.index(AGENT_SSE_HEALTH_MIGRATION)
     rag_core_index = MIGRATION_IDS.index(ENTERPRISE_RAG_CORE_MIGRATION)
@@ -55,13 +58,17 @@ def test_agent_flags_migration_precedes_later_agent_and_rag_migrations():
     harness_index = MIGRATION_IDS.index(HARNESS_STATE_MIGRATION)
     snapshot_index = MIGRATION_IDS.index(RUN_FEATURE_FLAGS_SNAPSHOT_MIGRATION)
     hypotheses_index = MIGRATION_IDS.index(AUDIT_HYPOTHESES_MIGRATION)
+    ungrounded_preference_index = MIGRATION_IDS.index(
+        UNGROUNDED_ANSWER_PREFERENCE_MIGRATION
+    )
     assert flags_index == sse_index - 1
     assert sse_index == rag_core_index - 1
     assert rag_core_index == attachments_index - 1
     assert attachments_index == harness_index - 1
     assert harness_index == snapshot_index - 1
     assert snapshot_index == hypotheses_index - 1
-    assert hypotheses_index == len(MIGRATION_IDS) - 1
+    assert hypotheses_index == ungrounded_preference_index - 1
+    assert ungrounded_preference_index == len(MIGRATION_IDS) - 1
 
 
 
@@ -126,3 +133,16 @@ def test_audit_hypotheses_migration_file_and_init_sql_synced():
     init_sql = INIT_SQL.read_text(encoding="utf-8")
     assert "CREATE TABLE IF NOT EXISTS agent_audit_hypotheses" in init_sql
     assert "CREATE TABLE IF NOT EXISTS agent_audit_hypothesis_verdicts" in init_sql
+
+
+
+
+
+
+def test_ungrounded_answer_preference_migration_file_and_init_sql_synced():
+    path = MIGRATIONS_DIR / f"{UNGROUNDED_ANSWER_PREFERENCE_MIGRATION}.sql"
+    assert path.is_file()
+    content = path.read_text(encoding="utf-8")
+    assert "ADD COLUMN IF NOT EXISTS allow_ungrounded_answers" in content
+    init_sql = INIT_SQL.read_text(encoding="utf-8")
+    assert "allow_ungrounded_answers BOOLEAN NOT NULL DEFAULT FALSE" in init_sql

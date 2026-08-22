@@ -405,3 +405,62 @@ def test_executor_records_citation_validator_failure_without_exposing_validator_
     assert series["citation_validation_failure_count"] == 1
     assert series["component_events"]["citation_validator"]["failed"] == 1
     assert "validator internals" not in serialized
+
+
+def test_executor_generates_marked_ungrounded_answer_only_after_evidence_is_insufficient():
+    calls = []
+
+    class EmptyBackend:
+        def hybrid_search(self, **kwargs):
+            return []
+
+    def generate(messages, request):
+        calls.append((messages, request))
+        return ProviderGeneration(
+            raw_response="可以从输入校验、参数化查询和最小权限开始排查。",
+            model_name="test-model",
+            provider="test-provider",
+            model_version="test-model-v1",
+            response_time=0.12,
+        )
+
+    result = _executor(backend=EmptyBackend(), generation=generate).execute(
+        RagExecutionRequest(
+            query="没有知识库证据的问题",
+            request_id="req-ungrounded",
+            allow_ungrounded_answers=True,
+        ),
+    )
+
+    assert len(calls) == 1
+    assert "没有检索到任何可验证的知识库内容" in calls[0][0][0]["content"]
+    assert result.answer_status == "ungrounded"
+    assert result.citations.references == ()
+    assert result.compatibility_payload["sources"] == []
+    assert result.answer.startswith("【本次回复未检索到任何可验证的知识库内容。")
+    assert "NO_RETRIEVED_EVIDENCE" in result.rag_warnings
+    assert "USER_PREFERENCE_UNGROUNDED_ANSWER" in result.rag_warnings
+    assert result.trace.stage_summary["ungrounded_generation"]["status"] == "completed"
+
+
+def test_executor_does_not_use_ungrounded_answer_opt_in_when_retrieval_fails():
+    class BrokenBackend:
+        def hybrid_search(self, **kwargs):
+            raise RuntimeError("qdrant unavailable")
+
+    result = _executor(
+        backend=BrokenBackend(),
+        generation=lambda messages, request: (_ for _ in ()).throw(
+            AssertionError("检索基础设施故障时不得调用 Provider")
+        ),
+    ).execute(
+        RagExecutionRequest(
+            query="检索故障",
+            request_id="req-ungrounded-retrieval-failure",
+            allow_ungrounded_answers=True,
+        ),
+    )
+
+    assert result.answer_status == "degraded"
+    assert "QDRANT_UNAVAILABLE" in result.rag_warnings
+    assert result.citations.references == ()

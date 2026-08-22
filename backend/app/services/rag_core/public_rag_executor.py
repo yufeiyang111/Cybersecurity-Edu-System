@@ -12,6 +12,7 @@ from app.services.rag_core.public_rag_result_factory import (
     generation_warnings,
     rerank_warnings,
     terminal_result,
+    ungrounded_result,
     unique_warnings,
 )
 from app.services.rag_core.candidate_retriever import CandidateRetriever
@@ -127,6 +128,13 @@ class PublicRagExecutor:
                 retrieval_ms=retrieval_ms,
             ))
         if evidence_result.answer_status == "insufficient_evidence":
+            if request.allow_ungrounded_answers:
+                return self._generate_ungrounded_answer(
+                    request=request,
+                    warnings=warnings,
+                    trace_stages=trace_stages,
+                    retrieval_ms=retrieval_ms,
+                )
             return self._record_result(terminal_result(
                 request=request,
                 pipeline_version_key=self._pipeline_version_key,
@@ -137,7 +145,6 @@ class PublicRagExecutor:
                 trace_stages=trace_stages,
                 retrieval_ms=retrieval_ms,
             ))
-
         citation_manifest = self._citation_manifest_builder.build(evidence_result.pack)
         from app.services.rag_citation_prompt import build_citation_qa_messages
 
@@ -188,6 +195,68 @@ class PublicRagExecutor:
             warnings=all_warnings,
             trace_stages=trace_stages,
             retrieval_ms=retrieval_ms,
+        ))
+
+    def _generate_ungrounded_answer(
+        self,
+        *,
+        request: RagExecutionRequest,
+        warnings: tuple[str, ...],
+        trace_stages: dict,
+        retrieval_ms: int,
+    ) -> RagExecutionResult:
+        """在用户长期偏好已开启时生成明确标识的无证据通用回答。"""
+        from app.services.rag_ungrounded_prompt import (
+            UNGROUNDED_ANSWER_NOTICE,
+            build_ungrounded_qa_messages,
+        )
+
+        messages = build_ungrounded_qa_messages(
+            request.query,
+            conversation_history=request.conversation_history,
+            user_preferences=request.user_preferences,
+            memories=request.memories,
+        )
+        generation_started_at = perf_counter()
+        generation = self._generate_answer(messages, request)
+        trace_stages["ungrounded_generation"] = {
+            "status": "completed" if generation is not None else "failed",
+            "elapsed_ms": _elapsed_ms(generation_started_at),
+        }
+        ungrounded_warnings = unique_warnings(
+            warnings,
+            (
+                "NO_RETRIEVED_EVIDENCE",
+                "USER_PREFERENCE_UNGROUNDED_ANSWER",
+                # spec 要求的审计码别名；与上面并存，便于既有/新审计逻辑兼容。
+                "USER_APPROVED_UNGROUNDED_ANSWER",
+            ),
+        )
+        if generation is None:
+            return self._record_result(terminal_result(
+                request=request,
+                pipeline_version_key=self._pipeline_version_key,
+                answer="生成服务暂时不可用，当前无法提供基于通用知识的回答。",
+                answer_status="degraded",
+                citations=CitationManifest(references=()),
+                warnings=unique_warnings(
+                    ungrounded_warnings,
+                    ("LLM_PROVIDER_REQUEST_FAILED",),
+                ),
+                trace_stages=trace_stages,
+                retrieval_ms=retrieval_ms,
+            ))
+        return self._record_result(ungrounded_result(
+            request=request,
+            pipeline_version_key=self._pipeline_version_key,
+            generation=generation,
+            warnings=unique_warnings(
+                ungrounded_warnings,
+                generation_warnings(generation),
+            ),
+            trace_stages=trace_stages,
+            retrieval_ms=retrieval_ms,
+            notice=UNGROUNDED_ANSWER_NOTICE,
         ))
 
     def _record_result(self, result: RagExecutionResult) -> RagExecutionResult:
