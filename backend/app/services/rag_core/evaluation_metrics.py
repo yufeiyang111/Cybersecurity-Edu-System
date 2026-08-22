@@ -44,8 +44,12 @@ def retrieval_metrics(
     )
     return {
         "judged": True,
+        "recall_at_1": _recall_at(candidates, expected_set, 1),
+        "recall_at_3": _recall_at(candidates, expected_set, 3),
+        "recall_at_5": _recall_at(candidates, expected_set, 5),
         "recall_at_20": _recall_at(candidates, expected_set, 20),
         "recall_at_40": _recall_at(candidates, expected_set, 40),
+        "mrr": 1.0 / first_relevant_rank if first_relevant_rank is not None else 0.0,
         "mrr_at_20": (
             1.0 / first_relevant_rank
             if first_relevant_rank is not None and first_relevant_rank <= 20

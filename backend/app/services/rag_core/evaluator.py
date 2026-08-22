@@ -66,6 +66,7 @@ class OfflineRagEvaluator:
             outcomes=ordered_outcomes,
             metrics=_summary_metrics(ordered_outcomes),
             by_category=_category_metrics(ordered_outcomes),
+            by_difficulty=_difficulty_metrics(ordered_outcomes),
             release_blockers=_release_blockers(ordered_outcomes),
             started_at=started_at,
             finished_at=datetime.utcnow(),
@@ -165,7 +166,16 @@ def _summary_metrics(outcomes: Sequence[EvaluationCaseOutcome]) -> dict[str, Any
     return {
         "retrieval": average_metric_values(
             retrieval_rows,
-            ("recall_at_20", "recall_at_40", "mrr_at_20", "ndcg_at_10"),
+            (
+                "recall_at_1",
+                "recall_at_3",
+                "recall_at_5",
+                "recall_at_20",
+                "recall_at_40",
+                "mrr",
+                "mrr_at_20",
+                "ndcg_at_10",
+            ),
         ),
         "evidence": average_metric_values(
             evidence_rows,
@@ -192,6 +202,16 @@ def _category_metrics(outcomes: Sequence[EvaluationCaseOutcome]) -> dict[str, di
     return {
         category: {"case_count": len(group), **_summary_metrics(tuple(group))}
         for category, group in sorted(grouped.items())
+    }
+
+
+def _difficulty_metrics(outcomes: Sequence[EvaluationCaseOutcome]) -> dict[str, dict[str, Any]]:
+    grouped: dict[str, list[EvaluationCaseOutcome]] = defaultdict(list)
+    for outcome in outcomes:
+        grouped[outcome.difficulty].append(outcome)
+    return {
+        difficulty: {"case_count": len(group), **_summary_metrics(tuple(group))}
+        for difficulty, group in sorted(grouped.items())
     }
 
 

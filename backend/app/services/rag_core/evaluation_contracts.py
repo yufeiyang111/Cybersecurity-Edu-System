@@ -22,6 +22,11 @@ class EvaluationCase:
     expected_status: str
     review_note: str
     query: str = field(default="", repr=False, compare=False)
+    # 版本化评测集的富证据标签（可选，向后兼容 legacy 调用方）。
+    # expected_evidence 每项携带 document_id / title / chunk_id / start_line /
+    # end_line / corpus_version / role；绝不携带知识库正文或 Prompt。
+    expected_evidence: tuple[dict, ...] = ()
+    tags: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.case_id <= 0:
@@ -32,6 +37,10 @@ class EvaluationCase:
             raise ValueError("category and difficulty are required")
         if not self.expected_status.strip():
             raise ValueError("expected_status is required")
+        if not isinstance(self.expected_evidence, tuple):
+            raise ValueError("expected_evidence must be a tuple")
+        if not isinstance(self.tags, tuple):
+            raise ValueError("tags must be a tuple")
 
 
 @dataclass(frozen=True)
@@ -118,6 +127,7 @@ class EvaluationReport:
     outcomes: tuple[EvaluationCaseOutcome, ...]
     metrics: Mapping[str, Any]
     by_category: Mapping[str, Mapping[str, Any]]
+    by_difficulty: Mapping[str, Mapping[str, Any]]
     release_blockers: tuple[str, ...]
     started_at: datetime
     finished_at: datetime
@@ -138,6 +148,10 @@ class EvaluationReport:
             "by_category": {
                 category: dict(metrics)
                 for category, metrics in self.by_category.items()
+            },
+            "by_difficulty": {
+                difficulty: dict(metrics)
+                for difficulty, metrics in self.by_difficulty.items()
             },
             "release_blockers": list(self.release_blockers),
             "started_at": self.started_at.isoformat(),

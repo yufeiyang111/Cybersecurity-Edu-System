@@ -103,7 +103,56 @@ def evaluation_case_from_model(model: Any) -> EvaluationCase:
         expected_status=_text(getattr(model, "expected_status", None), "supported"),
         review_note=_text(getattr(model, "notes", None), "database-label"),
         query=_text(getattr(model, "query", None), ""),
+        expected_evidence=_json_evidence(getattr(model, "expected_evidence_json", None)),
+        tags=_json_tags(getattr(model, "expected_evidence_json", None)),
     )
+
+
+def _json_evidence(value: object) -> tuple[dict, ...]:
+    """从 expected_evidence_json 解析富证据标签；仅保留受控字段，丢弃正文/Prompt。"""
+    parsed = _coerce_json_list(value)
+    allowed = {
+        "document_id",
+        "title",
+        "chunk_id",
+        "start_line",
+        "end_line",
+        "corpus_version",
+        "role",
+    }
+    cleaned: list[dict] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        cleaned.append({key: item[key] for key in allowed if key in item})
+    return tuple(cleaned)
+
+
+def _json_tags(value: object) -> tuple[str, ...]:
+    """从 expected_evidence_json 的 tags 字段解析标签（若存在）。"""
+    parsed = _coerce_json_list(value)
+    if not parsed:
+        return ()
+    tags: list[str] = []
+    for item in parsed:
+        if isinstance(item, dict) and isinstance(item.get("tags"), list):
+            for tag in item["tags"]:
+                if isinstance(tag, str) and tag.strip() and tag not in tags:
+                    tags.append(tag.strip())
+    return tuple(tags)
+
+
+def _coerce_json_list(value: object) -> list:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return []
+    else:
+        parsed = value
+    return parsed if isinstance(parsed, list) else []
 
 
 def evaluation_config_fingerprint() -> str:

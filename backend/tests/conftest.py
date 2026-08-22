@@ -31,7 +31,9 @@ class TestConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     CORS_ALLOWED_ORIGINS = ["https://security.example.test"]
     SECURITY_WORKSPACE_ROOT = "security-workspaces"
-    REDIS_URL = "redis://localhost:6379/0"
+    # 置空使限流器走进程内计数：测试与宿主 Redis 完全隔离，
+    # 避免宿主服务运行时限流计数跨 pytest 进程残留导致 429 假失败。
+    REDIS_URL = ""
     RQ_QUEUE_NAME = "cyberguard-security-test"
     RQ_ASYNC = False
     GITHUB_API_TIMEOUT_SECONDS = 15
