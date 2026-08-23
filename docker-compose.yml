@@ -16,8 +16,8 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      - DOMAIN=${DOMAIN:-localhost}
-      - LABEX_DOMAIN=${LABEX_DOMAIN:-labex.localhost}
+      - DOMAIN=${DOMAIN:-cyberguard.123845.xyz}
+      - LABEX_DOMAIN=${LABEX_DOMAIN:-labexagent.123845.xyz}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
