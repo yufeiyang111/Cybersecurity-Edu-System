@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**基于检索增强生成（RAG）的网络安全知识问答平台**
+**检索增强生成（RAG）驱动的安全知识引擎**
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat)
 ![Flask](https://img.shields.io/badge/Flask-3.0-111111?style=flat)
