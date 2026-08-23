@@ -1,0 +1,23 @@
+# Caddyfile — 自动 HTTPS 与反向代理配置
+# {$DOMAIN} 会自动读取环境变量中的域名；未配置时默认为 localhost
+{$DOMAIN:localhost} {
+    # 前端构建产物静态托管目录
+    root * /srv
+    encode gzip zstd
+    file_server
+
+    # 反向代理后端 Flask API 接口（容器内网通讯）
+    handle /api/* {
+        reverse_proxy backend:5001 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # 前端 SPA 路由回退：非文件请求全部路由到 index.html
+    handle {
+        try_files {path} /index.html
+    }
+}

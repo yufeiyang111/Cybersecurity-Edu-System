@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # ========================================================
+  # 1. Caddy 边缘反向代理与自动 HTTPS（对外开放 80 / 443 端口）
+  # ========================================================
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+      args:
+        - VITE_SECURITY_WORKBENCH_ENABLED=false
+    container_name: cyberguard-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      - caddy_data:/data      # 持久化 Let's Encrypt SSL 证书
+      - caddy_config:/config  # 持久化 Caddy 运行配置
+    depends_on:
+      - backend
+    networks:
+      - cyberguard-net
+
+  # ========================================================
+  # 2. Flask 后端服务（仅在 Docker 内部网络互通，不对外暴露端口）
+  # ========================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cyberguard-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    volumes:
+      - backend_data:/app/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    networks:
+      - cyberguard-net
+
+  # ========================================================
+  # 3. MySQL 数据库（容器内网互联，不对外暴露公网端口）
+  # ========================================================
+  mysql:
+    image: mysql:8.0
+    container_name: cyberguard-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-cyberguard_secret}
+      MYSQL_DATABASE: cyberguard
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD:-cyberguard_secret}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cyberguard-net
+
+  # ========================================================
+  # 4. Qdrant 向量数据库（容器内网互联，不对外暴露公网端口）
+  # ========================================================
+  qdrant:
+    image: qdrant/qdrant:v1.10.0
+    container_name: cyberguard-qdrant
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - cyberguard-net
+
+volumes:
+  caddy_data:
+  caddy_config:
+  mysql_data:
+  qdrant_data:
+  backend_data:
+
+networks:
+  cyberguard-net:
+    driver: bridge

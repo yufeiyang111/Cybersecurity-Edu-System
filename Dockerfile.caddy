@@ -1,0 +1,27 @@
+# 阶段 1：Node.js 前端打包构建
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY frontend/package*.json ./
+RUN npm ci
+
+COPY frontend/ .
+
+# 生产环境默认启用安全工作台熔断
+ARG VITE_SECURITY_WORKBENCH_ENABLED=false
+ENV VITE_SECURITY_WORKBENCH_ENABLED=${VITE_SECURITY_WORKBENCH_ENABLED}
+
+RUN npm run build
+
+# 阶段 2：轻量级 Caddy 镜像托管与反向代理
+FROM caddy:2.8-alpine
+
+# 将构建好的前端 dist 复制至 Caddy 的 Web 根目录
+COPY --from=builder /app/dist /srv
+
+# 复制 Caddyfile 配置文件
+COPY Caddyfile /etc/caddy/Caddyfile
+
+EXPOSE 80
+EXPOSE 443
