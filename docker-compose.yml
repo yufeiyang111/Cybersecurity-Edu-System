@@ -17,6 +17,9 @@ services:
       - "443:443"
     environment:
       - DOMAIN=${DOMAIN:-localhost}
+      - LABEX_DOMAIN=${LABEX_DOMAIN:-labex.localhost}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - caddy_data:/data      # 持久化 Let's Encrypt SSL 证书
       - caddy_config:/config  # 持久化 Caddy 运行配置

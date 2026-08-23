@@ -1,5 +1,6 @@
-# Caddyfile — 自动 HTTPS 与反向代理配置
-# {$DOMAIN} 会自动读取环境变量中的域名；未配置时默认为 localhost
+# ========================================================
+# 1. CyberGuard 平台（主站点 / 知识问答）
+# ========================================================
 {$DOMAIN:localhost} {
     # 前端构建产物静态托管目录
     root * /srv
@@ -21,3 +22,33 @@
         try_files {path} /index.html
     }
 }
+
+# ========================================================
+# 2. （多项目协同）LabexAgent 代理（可选配置）
+# 如果你为 LabexAgent 分配了一个域名（如 labex.yourdomain.com）
+# 开启下方配置后，Caddy 会自动为其申请 SSL 证书，并将流量转发到宿主机 3000 和 8080
+# ========================================================
+# {$LABEX_DOMAIN:labex.yourdomain.com} {
+#     encode gzip zstd
+#
+#     # LabexAgent 后端 API 反向代理到宿主机 8080 端口
+#     handle /api/* {
+#         reverse_proxy host.docker.internal:8080 {
+#             header_up Host {host}
+#             header_up X-Real-IP {remote_host}
+#             header_up X-Forwarded-For {remote_host}
+#             header_up X-Forwarded-Proto {scheme}
+#         }
+#     }
+#
+#     # LabexAgent 前端反向代理到宿主机 3000 端口
+#     handle {
+#         reverse_proxy host.docker.internal:3000 {
+#             header_up Host {host}
+#             header_up X-Real-IP {remote_host}
+#             header_up X-Forwarded-For {remote_host}
+#             header_up X-Forwarded-Proto {scheme}
+#         }
+#     }
+# }
+
