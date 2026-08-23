@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from app import create_app
+from app.services.llm.provider_selector import select_provider
 from app.services.rag_core.datasets import (
     EVALUATION_CASES,
     PRODUCTION_CURATED_EVALUATION_CASES,
@@ -86,7 +87,46 @@ def build_argument_parser() -> argparse.ArgumentParser:
         default=0,
         help="LLM-as-judge：对前 N 条有据回答做忠实度/相关性评审（0=关闭，每题一次额外调用）",
     )
+    parser.add_argument(
+        "--provider-config-id",
+        type=int,
+        default=None,
+        help="强制使用指定 llm_provider_configs.id 作为 LLM Provider"
+             "（覆盖服务端兜底；QA 与 judge 同源）",
+    )
     return parser
+
+
+def _force_provider_factory(config_id: int):
+    """构造替换版 select_provider：固定使用数据库中指定 Provider 配置。
+
+    评测脚本运行于无登录用户的上下文，引擎默认走服务端 .env 兜底；
+    此工厂允许评测临时改用某个用户配置的 Provider（如 opencode go / Mimo）。
+    必须在 Flask app_context 内调用与执行。
+    """
+    from app import db
+    from app.models.llm import LLMProviderConfig
+    from app.services.llm.call_logging import observe_provider
+    from app.services.llm.openai_compatible import OpenAICompatibleProvider
+    from app.services.llm.secrets import decrypt_secret
+
+    def select_forced(user_id: int | None = None, operation: str = "qa"):
+        config = db.session.get(LLMProviderConfig, config_id)
+        if config is None or not config.is_enabled:
+            raise RuntimeError(f"provider_config_id={config_id} 不存在或未启用")
+        provider = OpenAICompatibleProvider(
+            provider_name=config.name,
+            base_url=config.base_url,
+            api_key=decrypt_secret(config.api_key_ciphertext),
+            model=config.model,
+            provider_config_id=config.id,
+            user_id=user_id,
+            operation=operation,
+            max_tokens=config.max_tokens,
+        )
+        return observe_provider(provider, user_id=user_id, operation=operation)
+
+    return select_forced
 
 
 def load_review_status(path: Path) -> Dict[str, str]:
@@ -180,10 +220,20 @@ def run_dataset(
     out_dir: Path,
     persist: bool,
     judge_limit: int = 0,
+    provider_config_id: int | None = None,
 ) -> Dict[str, Any]:
     capture: Dict[int, Dict[str, Any]] = {}
     raw_sink: Dict[int, Dict[str, Any]] = {}
-    port = build_runtime_executor(
+    port_builder = build_runtime_executor
+    forced_selector = None
+    if provider_config_id is not None:
+        # 强制评测链路（QA 与 judge）使用指定 Provider 配置。
+        import app.services.enhanced_rag_engine as _engine_module
+
+        forced_selector = _force_provider_factory(provider_config_id)
+        _engine_module.select_provider = forced_selector
+        port_builder = build_runtime_executor
+    port = port_builder(
         pipeline=pipeline,
         corpus_version=corpus_version,
         on_result=lambda case, result: _capture_raw(raw_sink, case.case_id, result)
@@ -208,10 +258,13 @@ def run_dataset(
     # LLM-as-judge：仅评审有据回答，逐题一次额外调用，成本由 --judge N 控制。
     verdicts_by_key: Dict[str, Dict[str, Any]] = {}
     if judge_limit > 0:
-        from app.services.llm.provider_selector import select_provider
         from app.services.rag_core.answer_judge import judge_answer
 
-        provider = select_provider(operation="judge")
+        provider = (
+            forced_selector(operation="judge")
+            if forced_selector is not None
+            else select_provider(operation="judge")
+        )
         judged = 0
         for case in cases:
             if judged >= judge_limit:
@@ -323,6 +376,7 @@ def main() -> None:
                     out_dir=DEFAULT_DATA_DIR,
                     persist=args.persist,
                     judge_limit=args.judge,
+                    provider_config_id=args.provider_config_id,
                 )
             )
     print(json.dumps({"tag": tag, "results": results}, ensure_ascii=False, indent=2))
