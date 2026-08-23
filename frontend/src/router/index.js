@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { isSecurityWorkbenchEnabled } from '@/config/features'
 
 const routes = [
   {
@@ -232,6 +233,12 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach((to, from, next) => {
   document.title = to.meta.title ? `${to.meta.title} - CyberGuard` : 'CyberGuard'
+  
+  // 安全工作台熔断保护：未启用时拦截所有 /security 路由重定向至首页
+  if (to.path.startsWith('/security') && !isSecurityWorkbenchEnabled()) {
+    next({ name: 'Home' })
+    return
+  }
   
   const userStore = useUserStore()
   

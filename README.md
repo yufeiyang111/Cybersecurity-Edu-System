@@ -12,14 +12,14 @@
 ![MySQL](https://img.shields.io/badge/MySQL-8.0+-4479A1?style=flat&logo=mysql&logoColor=white)
 ![Qdrant](https://img.shields.io/badge/Qdrant-1.19-DC382D?style=flat)
 ![Backend Tests](https://img.shields.io/badge/Backend_Tests-1429_PASS-brightgreen?style=flat)
-![Eval Cases](https://img.shields.io/badge/Eval_Cases-1427-FF6F00?style=flat)
+![Eval Cases](https://img.shields.io/badge/Eval_Cases-1422-FF6F00?style=flat)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat)
 
 </div>
 
 ---
 
-CyberGuard 是一个以 RAG 为核心的网络安全知识问答平台：Flask 后端 + Vue 3 前端，将 1000+ 篇开源安全文档结构化入库（约 2.2 万知识块），经混合检索、两阶段重排与严格引用校验，产出可溯源到原文行号的回答。配套全覆盖离线评测体系——**1427 道评测题**、人工审批工作流与一键真实链路评测。它解决两个核心问题：
+CyberGuard 是一个以 RAG 为核心的网络安全知识问答平台：Flask 后端 + Vue 3 前端，将 1000+ 篇开源安全文档结构化入库（约 2.2 万知识块），经混合检索、两阶段重排与严格引用校验，产出可溯源到原文行号的回答。配套全覆盖离线评测体系——**1422 道评测题**、人工审批工作流与一键真实链路评测。它解决两个核心问题：
 
 1. **答案可溯源**。回答中的每个论断都标注引用编号（`[C-n]`），引用必须来自真实检索命中的知识块，并精确到原文行号；引用无法通过校验时系统降级处理而不是放行编造内容。
 2. **质量可度量**。内置版本化评测数据集、审批工作流与一键真实链路评测脚本，检索命中率（Recall@k）、排序质量（MRR / NDCG）、证据覆盖与引用合法性均有量化基线，回归可对比。
@@ -153,17 +153,21 @@ Embedding 服务不可用时自动降级（本地 bge-m3 → 轻量备选模型 
 
 ### 评测基线
 
-以下为 curated 数据集全量 1021 题在真实链路（bge-m3 + Qdrant + MiniMax-M2.7）下的实测结果：
+以下为 curated 数据集全量 1016 题（语料去重后）在真实链路（bge-m3 + Qdrant + mimo-v2.5）下的实测结果：
 
 | 指标 | 数值 |
 |---|---|
-| Recall@1 | 78.6% |
+| Recall@1 | 79.0% |
 | Recall@3 | 91.9% |
-| Recall@5 | 94.2% |
-| MRR | 0.857 |
-| NDCG@10 | 0.883 |
-| Supported 答案率 | 91.0% |
-| 检索延迟 P50 / P95 | 935 ms / 1351 ms |
+| Recall@5 | 94.3% |
+| MRR | 0.860 |
+| NDCG@10 | 0.886 |
+| Supported 答案率 | 88.7% |
+| 证据覆盖率 | 95.1% |
+| 引用归属校验 | 1016/1016（0 未知引用、0 畸形论断） |
+| 检索延迟 P50 / P95 | 936 ms / 1332 ms |
+| LLM-as-judge 忠实度 | 0.732（均值，满分 1.0） |
+| LLM-as-judge 相关性 | 0.960（均值，满分 1.0） |
 
 ## 快速开始
 

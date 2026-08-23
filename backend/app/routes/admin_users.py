@@ -5,7 +5,7 @@
 独立模块承载用户详情聚合查询，避免继续扩展巨型遗留模块 admin.py。
 鉴权沿用 admin.py 的 require_admin 约定。
 """
-from flask import Blueprint, jsonify
+from flask import Blueprint, current_app, jsonify
 from flask_jwt_extended import jwt_required, get_jwt
 
 from app import db
@@ -35,7 +35,11 @@ def get_user_detail(user_id):
     qa_count = QARecord.query.filter_by(user_id=user_id).count()
     conversation_count = QAConversation.query.filter_by(user_id=user_id).count()
     favorite_count = Favorite.query.filter_by(user_id=user_id).count()
-    workspace_count = WorkspaceMember.query.filter_by(user_id=user_id).count()
+    workspace_count = (
+        WorkspaceMember.query.filter_by(user_id=user_id).count()
+        if current_app.config.get("SECURITY_WORKBENCH_ENABLED", True)
+        else 0
+    )
     memory_count = UserMemory.query.filter_by(user_id=user_id).count()
 
     login_logs = (

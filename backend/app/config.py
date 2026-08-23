@@ -396,6 +396,8 @@ class Config:
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
     LOG_FILE = str(DATA_DIR / "logs" / "app.log")
 
+    # 安全工作台全局熔断开关：置 false 可直接熔断/禁用所有安全工作台前后端功能与接口
+    SECURITY_WORKBENCH_ENABLED = _env_bool("SECURITY_WORKBENCH_ENABLED", True)
     SECURITY_WORKSPACE_ROOT = os.getenv(
         "SECURITY_WORKSPACE_ROOT",
         str(DATA_DIR / "workspaces"),
@@ -614,6 +616,7 @@ class Config:
             "SCA_MAX_DEPENDENCIES", cls.SCA_MAX_DEPENDENCIES, maximum=MAX_SCA_DEPENDENCIES
         )
 
+        boolean("SECURITY_WORKBENCH_ENABLED", cls.SECURITY_WORKBENCH_ENABLED)
         boolean("SECURITY_KNOWLEDGE_VECTOR_ENABLED", cls.SECURITY_KNOWLEDGE_VECTOR_ENABLED)
         boolean("REMEDIATION_LLM_ENABLED", cls.REMEDIATION_LLM_ENABLED)
         positive_int(

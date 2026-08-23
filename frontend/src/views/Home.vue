@@ -15,7 +15,7 @@
           <router-link to="/qa" @mouseenter="prefetchRoute('qa')">智能问答</router-link>
           <router-link to="/knowledge" @mouseenter="prefetchRoute('knowledge')">知识库</router-link>
           <router-link to="/graph" @mouseenter="prefetchRoute('graph')">知识图谱</router-link>
-          <router-link to="/security/projects" @mouseenter="prefetchRoute('security')">安全工作台</router-link>
+          <router-link v-if="securityWorkbenchEnabled" to="/security/projects" @mouseenter="prefetchRoute('security')">安全工作台</router-link>
         </nav>
         <div class="nav-actions">
           <template v-if="userStore.isLoggedIn">
@@ -66,7 +66,7 @@
           </h1>
           <p class="hero-desc">基于检索增强生成（RAG）与大语言模型（LLM）的智能问答平台，回答附带知识库引用来源，为您提供精准、专业的网络安全知识解答。</p>
           <div class="hero-actions">
-            <a v-if="userStore.isLoggedIn" class="btn btn-primary btn-lg" href="#" @click.prevent="$router.push('/security/projects')">
+            <a v-if="securityWorkbenchEnabled && userStore.isLoggedIn" class="btn btn-primary btn-lg" href="#" @click.prevent="$router.push('/security/projects')">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
               安全工作台
             </a>
@@ -268,7 +268,7 @@
 </template>
 
 <script setup>
-import { ref, onBeforeUnmount, onMounted } from 'vue'
+import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { knowledgeAPI } from '@/api'
@@ -277,9 +277,11 @@ import { User, ChatDotRound, Star, Setting, SwitchButton } from '@element-plus/i
 import { useProfileStats } from '@/composables/user/useProfileStats'
 import { useHomeEffects } from '@/composables/home/useHomeEffects'
 import { createRoutePrefetcher } from '@/features/home/routePrefetch'
+import { isSecurityWorkbenchEnabled } from '@/config/features'
 
 const router = useRouter()
 const userStore = useUserStore()
+const securityWorkbenchEnabled = computed(() => isSecurityWorkbenchEnabled())
 
 const root = ref(null)
 const scrollBar = ref(null)
@@ -337,7 +339,7 @@ const prefetchRoute = createRoutePrefetcher({
   qa: () => import('@/views/QA.vue'),
   knowledge: () => import('@/views/Knowledge.vue'),
   graph: () => import('@/views/KnowledgeGraph.vue'),
-  security: () => import('@/views/SecurityWorkbenchLayout.vue')
+  security: () => isSecurityWorkbenchEnabled() ? import('@/views/SecurityWorkbenchLayout.vue') : Promise.resolve(null)
 })
 
 const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })

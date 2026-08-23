@@ -30,6 +30,7 @@ class TestConfig:
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     CORS_ALLOWED_ORIGINS = ["https://security.example.test"]
+    SECURITY_WORKBENCH_ENABLED = True
     SECURITY_WORKSPACE_ROOT = "security-workspaces"
     # 置空使限流器走进程内计数：测试与宿主 Redis 完全隔离，
     # 避免宿主服务运行时限流计数跨 pytest 进程残留导致 429 假失败。

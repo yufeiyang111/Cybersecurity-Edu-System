@@ -8,7 +8,7 @@
 """
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, current_app, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
@@ -65,35 +65,36 @@ def get_user_activity():
         QARecord.created_at,
     )
 
-    workspace_ids = [
-        member.workspace_id
-        for member in WorkspaceMember.query.filter_by(user_id=user_id).all()
-    ]
-
     tasks = []
-    if workspace_ids:
-        agent_series = _count_by_day(
-            AgentRun.query.filter(
-                AgentRun.workspace_id.in_(workspace_ids),
-                AgentRun.created_at >= start,
-            ),
-            AgentRun.created_at,
-        )
+    if current_app.config.get("SECURITY_WORKBENCH_ENABLED", True):
+        workspace_ids = [
+            member.workspace_id
+            for member in WorkspaceMember.query.filter_by(user_id=user_id).all()
+        ]
 
-        scan_series = _count_by_day(
-            ScanTask.query.join(
-                ProjectSnapshot,
-                ScanTask.snapshot_id == ProjectSnapshot.id,
-            ).join(
-                SecurityProject,
-                ProjectSnapshot.project_id == SecurityProject.id,
-            ).filter(
-                SecurityProject.workspace_id.in_(workspace_ids),
-                ScanTask.created_at >= start,
-            ),
-            ScanTask.created_at,
-        )
+        if workspace_ids:
+            agent_series = _count_by_day(
+                AgentRun.query.filter(
+                    AgentRun.workspace_id.in_(workspace_ids),
+                    AgentRun.created_at >= start,
+                ),
+                AgentRun.created_at,
+            )
 
-        tasks = _merge_daily_counts(agent_series, scan_series)
+            scan_series = _count_by_day(
+                ScanTask.query.join(
+                    ProjectSnapshot,
+                    ScanTask.snapshot_id == ProjectSnapshot.id,
+                ).join(
+                    SecurityProject,
+                    ProjectSnapshot.project_id == SecurityProject.id,
+                ).filter(
+                    SecurityProject.workspace_id.in_(workspace_ids),
+                    ScanTask.created_at >= start,
+                ),
+                ScanTask.created_at,
+            )
+
+            tasks = _merge_daily_counts(agent_series, scan_series)
 
     return jsonify({"qa": qa, "tasks": tasks})

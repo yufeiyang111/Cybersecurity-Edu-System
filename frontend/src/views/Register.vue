@@ -5,7 +5,7 @@
     </template>
 
     <template #form>
-      <AuthFormContainer title="创建账号" subtitle="注册 CyberGuard，开始你的安全工作台">
+      <AuthFormContainer title="创建账号" subtitle="注册 CyberGuard，开启智能安全问答与知识学习">
         <form class="auth-form" novalidate @submit.prevent="handleRegister">
           <FormInput
             v-model="form.username"

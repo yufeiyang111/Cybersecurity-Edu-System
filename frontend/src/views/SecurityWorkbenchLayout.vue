@@ -155,6 +155,7 @@ import { Box, Close, Collection, DataLine, Document, Grid, Key, List, Menu, Moni
 import { securityAPI } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { DocumentIcon, GithubIcon, PlusIcon } from '@/components/icons'
+import { isSecurityWorkbenchEnabled } from '@/config/features'
 
 const router = useRouter()
 const route = useRoute()
@@ -188,6 +189,10 @@ const handleCommand = (command) => {
 }
 
 onMounted(async () => {
+  if (!isSecurityWorkbenchEnabled()) {
+    router.replace('/')
+    return
+  }
   try {
     const response = await securityAPI.getWorkbenchOverview()
     const totals = response.data?.totals || {}
