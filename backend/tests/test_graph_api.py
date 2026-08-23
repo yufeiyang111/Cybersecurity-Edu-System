@@ -199,10 +199,11 @@ def test_path_disconnected_returns_empty(graph_api_app, graph_stub):
     assert response.json["distance"] == 0
 
 
-def test_path_requires_auth(graph_api_app, graph_stub):
+def test_path_accessible_without_auth(graph_api_app, graph_stub):
+    """图谱路径查询属于公开浏览功能，未登录也可访问。"""
     client = graph_api_app.test_client()
     response = client.get("/api/admin/graph/path?source=a&target=d")
-    assert response.status_code == 401
+    assert response.status_code == 200
 
 
 # ==================== 实体归并 ====================
@@ -447,9 +448,10 @@ def test_centrality_invalid_metric_returns_400(graph_api_app, graph_stub):
     assert response.status_code == 400
 
 
-def test_centrality_requires_auth(graph_api_app, graph_stub):
+def test_centrality_accessible_without_auth(graph_api_app, graph_stub):
+    """图谱中心性指标查询属于公开浏览功能，未登录也可访问。"""
     client = graph_api_app.test_client()
-    assert client.get("/api/admin/graph/centrality").status_code == 401
+    assert client.get("/api/admin/graph/centrality").status_code == 200
 
 
 # ==================== 跨条目同名实体关联（build_knowledge_graph） ====================

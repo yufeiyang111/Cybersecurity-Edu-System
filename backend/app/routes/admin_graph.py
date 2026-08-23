@@ -53,7 +53,7 @@ def _community_members(community_id: str, graph_data) -> list:
 
 
 @admin_graph_bp.route("/graph/communities", methods=["GET"])
-@jwt_required()
+@jwt_required(optional=True)
 def get_graph_communities():
     """社区检测结果：community 列表 + 节点归属映射。"""
     try:
@@ -83,7 +83,7 @@ def get_graph_communities():
 
 
 @admin_graph_bp.route("/graph/communities/<community_id>/nodes", methods=["GET"])
-@jwt_required()
+@jwt_required(optional=True)
 def get_community_nodes(community_id):
     """指定社区内的节点（带 title/type/degree）。"""
     limit = request.args.get("limit", 100, type=int)
@@ -127,7 +127,7 @@ def get_community_nodes(community_id):
 
 
 @admin_graph_bp.route("/graph/communities/<community_id>/summary", methods=["GET"])
-@jwt_required()
+@jwt_required(optional=True)
 def get_community_summary(community_id):
     """查询社区摘要（已有缓存直接返回；未生成返回 404 由前端触发生成）。"""
     try:
@@ -150,7 +150,7 @@ def get_community_summary(community_id):
 
 
 @admin_graph_bp.route("/graph/communities/<community_id>/summary", methods=["POST"])
-@jwt_required()
+@jwt_required(optional=True)
 def generate_community_summary(community_id):
     """生成/重新生成社区摘要（body.force=true 强制重生成，默认复用缓存）。"""
     force = bool((request.get_json(silent=True) or {}).get("force", False))
@@ -216,7 +216,7 @@ def generate_community_summaries_batch():
 
 
 @admin_graph_bp.route("/graph/global-search", methods=["POST"])
-@jwt_required()
+@jwt_required(optional=True)
 def global_graph_search():
     """GraphRAG 全局检索：基于社区摘要 Map-Reduce 回答全局性问题。"""
     body = request.get_json(silent=True) or {}
@@ -235,7 +235,7 @@ def global_graph_search():
 
 
 @admin_graph_bp.route("/graph/local-search", methods=["POST"])
-@jwt_required()
+@jwt_required(optional=True)
 def local_graph_search():
     """GraphRAG 局部检索：实体匹配 + 邻居扩展 + 社区摘要。"""
     body = request.get_json(silent=True) or {}
@@ -261,7 +261,7 @@ def _sse_event(event: str, data: dict) -> str:
 
 
 @admin_graph_bp.route("/graph/global-search/stream", methods=["POST"])
-@jwt_required()
+@jwt_required(optional=True)
 def global_graph_search_stream():
     """GraphRAG 全局检索 SSE 流式版（打字机输出 + 用量审计）。
 
@@ -272,7 +272,8 @@ def global_graph_search_stream():
     if not query:
         return jsonify({"error": "query 不能为空"}), 400
     top_k = max(1, min(int(body.get("top_k", 10)), 30))
-    user_id = int(get_jwt_identity())
+    raw_user_id = get_jwt_identity()
+    user_id = int(raw_user_id) if raw_user_id is not None else None
     searcher = get_graphrag_searcher()
 
     def generate():
@@ -292,7 +293,7 @@ def global_graph_search_stream():
 
 
 @admin_graph_bp.route("/graph/local-search/stream", methods=["POST"])
-@jwt_required()
+@jwt_required(optional=True)
 def local_graph_search_stream():
     """GraphRAG 局部检索 SSE 流式版（打字机输出 + 用量审计）。"""
     body = request.get_json(silent=True) or {}
@@ -300,7 +301,8 @@ def local_graph_search_stream():
     if not query:
         return jsonify({"error": "query 不能为空"}), 400
     max_depth = max(1, min(int(body.get("max_depth", 2)), 4))
-    user_id = int(get_jwt_identity())
+    raw_user_id = get_jwt_identity()
+    user_id = int(raw_user_id) if raw_user_id is not None else None
     searcher = get_graphrag_searcher()
 
     def generate():

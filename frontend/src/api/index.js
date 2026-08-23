@@ -66,7 +66,10 @@ api.interceptors.response.use(
           if (error.config?.url?.startsWith('/auth/login') || error.config?.url?.startsWith('/auth/register')) {
             break
           }
-          handleSessionExpired()
+          // 仅当携带了 Token 且被服务端判定无效/过期时才触发会话过期跳转
+          if (error.config?.headers?.Authorization || localStorage.getItem('token')) {
+            handleSessionExpired()
+          }
           break
         case 422:
           // flask-jwt-extended 对无效 token 返回 422 + msg 字段（业务错误统一用 error 键）

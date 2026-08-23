@@ -353,7 +353,9 @@ onMounted(async () => {
   await fetchHotKnowledge()
   effects.refresh()
   setTimeout(() => {
-    loadStats().then(() => effects.refresh())
+    if (userStore.isLoggedIn) {
+      loadStats().then(() => effects.refresh())
+    }
   }, 800)
 })
 onBeforeUnmount(() => {

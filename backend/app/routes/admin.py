@@ -386,7 +386,7 @@ def delete_knowledge(item_id):
 
 
 @admin_bp.route("/graph/stats", methods=["GET"])
-@jwt_required()
+@jwt_required(optional=True)
 def get_graph_stats():
     """获取知识图谱统计"""
     include_ranking = request.args.get("ranking", 0, type=int)
@@ -411,7 +411,7 @@ def get_graph_stats():
 
 
 @admin_bp.route("/graph/nodes", methods=["GET"])
-@jwt_required()
+@jwt_required(optional=True)
 def get_graph_nodes():
     """获取图谱节点（用于可视化；按关联度降序，展示核心节点优先）"""
     limit = request.args.get("limit", 100, type=int)
@@ -445,7 +445,7 @@ def get_graph_nodes():
 
 
 @admin_bp.route("/graph/edges", methods=["GET"])
-@jwt_required()
+@jwt_required(optional=True)
 def get_graph_edges():
     """获取图谱边（用于可视化）"""
     limit = request.args.get("limit", 500, type=int)
@@ -474,7 +474,7 @@ def get_graph_edges():
 
 
 @admin_bp.route("/graph/path", methods=["GET"])
-@jwt_required()
+@jwt_required(optional=True)
 def get_graph_path():
     """查询两点间最短路径"""
     source = request.args.get("source", "").strip()
@@ -570,7 +570,7 @@ def deduplicate_graph():
 
 
 @admin_bp.route("/graph/centrality", methods=["GET"])
-@jwt_required()
+@jwt_required(optional=True)
 def get_graph_centrality():
     """计算节点中心性分数"""
     metric = request.args.get("metric", "pagerank").strip().lower()
@@ -603,7 +603,7 @@ def clear_graph():
 
 
 @admin_bp.route("/graph/related/<node_id>", methods=["GET"])
-@jwt_required()
+@jwt_required(optional=True)
 def get_related_nodes(node_id):
     """获取节点关联信息"""
     depth = request.args.get("depth", 1, type=int)
